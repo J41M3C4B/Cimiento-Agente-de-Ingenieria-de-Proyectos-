@@ -269,4 +269,4 @@ Código visible para consulta y evaluación; **todos los derechos reservados**. 
 
 ## Autor
 
-[Nombre completo] · Ingeniería y análisis de datos · [GitHub](https://github.com/) · [LinkedIn](https://www.linkedin.com/)
+Jaime Alberto Caballero Ponce · Ingeniería y análisis de datos · [GitHub](https://github.com/) · [LinkedIn](https://www.linkedin.com/)
