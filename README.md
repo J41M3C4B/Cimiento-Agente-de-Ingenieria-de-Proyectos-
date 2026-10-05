@@ -6,6 +6,10 @@
 
 ![Estado](https://img.shields.io/badge/estado-beta-orange) ![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB) ![Rust](https://img.shields.io/badge/Rust-backend-000000) ![React](https://img.shields.io/badge/React-19-61DAFB) ![Licencia](https://img.shields.io/badge/licencia-todos%20los%20derechos%20reservados-lightgrey)
 
+## Contexto del proyecto
+
+Cimiento es el proyecto de **servicio social** de su autor, ingeniero en Sistemas, y la **inspiración de su tesis** de titulación. Es un problema real, con instituciones reales que lo usan, y por eso reúne en un solo lugar las habilidades de ingeniería de sistemas (arquitectura por capas, pruebas, decisiones documentadas en ADRs) y de ingeniería de datos (contratos de datos, linaje, privacidad y control de costo de IA).
+
 ## De dónde sale la idea
 
 Las instituciones de asistencia privada (asilos, casas hogar) pierden donativos no porque no los necesiten, sino porque tienen un problema de **datos y de información**:
