@@ -1,0 +1,1371 @@
+//! Second stage of reading a call: the labelling of the rail (ADR-013).
+//!
+//! The first stage (`call_extract`) reads what rules can read. The rail then cuts the call into
+//! candidates (`call_rail`), and ONE model call labels each of them from a closed vocabulary and
+//! answers a fixed list of questions with the ids of the candidates that state each thing. The
+//! model never writes the call's text: it picks ids and words from closed lists, and the code puts
+//! the PDF's own text where each one goes. That is what makes a cheap model and an expensive one
+//! give the same result, and what makes a paraphrase or an invented quote impossible.
+//!
+//! What the model adds is marked as an AI assumption until a person confirms it. A model that
+//! disagrees with the rules never overwrites them: the disagreement is listed.
+
+// Not wired to a command yet (Phase 3): tests and the live run use it.
+#![allow(dead_code)]
+
+use super::call_extract::{
+    dates_in_loose, limits_in, requirement_drafts, CallExtraction, DateItem, DocKind, DocumentItem, Evidence, Limit, PageText, Review, TextItem,
+};
+use super::call_rail::{segment, Candidate, LABELS, SLOTS};
+use crate::ai::pipeline::{self, AiCall, Ledger};
+use crate::ai::{AiError, AiProvider, AiTask};
+use crate::scanner::SensitiveScanner;
+use regex::Regex;
+use serde::Serialize;
+use serde_json::{json, Value};
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::OnceLock;
+
+macro_rules! re {
+    ($p:expr) => {{
+        static R: OnceLock<Regex> = OnceLock::new();
+        R.get_or_init(|| Regex::new($p).expect("valid regex"))
+    }};
+}
+
+/// How much candidate text is sent to the model, in characters (about 8,000 tokens). A real call
+/// is 14,000 to 21,000 characters of candidates, so this only bites on very long documents.
+pub const LABEL_BUDGET_CHARS: usize = 30_000;
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ProfileItem {
+    /// The PDF's own text (a candidate), never the model's wording.
+    pub text: String,
+    /// `exclusion`, `priority`, `evaluation`, `objective` or `funder`.
+    pub label: &'static str,
+    pub applies_to: &'static str,
+    pub evidence: Evidence,
+    /// Id of the candidate it came from.
+    pub candidate: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct AgendaItem {
+    pub name: String,
+    pub evidence: Evidence,
+    pub candidate: String,
+}
+
+/// What a person needs to know to decide whether a project fits the call.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct CallProfile {
+    pub funder: Option<ProfileItem>,
+    pub objective: Option<ProfileItem>,
+    pub agendas: Vec<AgendaItem>,
+    pub evaluation: Vec<ProfileItem>,
+    pub restrictions: Vec<ProfileItem>,
+    /// What the project itself must include or show (not a requirement of the organization).
+    pub project_requirements: Vec<ProfileItem>,
+    /// What the organization must or must not do if it is funded.
+    pub funding_conditions: Vec<ProfileItem>,
+    /// Whom the call or each program serves, and whom it does not (ages, groups, type of institution).
+    pub population: Vec<ProfileItem>,
+    /// What can be funded.
+    pub funded: Vec<ProfileItem>,
+    /// The stages of the process with their dates, as the call writes them.
+    pub calendar: Vec<ProfileItem>,
+    /// How, where, when and in what format the application and documents are delivered.
+    pub submission: Vec<ProfileItem>,
+    pub doubts: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Rejected {
+    pub what: String,
+    pub why: String,
+}
+
+/// What came out of one of the fixed questions.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FieldReport {
+    pub slot: String,
+    /// `found`, `not_in_text`, `unanswered` (the model skipped it) or `unreadable` (it named
+    /// candidates but no value could be read from them).
+    pub status: String,
+    pub ids: Vec<String>,
+    /// What the code read from those candidates.
+    pub read: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ReviewReport {
+    /// `used`, `not_needed`, or the kind of failure (`offline`, `quota_reached`…): a failed
+    /// review leaves the rules' extraction as it was.
+    pub ai: String,
+    pub candidates_sent: usize,
+    /// Candidates left out because the document is longer than the budget (weakest signals first).
+    pub candidates_dropped: usize,
+    pub pages_sent: Vec<usize>,
+    pub chars_sent: usize,
+    pub labeled: usize,
+    /// Ids the model never labeled, even after being asked again. A person looks at these.
+    pub unlabeled: Vec<String>,
+    /// The model skipped some ids, so it was asked once more about only those.
+    pub asked_again: bool,
+    pub by_label: BTreeMap<String, usize>,
+    /// The label and `applies_to` each candidate ended with (after the contract of each label).
+    /// What two models are compared on.
+    pub labels_by_id: BTreeMap<String, (String, String)>,
+    pub fields: Vec<FieldReport>,
+    /// Where the model and the rules do not agree. The rules stand; a person decides.
+    pub disagreements: Vec<String>,
+    pub applied: Vec<String>,
+    pub rejected: Vec<Rejected>,
+}
+
+impl ReviewReport {
+    fn without_ai(ai: &str) -> Self {
+        ReviewReport {
+            ai: ai.into(),
+            candidates_sent: 0,
+            candidates_dropped: 0,
+            pages_sent: Vec::new(),
+            chars_sent: 0,
+            labeled: 0,
+            unlabeled: Vec::new(),
+            asked_again: false,
+            by_label: BTreeMap::new(),
+            labels_by_id: BTreeMap::new(),
+            fields: Vec::new(),
+            disagreements: Vec::new(),
+            applied: Vec::new(),
+            rejected: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CallDraft {
+    pub extraction: CallExtraction,
+    pub profile: CallProfile,
+    pub report: ReviewReport,
+}
+
+// ------------------------------------------------------------------ comparing texts
+
+/// Lowercase letters and digits separated by single spaces.
+pub(crate) fn norm(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut last_space = true;
+    for ch in s.chars() {
+        if ch.is_alphanumeric() {
+            out.extend(ch.to_lowercase());
+            last_space = false;
+        } else if !last_space {
+            out.push(' ');
+            last_space = true;
+        }
+    }
+    out.trim().to_string()
+}
+
+/// Two normalized texts say the same thing: one contains the other, or most of their words are
+/// shared. Different figures always make them different ("12 meses" is not "10 meses").
+pub(crate) fn same_statement(a: &str, b: &str) -> bool {
+    let words = |s: &str| s.split_whitespace().map(str::to_string).collect::<BTreeSet<String>>();
+    let digits = |w: &BTreeSet<String>| w.iter().filter(|t| t.chars().any(|c| c.is_ascii_digit())).cloned().collect::<Vec<_>>();
+    let (wa, wb) = (words(a), words(b));
+    if wa.is_empty() || wb.is_empty() || digits(&wa) != digits(&wb) {
+        return false;
+    }
+    if a.contains(b) || b.contains(a) {
+        return true;
+    }
+    let shared = wa.intersection(&wb).count();
+    let all = wa.union(&wb).count();
+    shared * 10 >= all * 7
+}
+
+/// The text states this date: its day as a number, its month by name and, when the date was not
+/// inferred, its year ("DOF publicado en 18 enero 2024" states 2024-01-18).
+fn text_states_date(text: &str, d: &DateItem) -> bool {
+    const MONTHS: [&str; 12] = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    let part = |a: usize, z: usize| d.start.get(a..z).and_then(|t| t.parse::<usize>().ok());
+    let (Some(year), Some(month), Some(day)) = (part(0, 4), part(5, 7), part(8, 10)) else { return false };
+    let lower = text.to_lowercase();
+    let tokens: BTreeSet<&str> = lower.split(|c: char| !c.is_alphanumeric()).filter(|t| !t.is_empty()).collect();
+    let month_name = MONTHS.get(month.wrapping_sub(1)).copied().unwrap_or("");
+    tokens.contains(month_name) && tokens.iter().any(|t| t.trim_start_matches('0') == day.to_string()) && (d.year_inferred || tokens.contains(year.to_string().as_str()))
+}
+
+// ------------------------------------------------------------------ what the model sees
+
+/// The candidates worth labeling. Repeated pages are not sent, nor are the plain lines of the pages
+/// of an annex of documents that the rules read whole. (The bullets of a page titled "Rubros
+/// Financiables" used to be left out as the rules' own: that was true for the Monte de Piedad and
+/// removed the whole list of what is and is not funded from Alsea.) If what is left exceeds the budget,
+/// the weakest candidates go first (the order of the document is kept). Returns the candidates
+/// and how many were dropped for the budget.
+pub fn label_set(x: &CallExtraction, candidates: &[Candidate], budget_chars: usize) -> (Vec<Candidate>, usize) {
+    let score = |c: &Candidate| -> i32 {
+        c.signals
+            .iter()
+            .map(|s| match *s {
+                "obligation" | "exclusion" | "priority" | "participation" | "rule_section" | "table" => 3,
+                "limit" | "date" => 2,
+                _ => 1,
+            })
+            .max()
+            .unwrap_or(0)
+    };
+    // the annex of documents is read whole by the rules: its description column, sent as candidates,
+    // came back from one model as 5 extra documents that duplicate the numbered ones
+    let annex_pages: BTreeSet<usize> = x.documents.iter().filter(|d| d.source == "annex").map(|d| d.evidence.page).collect();
+    let mut kept: Vec<(usize, &Candidate)> = candidates
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| !x.duplicate_pages.iter().any(|(d, _)| *d == c.page))
+        .filter(|(_, c)| !(annex_pages.contains(&c.page) && !c.signals.iter().any(|s| ["date", "limit", "exclusion", "priority"].contains(s))))
+        .collect();
+    let size = |c: &Candidate| c.render().chars().count() + 1;
+    let mut total: usize = kept.iter().map(|(_, c)| size(c)).sum();
+    let mut dropped = 0;
+    if total > budget_chars {
+        // weakest first; among equals the later ones, so the start of the document survives
+        let mut order: Vec<usize> = (0..kept.len()).collect();
+        order.sort_by(|&a, &b| score(kept[a].1).cmp(&score(kept[b].1)).then(kept[b].0.cmp(&kept[a].0)));
+        let mut drop: BTreeSet<usize> = BTreeSet::new();
+        for i in order {
+            if total <= budget_chars {
+                break;
+            }
+            total -= size(kept[i].1);
+            drop.insert(i);
+        }
+        dropped = drop.len();
+        kept = kept.into_iter().enumerate().filter(|(i, _)| !drop.contains(i)).map(|(_, k)| k).collect();
+    }
+    (kept.into_iter().map(|(_, c)| c.clone()).collect(), dropped)
+}
+
+fn context_of(sent: &[Candidate]) -> String {
+    let lines: Vec<String> = sent.iter().map(Candidate::render).collect();
+    format!("Fragmentos de la convocatoria ({}):\n{}", sent.len(), lines.join("\n"))
+}
+
+// ------------------------------------------------------------------ reading the answer
+
+fn str_of<'a>(v: &'a Value, key: &str) -> &'a str {
+    v[key].as_str().unwrap_or("").trim()
+}
+
+/// The ids a model answer labeled validly (a known label).
+fn labeled_ids(answer: &Value) -> BTreeSet<String> {
+    answer["labels"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|l| LABELS.contains(&str_of(l, "label")))
+        .map(|l| str_of(l, "id").to_string())
+        .collect()
+}
+
+type Labels = BTreeMap<String, (&'static str, &'static str)>;
+
+/// The label of every candidate: the first valid answer for an id wins (the first call, then the
+/// repeat), so the result does not depend on the order the model listed them.
+fn collect_labels(answers: &[Value], sent: &[Candidate], report: &mut ReviewReport) -> Labels {
+    let known: BTreeMap<&str, &Candidate> = sent.iter().map(|c| (c.id.as_str(), c)).collect();
+    let mut out: Labels = BTreeMap::new();
+    for answer in answers {
+        for l in answer["labels"].as_array().into_iter().flatten() {
+            let id = str_of(l, "id");
+            let what = format!("etiqueta de «{id}»");
+            let Some(candidate) = known.get(id) else {
+                report.rejected.push(Rejected { what, why: "ese id no existe entre los fragmentos enviados".into() });
+                continue;
+            };
+            let Some(label) = LABELS.iter().find(|x| **x == str_of(l, "label")) else {
+                report.rejected.push(Rejected { what, why: "la etiqueta no está en la lista permitida".into() });
+                continue;
+            };
+            // whom a candidate applies to is read by the code from its own words and its list's
+            out.entry(id.to_string()).or_insert((*label, derive_applies(candidate)));
+        }
+    }
+    out
+}
+
+/// Whom a candidate applies to, read from its own words and the line that opened its list. The
+/// model used to choose and two models agreed on it barely half the time ("for new organizations"
+/// versus "for everyone" is a judgement call), and the code can read it: the words are fixed.
+/// Order matters: a document for new organizations "of the category 2" is for new organizations.
+fn derive_applies(c: &Candidate) -> &'static str {
+    let hay = format!("{} {}", c.lead.as_deref().unwrap_or(""), c.text).to_lowercase();
+    let has = |re: &Regex| re.is_match(&hay);
+    if has(re!(r"nunca\s+han\s+recibido|organizaciones\s+nuevas|por\s+primera\s+vez|no\s+recibieron\s+donativ|no\s+cuentan\s+con\s+(un\s+)?registro")) {
+        "new_organizations"
+    } else if has(re!(r"categor[ií]a\s+\d|seg[uú]n\s+la\s+categor|en\s+el\s+caso\s+de\s+la\s+categor")) {
+        "per_category"
+    } else if has(re!(r"\betapa\b|si\s+tu\s+organizaci[oó]n\s+ha\s+aprobado")) {
+        "per_stage"
+    } else {
+        "all"
+    }
+}
+
+/// "(aplica a: …)" in the words of the closed list, never in the model's.
+fn applies_phrase(applies: &str, lead: Option<&str>) -> String {
+    match applies {
+        "new_organizations" => "organizaciones nuevas".into(),
+        "per_category" => "según la categoría".into(),
+        "per_stage" => "según la etapa".into(),
+        "other" => lead.map(|l| l.chars().take(80).collect()).unwrap_or_else(|| "un caso particular".into()),
+        _ => String::new(),
+    }
+}
+
+fn date_slot_kind(slot: &str) -> Option<&'static str> {
+    ["application_window", "registration", "info_session", "disbursement"].into_iter().find(|k| *k == slot)
+}
+
+fn limit_slot_kind(slot: &str) -> Option<&'static str> {
+    ["max_duration_months", "max_admin_percent", "min_operating_years", "max_amount", "min_amount"].into_iter().find(|k| *k == slot)
+}
+
+// ------------------------------------------------------------------ merging what was read
+
+/// Adds the dates read from a candidate. `kind` is what the model says this date is (the fixed
+/// question it answered); it settles a date the rules could only call "other", and when the rules
+/// already gave another kind it is listed as a disagreement, not applied.
+fn merge_dates(
+    x: &mut CallExtraction,
+    parsed: Vec<DateItem>,
+    kind: Option<&'static str>,
+    applied: &mut Vec<String>,
+    added: &mut Vec<(String, String)>,
+    disagreements: &mut Vec<String>,
+    read: &mut Vec<String>,
+) {
+    // A candidate with several dates (a stage list, a paragraph with two deadlines) cannot tell
+    // which one the question is about: their kinds stay as the rules read them, and it is said.
+    let settles = parsed.len() == 1;
+    if kind.is_some() && !settles && !parsed.is_empty() {
+        disagreements.push(format!("el modelo señala un fragmento con {} fechas para {}: no se sabe cuál es, se dejan como las leyeron las reglas", parsed.len(), kind.unwrap_or("")));
+    }
+    for mut d in parsed {
+        if let Some(k) = kind.filter(|_| settles) {
+            d.kind = k;
+        }
+        // "Tienes hasta el 23 de mayo": the last day of the window 16–23 mayo, not one more date
+        if d.end.is_none() && x.dates.iter().any(|e| e.kind == d.kind && e.end.as_deref() == Some(d.start.as_str())) {
+            continue;
+        }
+        read.push(match &d.end {
+            Some(e) => format!("{} → {e}", d.start),
+            None => d.start.clone(),
+        });
+        if let Some(existing) = x.dates.iter_mut().find(|e| e.start == d.start && e.end == d.end) {
+            if existing.kind == d.kind || d.kind == "other" {
+                continue;
+            }
+            if existing.kind == "other" {
+                applied.push(format!("clasificó la fecha {} como {}", d.start, d.kind));
+                existing.kind = d.kind;
+            } else {
+                disagreements.push(format!("fecha {}: las reglas dicen «{}» y el modelo «{}»", d.start, existing.kind, d.kind));
+            }
+            continue;
+        }
+        applied.push(format!("agregó fecha {} {}", d.kind, d.start));
+        added.push((d.evidence.snippet.clone(), String::new()));
+        x.dates.push(d);
+    }
+}
+
+/// Adds the limits read from a candidate: with `only`, just that kind. A value already there is
+/// skipped; a different one goes beside it and the limit becomes conditional.
+fn merge_limits(
+    x: &mut CallExtraction,
+    parsed: Vec<Limit>,
+    only: Option<&str>,
+    applied: &mut Vec<String>,
+    added: &mut Vec<(String, String)>,
+    read: &mut Vec<String>,
+) {
+    for l in parsed.into_iter().filter(|l| only.map_or(true, |k| l.kind == k)) {
+        read.push(format!("{} = {}", l.kind, l.value));
+        if let Some(existing) = x.limits.iter_mut().find(|e| e.kind == l.kind) {
+            if (existing.value - l.value).abs() < f64::EPSILON || existing.others.contains(&l.value) {
+                continue;
+            }
+            existing.others.push(l.value);
+            existing.conditional = true;
+            applied.push(format!("otro valor para {}: {}", l.kind, l.value));
+        } else {
+            applied.push(format!("agregó límite {} = {}", l.kind, l.value));
+            added.push((l.evidence.snippet.clone(), String::new()));
+            x.limits.push(l);
+        }
+    }
+}
+
+// ------------------------------------------------------------------ applying the answer
+
+/// Merges the model's answers into the rules' extraction. Pure and deterministic: the same
+/// extraction, candidates and answers always give the same draft, whatever order the model listed
+/// its labels in. `answers` is the first reply and, if the model skipped ids, the repeat.
+pub fn apply_labels(mut x: CallExtraction, sent: &[Candidate], dropped: usize, answers: &[Value]) -> CallDraft {
+    let mut report = ReviewReport::without_ai("used");
+    report.candidates_sent = sent.len();
+    report.candidates_dropped = dropped;
+    report.pages_sent = sent.iter().map(|c| c.page).collect::<BTreeSet<_>>().into_iter().collect();
+    report.chars_sent = sent.iter().map(|c| c.text.chars().count()).sum();
+    report.asked_again = answers.len() > 1;
+
+    let labels = collect_labels(answers, sent, &mut report);
+    report.labeled = labels.len();
+    report.unlabeled = sent.iter().filter(|c| !labels.contains_key(&c.id)).map(|c| c.id.clone()).collect();
+    for (label, _) in labels.values() {
+        *report.by_label.entry((*label).to_string()).or_default() += 1;
+    }
+
+    let mut profile = CallProfile::default();
+    // (snippet, applies phrase) of everything the model added: the draft that comes from it is marked
+    let mut added: Vec<(String, String)> = Vec::new();
+    let mut known_criteria: Vec<String> = x.eligibility.iter().map(|c| norm(&c.text)).collect();
+    let mut known_docs: Vec<String> = x.documents.iter().map(|d| norm(&d.text)).collect();
+    let year = x.year;
+
+    // 1. each candidate, in the order of the document
+    for c in sent {
+        let Some(&(label, applies)) = labels.get(&c.id) else { continue };
+        report.labels_by_id.insert(c.id.clone(), (label.to_string(), applies.to_string()));
+        let phrase = applies_phrase(applies, c.lead.as_deref());
+        let evidence = Evidence { page: c.page, snippet: c.text.clone() };
+        let item = |label: &'static str| ProfileItem { text: c.text.clone(), label, applies_to: applies, evidence: evidence.clone(), candidate: c.id.clone() };
+        let mut as_criterion = |x: &mut CallExtraction, report: &mut ReviewReport| {
+            let n = norm(&c.text);
+            if known_criteria.iter().any(|k| same_statement(k, &n)) {
+                return;
+            }
+            known_criteria.push(n);
+            x.eligibility.push(TextItem { text: c.text.clone(), evidence: evidence.clone() });
+            report.applied.push(format!("agregó criterio: {}", c.text.chars().take(80).collect::<String>()));
+            added.push((c.text.clone(), phrase.clone()));
+        };
+        match label {
+            "criterion" => as_criterion(&mut x, &mut report),
+            "exclusion" => profile.restrictions.push(item("exclusion")),
+            "funded" => profile.funded.push(item("funded")),
+            "population" => profile.population.push(item("population")),
+            "calendar" => profile.calendar.push(item("calendar")),
+            "submission" => profile.submission.push(item("submission")),
+            "project_requirement" => profile.project_requirements.push(item("project_requirement")),
+            "funding_condition" => profile.funding_conditions.push(item("funding_condition")),
+            "priority" => profile.evaluation.push(item("priority")),
+            "evaluation" => profile.evaluation.push(item("evaluation")),
+            "document" => {
+                let n = norm(&c.text);
+                if !known_docs.iter().any(|k| same_statement(k, &n)) {
+                    known_docs.push(n);
+                    x.documents.push(DocumentItem {
+                        number: None,
+                        text: c.text.clone(),
+                        clean_name: c.text.chars().count() <= 90,
+                        source: "review",
+                        evidence: evidence.clone(),
+                    });
+                    report.applied.push(format!("agregó documento: {}", c.text.chars().take(80).collect::<String>()));
+                    added.push((c.text.clone(), phrase.clone()));
+                }
+            }
+            "objective" if profile.objective.is_none() => profile.objective = Some(item("objective")),
+            "funder" if profile.funder.is_none() => profile.funder = Some(item("funder")),
+            "category" => {
+                if !profile.agendas.iter().any(|a| norm(&a.name) == norm(&c.text)) {
+                    profile.agendas.push(AgendaItem { name: c.text.clone(), evidence: evidence.clone(), candidate: c.id.clone() });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // 2. the fixed questions: answered from the first reply (the repeat only asks about labels)
+    let by_id: BTreeMap<&str, &Candidate> = sent.iter().map(|c| (c.id.as_str(), c)).collect();
+    let first = answers.first().cloned().unwrap_or(Value::Null);
+    for slot in SLOTS {
+        let entry = first["fields"].as_array().into_iter().flatten().find(|f| str_of(f, "slot") == slot);
+        let Some(entry) = entry else {
+            report.fields.push(FieldReport { slot: slot.into(), status: "unanswered".into(), ids: vec![], read: vec![] });
+            continue;
+        };
+        let ids: Vec<String> = entry["ids"].as_array().into_iter().flatten().filter_map(|i| i.as_str()).map(str::to_string).collect();
+        if str_of(entry, "status") != "found" {
+            let rules_have = date_slot_kind(slot).is_some_and(|k| x.dates.iter().any(|d| d.kind == k)) || limit_slot_kind(slot).is_some_and(|k| x.limits.iter().any(|l| l.kind == k));
+            if rules_have {
+                report.disagreements.push(format!("{slot}: las reglas encontraron un valor y el modelo dice que no aparece en el texto"));
+            }
+            report.fields.push(FieldReport { slot: slot.into(), status: "not_in_text".into(), ids: vec![], read: vec![] });
+            continue;
+        }
+        let mut read = Vec::new();
+        let mut valid = Vec::new();
+        for id in &ids {
+            match by_id.get(id.as_str()) {
+                Some(c) => {
+                    valid.push(id.clone());
+                    if let Some(kind) = date_slot_kind(slot) {
+                        merge_dates(&mut x, dates_in_loose(&c.text, c.page, year), Some(kind), &mut report.applied, &mut added, &mut report.disagreements, &mut read);
+                    } else {
+                        merge_limits(&mut x, limits_in(&c.text, c.page), Some(slot), &mut report.applied, &mut added, &mut read);
+                    }
+                }
+                None => report.rejected.push(Rejected { what: format!("pregunta {slot}"), why: format!("el id «{id}» no existe entre los fragmentos enviados") }),
+            }
+        }
+        let status = if read.is_empty() {
+            report.disagreements.push(format!("{slot}: el modelo señala {ids:?}, pero no se pudo leer un valor de ahí"));
+            "unreadable"
+        } else {
+            "found"
+        };
+        report.fields.push(FieldReport { slot: slot.into(), status: status.into(), ids: valid, read });
+    }
+
+    // 3. a lone date read out of a document line ("DOF publicado en 18 enero 2024") is not a date
+    //    of the process: it goes, with the reason, when the model says that line is a document
+    let documents: Vec<&Candidate> = sent.iter().filter(|c| labels.get(&c.id).is_some_and(|(l, _)| *l == "document")).collect();
+    let mut removed: Vec<String> = Vec::new();
+    x.dates.retain(|d| {
+        let inside_a_document = d.kind == "other" && d.end.is_none() && documents.iter().any(|c| c.page == d.evidence.page && text_states_date(&c.text, d));
+        if inside_a_document {
+            removed.push(format!("quitó la fecha {}: está en una línea que es un documento", d.start));
+        }
+        !inside_a_document
+    });
+    report.applied.extend(removed);
+
+    // 4. a criterion of the rules that the model calls nothing: listed for a person
+    let mut doubtful: Vec<Review> = Vec::new();
+    for crit in &x.eligibility {
+        let n = norm(&crit.text);
+        let Some((c, label)) = sent.iter().find_map(|c| {
+            let (label, _) = labels.get(&c.id)?;
+            (c.page == crit.evidence.page && *label == "not_relevant" && same_statement(&norm(&c.text), &n)).then_some((c, *label))
+        }) else {
+            continue;
+        };
+        report.disagreements.push(format!("criterio de las reglas p.{}: el modelo lo etiquetó como «{label}»: {}", c.page, c.text.chars().take(80).collect::<String>()));
+        doubtful.push(Review { reason: format!("Las reglas lo toman como criterio, pero el modelo lo etiquetó como «{label}». Revísalo."), page: c.page, snippet: c.text.clone() });
+    }
+    x.needs_review.extend(doubtful);
+
+    profile.doubts = first["doubts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|d| d.as_str())
+        .map(|d| d.trim().chars().take(300).collect::<String>())
+        .filter(|d| !d.is_empty())
+        .take(10)
+        .collect();
+
+    // 5. requirement drafts again, with what the model added marked as its assumption
+    if matches!(x.doc_kind, DocKind::FundingCall | DocKind::Unknown) {
+        x.requirements = requirement_drafts(&x);
+        for r in &mut x.requirements {
+            if let Some((_, phrase)) = added.iter().find(|(snippet, _)| *snippet == r.source.snippet) {
+                // What the model added is an assumption until a person confirms it, so it never
+                // blocks a project on its own; and a rule that applies only to a case says so
+                // (a real run added the 2024 financial statements, which only new organizations give).
+                r.origin = "ai_assumption";
+                r.blocking = false;
+                if !phrase.is_empty() {
+                    r.text = format!("{} (aplica a: {phrase})", r.text);
+                }
+            }
+        }
+    }
+    CallDraft { extraction: x, profile, report }
+}
+
+// ------------------------------------------------------------------ agreement between two models
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LabelDiff {
+    pub id: String,
+    pub a: (String, String),
+    pub b: (String, String),
+}
+
+/// How much two reviews of the SAME candidates agree: the measure of the rail. If a cheap model
+/// and an expensive one label alike, the model can be swapped without the result changing.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Agreement {
+    /// Candidates both labeled.
+    pub compared: usize,
+    pub same_label: usize,
+    /// Of those with the same label, how many also agree on whom it applies to.
+    pub same_applies: usize,
+    pub differing: Vec<LabelDiff>,
+    /// Fragments that at least one model sent to criteria or documents (what the label of a fragment
+    /// feeds in the product), and how many of them both sent to the same one. Disagreeing on whether
+    /// a paragraph is the funder or the objective of the call changes nothing a project depends on.
+    pub critical_compared: usize,
+    pub critical_same: usize,
+    pub fields_compared: usize,
+    pub fields_same: usize,
+    /// Fixed questions answered differently (status or what the code read).
+    pub fields_differing: Vec<String>,
+}
+
+impl Agreement {
+    pub fn label_rate(&self) -> f64 {
+        if self.compared == 0 { 1.0 } else { self.same_label as f64 / self.compared as f64 }
+    }
+
+    pub fn critical_rate(&self) -> f64 {
+        if self.critical_compared == 0 { 1.0 } else { self.critical_same as f64 / self.critical_compared as f64 }
+    }
+}
+
+pub fn agreement(a: &ReviewReport, b: &ReviewReport) -> Agreement {
+    let mut out = Agreement { compared: 0, same_label: 0, same_applies: 0, differing: vec![], critical_compared: 0, critical_same: 0, fields_compared: 0, fields_same: 0, fields_differing: vec![] };
+    // what a label feeds in the product: criteria and documents. Dates and limits come from the rules
+    // and the fixed questions (compared apart); the rest of the labels feeds the profile or nothing.
+    let class = |label: &str| match label {
+        "criterion" | "exclusion" => "criteria",
+        "document" => "documents",
+        _ => "other",
+    };
+    for (id, la) in &a.labels_by_id {
+        let Some(lb) = b.labels_by_id.get(id) else { continue };
+        out.compared += 1;
+        let (ca, cb) = (class(&la.0), class(&lb.0));
+        if ca != "other" || cb != "other" {
+            out.critical_compared += 1;
+            if ca == cb {
+                out.critical_same += 1;
+            }
+        }
+        if la.0 == lb.0 {
+            out.same_label += 1;
+            if la.1 == lb.1 {
+                out.same_applies += 1;
+            }
+        } else {
+            out.differing.push(LabelDiff { id: id.clone(), a: la.clone(), b: lb.clone() });
+        }
+    }
+    for fa in &a.fields {
+        let Some(fb) = b.fields.iter().find(|f| f.slot == fa.slot) else { continue };
+        out.fields_compared += 1;
+        let (ra, rb): (BTreeSet<&String>, BTreeSet<&String>) = (fa.read.iter().collect(), fb.read.iter().collect());
+        if fa.status == fb.status && ra == rb {
+            out.fields_same += 1;
+        } else {
+            out.fields_differing.push(format!("{}: {} {:?} contra {} {:?}", fa.slot, fa.status, fa.read, fb.status, fb.read));
+        }
+    }
+    out
+}
+
+// ------------------------------------------------------------------ the review itself
+
+async fn ask(
+    provider: &dyn AiProvider,
+    scanner: &dyn SensitiveScanner,
+    ledger: &dyn Ledger,
+    project_id: Option<String>,
+    sent: &[Candidate],
+) -> Result<Value, AiError> {
+    let call = AiCall {
+        task: AiTask::CallReview,
+        context: vec![context_of(sent)],
+        user: "Etiquete cada fragmento y responda las preguntas fijas.".into(),
+        project_id,
+    };
+    pipeline::run(provider, scanner, ledger, call).await
+}
+
+/// Reads the call with the model, once, and merges the result. If the model skips some ids it is
+/// asked once more about only those. Never fails: if the review cannot be done (no key, no
+/// internet, no allowance) the draft is the rules' extraction and the report says why, so
+/// uploading a call is never blocked by the AI.
+pub async fn review_call(
+    provider: &dyn AiProvider,
+    scanner: &dyn SensitiveScanner,
+    ledger: &dyn Ledger,
+    project_id: Option<String>,
+    x: CallExtraction,
+    pages: &[PageText],
+) -> CallDraft {
+    let skip = |x: CallExtraction, ai: &str| CallDraft { extraction: x, profile: CallProfile::default(), report: ReviewReport::without_ai(ai) };
+    // There is no gate that decides whether a document "is a call": the rules' guess made the rail
+    // skip the whole Bienestar rules (ADR-014). A document with nothing to label gets labels of
+    // `not_relevant`, which costs a few cents.
+    let (sent, dropped) = label_set(&x, &segment(pages), LABEL_BUDGET_CHARS);
+    if sent.is_empty() {
+        return skip(x, "not_needed");
+    }
+    let first = match ask(provider, scanner, ledger, project_id.clone(), &sent).await {
+        Ok(v) => v,
+        Err(e) => return skip(x, &e.kind()),
+    };
+    let mut answers = vec![first];
+    let done = labeled_ids(&answers[0]);
+    let missing: Vec<Candidate> = sent.iter().filter(|c| !done.contains(&c.id)).cloned().collect();
+    if !missing.is_empty() {
+        // only about what was skipped; if this fails too, those ids stay unlabeled and are listed
+        if let Ok(second) = ask(provider, scanner, ledger, project_id, &missing).await {
+            answers.push(second);
+        }
+    }
+    apply_labels(x, &sent, dropped, &answers)
+}
+
+// ------------------------------------------------------------------ tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ai::mock::MockProvider;
+    use crate::ai::pipeline::SqliteLedger;
+    use crate::ai::{AiResponse, Usage};
+    use crate::documents::call_extract::{extract_call, parse_dump};
+    use crate::scanner::{RegexScanner, ScannerConfig};
+    use crate::storage::open_encrypted;
+    use std::sync::{Arc, Mutex};
+
+    const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+
+    /// A small call written for these tests: criteria under a heading, an exclusion, a list of
+    /// documents for new organizations, a priority, a session, a limit and a date inside a document.
+    fn pages() -> Vec<PageText> {
+        parse_dump(
+            "=== PAGINA 1 ===\nCRITERIOS MÍNIMOS DE PARTICIPACIÓN\n\n• Tener al menos dos años de operación continua demostrable.\n• Ser una organización sin fines de lucro (AC, IAP).\n• No se apoyarán organizaciones que persigan fines políticos o partidistas.\n\n• Para las organizaciones nuevas, deberán presentar la siguiente documentación:\no DOF publicado en 18 enero 2027.\no Estados financieros de los últimos tres años.\n\nObjetivo: Impulsar proyectos de la sociedad civil con las poblaciones más excluidas.\nSe dará prioridad a las organizaciones que operen en Colima y Campeche.\nLa sesión informativa será el 10 de abril de 2027 a las 11:00 hrs.\nLos proyectos durarán hasta 12 meses.\nCategoría 1. Problemas sociales diversos.\nNacional Monte de Piedad convoca a las organizaciones de la sociedad civil.\n",
+        )
+    }
+
+    fn extraction() -> CallExtraction {
+        extract_call(&pages())
+    }
+
+    fn sent() -> Vec<Candidate> {
+        label_set(&extraction(), &segment(&pages()), LABEL_BUDGET_CHARS).0
+    }
+
+    fn id_of(c: &[Candidate], start: &str) -> String {
+        c.iter().find(|c| c.text.starts_with(start)).unwrap_or_else(|| panic!("no candidate starts with «{start}»: {:?}", c.iter().map(|c| &c.text).collect::<Vec<_>>())).id.clone()
+    }
+
+    /// What a careful model would answer for the small call above.
+    fn good_answer(c: &[Candidate]) -> Value {
+        let label = |c: &Candidate| -> (&str, &str) {
+            let t = c.text.as_str();
+            match () {
+                _ if t.starts_with("Tener al menos") || t.starts_with("Ser una organización") => ("criterion", "all"),
+                _ if t.starts_with("No se apoyarán") => ("exclusion", "all"),
+                _ if t.starts_with("Para las organizaciones nuevas") => ("not_relevant", "all"),
+                _ if t.starts_with("DOF") || t.starts_with("Estados financieros") => ("document", "new_organizations"),
+                _ if t.starts_with("Objetivo") => ("objective", "all"),
+                _ if t.starts_with("Se dará prioridad") => ("priority", "all"),
+                _ if t.starts_with("Categoría 1") => ("category", "all"),
+                _ if t.starts_with("Nacional Monte") => ("funder", "all"),
+                _ => ("not_relevant", "all"),
+            }
+        };
+        let labels: Vec<Value> = c.iter().map(|c| json!({ "id": c.id, "label": label(c).0 })).collect();
+        json!({
+            "labels": labels,
+            "fields": [
+                { "slot": "info_session", "status": "found", "ids": [id_of(c, "La sesión")] },
+                { "slot": "max_duration_months", "status": "found", "ids": [id_of(c, "Los proyectos durarán")] },
+                { "slot": "min_operating_years", "status": "found", "ids": [id_of(c, "Tener al menos")] },
+                { "slot": "application_window", "status": "not_in_text", "ids": [] },
+                { "slot": "registration", "status": "not_in_text", "ids": [] },
+                { "slot": "disbursement", "status": "not_in_text", "ids": [] },
+                { "slot": "max_admin_percent", "status": "not_in_text", "ids": [] },
+                { "slot": "max_amount", "status": "not_in_text", "ids": [] },
+                { "slot": "min_amount", "status": "not_in_text", "ids": [] }
+            ],
+            "doubts": ["¿Las organizaciones nuevas necesitan algún documento adicional?"]
+        })
+    }
+
+    fn apply(answers: &[Value]) -> CallDraft {
+        apply_labels(extraction(), &sent(), 0, answers)
+    }
+
+    // ---- what is sent
+
+    #[test]
+    fn the_candidates_are_the_pdfs_own_lines_with_their_section_and_list() {
+        let c = sent();
+        let docs = c.iter().find(|c| c.text.starts_with("DOF publicado")).unwrap();
+        let line = docs.render();
+        assert!(line.starts_with(&format!("{} ", docs.id)));
+        assert!(line.contains("[lista: Para las organizaciones nuevas, deberán presentar la siguiente documentación:]"), "{line}");
+        assert!(line.ends_with("DOF publicado en 18 enero 2027."));
+        let crit = c.iter().find(|c| c.text.starts_with("Tener al menos")).unwrap();
+        assert!(crit.render().contains("[sección: CRITERIOS MÍNIMOS DE PARTICIPACIÓN]"));
+    }
+
+    #[test]
+    fn the_bullets_of_a_page_of_fundable_concepts_are_sent_and_the_budget_drops_the_weakest_first() {
+        let x = extraction();
+        let mut c = segment(&pages());
+        // a bullet of a page titled "Rubros Financiables": it used to be left out as the rules' own, which
+        // removed from Alsea the whole list of what is and is not funded
+        let mut concept = c[0].clone();
+        concept.id = "p9-1".into();
+        concept.page = 9;
+        concept.signals = vec!["bullet"];
+        concept.text = "Pintura y materiales para la remodelación de los dormitorios".into();
+        let mut x2 = x.clone();
+        x2.page_tags.push(crate::documents::call_extract::PageTags { page: 9, tags: vec!["financiable"] });
+        c.push(concept);
+        let (kept, dropped) = label_set(&x2, &c, LABEL_BUDGET_CHARS);
+        assert!(kept.iter().any(|k| k.page == 9) && dropped == 0, "it is sent: whether a line matters is the model's to say");
+
+        // a tiny budget keeps the strongest signals and drops the rest
+        let (all, _) = label_set(&x, &segment(&pages()), LABEL_BUDGET_CHARS);
+        let budget = all.iter().take(4).map(|c| c.render().chars().count() + 1).sum::<usize>();
+        let (few, dropped) = label_set(&x, &segment(&pages()), budget);
+        assert!(few.len() < all.len() && dropped == all.len() - few.len());
+        let order: Vec<&str> = few.iter().map(|c| c.id.as_str()).collect();
+        let mut sorted = order.clone();
+        sorted.sort_by_key(|id| all.iter().position(|c| c.id == *id));
+        assert_eq!(order, sorted, "the order of the document is kept");
+    }
+
+    #[test]
+    fn the_pages_of_the_annex_of_documents_are_not_sent_because_the_rules_read_them_whole() {
+        let mut x = extraction();
+        let c = segment(&pages());
+        let page = c.iter().find(|c| c.text.starts_with("Estados financieros")).unwrap().page;
+        let (before, _) = label_set(&x, &c, LABEL_BUDGET_CHARS);
+        assert!(before.iter().any(|k| k.page == page));
+        x.documents.push(DocumentItem {
+            number: Some(1),
+            text: "Estados financieros".into(),
+            clean_name: true,
+            source: "annex",
+            evidence: Evidence { page, snippet: "Estados financieros".into() },
+        });
+        let (after, _) = label_set(&x, &c, LABEL_BUDGET_CHARS);
+        // what carries a date, a limit, an exclusion or a priority stays; the plain lines go
+        assert!(!after.iter().any(|k| k.page == page && k.signals == ["bullet"]) && after.len() < before.len());
+        assert!(after.iter().any(|k| k.page == page && k.signals.contains(&"date")), "a date on that page still goes");
+    }
+
+    // ---- the labels become the call
+
+    #[test]
+    fn what_the_model_labels_enters_with_the_pdfs_own_words() {
+        let c = sent();
+        let d = apply(&[good_answer(&c)]);
+        // the exclusion is a restriction of the profile and also a criterion
+        assert_eq!(d.profile.restrictions.len(), 1);
+        assert_eq!(d.profile.restrictions[0].text, "No se apoyarán organizaciones que persigan fines políticos o partidistas.");
+        assert!(d.extraction.eligibility.iter().any(|c| c.text.starts_with("No se apoyarán")));
+        // objective, funder, priority and category are the PDF's lines, not a rewording
+        assert!(d.profile.objective.as_ref().unwrap().text.starts_with("Objetivo: Impulsar proyectos"));
+        assert!(d.profile.funder.as_ref().unwrap().text.starts_with("Nacional Monte de Piedad convoca"));
+        assert_eq!(d.profile.evaluation[0].label, "priority");
+        assert_eq!(d.profile.agendas[0].name, "Categoría 1. Problemas sociales diversos.");
+        // every text shown is a candidate's text
+        let texts: BTreeSet<&str> = c.iter().map(|c| c.text.as_str()).collect();
+        for t in d.profile.restrictions.iter().chain(&d.profile.evaluation).chain(d.profile.objective.iter()).chain(d.profile.funder.iter()) {
+            assert!(texts.contains(t.text.as_str()), "{}", t.text);
+        }
+        assert_eq!(d.profile.doubts, vec!["¿Las organizaciones nuevas necesitan algún documento adicional?"]);
+        assert_eq!(d.report.labeled, c.len());
+        assert!(d.report.unlabeled.is_empty());
+    }
+
+    #[test]
+    fn documents_for_new_organizations_say_so_never_block_and_are_marked_as_the_models() {
+        let d = apply(&[good_answer(&sent())]);
+        let doc = d.extraction.documents.iter().find(|d| d.source == "review" && d.text.starts_with("Estados financieros")).expect("added as a document");
+        assert_eq!(doc.text, "Estados financieros de los últimos tres años.");
+        let draft = d.extraction.requirements.iter().find(|r| r.text.contains("Estados financieros de los últimos tres años")).unwrap();
+        assert_eq!((draft.origin, draft.blocking), ("ai_assumption", false));
+        assert!(draft.text.contains("(aplica a: organizaciones nuevas)"), "{}", draft.text);
+        // what the rules found keeps its origin
+        assert!(d.extraction.requirements.iter().any(|r| r.origin == "document"));
+    }
+
+    #[test]
+    fn a_criterion_the_rules_already_have_is_not_added_twice() {
+        let before = extraction();
+        let d = apply(&[good_answer(&sent())]);
+        let count = |x: &CallExtraction, frag: &str| x.eligibility.iter().filter(|c| c.text.contains(frag)).count();
+        assert_eq!(count(&d.extraction, "dos años de operación"), count(&before, "dos años de operación").max(1));
+        assert_eq!(count(&d.extraction, "sin fines de lucro"), count(&before, "sin fines de lucro").max(1));
+    }
+
+    #[test]
+    fn a_lone_date_inside_a_document_line_goes_away_with_its_reason() {
+        let before = extraction();
+        assert!(before.dates.iter().any(|d| d.start == "2027-01-18"), "the rules read the DOF date as a date: {:?}", before.dates);
+        let d = apply(&[good_answer(&sent())]);
+        assert!(!d.extraction.dates.iter().any(|d| d.start == "2027-01-18"));
+        assert!(d.report.applied.iter().any(|a| a.contains("2027-01-18") && a.contains("documento")), "{:?}", d.report.applied);
+        // the session date of the same page stays
+        assert!(d.extraction.dates.iter().any(|d| d.start == "2027-04-10T11:00"));
+    }
+
+    #[test]
+    fn what_the_project_must_include_and_what_a_funded_organization_must_do_are_not_participation_criteria() {
+        let c = sent();
+        let before = extraction().eligibility.len();
+        // a sentence with a duty ("deberán presentar…"), called a requirement of the project
+        let id = id_of(&c, "Para las organizaciones nuevas");
+        let mut a = good_answer(&c);
+        for l in a["labels"].as_array_mut().unwrap() {
+            if l["id"] == json!(id) {
+                l["label"] = json!("project_requirement");
+            }
+        }
+        let d = apply(&[a]);
+        assert_eq!(d.profile.project_requirements.len(), 1, "{:?}", d.report.disagreements);
+        assert!(d.profile.project_requirements[0].text.starts_with("Para las organizaciones nuevas"));
+        // the rules already read that bullet as a criterion; what matters is the model added none
+        assert_eq!(d.extraction.eligibility, extraction().eligibility, "nothing was added to the participation criteria");
+        assert_eq!(before, extraction().eligibility.len());
+
+        let mut a = good_answer(&c);
+        for l in a["labels"].as_array_mut().unwrap() {
+            if l["id"] == json!(id) {
+                l["label"] = json!("funding_condition");
+            }
+        }
+        let d = apply(&[a]);
+        assert_eq!(d.profile.funding_conditions.len(), 1, "{:?}", d.report.disagreements);
+        assert_eq!(d.extraction.eligibility, extraction().eligibility);
+    }
+
+    #[test]
+    fn the_labels_a_different_call_needs_have_a_place_in_the_profile() {
+        // found with Alsea and Bienestar (ADR-014): the calendar by stages, what is funded, whom the
+        // program serves and how to deliver had no label, so those facts were lost
+        let c = sent();
+        let mut a = good_answer(&c);
+        let cases = [
+            ("Para las organizaciones nuevas", "submission"),
+            ("Se dará prioridad", "population"),
+            ("Categoría 1", "funded"),
+            ("Nacional Monte", "calendar"),
+        ];
+        for (start, label) in cases {
+            let id = id_of(&c, start);
+            for l in a["labels"].as_array_mut().unwrap() {
+                if l["id"] == json!(id) {
+                    l["label"] = json!(label);
+                }
+            }
+        }
+        let d = apply(&[a]);
+        assert!(d.profile.submission[0].text.starts_with("Para las organizaciones nuevas"));
+        assert!(d.profile.population[0].text.starts_with("Se dará prioridad"));
+        assert!(d.profile.funded[0].text.starts_with("Categoría 1"));
+        assert!(d.profile.calendar[0].text.starts_with("Nacional Monte"));
+        // an exclusion is a restriction of the profile, not an eligibility criterion the model adds
+        assert_eq!(d.profile.restrictions.len(), 1);
+    }
+
+    // ---- the fixed questions
+
+    #[test]
+    fn a_question_that_points_at_a_candidate_with_several_dates_does_not_rename_them() {
+        // found live: a block with all the stages was named for four questions and the kinds
+        // overwrote each other. With more than one date the kinds stay as the rules read them.
+        let mut x = extraction();
+        x.dates.clear();
+        let day = |start: &str, kind: &'static str| DateItem { kind, start: start.into(), end: None, precision: "day", year_inferred: false, evidence: Evidence { page: 1, snippet: start.into() } };
+        x.dates.push(day("2027-05-03", "registration"));
+        x.dates.push(day("2027-05-16", "application_window"));
+        let (mut applied, mut added, mut dis, mut read) = (vec![], vec![], vec![], vec![]);
+        let both = vec![day("2027-05-03", "other"), day("2027-05-16", "other")];
+        merge_dates(&mut x, both, Some("disbursement"), &mut applied, &mut added, &mut dis, &mut read);
+        assert_eq!(x.dates[0].kind, "registration");
+        assert_eq!(x.dates[1].kind, "application_window");
+        assert_eq!(dis.len(), 1, "{dis:?}");
+        assert!(dis[0].contains("2 fechas"));
+    }
+
+    #[test]
+    fn a_fixed_question_is_read_by_the_code_from_the_candidates_the_model_points_to() {
+        let d = apply(&[good_answer(&sent())]);
+        let f = |slot: &str| d.report.fields.iter().find(|f| f.slot == slot).unwrap().clone();
+        assert_eq!(f("info_session").status, "found");
+        assert_eq!(f("info_session").read, vec!["2027-04-10T11:00"]);
+        assert!(f("max_duration_months").read.contains(&"max_duration_months = 12".to_string()));
+        assert_eq!(f("max_amount").status, "not_in_text");
+        assert_eq!(d.report.fields.len(), SLOTS.len(), "every question is reported");
+        let session = d.extraction.dates.iter().find(|d| d.start == "2027-04-10T11:00").unwrap();
+        assert_eq!(session.kind, "info_session", "the question settles what kind of date it is");
+    }
+
+    #[test]
+    fn a_question_the_model_skips_is_reported_as_unanswered() {
+        let mut a = good_answer(&sent());
+        a["fields"] = json!([]);
+        let d = apply(&[a]);
+        assert!(d.report.fields.iter().all(|f| f.status == "unanswered"));
+    }
+
+    #[test]
+    fn when_the_model_says_not_in_the_text_and_the_rules_found_it_the_rules_stand_and_it_is_listed() {
+        let mut a = good_answer(&sent());
+        a["fields"].as_array_mut().unwrap().retain(|f| f["slot"] != "max_duration_months");
+        a["fields"].as_array_mut().unwrap().push(json!({ "slot": "max_duration_months", "status": "not_in_text", "ids": [] }));
+        let d = apply(&[a]);
+        assert!(d.extraction.limits.iter().any(|l| l.kind == "max_duration_months" && l.value == 12.0), "the rules' value stands");
+        assert!(d.report.disagreements.iter().any(|m| m.contains("max_duration_months")), "{:?}", d.report.disagreements);
+    }
+
+    #[test]
+    fn a_question_pointing_at_a_candidate_with_no_value_is_listed_not_invented() {
+        let c = sent();
+        let mut a = good_answer(&c);
+        a["fields"].as_array_mut().unwrap().retain(|f| f["slot"] != "max_amount");
+        a["fields"].as_array_mut().unwrap().push(json!({ "slot": "max_amount", "status": "found", "ids": [id_of(&c, "Objetivo")] }));
+        let d = apply(&[a]);
+        assert!(d.extraction.limits.iter().all(|l| l.kind != "max_amount"), "no amount was invented");
+        let f = d.report.fields.iter().find(|f| f.slot == "max_amount").unwrap();
+        assert_eq!(f.status, "unreadable");
+        assert!(d.report.disagreements.iter().any(|m| m.contains("max_amount")));
+    }
+
+    #[test]
+    fn whom_a_candidate_applies_to_is_read_by_the_code_from_its_words_and_its_list() {
+        let c = sent();
+        let by = |start: &str| c.iter().find(|c| c.text.starts_with(start)).unwrap().clone();
+        // the items under "Para las organizaciones nuevas, deberán presentar…:" are for new organizations
+        assert_eq!(derive_applies(&by("DOF publicado")), "new_organizations");
+        assert_eq!(derive_applies(&by("Estados financieros")), "new_organizations");
+        assert_eq!(derive_applies(&by("Tener al menos")), "all");
+        let mut cat = by("Tener al menos");
+        cat.text = "En el caso de la Categoría 2. Educación Financiera deberán demostrar una contrapartida.".into();
+        assert_eq!(derive_applies(&cat), "per_category");
+        let mut stage = by("Tener al menos");
+        stage.text = "Solamente si tu organización ha aprobado el formulario podrás avanzar a la Etapa 2.".into();
+        assert_eq!(derive_applies(&stage), "per_stage");
+        // new organizations wins over the category and the stage it also mentions
+        let mut both = by("Tener al menos");
+        both.text = "Las organizaciones nuevas de la Categoría 1 deberán entregarlo en la Etapa 3.".into();
+        assert_eq!(derive_applies(&both), "new_organizations");
+        // the same candidate gives the same answer whatever the model said
+        let a = apply(&[good_answer(&c)]);
+        let doc = a.report.labels_by_id.iter().find(|(id, _)| **id == by("DOF publicado").id).unwrap();
+        assert_eq!(doc.1 .1, "new_organizations");
+    }
+
+    #[test]
+    fn dates_and_limits_are_merged_without_duplicates_and_a_different_kind_is_a_disagreement() {
+        let mut x = extraction();
+        x.dates.clear();
+        let (mut applied, mut added, mut dis, mut read) = (vec![], vec![], vec![], vec![]);
+        let d = |kind: &'static str| DateItem { kind, start: "2027-05-03".into(), end: Some("2027-05-20".into()), precision: "day", year_inferred: true, evidence: Evidence { page: 1, snippet: "Mayo 03 al 20".into() } };
+        x.dates.push(d("other"));
+        // the rules could only say "other": the model's question settles it
+        merge_dates(&mut x, vec![d("other")], Some("registration"), &mut applied, &mut added, &mut dis, &mut read);
+        assert_eq!(x.dates.len(), 1);
+        assert_eq!(x.dates[0].kind, "registration");
+        // already registration: nothing changes. Another real kind: a disagreement, not applied
+        merge_dates(&mut x, vec![d("other")], Some("registration"), &mut applied, &mut added, &mut dis, &mut read);
+        merge_dates(&mut x, vec![d("other")], Some("application_window"), &mut applied, &mut added, &mut dis, &mut read);
+        assert_eq!(x.dates[0].kind, "registration");
+        assert_eq!(dis.len(), 1, "{dis:?}");
+        assert!(added.is_empty(), "nothing new was added");
+    }
+
+    // ---- an answer that does not follow the rules
+
+    #[test]
+    fn an_unknown_id_or_a_label_outside_the_list_is_rejected_and_the_candidate_stays_unlabeled() {
+        let c = sent();
+        let mut a = good_answer(&c);
+        let victim = id_of(&c, "Tener al menos");
+        for l in a["labels"].as_array_mut().unwrap() {
+            if l["id"] == json!(victim) {
+                l["label"] = json!("requirement");
+            }
+        }
+        a["labels"].as_array_mut().unwrap().push(json!({ "id": "p99-1", "label": "criterion" }));
+        let d = apply(&[a]);
+        assert_eq!(d.report.unlabeled, vec![victim]);
+        assert_eq!(d.report.rejected.len(), 2, "{:?}", d.report.rejected);
+        assert!(d.report.rejected.iter().any(|r| r.why.contains("no existe")));
+        assert!(d.report.rejected.iter().any(|r| r.why.contains("lista permitida")));
+    }
+
+    #[test]
+    fn the_first_valid_label_of_an_id_wins_and_the_order_of_the_answer_does_not_matter() {
+        let c = sent();
+        let a = good_answer(&c);
+        let mut shuffled = a.clone();
+        shuffled["labels"].as_array_mut().unwrap().reverse();
+        assert_eq!(apply(&[a.clone()]), apply(&[shuffled]));
+        // a second label for the same id is ignored
+        let mut twice = a.clone();
+        let first = twice["labels"][0].clone();
+        twice["labels"].as_array_mut().unwrap().push(json!({ "id": first["id"], "label": "funder" }));
+        assert_eq!(apply(&[a]), apply(&[twice]));
+    }
+
+    #[test]
+    fn a_single_date_that_is_the_last_day_of_a_window_is_not_added_as_another_date() {
+        let mut x = extraction();
+        x.dates.clear();
+        let (mut applied, mut added, mut dis, mut read) = (vec![], vec![], vec![], vec![]);
+        let window = DateItem { kind: "application_window", start: "2027-05-16".into(), end: Some("2027-05-23".into()), precision: "day", year_inferred: true, evidence: Evidence { page: 1, snippet: "Mayo 16 al 23".into() } };
+        x.dates.push(window);
+        let lone = DateItem { kind: "other", start: "2027-05-23".into(), end: None, precision: "day", year_inferred: true, evidence: Evidence { page: 2, snippet: "Tienes hasta el 23 de mayo".into() } };
+        merge_dates(&mut x, vec![lone], Some("application_window"), &mut applied, &mut added, &mut dis, &mut read);
+        assert_eq!(x.dates.len(), 1, "{:?}", x.dates);
+        assert!(added.is_empty());
+    }
+
+    #[test]
+    fn a_criterion_of_the_rules_that_the_model_calls_not_relevant_is_listed_for_a_person() {
+        let c = sent();
+        let mut a = good_answer(&c);
+        let id = id_of(&c, "Ser una organización");
+        for l in a["labels"].as_array_mut().unwrap() {
+            if l["id"] == json!(id) {
+                l["label"] = json!("not_relevant");
+            }
+        }
+        let d = apply(&[a]);
+        assert!(d.extraction.eligibility.iter().any(|c| c.text.starts_with("Ser una organización")), "never removed");
+        assert!(d.extraction.needs_review.iter().any(|r| r.reason.contains("not_relevant") && r.snippet.starts_with("Ser una organización")));
+        assert!(d.report.disagreements.iter().any(|m| m.contains("not_relevant")));
+    }
+
+    fn report_with(labels: &[(&str, &str, &str)], fields: &[(&str, &str, &[&str])]) -> ReviewReport {
+        let mut r = ReviewReport::without_ai("used");
+        for (id, label, applies) in labels {
+            r.labels_by_id.insert((*id).into(), ((*label).into(), (*applies).into()));
+        }
+        for (slot, status, read) in fields {
+            r.fields.push(FieldReport { slot: (*slot).into(), status: (*status).into(), ids: vec![], read: read.iter().map(|s| s.to_string()).collect() });
+        }
+        r
+    }
+
+    #[test]
+    fn two_reviews_that_say_the_same_agree_completely_and_a_difference_is_named() {
+        let a = report_with(&[("p1-1", "criterion", "all"), ("p1-2", "document", "new_organizations"), ("p1-3", "priority", "all")], &[("info_session", "found", &["2024-04-10T11:00"]), ("max_amount", "not_in_text", &[])]);
+        assert_eq!(agreement(&a, &a.clone()).label_rate(), 1.0);
+        let same = agreement(&a, &a.clone());
+        assert_eq!((same.compared, same.same_applies, same.fields_same), (3, 3, 2));
+        assert_eq!((same.critical_compared, same.critical_same), (2, 2), "criterion and document feed the product, priority does not");
+        assert!(same.differing.is_empty() && same.fields_differing.is_empty());
+
+        let b = report_with(
+            &[("p1-1", "criterion", "all"), ("p1-2", "document", "all"), ("p1-3", "not_relevant", "all"), ("p9-9", "funder", "all")],
+            &[("info_session", "found", &["2024-05-23T11:00"]), ("max_amount", "not_in_text", &[])],
+        );
+        let d = agreement(&a, &b);
+        assert_eq!(d.compared, 3, "a candidate only one of them labeled is not compared");
+        assert_eq!((d.same_label, d.same_applies), (2, 1));
+        // p1-3 priority against not_relevant is not a difference the product feels
+        assert_eq!((d.critical_compared, d.critical_same), (2, 2));
+        assert_eq!(d.differing.len(), 1);
+        assert_eq!(d.differing[0].id, "p1-3");
+        assert_eq!((d.fields_compared, d.fields_same), (2, 1));
+        assert!(d.fields_differing[0].starts_with("info_session"));
+        assert!((d.label_rate() - 2.0 / 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_difference_in_what_feeds_the_product_is_a_critical_difference() {
+        let a = report_with(&[("p1-1", "criterion", "all"), ("p1-2", "document", "all"), ("p1-3", "objective", "all"), ("p1-4", "not_relevant", "all")], &[]);
+        let b = report_with(&[("p1-1", "document", "all"), ("p1-2", "document", "all"), ("p1-3", "funder", "all"), ("p1-4", "criterion", "all")], &[]);
+        let d = agreement(&a, &b);
+        assert_eq!((d.critical_compared, d.critical_same), (3, 1), "criterion against document and against nothing matter; objective against funder does not");
+    }
+
+    #[test]
+    fn two_scripted_models_that_label_differently_are_told_apart_end_to_end() {
+        let c = sent();
+        let careful = good_answer(&c);
+        let mut loose = careful.clone();
+        let id = id_of(&c, "Tener al menos");
+        for l in loose["labels"].as_array_mut().unwrap() {
+            if l["id"] == json!(id) {
+                l["label"] = json!("project_requirement");
+            }
+        }
+        let (a, b) = (apply(&[careful.clone()]).report, apply(&[loose]).report);
+        let d = agreement(&a, &b);
+        assert_eq!(d.differing.len(), 1);
+        assert_eq!(d.differing[0].id, id);
+        assert!(d.label_rate() < 1.0);
+        assert_eq!(agreement(&a, &apply(&[careful]).report).label_rate(), 1.0);
+    }
+
+    #[test]
+    fn the_same_answers_always_give_the_same_draft() {
+        let a = good_answer(&sent());
+        assert_eq!(apply(&[a.clone()]), apply(&[a]));
+    }
+
+    // ---- the call to the model
+
+    fn ledger() -> (tempfile::TempDir, SqliteLedger) {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = Arc::new(Mutex::new(open_encrypted(&dir.path().join("t.db"), KEY).unwrap()));
+        (dir, SqliteLedger(conn))
+    }
+
+    fn reply(value: Value) -> Result<AiResponse, AiError> {
+        Ok(AiResponse { value, model: "gemini-3-flash-preview".into(), usage: Usage { input_tokens: 5000, output_tokens: 900, thought_tokens: 400, ..Default::default() } })
+    }
+
+    #[tokio::test]
+    async fn one_call_sends_every_candidate_and_merges_the_answer() {
+        let (_d, l) = ledger();
+        let p = MockProvider::new(vec![reply(good_answer(&sent()))]);
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        let draft = review_call(&p, &scanner, &l, None, extraction(), &pages()).await;
+        assert_eq!(draft.report.ai, "used");
+        assert!(!draft.report.asked_again);
+        assert_eq!(p.requests().len(), 1, "one call");
+        let req = &p.requests()[0];
+        assert_eq!(req.task, AiTask::CallReview);
+        let text = req.context.join("\n");
+        for c in sent() {
+            assert!(text.contains(&c.render()), "{} is sent", c.id);
+        }
+        // usage is logged under its own task, with the thinking kept apart
+        let (task, thought): (String, i64) = l.0.lock().unwrap().query_row("SELECT task, thought_tokens FROM ai_usage", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((task.as_str(), thought), ("call.review", 400));
+    }
+
+    #[tokio::test]
+    async fn ids_the_model_skipped_are_asked_again_alone_and_merged() {
+        let (_d, l) = ledger();
+        let c = sent();
+        let skipped = id_of(&c, "Se dará prioridad");
+        let mut first = good_answer(&c);
+        first["labels"].as_array_mut().unwrap().retain(|l| l["id"] != json!(skipped));
+        let second = json!({ "labels": [{ "id": skipped, "label": "priority" }], "fields": [], "doubts": [] });
+        let p = MockProvider::new(vec![reply(first), reply(second)]);
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        let draft = review_call(&p, &scanner, &l, None, extraction(), &pages()).await;
+        assert!(draft.report.asked_again);
+        assert_eq!(p.requests().len(), 2);
+        let again = p.requests()[1].context.join("\n");
+        assert!(again.contains("(1)") && again.contains(&skipped), "only the skipped one: {again}");
+        assert!(draft.report.unlabeled.is_empty());
+        assert!(draft.profile.evaluation.iter().any(|e| e.label == "priority"));
+        // the fixed questions come from the first reply only
+        assert!(draft.report.fields.iter().any(|f| f.slot == "info_session" && f.status == "found"));
+    }
+
+    #[tokio::test]
+    async fn ids_that_stay_unlabeled_after_asking_again_are_listed_for_a_person() {
+        let (_d, l) = ledger();
+        let c = sent();
+        let skipped = id_of(&c, "Se dará prioridad");
+        let mut first = good_answer(&c);
+        first["labels"].as_array_mut().unwrap().retain(|l| l["id"] != json!(skipped));
+        let second = json!({ "labels": [], "fields": [], "doubts": [] });
+        let p = MockProvider::new(vec![reply(first), reply(second)]);
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        let draft = review_call(&p, &scanner, &l, None, extraction(), &pages()).await;
+        assert_eq!(draft.report.unlabeled, vec![skipped]);
+        assert_eq!(draft.report.ai, "used", "the rest of the review stands");
+    }
+
+    #[tokio::test]
+    async fn no_gate_decides_whether_a_document_is_a_call_it_goes_to_the_model_like_any_other() {
+        // the Bienestar rules were skipped because the extractor took them for "a government notice":
+        // now, whatever the extractor thinks of the document, the model labels what it holds
+        let (_d, l) = ledger();
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        let pg = parse_dump("=== PAGINA 1 ===
+Las instituciones participantes deberán presentar su proyecto en las instalaciones de la Junta.
+No se recibirán solicitudes incompletas ni fuera del plazo establecido.
+");
+        let mut x = extract_call(&pg);
+        x.doc_kind = DocKind::GovernanceNotice;
+        let (cands, _) = label_set(&x, &segment(&pg), LABEL_BUDGET_CHARS);
+        assert_eq!(cands.len(), 2);
+        let labels: Vec<Value> = cands.iter().map(|c| json!({ "id": c.id, "label": "submission" })).collect();
+        let answer = json!({ "labels": labels, "fields": [], "doubts": [] });
+        let p = MockProvider::new(vec![reply(answer)]);
+        let draft = review_call(&p, &scanner, &l, None, x, &pg).await;
+        assert_eq!(p.requests().len(), 1, "the model was asked");
+        assert_eq!(draft.report.ai, "used");
+        assert_eq!(draft.profile.submission.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn if_the_review_fails_the_rules_extraction_stands_and_the_report_says_why() {
+        let (_d, l) = ledger();
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        for (err, kind) in [(AiError::Auth, "auth"), (AiError::QuotaReached, "quota_reached"), (AiError::BudgetExhausted, "budget")] {
+            let p = MockProvider::new(vec![Err(err)]);
+            let draft = review_call(&p, &scanner, &l, None, extraction(), &pages()).await;
+            assert_eq!(draft.report.ai, kind);
+            assert_eq!(draft.extraction, extraction(), "nothing was lost");
+            assert_eq!(draft.profile, CallProfile::default());
+        }
+    }
+
+    #[tokio::test]
+    async fn personal_data_in_a_call_is_covered_before_it_is_sent() {
+        let (_d, l) = ledger();
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        let mut pg = pages();
+        pg[0].text.push_str("\nLa coordinadora debe presentar su CURP LOPM800101MDFRZN09 en el registro.\n");
+        let x = extract_call(&pg);
+        let (cands, _) = label_set(&x, &segment(&pg), LABEL_BUDGET_CHARS);
+        assert!(cands.iter().any(|c| c.text.contains("LOPM8")), "the candidate carries it");
+        let p = MockProvider::new(vec![reply(json!({ "labels": [], "fields": [], "doubts": [] })), reply(json!({ "labels": [], "fields": [], "doubts": [] }))]);
+        review_call(&p, &scanner, &l, None, x, &pg).await;
+        let sent = p.requests()[0].context.join("\n");
+        assert!(!sent.contains("LOPM8"), "{sent}");
+    }
+
+    // ---- the prompt and the schema keep in step with the vocabulary
+
+    #[test]
+    fn the_prompt_defines_every_label_and_every_question() {
+        let prompt = crate::ai::prompts::system_prompt(AiTask::CallReview);
+        for l in LABELS {
+            assert!(prompt.contains(&format!("`{l}`")), "label {l} is not in the prompt");
+        }
+        assert!(!prompt.contains("applies_to"), "the model is not asked whom a fragment applies to: the code reads it");
+        for s in SLOTS {
+            assert!(prompt.contains(&format!("`{s}`")), "question {s} is not in the prompt");
+        }
+        assert_eq!(crate::ai::prompts::CALL_REVIEW_VERSION, "call_review.v4");
+    }
+
+    #[test]
+    fn the_schema_only_allows_the_closed_lists() {
+        let schema = crate::ai::prompts::schema(AiTask::CallReview);
+        let v = jsonschema::validator_for(&schema).unwrap();
+        assert!(v.is_valid(&good_answer(&sent())));
+        let mut bad = good_answer(&sent());
+        bad["labels"][0]["label"] = json!("requirement");
+        assert!(!v.is_valid(&bad), "a label outside the list is refused by the schema");
+        // the model does not say whom it applies to: an answer that does is not the format
+        let mut bad = good_answer(&sent());
+        bad["labels"][0]["applies_to"] = json!("all");
+        assert!(!v.is_valid(&bad));
+        let mut bad = good_answer(&sent());
+        bad["fields"][0]["slot"] = json!("deadline");
+        assert!(!v.is_valid(&bad));
+        let mut bad = good_answer(&sent());
+        bad["fields"][0]["status"] = json!("maybe");
+        assert!(!v.is_valid(&bad));
+    }
+}

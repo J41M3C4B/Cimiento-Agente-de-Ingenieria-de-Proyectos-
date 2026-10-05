@@ -1,0 +1,539 @@
+//! Reading a call whole, once, into a fixed sheet (ADR-014, option 3: "lectura completa estructurada").
+//!
+//! The rail (ADR-013) cuts the call into fragments with rules written for the formats of one funder
+//! and asks the model only to label them. This does the opposite: ONE call hands the model every page
+//! of every document of the call and asks it to fill a fixed sheet of sections, each item a quote
+//! copied from a page. The code verifies every quote against the page it cites and keeps the quote as
+//! the item's text, so a paraphrase or an invented item cannot get in; dates and limits are read from
+//! the quote by the same readers the extractor uses, and a limit whose number is not in its quote is
+//! thrown away. There is no step that decides whether a document "is a call": if there is nothing to
+//! fill, the sheet is empty.
+//!
+//! It needs no rule written for a format, which is the point: what changes from one funder to the
+//! next is the model's job, and what stays (verification, readers, closed lists) is the code's.
+
+// Not wired to a command yet: tests and the live comparison use it.
+#![allow(dead_code)]
+
+use super::call_extract::{clean_text, dates_in_loose, extract_call, limits_in, PageText};
+use super::call_review::{norm, same_statement, Rejected};
+use crate::ai::pipeline::{self, AiCall, Ledger};
+use crate::ai::{AiProvider, AiTask};
+use crate::scanner::SensitiveScanner;
+use regex::Regex;
+use serde::Serialize;
+use serde_json::Value;
+use std::collections::BTreeMap;
+use std::sync::OnceLock;
+
+/// How much text goes to the model, in characters (about 40,000 tokens). A call is 15,000 to 50,000
+/// characters; this only bites on a very long bundle, and what is left out is reported.
+pub const SHEET_BUDGET_CHARS: usize = 160_000;
+/// A quote shorter than this proves nothing.
+const MIN_QUOTE_CHARS: usize = 12;
+
+/// Sections whose items are a verified quote and its page.
+pub const SECTIONS: [&str; 10] = [
+    "funder",
+    "objective",
+    "eligibility",
+    "exclusions",
+    "documents",
+    "evaluation",
+    "project_requirements",
+    "funding_conditions",
+    "population",
+    "funded",
+];
+pub const DATE_KINDS: [&str; 6] = ["application_window", "registration", "info_session", "results", "disbursement", "other"];
+pub const LIMIT_KINDS: [&str; 7] = [
+    "max_duration_months",
+    "max_admin_percent",
+    "min_operating_years",
+    "max_amount",
+    "min_amount",
+    "counterpart_percent",
+    "other",
+];
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SheetItem {
+    /// The quote, verified to be in the page: the PDF's own words.
+    pub text: String,
+    pub page: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SheetDate {
+    pub kind: &'static str,
+    pub text: String,
+    pub page: usize,
+    /// What the date readers found in the quote (`2026-06-22`, `2026-07-15`…); empty if none.
+    pub read: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SheetLimit {
+    pub kind: &'static str,
+    /// Read from the quote, or the model's number when it appears in the quote.
+    pub value: f64,
+    pub text: String,
+    pub page: usize,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct CallSheet {
+    pub sections: BTreeMap<&'static str, Vec<SheetItem>>,
+    pub dates: Vec<SheetDate>,
+    pub limits: Vec<SheetLimit>,
+    /// Contradictions and ambiguities the model reports, as it wrote them: its opinion, not the call's text.
+    pub doubts: Vec<String>,
+}
+
+impl CallSheet {
+    pub fn items(&self) -> usize {
+        self.sections.values().map(Vec::len).sum::<usize>() + self.dates.len() + self.limits.len()
+    }
+
+    /// Every text of the sheet, for comparing it with a reference.
+    pub fn all_text(&self) -> String {
+        let mut out: Vec<&str> = Vec::new();
+        out.extend(self.sections.values().flatten().map(|i| i.text.as_str()));
+        out.extend(self.dates.iter().map(|d| d.text.as_str()));
+        out.extend(self.limits.iter().map(|l| l.text.as_str()));
+        out.extend(self.doubts.iter().map(String::as_str));
+        out.join("\n")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SheetReport {
+    /// `used`, `not_needed`, or the kind of failure (`offline`, `quota_reached`…).
+    pub ai: String,
+    pub pages_sent: usize,
+    /// Pages left out because the bundle is longer than the budget.
+    pub pages_dropped: usize,
+    pub chars_sent: usize,
+    pub kept: usize,
+    /// Items thrown away: a quote that is not in the page, a number not in its quote, an unknown kind.
+    pub rejected: Vec<Rejected>,
+    /// Items that said again what another of the same section already said.
+    pub duplicates: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SheetDraft {
+    pub sheet: CallSheet,
+    pub report: SheetReport,
+}
+
+impl SheetReport {
+    fn without_ai(ai: &str) -> Self {
+        SheetReport { ai: ai.into(), pages_sent: 0, pages_dropped: 0, chars_sent: 0, kept: 0, rejected: Vec::new(), duplicates: 0 }
+    }
+}
+
+// ------------------------------------------------------------------ verifying
+
+macro_rules! re {
+    ($p:expr) => {{
+        static R: OnceLock<Regex> = OnceLock::new();
+        R.get_or_init(|| Regex::new($p).expect("valid regex"))
+    }};
+}
+
+/// The numbers written in a quote: "$300,000.00" is 300000, "10 %" is 10, "tres" is not a number.
+fn numbers_in(text: &str) -> Vec<f64> {
+    re!(r"\d[\d,. ]*\d|\d")
+        .find_iter(text)
+        .filter_map(|m| m.as_str().replace([',', ' '], "").trim_end_matches('.').parse::<f64>().ok())
+        .collect()
+}
+
+struct PageIndex {
+    norm: BTreeMap<usize, String>,
+}
+
+impl PageIndex {
+    fn new(pages: &[PageText]) -> Self {
+        PageIndex { norm: pages.iter().map(|p| (p.number, norm(&clean_text(&p.text)))).collect() }
+    }
+
+    /// `Ok` when the quote is in the page it cites, whatever the line breaks, capitals or spacing.
+    fn verify(&self, quote: &str, page: usize) -> Result<(), String> {
+        let q = norm(quote);
+        if q.chars().count() < MIN_QUOTE_CHARS {
+            return Err("la cita es demasiado corta o está vacía".into());
+        }
+        match self.norm.get(&page) {
+            None => Err(format!("la página {page} no existe")),
+            Some(text) if text.contains(&q) => Ok(()),
+            Some(_) => Err(format!("la cita no aparece en la página {page}")),
+        }
+    }
+}
+
+fn str_of<'a>(v: &'a Value, key: &str) -> &'a str {
+    v[key].as_str().unwrap_or("").trim()
+}
+
+fn page_of(v: &Value) -> usize {
+    v["page"].as_u64().unwrap_or(0) as usize
+}
+
+// ------------------------------------------------------------------ applying the answer
+
+/// Builds the sheet from the model's answer. Pure and deterministic: the same pages and the same
+/// answer always give the same sheet. `year` is the call's own year, for dates written without one.
+pub fn apply_sheet(pages: &[PageText], year: Option<u32>, answer: &Value) -> SheetDraft {
+    let index = PageIndex::new(pages);
+    let mut report = SheetReport::without_ai("used");
+    report.pages_sent = pages.len();
+    let mut sheet = CallSheet::default();
+    let reject = |report: &mut SheetReport, what: String, why: String| report.rejected.push(Rejected { what, why });
+    let short = |s: &str| s.chars().take(60).collect::<String>();
+
+    for section in SECTIONS {
+        let mut kept: Vec<SheetItem> = Vec::new();
+        let mut known: Vec<String> = Vec::new();
+        for item in answer[section].as_array().into_iter().flatten() {
+            let (quote, page) = (str_of(item, "quote"), page_of(item));
+            let what = format!("{section}: «{}»", short(quote));
+            if let Err(why) = index.verify(quote, page) {
+                reject(&mut report, what, why);
+                continue;
+            }
+            let n = norm(quote);
+            if known.iter().any(|k| same_statement(k, &n)) {
+                report.duplicates += 1;
+                continue;
+            }
+            known.push(n);
+            kept.push(SheetItem { text: quote.to_string(), page });
+        }
+        sheet.sections.insert(section, kept);
+    }
+
+    let mut known_dates: Vec<String> = Vec::new();
+    for d in answer["dates"].as_array().into_iter().flatten() {
+        let (quote, page) = (str_of(d, "quote"), page_of(d));
+        let what = format!("fecha: «{}»", short(quote));
+        let Some(kind) = DATE_KINDS.iter().find(|k| **k == str_of(d, "kind")) else {
+            reject(&mut report, what, "el tipo de fecha no está en la lista permitida".into());
+            continue;
+        };
+        if let Err(why) = index.verify(quote, page) {
+            reject(&mut report, what, why);
+            continue;
+        }
+        let n = norm(quote);
+        if known_dates.iter().any(|k| same_statement(k, &n)) {
+            report.duplicates += 1;
+            continue;
+        }
+        known_dates.push(n);
+        let read: Vec<String> = dates_in_loose(quote, page, year)
+            .into_iter()
+            .flat_map(|x| std::iter::once(x.start).chain(x.end))
+            .collect();
+        sheet.dates.push(SheetDate { kind, text: quote.to_string(), page, read });
+    }
+
+    for l in answer["limits"].as_array().into_iter().flatten() {
+        let (quote, page) = (str_of(l, "quote"), page_of(l));
+        let what = format!("tope: «{}»", short(quote));
+        let Some(kind) = LIMIT_KINDS.iter().find(|k| **k == str_of(l, "kind")) else {
+            reject(&mut report, what, "el tipo de tope no está en la lista permitida".into());
+            continue;
+        };
+        if let Err(why) = index.verify(quote, page) {
+            reject(&mut report, what, why);
+            continue;
+        }
+        // the value comes from the quote: read by the extractor's readers, or the model's own number
+        // only if it is written in the quote
+        let said = l["value"].as_f64().unwrap_or(f64::NAN);
+        let read = limits_in(quote, page).into_iter().find(|x| x.kind == *kind).map(|x| x.value);
+        let value = match read {
+            Some(v) => v,
+            None if numbers_in(quote).iter().any(|n| (n - said).abs() < 1e-9) => said,
+            None => {
+                reject(&mut report, what, format!("el número {said} no está escrito en la cita"));
+                continue;
+            }
+        };
+        if sheet.limits.iter().any(|x| x.kind == *kind && (x.value - value).abs() < 1e-9 && same_statement(&norm(&x.text), &norm(quote))) {
+            report.duplicates += 1;
+            continue;
+        }
+        sheet.limits.push(SheetLimit { kind, value, text: quote.to_string(), page });
+    }
+
+    sheet.doubts = answer["doubts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|d| d.as_str())
+        .map(|d| d.trim().chars().take(300).collect::<String>())
+        .filter(|d| !d.is_empty())
+        .take(15)
+        .collect();
+
+    report.kept = sheet.items();
+    SheetDraft { sheet, report }
+}
+
+// ------------------------------------------------------------------ the reading itself
+
+/// The pages as the model sees them, within the budget; how many were left out.
+fn context_of(pages: &[PageText], budget: usize) -> (String, usize, usize) {
+    let mut out = String::new();
+    let mut sent = 0;
+    for p in pages {
+        let block = format!("Página {}:\n{}\n\n", p.number, clean_text(&p.text));
+        if out.chars().count() + block.chars().count() > budget {
+            break;
+        }
+        out.push_str(&block);
+        sent += 1;
+    }
+    (out.trim_end().to_string(), sent, pages.len() - sent)
+}
+
+/// Reads the whole call with the model, once, and builds its sheet. Never fails: if the reading
+/// cannot be done (no key, no internet, no allowance) the sheet is empty and the report says why.
+pub async fn read_call_sheet(
+    provider: &dyn AiProvider,
+    scanner: &dyn SensitiveScanner,
+    ledger: &dyn Ledger,
+    project_id: Option<String>,
+    pages: &[PageText],
+) -> SheetDraft {
+    let skip = |ai: &str| SheetDraft { sheet: CallSheet::default(), report: SheetReport::without_ai(ai) };
+    if pages.iter().all(|p| p.text.trim().is_empty()) {
+        return skip("not_needed");
+    }
+    let (context, sent, dropped) = context_of(pages, SHEET_BUDGET_CHARS);
+    let kept: Vec<PageText> = pages.iter().take(sent).cloned().collect();
+    let call = AiCall {
+        task: AiTask::CallSheet,
+        context: vec![context.clone()],
+        user: "Lea la convocatoria completa y llene la ficha.".into(),
+        project_id,
+    };
+    match pipeline::run(provider, scanner, ledger, call).await {
+        Ok(answer) => {
+            let mut draft = apply_sheet(&kept, extract_call(pages).year, &answer);
+            draft.report.pages_dropped = dropped;
+            draft.report.chars_sent = context.chars().count();
+            draft
+        }
+        Err(e) => skip(&e.kind()),
+    }
+}
+
+// ------------------------------------------------------------------ tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ai::mock::MockProvider;
+    use crate::ai::pipeline::SqliteLedger;
+    use crate::ai::{AiError, AiResponse, Usage};
+    use crate::scanner::{RegexScanner, ScannerConfig};
+    use crate::storage::open_encrypted;
+    use serde_json::json;
+    use std::sync::{Arc, Mutex};
+
+    const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+
+    fn pages() -> Vec<PageText> {
+        vec![
+            PageText {
+                number: 1,
+                text: "[Documento: CARTEL]\nBASES\nPodrán participar las Instituciones de Asistencia Privada registradas ante la Junta, que\nrealicen su labor en cualquiera de los 125 municipios.\nEl apoyo podrá ser hasta por un monto no mayor a $300,000.00 (Trescientos mil pesos 00/100 M.N.) por institución.\nPara acceder al apoyo deberá aportar, por concepto de coinversión, el 10% del valor total del proyecto.\nLa entrega de proyectos será del 22 de junio al 15 de julio de 2026, de 09:00 a 18:00 horas.".into(),
+            },
+            PageText {
+                number: 2,
+                text: "[Documento: REGLAS]\nLas I.A.P. deberán presentar los CFDI que comprueben la adquisición de los bienes.\nSe dará preferencia a quienes atiendan a personas indígenas.".into(),
+            },
+        ]
+    }
+
+    fn good() -> Value {
+        let empty = json!([]);
+        json!({
+            "funder": empty, "objective": empty, "exclusions": empty, "documents": empty, "population": empty, "funded": empty,
+            "project_requirements": empty,
+            "eligibility": [
+                { "quote": "Podrán participar las Instituciones de Asistencia Privada registradas ante la Junta", "page": 1 },
+                { "quote": "que realicen su labor en cualquiera de los 125 municipios", "page": 1 }
+            ],
+            "evaluation": [{ "quote": "Se dará preferencia a quienes atiendan a personas indígenas.", "page": 2 }],
+            "funding_conditions": [{ "quote": "deberán presentar los CFDI que comprueben la adquisición de los bienes", "page": 2 }],
+            "dates": [{ "kind": "application_window", "quote": "del 22 de junio al 15 de julio de 2026, de 09:00 a 18:00 horas", "page": 1 }],
+            "limits": [
+                { "kind": "max_amount", "value": 300000, "quote": "un monto no mayor a $300,000.00 (Trescientos mil pesos 00/100 M.N.) por institución", "page": 1 },
+                { "kind": "counterpart_percent", "value": 10, "quote": "por concepto de coinversión, el 10% del valor total del proyecto", "page": 1 }
+            ],
+            "doubts": ["El cartel remite a los requisitos del numeral 8.1 de las Reglas, que no están en este conjunto."]
+        })
+    }
+
+    fn apply(answer: &Value) -> SheetDraft {
+        apply_sheet(&pages(), Some(2026), answer)
+    }
+
+    #[test]
+    fn what_the_model_copies_enters_as_the_pdfs_own_words_even_across_a_line_break() {
+        let d = apply(&good());
+        let elig: Vec<&str> = d.sheet.sections["eligibility"].iter().map(|i| i.text.as_str()).collect();
+        // the page breaks this sentence after "Junta, que": the quote is found anyway
+        assert_eq!(elig.len(), 2, "{:?}", d.report.rejected);
+        assert!(d.report.rejected.is_empty(), "{:?}", d.report.rejected);
+        assert_eq!(d.sheet.sections["evaluation"][0].page, 2);
+        assert_eq!(d.sheet.doubts.len(), 1);
+        assert_eq!(d.report.kept, d.sheet.items());
+    }
+
+    #[test]
+    fn a_quote_that_is_not_in_its_page_is_thrown_away_and_listed_whatever_the_reason() {
+        let mut a = good();
+        a["eligibility"] = json!([
+            { "quote": "Podrán participar las Instituciones de Asistencia Privada registradas ante la Junta", "page": 1 },
+            { "quote": "Las instituciones de asistencia privada pueden participar si están registradas", "page": 1 },
+            { "quote": "Podrán participar las Instituciones de Asistencia Privada registradas ante la Junta", "page": 2 },
+            { "quote": "Podrán", "page": 1 },
+            { "quote": "Podrán participar las Instituciones de Asistencia Privada registradas ante la Junta", "page": 99 }
+        ]);
+        let d = apply(&a);
+        assert_eq!(d.sheet.sections["eligibility"].len(), 1);
+        assert_eq!(d.report.rejected.len(), 4, "{:?}", d.report.rejected);
+        assert!(d.report.rejected.iter().any(|r| r.why.contains("no aparece en la página 1")), "a paraphrase");
+        assert!(d.report.rejected.iter().any(|r| r.why.contains("no aparece en la página 2")), "the right words on the wrong page");
+        assert!(d.report.rejected.iter().any(|r| r.why.contains("demasiado corta")));
+        assert!(d.report.rejected.iter().any(|r| r.why.contains("no existe")));
+    }
+
+    #[test]
+    fn a_date_is_read_from_its_quote_and_a_limit_takes_its_number_from_it() {
+        let d = apply(&good());
+        assert_eq!(d.sheet.dates[0].kind, "application_window");
+        assert!(d.sheet.dates[0].read.contains(&"2026-06-22".to_string()) && d.sheet.dates[0].read.contains(&"2026-07-15".to_string()), "{:?}", d.sheet.dates[0].read);
+        let max = d.sheet.limits.iter().find(|l| l.kind == "max_amount").unwrap();
+        assert_eq!(max.value, 300000.0);
+        // the counterpart is not a limit the extractor reads: its number is accepted because it is written in the quote
+        let counterpart = d.sheet.limits.iter().find(|l| l.kind == "counterpart_percent").unwrap();
+        assert_eq!(counterpart.value, 10.0);
+    }
+
+    #[test]
+    fn a_number_the_model_says_but_the_quote_does_not_write_is_refused() {
+        let mut a = good();
+        a["limits"] = json!([
+            { "kind": "counterpart_percent", "value": 30, "quote": "por concepto de coinversión, el 10% del valor total del proyecto", "page": 1 },
+            { "kind": "max_amount", "value": 500000, "quote": "un monto no mayor a $300,000.00 (Trescientos mil pesos 00/100 M.N.) por institución", "page": 1 }
+        ]);
+        let d = apply(&a);
+        // both numbers are the model's, and neither is written in its quote (10 and 300000 are)
+        assert!(d.sheet.limits.is_empty(), "{:?}", d.sheet.limits);
+        assert_eq!(d.report.rejected.len(), 2, "{:?}", d.report.rejected);
+        assert!(d.report.rejected.iter().any(|r| r.why.contains("30 ")) && d.report.rejected.iter().any(|r| r.why.contains("500000")), "{:?}", d.report.rejected);
+    }
+
+    #[test]
+    fn a_kind_outside_the_closed_lists_is_refused_and_a_repeated_item_counts_once() {
+        let mut a = good();
+        a["dates"].as_array_mut().unwrap().push(json!({ "kind": "deadline", "quote": "del 22 de junio al 15 de julio de 2026", "page": 1 }));
+        a["dates"].as_array_mut().unwrap().push(json!({ "kind": "other", "quote": "del 22 de junio al 15 de julio de 2026, de 09:00 a 18:00 horas", "page": 1 }));
+        let d = apply(&a);
+        assert_eq!(d.sheet.dates.len(), 1);
+        assert!(d.report.rejected.iter().any(|r| r.why.contains("lista permitida")));
+        assert_eq!(d.report.duplicates, 1);
+    }
+
+    #[test]
+    fn the_same_answer_always_gives_the_same_sheet() {
+        assert_eq!(apply(&good()), apply(&good()));
+    }
+
+    // ---- the call to the model
+
+    fn ledger() -> (tempfile::TempDir, SqliteLedger) {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = Arc::new(Mutex::new(open_encrypted(&dir.path().join("t.db"), KEY).unwrap()));
+        (dir, SqliteLedger(conn))
+    }
+
+    fn reply(value: Value) -> Result<AiResponse, AiError> {
+        Ok(AiResponse { value, model: "gemini-3.5-flash-lite".into(), usage: Usage { input_tokens: 9000, output_tokens: 3000, ..Default::default() } })
+    }
+
+    #[tokio::test]
+    async fn one_call_sends_every_page_of_every_document_and_builds_the_sheet() {
+        let (_d, l) = ledger();
+        let p = MockProvider::new(vec![reply(good())]);
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        let draft = read_call_sheet(&p, &scanner, &l, None, &pages()).await;
+        assert_eq!(draft.report.ai, "used");
+        assert_eq!(p.requests().len(), 1, "one call");
+        let req = &p.requests()[0];
+        assert_eq!(req.task, AiTask::CallSheet);
+        let sent = req.context.join("\n");
+        assert!(sent.contains("Página 1:") && sent.contains("Página 2:") && sent.contains("[Documento: REGLAS]"), "{sent}");
+        assert_eq!((draft.report.pages_sent, draft.report.pages_dropped), (2, 0));
+        assert!(draft.report.kept >= 7, "{}", draft.report.kept);
+        // there is no gate that decides whether it "is a call": a government notice goes to the model like any text
+    }
+
+    #[tokio::test]
+    async fn a_bundle_longer_than_the_budget_says_which_pages_were_left_out() {
+        let mut big = pages();
+        for n in 3..=6 {
+            big.push(PageText { number: n, text: "Texto de relleno de la convocatoria. ".repeat(60) });
+        }
+        let (context, sent, dropped) = context_of(&big, 4_000);
+        assert!(sent < big.len() && sent + dropped == big.len(), "{sent} {dropped}");
+        assert!(context.chars().count() <= 4_000);
+        assert!(context.contains("Página 1:"));
+    }
+
+    #[tokio::test]
+    async fn if_the_reading_fails_the_sheet_is_empty_and_the_report_says_why() {
+        let (_d, l) = ledger();
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        for (err, kind) in [(AiError::Auth, "auth"), (AiError::QuotaReached, "quota_reached"), (AiError::Timeout, "timeout")] {
+            let p = MockProvider::new(vec![Err(err)]);
+            let draft = read_call_sheet(&p, &scanner, &l, None, &pages()).await;
+            assert_eq!(draft.report.ai, kind);
+            assert_eq!(draft.sheet, CallSheet::default());
+        }
+        let blank = vec![PageText { number: 1, text: "   \n ".into() }];
+        let p = MockProvider::new(vec![]);
+        assert_eq!(read_call_sheet(&p, &scanner, &l, None, &blank).await.report.ai, "not_needed");
+        assert!(p.requests().is_empty());
+    }
+
+    // ---- the prompt and the schema keep in step with the lists
+
+    #[test]
+    fn the_prompt_names_every_section_and_every_kind_and_the_schema_allows_only_those() {
+        let prompt = crate::ai::prompts::system_prompt(AiTask::CallSheet);
+        for s in SECTIONS.iter().chain(DATE_KINDS.iter()).chain(LIMIT_KINDS.iter()) {
+            assert!(prompt.contains(&format!("`{s}`")), "{s} is not in the prompt");
+        }
+        assert!(prompt.contains("`doubts`") && prompt.contains("`dates`") && prompt.contains("`limits`"));
+        assert_eq!(crate::ai::prompts::CALL_SHEET_VERSION, "call_sheet.v1");
+        let v = jsonschema::validator_for(&crate::ai::prompts::schema(AiTask::CallSheet)).unwrap();
+        assert!(v.is_valid(&good()));
+        let mut bad = good();
+        bad["limits"][0]["kind"] = json!("tope");
+        assert!(!v.is_valid(&bad));
+        let mut bad = good();
+        bad["dates"][0]["kind"] = json!("deadline");
+        assert!(!v.is_valid(&bad));
+        let mut missing = good();
+        missing.as_object_mut().unwrap().remove("population");
+        assert!(!v.is_valid(&missing), "every section is required, an empty list is how it says 'nothing'");
+    }
+}

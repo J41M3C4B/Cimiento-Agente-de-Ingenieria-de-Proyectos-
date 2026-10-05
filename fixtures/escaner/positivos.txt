@@ -1,0 +1,32 @@
+# Casos que el escaner DEBE detectar. Formato: tipo | texto. Todo inventado.
+curp | Su CURP es LOPM800101MDFRZN09 y vive en la casa.
+curp | CURP: gahj150930hjcrrsa7 (minusculas)
+curp | La nina tiene la curp RAMC921215MNLNRL00.
+curp | Datos: LOPM 800101MDFRZN09 separado por espacio no cuenta, pero esta si: RAMC921215MNLNRL00
+rfc_person | RFC de la senora: LOPM800101AB3
+rfc_person | rfc personal gahj150930x12 del familiar
+rfc_company | La proveedora FCH950312K45 emitio la factura.
+voter_key | Clave de elector LPMRMN80010109H400 de la residente.
+voter_key | INE clave GRHRJS15093014M123
+phone | Llamar al 55 1234 5678 para avisar.
+phone | Telefono de la hija: (33) 3456-7890
+phone | Contacto +52 81 8765 4321
+phone | Su celular es 5512345678.
+email | Escribale a maria.lopez@example.com por favor.
+email | correo: JUAN_PEREZ@correo.mx
+clabe | Deposito a la CLABE 012180001234567899
+clabe | cuenta clabe 014180009876543213 del familiar
+card | Tarjeta 4111 1111 1111 1111
+card | pago con 5500000000000004
+nss | Numero de seguro social 42859012348
+nss | NSS 11987654321 de la senora
+person_name | La senora Rosa Hernandez Lopez vive en la habitacion 4.
+person_name | Atendemos a Juan Perez Garcia desde enero.
+person_name | La niña Camila llego en marzo.
+person_name | Doña Josefa Ramírez cumple años hoy.
+person_name | el residente Don Aurelio Martínez
+health_context | El señor Juan Pérez García padece diabetes.
+health_context | La señora de la cama 4 padece alzheimer.
+health_context | Una de las niñas tiene epilepsia y toma medicamento.
+health_context | La residente tiene diagnóstico de hipertensión.
+health_context | María López García toma medicamento para la presión.

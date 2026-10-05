@@ -1,0 +1,735 @@
+// Types that mirror what the Rust side sends (src-tauri/src/domain, service, scanner/guard).
+
+export type InstitutionKind = "elderly_home" | "children_home" | "other";
+export type DependencyLevel = "low" | "medium" | "high" | "total";
+export type Condition = "good" | "fair" | "poor" | "critical";
+
+export interface InstitutionInput {
+  name: string;
+  kind: InstitutionKind;
+  mission: string | null;
+  legal_rfc: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  legal_rep_name: string | null;
+}
+export interface PopulationGroupInput {
+  label: string;
+  age_min: number | null;
+  age_max: number | null;
+  count: number;
+  dependency_level: DependencyLevel | null;
+  notes: string | null;
+  paying_count: number | null;
+  monthly_fee_mxn: number | null;
+}
+export type ContractKind = "permanent" | "temporary" | "fees";
+export interface StaffGroupInput {
+  role: string;
+  count: number;
+  shift: string | null;
+  paid: boolean;
+  monthly_salary_mxn: number | null;
+  contract: ContractKind | null;
+  start_year: number | null;
+  notes: string | null;
+}
+export interface FacilityInput {
+  kind: string;
+  count: number;
+  condition: Condition | null;
+  accessible: boolean | null;
+  notes: string | null;
+}
+export interface IncomeSourceInput {
+  label: string;
+  annual_amount_mxn: number | null;
+}
+export interface ProfileInput {
+  institution: InstitutionInput;
+  capacity_total: number | null;
+  annual_budget_mxn: number | null;
+  notes: string | null;
+  population: PopulationGroupInput[];
+  staff: StaffGroupInput[];
+  facilities: FacilityInput[];
+  income: IncomeSourceInput[];
+}
+
+export interface ProfileIssue {
+  code: string;
+  field: string;
+  blocking: boolean;
+}
+export interface ProfileTotals {
+  population: number;
+  staff_paid: number;
+  staff_volunteer: number;
+  income_annual_mxn: number;
+  payroll_monthly_mxn: number;
+  payroll_annual_mxn: number;
+  fee_payers: number;
+  fees_monthly_mxn: number;
+  fees_annual_mxn: number;
+}
+// The roster (ADR-020): one record per staff member and per person served. Apart from the profile.
+export type Entity = "staff" | "beneficiary";
+export type FieldKind = "text" | "select" | "number" | "money" | "year" | "email" | "phone" | "yesno";
+export interface FieldOption {
+  value: string;
+  label: string;
+}
+export interface RosterField {
+  key: string;
+  title: string;
+  kind: FieldKind;
+  options: FieldOption[];
+  builtin: boolean;
+  locked_options: boolean;
+  required: boolean;
+  position: number;
+}
+export interface RosterEntry {
+  id: string;
+  data: Record<string, string>;
+}
+export interface RosterOverview {
+  fields: RosterField[];
+  entries: RosterEntry[];
+  totals: ProfileTotals;
+}
+export interface RosterChange {
+  entries: RosterEntry[];
+  totals: ProfileTotals;
+  profile: ProfileView | null;
+}
+export interface FieldInput {
+  key: string | null;
+  title: string;
+  kind: FieldKind;
+  options: string[];
+}
+
+export interface ProfileView {
+  institution_id: string;
+  version: number;
+  confirmed_at: string | null;
+  is_draft: boolean;
+  input: ProfileInput;
+  totals: ProfileTotals;
+  issues: ProfileIssue[];
+}
+
+export type Decision = "redact" | "not_personal";
+
+export interface FieldReport {
+  path: string;
+  counts: Record<string, number>;
+  blocking: boolean;
+  redacted_preview: string;
+}
+export interface QuarantineReport {
+  fields: FieldReport[];
+  counts: Record<string, number>;
+  has_blocking: boolean;
+}
+
+export type SaveProfileOutcome =
+  | { status: "saved"; profile: ProfileView }
+  | { status: "quarantine"; report: QuarantineReport }
+  | { status: "invalid"; issues: ProfileIssue[] };
+
+export interface DocumentSummary {
+  id: string;
+  kind: string;
+  display_name: string;
+  data_level: string;
+  redactions_count: number;
+  chunks: number;
+  created_at: string;
+}
+export type AddDocumentOutcome =
+  | { status: "saved"; document: DocumentSummary }
+  | { status: "quarantine"; report: QuarantineReport }
+  | { status: "rejected_roster" };
+
+export interface DeleteSummary {
+  chunks: number;
+  derived_rows: number;
+}
+
+// Calls (convocatorias): the files, the reading in the background, and what was understood of them.
+export type ReadingStatus = "waiting" | "reading" | "ready" | "partial" | "failed";
+/** What a file is inside the package of a call, as the person marked it. A package has exactly one `main`. */
+export type FileRole = "main" | "annex" | "guide" | "form" | "notice" | "other";
+export interface ReadingFile {
+  document_id: string;
+  name: string;
+  pages: number;
+  role: FileRole;
+}
+export interface ReadingRow {
+  id: string;
+  name: string;
+  /** Who gives the call and in which year, as the person wrote them. */
+  funder: string | null;
+  year: number | null;
+  status: ReadingStatus;
+  /** Why it is waiting, partial or failed (a code the screen words). */
+  note: string | null;
+  created_at: string;
+  finished_at: string | null;
+  /** When the person confirmed that this is the right call (cleared when it is read again). */
+  confirmed_at: string | null;
+  files: ReadingFile[];
+}
+export type UnreadableReason =
+  | "unsupported_type"
+  | "too_large"
+  | "damaged"
+  | "scanned"
+  | "empty"
+  | "roster"
+  | "no_files"
+  | "too_many_files"
+  | "no_main_file";
+export type NewProjectOutcome =
+  | { status: "created"; project: ProjectRow; reading: ReadingRow }
+  | { status: "quarantine"; report: QuarantineReport }
+  | { status: "unreadable"; file: string; reason: UnreadableReason };
+export interface SummaryItem {
+  text: string;
+  applies_to: string | null;
+  requirement: string | null;
+  page: number | null;
+  file: string | null;
+}
+export interface SummaryGroup {
+  key: string;
+  items: SummaryItem[];
+}
+export interface SummaryDate {
+  label: string;
+  when: string;
+  kind: string;
+  page: number | null;
+  file: string | null;
+}
+export interface SummaryAmount {
+  kind: "max_amount" | "min_amount" | "cofunding" | "admin_cap" | "modality";
+  label: string | null;
+  value: string;
+  page: number | null;
+  file: string | null;
+}
+export interface SummaryConflict {
+  field: string;
+  note: string;
+  versions: SummaryItem[];
+}
+export interface SummaryKind {
+  /** What the document calls itself, as written. */
+  words: string;
+  /** The class the code reads from those words: only describes the document. */
+  class: string;
+}
+export interface CallSummary {
+  document_kind: SummaryKind | null;
+  title: string | null;
+  funder: string | null;
+  edition: string | null;
+  objective: string | null;
+  dates: SummaryDate[];
+  amounts: SummaryAmount[];
+  groups: SummaryGroup[];
+  conflicts: SummaryConflict[];
+  doubts: string[];
+  /** Fields the documents do not say, as `section.field`. */
+  missing: string[];
+}
+export interface ReadingQuality {
+  pages: number;
+  pages_with_quotes: number;
+  quotes_verified_percent: number;
+  blocks_read: number;
+  blocks_total: number;
+}
+/** Something the person wrote about the call that the documents do not seem to say (only a heads-up). */
+export interface ReadingDifference {
+  field: "funder" | "year";
+  said: string;
+  read: string;
+}
+/** What the person reads first about a call (ADR-024): short, in plain words, built by the program. */
+export interface CardFact {
+  kind: "max_amount" | "min_amount" | "cofunding" | "admin_cap" | "duration" | "closing" | "registration" | "modalities";
+  value: string;
+  page: number | null;
+  file: string | null;
+}
+export interface CardPoint {
+  text: string;
+  applies_to: string | null;
+  page: number | null;
+  file: string | null;
+}
+export interface CardBlock {
+  key: "who_can" | "supported" | "fundable" | "not_fundable";
+  points: CardPoint[];
+  /** How many more points the detail has. */
+  more: number;
+}
+export interface CardAlert {
+  kind: "not_a_call" | "conflicts" | "missing" | "doubts";
+  count: number;
+  /** For `missing`: the first data not found, as `section.field`. */
+  fields: string[];
+}
+export interface CallCard {
+  title: string | null;
+  funder: string | null;
+  edition: string | null;
+  /** The «en pocas palabras» written with the automatic help, once checked. */
+  brief: string | null;
+  /** What stands in for it: the first sentence of what the document says the call is for. */
+  lead: string | null;
+  facts: CardFact[];
+  blocks: CardBlock[];
+  alerts: CardAlert[];
+}
+
+export interface ReadingDetail {
+  reading: ReadingRow;
+  card: CallCard | null;
+  /** The call was read and nobody has tried yet to write its «en pocas palabras». */
+  brief_pending: boolean;
+  /** The whole understanding, group by group: for looking something up, not for reading from start to end. */
+  summary: CallSummary | null;
+  quality: ReadingQuality | null;
+  differences: ReadingDifference[];
+}
+
+export interface AppError {
+  code: string;
+  message: string;
+}
+
+// ---------------------------------------------------------------- AI, projects, diagnosis
+
+export type StageName =
+  | "PROFILE"
+  | "DIAGNOSIS"
+  | "PRIORITIZATION"
+  | "CALL_SELECTION"
+  | "DRAFTING"
+  | "REVIEW"
+  | "READY";
+
+export const STAGES: StageName[] = [
+  "PROFILE",
+  "CALL_SELECTION",
+  "DIAGNOSIS",
+  "PRIORITIZATION",
+  "DRAFTING",
+  "REVIEW",
+  "READY",
+];
+
+export type AiProvider = "gemini" | "anthropic";
+
+export interface AiStatusView {
+  provider: AiProvider;
+  /** A key is saved for the active provider. */
+  has_key: boolean;
+  keys: { gemini: boolean; anthropic: boolean };
+  model_light: string;
+  model_strong: string;
+  spent_mxn: number;
+  cap_mxn: number;
+  percent: number;
+  near_cap: boolean;
+  paused: boolean;
+}
+
+/** What the AI is doing for a project: a message of the conversation, the summary, or the suggested objectives. */
+export type JobKind = "turn" | "summary" | "needs" | "brief";
+
+export interface ProjectJob {
+  running: JobKind | null;
+  /** How the last job ended; the program hands it over only once. */
+  finished: { kind: JobKind; ai: AiStatus } | null;
+}
+
+export interface AiModelsView {
+  provider: AiProvider;
+  light: string;
+  strong: string;
+  /** Thinking depth of the strong tier; empty = the service's default. */
+  effort: string;
+  known: string[];
+  strong_chain: string[];
+}
+
+export type AiStatus =
+  | "used"
+  | "not_configured"
+  | "offline"
+  | "busy"
+  | "budget_exhausted"
+  | "quota_reached"
+  | "key_rejected"
+  | "unavailable"
+  | "skipped";
+
+export interface ModelCheck {
+  model: string;
+  exists: boolean;
+  can_generate: boolean;
+}
+
+export interface AiCheckView {
+  ok: boolean;
+  models: ModelCheck[];
+  /** Why it could not be checked (same keys as `AiStatus`). */
+  problem: AiStatus | null;
+}
+
+export interface RateLimit {
+  per_minute: number;
+  tokens_per_minute: number;
+  per_day: number;
+}
+
+export interface ModelUsage {
+  provider: string;
+  model: string;
+  /** Which job the active provider gives this model, if any. */
+  tier: "light" | "strong" | null;
+  /** It is a backup of that job, not the main model. */
+  is_fallback: boolean;
+  calls_last_minute: number;
+  calls_last_day: number;
+  tokens_last_minute: number;
+  limit: RateLimit | null;
+  calls_total: number;
+  failed_total: number;
+  input_tokens: number;
+  output_tokens: number;
+  thought_tokens: number;
+  cached_tokens: number;
+  avg_latency_ms: number | null;
+  p95_latency_ms: number | null;
+  cost_mxn: number;
+}
+
+export interface TaskUsage {
+  task: string;
+  calls: number;
+  avg_latency_ms: number | null;
+  avg_input_tokens: number;
+  avg_output_tokens: number;
+  avg_thought_tokens: number;
+  cost_mxn: number;
+}
+
+export interface RecentCall {
+  at: string;
+  task: string;
+  model: string;
+  latency_ms: number | null;
+  input_tokens: number;
+  output_tokens: number;
+  thought_tokens: number;
+  ok: boolean;
+  error_kind: string | null;
+}
+
+export interface UsageReport {
+  provider: AiProvider;
+  month_spend_mxn: number;
+  cap_mxn: number;
+  models: ModelUsage[];
+  tasks: TaskUsage[];
+  recent: RecentCall[];
+}
+
+export interface ProjectRow {
+  id: string;
+  institution_id: string;
+  profile_id: string;
+  title: string;
+  initial_request: string | null;
+  stage: StageName;
+  needs_review: boolean;
+  created_at: string;
+  /** How it began: from a call, or from an everyday need of the institution (switched off for now). */
+  kind: "call" | "internal";
+  /** The reading of the call this project was born from. */
+  call_reading_id: string | null;
+  /** The color of its folder; `null` until the person picks one. */
+  color: ProjectColor | null;
+  /** Who gives the support; `null` if it was not said. */
+  donor_kind: DonorKind | null;
+}
+export type DonorKind = "institutional" | "private" | "individual";
+export type ProjectColor = "blue" | "violet" | "teal" | "green" | "amber" | "orange" | "pink" | "red";
+
+export interface SummaryJson {
+  problem_statement: string;
+  affected: { group: string; count: number | null; description: string };
+  current_consequences: string[];
+  root_causes: string[];
+  reframed_need: string;
+  alternatives: { title: string; pros: string[]; cons: string[] }[];
+  suggested_indicators: string[];
+  open_questions: string[];
+}
+
+export interface StoredSummary {
+  summary: SummaryJson;
+  origin: string;
+  confirmed_at: string | null;
+}
+
+export type ConversationPhase = "needs_opening" | "awaiting_answer" | "awaiting_ai" | "root_proposed" | "closed";
+export type TurnKind = "opening" | "why" | "root_proposal" | "root_reply";
+export interface TurnView {
+  turn: number;
+  role: "assistant" | "person";
+  kind: TurnKind;
+  /** Which «why» the assistant asks or the person answers. */
+  level: number | null;
+  text: string;
+  /** Quick replies the assistant offered. */
+  options: string[];
+}
+/** The guided conversation of the diagnosis and, once it ends, the summary (ADR-017). */
+export interface ConversationView {
+  project: ProjectRow;
+  call: { name: string; funder: string | null; year: number | null } | null;
+  turns: TurnView[];
+  phase: ConversationPhase;
+  /** The «why» being asked or answered now (0 before the first). */
+  why_level: number;
+  max_whys: number;
+  /** How well the idea fits what the call funds, as judged when the person answered the opening. */
+  fit: { fit: "fits" | "partial" | "mismatch"; note: string } | null;
+  root: { text: string; confirmed: boolean } | null;
+  summary: StoredSummary | null;
+  unsupported_figures: string[];
+  /** Started with the seven fixed questions of the earlier method: it has no conversation. */
+  legacy: boolean;
+}
+
+export type CreateProjectOutcome =
+  | { status: "created"; project: ProjectRow }
+  | { status: "quarantine"; report: QuarantineReport };
+
+export type AnswerOutcome =
+  | { status: "saved"; view: ConversationView; ai: AiStatus }
+  | { status: "quarantine"; report: QuarantineReport };
+
+export interface SummaryOutcome {
+  view: ConversationView;
+  ai: AiStatus;
+}
+
+export interface SummaryEdit {
+  problem_statement: string;
+  reframed_need: string;
+  affected_description: string;
+  current_consequences: string[];
+  root_causes: string[];
+  suggested_indicators: string[];
+  open_questions: string[];
+}
+
+export type EditOutcome =
+  | { status: "saved"; view: ConversationView }
+  | { status: "quarantine"; report: QuarantineReport };
+
+export interface Scores {
+  beneficiaries: number;
+  severity: number;
+  mission: number;
+  feasibility: number;
+  sustainability: number;
+}
+
+export interface NeedRow {
+  id: string;
+  title: string;
+  description: string | null;
+  scores: Scores | null;
+  total_score: number | null;
+  selected: boolean;
+  origin: string;
+  confirmed: boolean;
+}
+
+export interface NeedsView {
+  project: ProjectRow;
+  needs: NeedRow[];
+  ranking: string[];
+  beneficiaries_suggestion: number | null;
+}
+
+export type AddNeedOutcome =
+  | { status: "saved"; view: NeedsView }
+  | { status: "quarantine"; report: QuarantineReport };
+
+// ---------------------------------------------------------------- drafting, review and the guide (ADR-018)
+
+export interface Sourced<T> {
+  value: T;
+  page: number | null;
+  file: string | null;
+}
+export interface CallLine {
+  text: string;
+  applies_to: string | null;
+  page: number | null;
+  file: string | null;
+}
+/** What the call asks of a project, read from its confirmed reading. What it does not say is null or empty. */
+export interface CallRequirements {
+  max_amount_mxn: Sourced<number> | null;
+  min_amount_mxn: Sourced<number> | null;
+  foreign_currency: boolean;
+  cofunding_percent: Sourced<number> | null;
+  admin_cap_percent: Sourced<number> | null;
+  max_duration_months: Sourced<number> | null;
+  closing_date: Sourced<string> | null;
+  required_docs: CallLine[];
+  conditional_docs: CallLine[];
+  optional_docs: CallLine[];
+  formats: CallLine[];
+  evaluation_criteria: CallLine[];
+  project_requirements: CallLine[];
+  fundable: CallLine[];
+  not_fundable: CallLine[];
+  indicators: CallLine[];
+  how_to_deliver: CallLine[];
+  contact: CallLine[];
+}
+
+export type SectionKind = "data" | "text" | "budget" | "schedule";
+export type SectionStatus = "empty" | "draft_ai" | "draft_user" | "confirmed" | "needs_review";
+export interface SectionView {
+  key: string;
+  title: string;
+  guidance: string;
+  kind: SectionKind;
+  required: boolean;
+  source: "base" | "call";
+  content: string;
+  status: SectionStatus;
+  /** What the AI says is missing in its text. */
+  open_points: string[];
+  /** Numbers in the AI's text that nobody gave. */
+  unsupported_figures: string[];
+  /** What the section asks, in plain words, as the assistant explained it when the drafting began. */
+  plain: string | null;
+}
+
+export type Funder = "requested" | "institution" | "other";
+export interface BudgetItemView {
+  id: string;
+  category: string;
+  description: string;
+  quantity: number;
+  unit: string | null;
+  unit_price_mxn: number;
+  vat_included: boolean;
+  funded_by: Funder;
+  administrative: boolean;
+  /** `ai_assumption` while it is the assistant's proposal; `user` once the person touched it. */
+  origin: string;
+  line: { subtotal: number; vat: number; total: number };
+}
+export interface BudgetTotals {
+  subtotal: number;
+  vat: number;
+  total: number;
+  requested: number;
+  institution: number;
+  other: number;
+  administrative_requested: number;
+  counterpart_percent: number;
+  administrative_percent: number;
+}
+export interface ActivityView {
+  id: string;
+  title: string;
+  start_month: number;
+  end_month: number;
+  origin: string;
+}
+export interface DraftingView {
+  project: ProjectRow;
+  asks_for_proposal: boolean;
+  asks_confirmed: boolean;
+  requirements: CallRequirements;
+  sections: SectionView[];
+  budget: { items: BudgetItemView[]; totals: BudgetTotals; confirmed: boolean; missing_prices: number };
+  schedule: { activities: ActivityView[]; duration_months: number; confirmed: boolean };
+  objective: string | null;
+  /** The assistant already prepared the draft (explanations, budget lines and schedule). */
+  plan_ready: boolean;
+}
+export type DraftMode = "full" | "guide";
+export interface BudgetItemInput {
+  id: string | null;
+  category: string;
+  description: string;
+  quantity: number;
+  unit: string | null;
+  unit_price_mxn: number;
+  vat_included: boolean;
+  funded_by: Funder;
+  administrative: boolean;
+}
+export type DraftEditOutcome =
+  | { status: "saved"; view: DraftingView }
+  | { status: "quarantine"; report: QuarantineReport };
+export interface DraftOutcome {
+  view: DraftingView;
+  ai: AiStatus;
+}
+
+export type CheckLevel = "error" | "warn" | "info";
+export interface ReviewCheck {
+  code: string;
+  level: CheckLevel;
+  args: string[];
+  /** What fixes it: a section key, or `budget`, `schedule`, `call`. */
+  target: string | null;
+  /** The check in plain Spanish. */
+  text: string;
+}
+export interface ReviewView {
+  project: ProjectRow;
+  report: { checks: ReviewCheck[]; errors: number; warnings: number };
+}
+export interface Exported {
+  file_name: string;
+  path: string;
+}
+
+// ---------------------------------------------------------------- security: PIN, backup, scan (ADR-019)
+
+export type PinCheck = { status: "ok" } | { status: "wrong" } | { status: "locked"; wait_secs: number };
+export interface BackupFile {
+  file_name: string;
+  path: string;
+}
+export interface ScanTable {
+  table: string;
+  texts: number;
+  findings: number;
+}
+export interface ScanSummary {
+  tables: ScanTable[];
+  texts: number;
+  findings: number;
+}

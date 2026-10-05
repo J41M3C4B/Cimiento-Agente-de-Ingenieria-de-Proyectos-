@@ -1,0 +1,2157 @@
+//! Deterministic extraction of a funding call (convocatoria) into structured JSON.
+//! Rules first: the AI is only for what no rule can settle, and a person confirms it
+//! (docs/10-metodologia-conversacion.md §13, ADR-010).
+//!
+//! Every extracted fact carries the page and the sentence it came from, so a person can check
+//! it. What the rules cannot settle (tables read as text, values that live outside the
+//! document) is listed in `needs_review` and `external`, never guessed.
+//!
+//! Scope of this first version: PDF with a text layer, Spanish. Scanned PDFs are reported
+//! (`needs_ocr`); forms and linked attachments are listed (`links`) but not fetched.
+
+// Not wired to a command yet (Phase 3): tests and the measurement run use it.
+#![allow(dead_code)]
+
+use super::pdf::{read_pdf, PdfError};
+use regex::Regex;
+use serde::Serialize;
+use serde_json::json;
+use std::path::Path;
+use std::sync::OnceLock;
+
+macro_rules! re {
+    ($p:expr) => {{
+        static R: OnceLock<Regex> = OnceLock::new();
+        R.get_or_init(|| Regex::new($p).expect("valid regex"))
+    }};
+}
+
+pub const SCHEMA: &str = "call_extraction.v1";
+
+const MONTHS: [(&str, u32); 13] = [
+    ("enero", 1), ("febrero", 2), ("marzo", 3), ("abril", 4), ("mayo", 5), ("junio", 6), ("julio", 7),
+    ("agosto", 8), ("septiembre", 9), ("setiembre", 9), ("octubre", 10), ("noviembre", 11), ("diciembre", 12),
+];
+const MONTH_ALT: &str = "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre";
+
+// ------------------------------------------------------------------ types
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PageText {
+    pub number: usize,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Evidence {
+    pub page: usize,
+    pub snippet: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Limit {
+    /// `max_duration_months`, `max_admin_percent`, `min_operating_years`, `max_amount`, `min_amount`.
+    pub kind: &'static str,
+    /// The first value found; see `others` and `conditional` before trusting it as the only one.
+    pub value: f64,
+    /// Other distinct values the document gives for the same limit (a call may set 6 months for
+    /// one category and 12 for another).
+    pub others: Vec<f64>,
+    /// The sentence ties the value to a category or a case ("en el caso de la Categoría 2…").
+    pub conditional: bool,
+    pub evidence: Evidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LegalFigures {
+    pub values: Vec<String>,
+    pub evidence: Evidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DateItem {
+    /// `application_window`, `info_session`, `registration`, `disbursement` or `other`.
+    pub kind: &'static str,
+    /// `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `YYYY-MM`.
+    pub start: String,
+    pub end: Option<String>,
+    /// `day`, `datetime` or `month`.
+    pub precision: &'static str,
+    /// The text gives no year; the document's own year was used.
+    pub year_inferred: bool,
+    pub evidence: Evidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TextItem {
+    pub text: String,
+    pub evidence: Evidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DocumentItem {
+    pub number: Option<u32>,
+    pub text: String,
+    /// The line is only the document name; false when name and description came glued together.
+    pub clean_name: bool,
+    /// `eligibility` (listed under the participation requirements) or `annex` (numbered matrix).
+    pub source: &'static str,
+    pub evidence: Evidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Concept {
+    /// `inversion`, `operativo`, `administrativo` or `otro`.
+    pub group: &'static str,
+    pub text: String,
+    pub page: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Link {
+    pub url: String,
+    /// `form`, `download`, `session`, `platform`, `contact` or `other`.
+    pub kind: &'static str,
+    pub page: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct IndicatorItem {
+    pub text: String,
+    /// `acceso_derechos`, `trabajo_emprendimiento` or unknown.
+    pub agenda: Option<&'static str>,
+    pub page: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct External {
+    pub name: &'static str,
+    pub lives_in: &'static str,
+    pub evidence: Evidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Review {
+    pub reason: String,
+    pub page: usize,
+    pub snippet: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PageTags {
+    pub page: usize,
+    pub tags: Vec<&'static str>,
+}
+
+/// A requirement in the shape of the `requirement` table, to be confirmed by a person.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RequirementDraft {
+    pub code: String,
+    pub text: String,
+    /// One of the kinds in docs/05-modelo-datos.md, plus `max_admin_percent`,
+    /// `min_operating_years` and `allowed_legal_figure` (proposed).
+    pub kind: &'static str,
+    pub value: serde_json::Value,
+    pub blocking: bool,
+    pub origin: &'static str,
+    pub source: Evidence,
+}
+
+/// What kind of document a PDF is, so each file goes to the right pipeline.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DocKind {
+    /// A call for donations or grants: limits, dates, requirements, funded items.
+    FundingCall,
+    /// The list of fundable concepts (rubros) on its own.
+    RubrosAnnex,
+    /// A table of indicators on its own.
+    Indicators,
+    /// A how-to guide for filling in information: material for the AI to read by section.
+    Guide,
+    /// An official notice that is not a funding call (for example an election of council members).
+    GovernanceNotice,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CallExtraction {
+    pub schema: &'static str,
+    pub pages: usize,
+    pub doc_kind: DocKind,
+    pub doc_kind_reasons: Vec<String>,
+    /// `(page, repeats_page)`: the PDF carries the same text again on a later page.
+    pub duplicate_pages: Vec<(usize, usize)>,
+    pub pages_without_text: Vec<usize>,
+    /// Most pages have no text layer: it needs OCR before anything can be extracted.
+    pub needs_ocr: bool,
+    pub low_quality_pages: Vec<usize>,
+    /// Pages where wrongly decoded letters (`æ` for `ñ`, ...) were repaired.
+    pub repaired_pages: Vec<usize>,
+    pub title: Option<String>,
+    pub year: Option<u32>,
+    pub limits: Vec<Limit>,
+    pub legal_figures: Option<LegalFigures>,
+    pub dates: Vec<DateItem>,
+    pub eligibility: Vec<TextItem>,
+    pub documents: Vec<DocumentItem>,
+    pub funded_concepts: Vec<Concept>,
+    pub links: Vec<Link>,
+    pub emails: Vec<String>,
+    pub indicators: Vec<IndicatorItem>,
+    pub external: Vec<External>,
+    pub page_tags: Vec<PageTags>,
+    pub needs_review: Vec<Review>,
+    pub requirements: Vec<RequirementDraft>,
+}
+
+// ------------------------------------------------------------------ reading text
+
+/// Reads pages written as `=== PAGINA n ... ===` blocks (the format the dump tests write).
+pub fn parse_dump(dump: &str) -> Vec<PageText> {
+    let marker = re!(r"(?m)^=== PAGINA (\d+)[^\n]*===[ \t]*$");
+    let marks: Vec<(usize, usize)> = marker
+        .captures_iter(dump)
+        .map(|c| (c.get(0).unwrap().end(), c[1].parse().unwrap_or(0)))
+        .collect();
+    let starts: Vec<usize> = marker.find_iter(dump).map(|m| m.start()).collect();
+    marks
+        .iter()
+        .enumerate()
+        .map(|(i, (end, number))| {
+            let next = starts.get(i + 1).copied().unwrap_or(dump.len());
+            PageText { number: *number, text: dump[*end..next].trim_matches('\n').to_string() }
+        })
+        .collect()
+}
+
+/// Repairs the letters some PDF fonts decode wrongly. In Spanish text `æ`, `Æ`, `Ø`, `œ` and
+/// `˝` never appear, so when they sit inside words they are the accented letters of a font with
+/// a custom encoding: `aæo` is `año`, `rØgimen` is `régimen`.
+fn repair_mojibake(s: &str) -> Option<String> {
+    if !re!(r"\p{L}[æÆØœ]\p{L}|˝\p{L}").is_match(s) {
+        return None;
+    }
+    Some(
+        s.chars()
+            .map(|c| match c {
+                'æ' => 'ñ',
+                'Æ' => 'á',
+                'Ø' => 'é',
+                'œ' => 'ú',
+                '˝' => 'Í',
+                other => other,
+            })
+            .collect(),
+    )
+}
+
+/// Normalizes text for matching: ligatures, odd spaces, broken URLs, wrongly decoded letters.
+/// Returns the text and whether letters were repaired.
+pub fn clean_text_report(raw: &str) -> (String, bool) {
+    let raw = raw.replace("\r\n", "\n");
+    let mut s = String::with_capacity(raw.len());
+    for ch in raw.chars() {
+        match ch {
+            '\u{FB00}' => s.push_str("ff"),
+            '\u{FB01}' => s.push_str("fi"),
+            '\u{FB02}' => s.push_str("fl"),
+            '\u{FB03}' => s.push_str("ffi"),
+            '\u{FB04}' => s.push_str("ffl"),
+            '\u{FB05}' | '\u{FB06}' => s.push_str("st"),
+            '\u{00A0}' | '\u{2007}' | '\u{202F}' => s.push(' '),
+            '\u{00AD}' | '\u{200B}' | '\u{FEFF}' => {}
+            c => s.push(c),
+        }
+    }
+    // some extractors leave the ligature as a literal "/f_i"
+    let s = s.replace("/f_i", "fi").replace("/f_l", "fl").replace("/f_f", "ff");
+    let (s, repaired) = match repair_mojibake(&s) {
+        Some(fixed) => (fixed, true),
+        None => (s, false),
+    };
+    let s = s.replace("https:/ /", "https://").replace("http:/ /", "http://");
+    let s = re!(r"[ \t]+").replace_all(&s, " ").to_string();
+    let s = re!(r" *\n *").replace_all(&s, "\n").to_string();
+    let s = re!(r"\n{3,}").replace_all(&s, "\n\n").to_string();
+    (s.trim().to_string(), repaired)
+}
+
+pub fn clean_text(raw: &str) -> String {
+    clean_text_report(raw).0
+}
+
+/// A line that is a URL cut by the page width continues on the next line.
+fn join_wrapped_urls(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut out: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < lines.len() {
+        let mut line = lines[i].to_string();
+        if line.contains("http") {
+            while i + 1 < lines.len() {
+                let next = lines[i + 1].trim();
+                let url_like = !next.is_empty()
+                    && !next.contains(' ')
+                    && next.chars().any(|c| c.is_ascii_digit())
+                    && next.chars().any(|c| c == '-' || c == '/' || c == '=')
+                    && re!(r"^[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+$").is_match(next);
+                let last_token_is_url = line.split_whitespace().last().is_some_and(|t| t.starts_with("http"));
+                if url_like && last_token_is_url {
+                    line.push_str(next);
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+        out.push(line);
+        i += 1;
+    }
+    out.join("\n")
+}
+
+fn flat(s: &str) -> String {
+    re!(r"\s+").replace_all(s, " ").trim().to_string()
+}
+
+/// The sentence-sized context around a match, on character boundaries.
+fn clip(flat: &str, start: usize, end: usize) -> String {
+    let mut a = start.saturating_sub(70);
+    while a > 0 && !flat.is_char_boundary(a) {
+        a -= 1;
+    }
+    let mut b = (end + 70).min(flat.len());
+    while b < flat.len() && !flat.is_char_boundary(b) {
+        b += 1;
+    }
+    flat[a..b].trim().to_string()
+}
+
+fn strip_accents(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            'á' | 'Á' => 'a',
+            'é' | 'É' => 'e',
+            'í' | 'Í' => 'i',
+            'ó' | 'Ó' => 'o',
+            'ú' | 'Ú' | 'ü' => 'u',
+            other => other.to_ascii_lowercase(),
+        })
+        .collect()
+}
+
+/// "tres" -> 3, "12" -> 12.
+fn number_word(w: &str) -> Option<f64> {
+    if let Ok(n) = w.replace(',', ".").parse::<f64>() {
+        return Some(n);
+    }
+    const WORDS: [&str; 21] = [
+        "cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce", "trece",
+        "catorce", "quince", "dieciseis", "diecisiete", "dieciocho", "diecinueve", "veinte",
+    ];
+    let w = strip_accents(w);
+    WORDS.iter().position(|x| *x == w).map(|i| i as f64)
+}
+
+fn month_number(name: &str) -> Option<u32> {
+    let n = name.to_lowercase();
+    MONTHS.iter().find(|(m, _)| *m == n).map(|(_, v)| *v)
+}
+
+#[derive(Clone)]
+struct FlatPage {
+    number: usize,
+    /// Cleaned text with its line breaks (for lists and tables).
+    clean: String,
+    /// The same text as one line (for sentences that wrap).
+    flat: String,
+}
+
+// ------------------------------------------------------------------ limits
+
+/// The text just before a match, on character boundaries.
+fn before(flat: &str, start: usize, chars: usize) -> &str {
+    let mut a = start.saturating_sub(chars);
+    while a > 0 && !flat.is_char_boundary(a) {
+        a -= 1;
+    }
+    &flat[a..start]
+}
+
+fn find_limits(pages: &[FlatPage]) -> Vec<Limit> {
+    let mut out: Vec<Limit> = Vec::new();
+    // A document can state the same limit more than once, with different values for different
+    // categories. The first is kept as `value`; the rest go to `others`, and a value tied to a
+    // category or a case is marked `conditional`, so it is never presented as the only one.
+    let mut push = |kind: &'static str, value: f64, page: &FlatPage, start: usize, end: usize| {
+        // only the sentence the value is in: a period after a lowercase letter ends it, but the
+        // period of "Categoría 2. Educación" (after a number) does not
+        let window = before(&page.flat, start, 140);
+        let window = match re!(r"[\p{Ll}%)]\.\s").find_iter(window).last() {
+            Some(m) => &window[m.end()..],
+            None => window,
+        };
+        let conditional = re!(r"(?i)categor[ií]a|en\s+el\s+caso\s+de|seg[uú]n\s+el\s+tipo|para\s+los\s+proyectos\s+de")
+            .is_match(&format!("{window}{}", &page.flat[start..end]));
+        if let Some(l) = out.iter_mut().find(|l| l.kind == kind) {
+            if (l.value - value).abs() > f64::EPSILON && !l.others.contains(&value) {
+                l.others.push(value);
+            }
+            l.conditional |= conditional;
+        } else {
+            out.push(Limit { kind, value, others: Vec::new(), conditional, evidence: Evidence { page: page.number, snippet: clip(&page.flat, start, end) } });
+        }
+    };
+    for p in pages {
+        // "Máximo 12 meses", "duración máxima de hasta 12 meses", "hasta 12 meses"
+        for c in re!(r"(?i)(?:m[aá]xim[oa]|hasta)\s+(?:de\s+)?(?:hasta\s+)?(\d{1,3})\s+meses").captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            push("max_duration_months", c[1].parse().unwrap_or(0.0), p, m.start(), m.end());
+        }
+        let admin = re!(
+            r"(?i)gastos\s+administrativos[^.]{0,260}?(?:no\s+(?:podr[aá]n|deber[aá]n|pueden)\s+(?:superar|exceder|rebasar)|m[aá]ximo(?:\s+de)?|hasta)\s+(?:el\s+)?(\d{1,2}(?:[.,]\d+)?)\s*%"
+        );
+        if let Some(c) = admin.captures(&p.flat) {
+            let m = c.get(0).unwrap();
+            push("max_admin_percent", number_word(&c[1]).unwrap_or(0.0), p, m.start(), m.end());
+        }
+        let years = re!(
+            r"(?i)al\s+menos\s+(\d{1,2}|[a-záéíóú]+)\s+a[nñ]os\s+de\s+(?:operaci[oó]n|experiencia|existencia|constituci[oó]n)"
+        );
+        if let Some(c) = years.captures(&p.flat) {
+            if let Some(v) = number_word(&c[1]) {
+                let m = c.get(0).unwrap();
+                push("min_operating_years", v, p, m.start(), m.end());
+            }
+        }
+        // amounts: "monto máximo de $500,000", "hasta $200,000"
+        let amount = re!(r"(?i)(m[aá]ximo|m[ií]nimo|hasta)[^$.]{0,40}?\$\s?(\d[\d,.]*\d)");
+        for c in amount.captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            let digits = c[2].replace(',', "");
+            let Ok(v) = digits.parse::<f64>() else { continue };
+            let kind = if c[1].eq_ignore_ascii_case("mínimo") || c[1].eq_ignore_ascii_case("minimo") { "min_amount" } else { "max_amount" };
+            push(kind, v, p, m.start(), m.end());
+        }
+    }
+    out
+}
+
+fn find_legal_figures(pages: &[FlatPage]) -> Option<LegalFigures> {
+    let re = re!(r"(?i)sin\s+fines\s+de\s+lucro\s*\(([A-Za-z.,\s]+)\)");
+    for p in pages {
+        if let Some(c) = re.captures(&p.flat) {
+            // legal figures are written as capital acronyms (AC, IAP); a word such as "otras" is not one
+            let values: Vec<String> = c[1]
+                .split(',')
+                .map(|t| t.replace('.', "").trim().to_string())
+                .filter(|t| (2..=5).contains(&t.chars().count()) && t.chars().all(|ch| ch.is_uppercase()))
+                .collect();
+            if !values.is_empty() {
+                let m = c.get(0).unwrap();
+                return Some(LegalFigures { values, evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) } });
+            }
+        }
+    }
+    None
+}
+
+// ------------------------------------------------------------------ dates
+
+fn nearest_kind(flat: &str, before_pos: usize) -> &'static str {
+    let window = before(flat, before_pos, 320).to_lowercase();
+    let groups: [(&'static str, &[&str]); 4] = [
+        ("application_window", &["formulario", "postulaci"]),
+        ("info_session", &["sesi"]),
+        ("disbursement", &["entrega de recursos", "entrega del donativo", "entrega"]),
+        ("registration", &["registro"]),
+    ];
+    groups
+        .iter()
+        .filter_map(|(kind, words)| words.iter().filter_map(|w| window.rfind(w)).max().map(|pos| (pos, *kind)))
+        .max_by_key(|(pos, _)| *pos)
+        .map(|(_, kind)| kind)
+        .unwrap_or("other")
+}
+
+fn find_dates(pages: &[FlatPage], doc_year: Option<u32>) -> Vec<DateItem> {
+    find_dates_with(pages, doc_year, false)
+}
+
+/// `loose` also reads a day and a month with no year and no time ("15 Julio"). On a whole page
+/// that is too loose ("el 10 abril es feriado"), but on a line a model has already said holds a
+/// date it is what the line says.
+fn find_dates_with(pages: &[FlatPage], doc_year: Option<u32>, loose: bool) -> Vec<DateItem> {
+    let mut out: Vec<DateItem> = Vec::new();
+    for p in pages {
+        let mut taken: Vec<(usize, usize)> = Vec::new();
+        let free = |taken: &Vec<(usize, usize)>, s: usize, e: usize| !taken.iter().any(|(a, b)| s < *b && e > *a);
+
+        let range = Regex::new(&format!(r"(?i)del\s+(\d{{1,2}})\s+al\s+(\d{{1,2}})\s+de\s+({MONTH_ALT})\s+(?:de\s+)?(\d{{4}})")).unwrap();
+        for c in range.captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            let (Some(mo), Ok(y), Ok(d1), Ok(d2)) = (month_number(&c[3]), c[4].parse::<u32>(), c[1].parse::<u32>(), c[2].parse::<u32>()) else { continue };
+            taken.push((m.start(), m.end()));
+            out.push(DateItem {
+                kind: nearest_kind(&p.flat, m.start()),
+                start: format!("{y:04}-{mo:02}-{d1:02}"),
+                end: Some(format!("{y:04}-{mo:02}-{d2:02}")),
+                precision: "day",
+                year_inferred: false,
+                evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) },
+            });
+        }
+
+        // Forms with no year or no "de": "19 MAYO-6 JUNIO", "15-24 SEPTIEMBRE", "A PARTIR DEL 23 DE
+        // JUNIO". The same funder writes dates differently from one year to the next. When the text
+        // gives no year, the document's own is used and the date is flagged.
+        let cross = Regex::new(&format!(
+            r"(?i)\b(\d{{1,2}})\s+(?:de\s+)?({MONTH_ALT})\s*[-–]\s*(\d{{1,2}})\s+(?:de\s+)?({MONTH_ALT})(?:\s+(?:de\s+)?(\d{{4}}))?"
+        ))
+        .unwrap();
+        for c in cross.captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            if !free(&taken, m.start(), m.end()) {
+                continue;
+            }
+            let (Some(m1), Some(m2), Ok(d1), Ok(d2)) = (month_number(&c[2]), month_number(&c[4]), c[1].parse::<u32>(), c[3].parse::<u32>()) else { continue };
+            let (y, inferred) = match (c.get(5).and_then(|y| y.as_str().parse::<u32>().ok()), doc_year) {
+                (Some(y), _) => (y, false),
+                (None, Some(y)) => (y, true),
+                _ => continue,
+            };
+            taken.push((m.start(), m.end()));
+            out.push(DateItem {
+                kind: nearest_kind(&p.flat, m.start()),
+                start: format!("{y:04}-{m1:02}-{d1:02}"),
+                end: Some(format!("{y:04}-{m2:02}-{d2:02}")),
+                precision: "day",
+                year_inferred: inferred,
+                evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) },
+            });
+        }
+        let same_month = Regex::new(&format!(r"(?i)\b(\d{{1,2}})\s*[-–]\s*(\d{{1,2}})\s+(?:de\s+)?({MONTH_ALT})(?:\s+(?:de\s+)?(\d{{4}}))?")).unwrap();
+        for c in same_month.captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            if !free(&taken, m.start(), m.end()) {
+                continue;
+            }
+            let (Some(mo), Ok(d1), Ok(d2)) = (month_number(&c[3]), c[1].parse::<u32>(), c[2].parse::<u32>()) else { continue };
+            let (y, inferred) = match (c.get(4).and_then(|y| y.as_str().parse::<u32>().ok()), doc_year) {
+                (Some(y), _) => (y, false),
+                (None, Some(y)) => (y, true),
+                _ => continue,
+            };
+            taken.push((m.start(), m.end()));
+            out.push(DateItem {
+                kind: nearest_kind(&p.flat, m.start()),
+                start: format!("{y:04}-{mo:02}-{d1:02}"),
+                end: Some(format!("{y:04}-{mo:02}-{d2:02}")),
+                precision: "day",
+                year_inferred: inferred,
+                evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) },
+            });
+        }
+        // a calendar written as the month and then the days: "Abril 01 al 22"
+        let month_first = Regex::new(&format!(r"(?i)\b({MONTH_ALT})\s+(\d{{1,2}})\s+al\s+(\d{{1,2}})\b")).unwrap();
+        for c in month_first.captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            if !free(&taken, m.start(), m.end()) {
+                continue;
+            }
+            let (Some(mo), Ok(d1), Ok(d2), Some(y)) = (month_number(&c[1]), c[2].parse::<u32>(), c[3].parse::<u32>(), doc_year) else { continue };
+            taken.push((m.start(), m.end()));
+            out.push(DateItem {
+                kind: nearest_kind(&p.flat, m.start()),
+                start: format!("{y:04}-{mo:02}-{d1:02}"),
+                end: Some(format!("{y:04}-{mo:02}-{d2:02}")),
+                precision: "day",
+                year_inferred: true,
+                evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) },
+            });
+        }
+        let from_day = Regex::new(&format!(r"(?i)a\s+partir\s+del?\s+(\d{{1,2}})\s+de\s+({MONTH_ALT})(?:\s+(?:de\s+)?(\d{{4}}))?")).unwrap();
+        for c in from_day.captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            if !free(&taken, m.start(), m.end()) {
+                continue;
+            }
+            let (Some(mo), Ok(d)) = (month_number(&c[2]), c[1].parse::<u32>()) else { continue };
+            let (y, inferred) = match (c.get(3).and_then(|y| y.as_str().parse::<u32>().ok()), doc_year) {
+                (Some(y), _) => (y, false),
+                (None, Some(y)) => (y, true),
+                _ => continue,
+            };
+            taken.push((m.start(), m.end()));
+            out.push(DateItem {
+                kind: nearest_kind(&p.flat, m.start()),
+                start: format!("{y:04}-{mo:02}-{d:02}"),
+                end: None,
+                precision: "day",
+                year_inferred: inferred,
+                evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) },
+            });
+        }
+
+        // A time follows as "12:30 p. m.", "11:00 hrs" or "a las 11:00 hrs": the 12-hour form carries
+        // a/p, the others are 24-hour.
+        let single = Regex::new(&format!(
+            r"(?i)\b(\d{{1,2}})\s+(?:de\s+)?({MONTH_ALT})\s+(?:de\s+)?(\d{{4}})(?:,?\s+(?:a\s+las\s+)?(\d{{1,2}}):(\d{{2}})\s*(?:([ap])\s*\.?\s*m\.?|hrs?\.?|horas|h\b)?)?"
+        ))
+        .unwrap();
+        for c in single.captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            if !free(&taken, m.start(), m.end()) {
+                continue;
+            }
+            let (Some(mo), Ok(y), Ok(d)) = (month_number(&c[2]), c[3].parse::<u32>(), c[1].parse::<u32>()) else { continue };
+            taken.push((m.start(), m.end()));
+            let (start, precision) = match (c.get(4), c.get(5), c.get(6)) {
+                (Some(h), Some(min), Some(ap)) => {
+                    let mut hour: u32 = h.as_str().parse().unwrap_or(0) % 12;
+                    if ap.as_str().eq_ignore_ascii_case("p") {
+                        hour += 12;
+                    }
+                    (format!("{y:04}-{mo:02}-{d:02}T{hour:02}:{}", min.as_str()), "datetime")
+                }
+                (Some(h), Some(min), None) if h.as_str().parse::<u32>().is_ok_and(|h| h < 24) && min.as_str().parse::<u32>().is_ok_and(|m| m < 60) => {
+                    (format!("{y:04}-{mo:02}-{d:02}T{:02}:{}", h.as_str().parse::<u32>().unwrap_or(0), min.as_str()), "datetime")
+                }
+                _ => (format!("{y:04}-{mo:02}-{d:02}"), "day"),
+            };
+            out.push(DateItem {
+                kind: nearest_kind(&p.flat, m.start()),
+                start,
+                end: None,
+                precision,
+                year_inferred: false,
+                evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) },
+            });
+        }
+
+        // "el 10 abril a las 11:00 hrs": a day and a month with a time but no year (a session). The
+        // document's year is used and flagged. Without the time, "10 abril" alone is too loose to read.
+        let no_year = Regex::new(&format!(r"(?i)\b(\d{{1,2}})\s+(?:de\s+)?({MONTH_ALT})\b,?\s+(?:a\s+las\s+)?(\d{{1,2}}):(\d{{2}})\s*(?:hrs?\.?|horas|h\b|([ap])\s*\.?\s*m\.?)")).unwrap();
+        for c in no_year.captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            if !free(&taken, m.start(), m.end()) {
+                continue;
+            }
+            let (Some(mo), Some(y), Ok(d), Ok(h), Ok(min)) = (month_number(&c[2]), doc_year, c[1].parse::<u32>(), c[3].parse::<u32>(), c[4].parse::<u32>()) else { continue };
+            if h > 23 || min > 59 {
+                continue;
+            }
+            let hour = match c.get(5) {
+                Some(ap) if ap.as_str().eq_ignore_ascii_case("p") => h % 12 + 12,
+                Some(_) => h % 12,
+                None => h,
+            };
+            taken.push((m.start(), m.end()));
+            out.push(DateItem {
+                kind: nearest_kind(&p.flat, m.start()),
+                start: format!("{y:04}-{mo:02}-{d:02}T{hour:02}:{min:02}"),
+                end: None,
+                precision: "datetime",
+                year_inferred: true,
+                evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) },
+            });
+        }
+
+        if loose {
+            let day_month = Regex::new(&format!(r"(?i)\b(\d{{1,2}})\s+(?:de\s+)?({MONTH_ALT})\b")).unwrap();
+            for c in day_month.captures_iter(&p.flat) {
+                let m = c.get(0).unwrap();
+                if !free(&taken, m.start(), m.end()) {
+                    continue;
+                }
+                let (Some(mo), Some(y), Ok(d)) = (month_number(&c[2]), doc_year, c[1].parse::<u32>()) else { continue };
+                if !(1..=31).contains(&d) {
+                    continue;
+                }
+                taken.push((m.start(), m.end()));
+                out.push(DateItem {
+                    kind: nearest_kind(&p.flat, m.start()),
+                    start: format!("{y:04}-{mo:02}-{d:02}"),
+                    end: None,
+                    precision: "day",
+                    year_inferred: true,
+                    evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) },
+                });
+            }
+        }
+
+        // "A PARTIR DE JULIO": a month with no year; the document's year is used and flagged
+        let from_month = Regex::new(&format!(r"(?i)a\s+partir\s+de\s+({MONTH_ALT})\b")).unwrap();
+        for c in from_month.captures_iter(&p.flat) {
+            let m = c.get(0).unwrap();
+            let (Some(mo), Some(y)) = (month_number(&c[1]), doc_year) else { continue };
+            out.push(DateItem {
+                kind: nearest_kind(&p.flat, m.start()),
+                start: format!("{y:04}-{mo:02}"),
+                end: None,
+                precision: "month",
+                year_inferred: true,
+                evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) },
+            });
+        }
+    }
+    // the same fact is often repeated on another page (a summary and the detail)
+    let mut unique: Vec<DateItem> = Vec::new();
+    for mut d in out {
+        // A window to apply is a range. A lone date is only one when the cue is right around it:
+        // "DOF publicado en 18 enero 2024" is a requirement about a document, not a window, even
+        // when the word "formulario" appears a few lines above.
+        if d.kind == "application_window" && d.end.is_none() {
+            let around = d.evidence.snippet.to_lowercase();
+            if !["formulario", "postulaci", "registro", "recepci", "fecha l"].iter().any(|w| around.contains(w)) {
+                d.kind = "other";
+            }
+        }
+        if !unique.iter().any(|u| u.kind == d.kind && u.start == d.start && u.end == d.end) {
+            unique.push(d);
+        }
+    }
+    unique
+}
+
+/// Where the application window stands on a given day (`YYYY-MM-DD`). Dates are compared as text,
+/// which orders ISO dates correctly; no clock is read here so the extraction stays deterministic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WindowStatus {
+    NotYet,
+    Open,
+    Closed,
+    /// The document gives no application window.
+    Unknown,
+}
+
+pub fn window_status(x: &CallExtraction, today: &str) -> WindowStatus {
+    let Some(w) = x.dates.iter().find(|d| d.kind == "application_window" && d.precision == "day") else {
+        return WindowStatus::Unknown;
+    };
+    let start = &w.start[..10.min(w.start.len())];
+    let end = w.end.as_deref().map(|e| &e[..10.min(e.len())]).unwrap_or(start);
+    if today < start {
+        WindowStatus::NotYet
+    } else if today > end {
+        WindowStatus::Closed
+    } else {
+        WindowStatus::Open
+    }
+}
+
+// ------------------------------------------------------------------ lists
+
+fn is_heading(line: &str) -> bool {
+    let letters: Vec<char> = line.chars().filter(|c| c.is_alphabetic()).collect();
+    letters.len() >= 8 && letters.iter().all(|c| c.is_uppercase())
+}
+
+/// Bullets of the participation criteria and, apart, the documents listed under a bullet that
+/// ends in ":". Several pages mention the section: the table of contents does (it has no
+/// bullets) and a later page states more rules ("solo puedes participar en una sola agenda").
+/// Criteria are gathered from every page that has bullets and mentions the section; the
+/// document sub-list comes from the page that has it.
+fn find_eligibility(pages: &[FlatPage], rule_pages: &[usize]) -> (Vec<TextItem>, Vec<DocumentItem>) {
+    // A page counts when its TITLE is about participation (or it says "criterios mínimos", or it
+    // is where the minimum years or the legal figures are stated), not when a sentence merely
+    // mentions the words: page 9 of the real call does, and its bullets are procedure steps.
+    // Bullets that start with a date or carry a link are sessions and steps.
+    let about_participation = |p: &&FlatPage| {
+        rule_pages.contains(&p.number)
+            || re!(r"(?i)criterios\s+m[ií]nimos|criterios\s+a\s+considerar").is_match(&p.flat)
+            || p.clean.lines().any(|l| {
+                let t = l.trim();
+                is_heading(t) && t.to_uppercase().contains("PARTICIPACI")
+            })
+    };
+    let walked: Vec<(Vec<TextItem>, Vec<DocumentItem>)> = pages
+        .iter()
+        .filter(about_participation)
+        .map(|p| split_by_blank_lines(&p.clean, p.number))
+        .map(|(c, d)| (c.into_iter().filter(|i| !i.text.starts_with(|ch: char| ch.is_ascii_digit()) && !i.text.contains("http")).collect(), d))
+        .filter(|(c, d): &(Vec<TextItem>, Vec<DocumentItem>)| !c.is_empty() || !d.is_empty())
+        .collect();
+    let docs = walked.iter().max_by_key(|(_, d)| d.len()).map(|(_, d)| d.clone()).unwrap_or_default();
+    let mut criteria: Vec<TextItem> = Vec::new();
+    for (items, _) in &walked {
+        for item in items {
+            if !criteria.iter().any(|c| c.text == item.text) {
+                criteria.push(item.clone());
+            }
+        }
+    }
+    (criteria, docs)
+}
+
+/// Walks the bullets of a page: a bullet that ends in ":" opens a sub-list (the documents) and a
+/// blank line closes it, which is the layout of the real calls.
+fn split_by_blank_lines(clean: &str, page: usize) -> (Vec<TextItem>, Vec<DocumentItem>) {
+    let mut criteria = Vec::new();
+    let mut docs = Vec::new();
+    let mut current: Option<String> = None;
+    let mut sub = false;
+    let mut opens = false;
+    let flush = |cur: &mut Option<String>, sub: &mut bool, opens: &mut bool, criteria: &mut Vec<TextItem>, docs: &mut Vec<DocumentItem>| {
+        if let Some(raw) = cur.take() {
+            let text = flat(&raw);
+            let ev = Evidence { page, snippet: text.clone() };
+            if *sub {
+                docs.push(DocumentItem { number: None, clean_name: text.chars().count() <= 90, source: "eligibility", evidence: ev, text });
+            } else {
+                *opens = text.ends_with(':');
+                criteria.push(TextItem { text, evidence: ev });
+                if *opens {
+                    *sub = true;
+                }
+            }
+        }
+    };
+    for line in clean.lines() {
+        let t = line.trim();
+        if t.is_empty() {
+            flush(&mut current, &mut sub, &mut opens, &mut criteria, &mut docs);
+            sub = false;
+            continue;
+        }
+        if let Some(rest) = t.strip_prefix('•') {
+            flush(&mut current, &mut sub, &mut opens, &mut criteria, &mut docs);
+            current = Some(rest.trim().to_string());
+            continue;
+        }
+        if is_heading(t) {
+            flush(&mut current, &mut sub, &mut opens, &mut criteria, &mut docs);
+            sub = false;
+            continue;
+        }
+        if let Some(c) = current.as_mut() {
+            // a bullet is a sentence: a line that starts a new sentence after a closing period is
+            // the paragraph that follows the list, not a continuation of the last bullet
+            let starts_new_sentence = c.trim_end().ends_with('.') && t.chars().next().is_some_and(char::is_uppercase);
+            if starts_new_sentence {
+                flush(&mut current, &mut sub, &mut opens, &mut criteria, &mut docs);
+                sub = false;
+            } else {
+                c.push(' ');
+                c.push_str(t);
+            }
+        }
+    }
+    flush(&mut current, &mut sub, &mut opens, &mut criteria, &mut docs);
+    (criteria, docs)
+}
+
+/// The numbered document list of an annex ("11. Opinión de cumplimiento del SAT").
+fn find_annex_documents(pages: &[FlatPage], review: &mut Vec<Review>) -> Vec<DocumentItem> {
+    let mut out: Vec<DocumentItem> = Vec::new();
+    for p in pages {
+        // the matrix itself, not the table of contents (which also lists "ANEXO 1 GUÍA DE
+        // DOCUMENTOS" and numbers the stages "1. Postulación", "2. Registro"...)
+        let is_matrix = re!(r"(?i)nombre\s+del\s+documento|matriz\s+de\s+documentos\s+para").is_match(&p.flat);
+        if !is_matrix || re!(r"(?i)\bcontenido\b").is_match(&p.flat) {
+            continue;
+        }
+        for line in p.clean.lines() {
+            let Some(c) = re!(r"^\s*(\d{1,2})\.\s+(\S.*)$").captures(line) else { continue };
+            let number: u32 = c[1].parse().unwrap_or(0);
+            if out.iter().any(|d| d.number == Some(number)) {
+                continue;
+            }
+            let text = flat(&c[2]);
+            out.push(DocumentItem {
+                number: Some(number),
+                clean_name: text.chars().count() <= 70,
+                source: "annex",
+                evidence: Evidence { page: p.number, snippet: flat(line) },
+                text,
+            });
+        }
+        // the stage columns come out as a column of "Si" with no row to attach them to
+        let marks = p.clean.lines().filter(|l| l.trim().eq_ignore_ascii_case("si") || l.trim().eq_ignore_ascii_case("sí")).count();
+        if marks >= 4 {
+            review.push(Review {
+                reason: "Matriz de documentos por etapa: las marcas «Sí» salen sin la fila a la que pertenecen; la etapa de cada documento no se puede asignar con el texto".into(),
+                page: p.number,
+                snippet: format!("{marks} marcas «Sí» sueltas"),
+            });
+        }
+    }
+    if let Some(max) = out.iter().filter_map(|d| d.number).max() {
+        let missing: Vec<u32> = (1..=max).filter(|n| !out.iter().any(|d| d.number == Some(*n))).collect();
+        if !missing.is_empty() {
+            review.push(Review {
+                reason: format!("En la lista numerada de documentos faltan los números {missing:?}"),
+                page: out.first().map(|d| d.evidence.page).unwrap_or(0),
+                snippet: String::new(),
+            });
+        }
+    }
+    out.sort_by_key(|d| d.number);
+    out
+}
+
+fn concept_group(rubro: &str) -> &'static str {
+    let r = strip_accents(rubro);
+    if r.contains("inversi") {
+        "inversion"
+    } else if r.contains("operativ") {
+        "operativo"
+    } else if r.contains("administrativ") {
+        "administrativo"
+    } else {
+        "otro"
+    }
+}
+
+fn find_concepts(pages: &[FlatPage]) -> Vec<Concept> {
+    let mut out = Vec::new();
+    for p in pages {
+        if !p.clean.contains("RUBRO:") {
+            continue;
+        }
+        let mut group: Option<&'static str> = None;
+        for line in p.clean.lines() {
+            let t = line.trim();
+            if let Some(rest) = t.strip_prefix("RUBRO:") {
+                group = Some(concept_group(rest));
+                continue;
+            }
+            let Some(g) = group else { continue };
+            let skip = t.is_empty()
+                || t.starts_with("NOTA")
+                || t == "CONCEPTO"
+                || t.chars().all(|c| c.is_ascii_digit())
+                || t.to_uppercase().contains("LISTA DE RUBROS");
+            if !skip {
+                out.push(Concept { group: g, text: t.to_string(), page: p.number });
+            }
+        }
+    }
+    out
+}
+
+// ------------------------------------------------------------------ links, indicators, external
+
+fn link_kind(url: &str) -> &'static str {
+    let u = url.to_lowercase();
+    if re!(r"\.(zip|pdf|xlsx?|docx?|rar)(\?|$)").is_match(&u) || u.contains("dl=1") || u.contains("download") {
+        "download"
+    } else if u.contains("tfaforms") || u.contains("forms.") || u.contains("/forms") || u.contains("formulario") || u.contains("/f/") {
+        "form"
+    } else if u.contains("events.") || u.contains("teams.") || u.contains("zoom.") || u.contains("meet.") || u.contains("/sesion") {
+        "session"
+    } else if u.contains("login") || u.contains("plataforma") {
+        "platform"
+    } else if u.contains("wa.me") || u.contains("whatsapp") {
+        "contact"
+    } else {
+        "other"
+    }
+}
+
+fn find_links(pages: &[FlatPage]) -> (Vec<Link>, Vec<String>) {
+    let mut links: Vec<Link> = Vec::new();
+    let mut emails: Vec<String> = Vec::new();
+    for p in pages {
+        let joined = join_wrapped_urls(&p.clean);
+        for m in re!(r#"https?://[^\s<>"')]+"#).find_iter(&joined) {
+            let url = m.as_str().trim_end_matches(['.', ',', ';', ':']).to_string();
+            if !links.iter().any(|l| l.url == url) {
+                links.push(Link { kind: link_kind(&url), url, page: p.number });
+            }
+        }
+        // addresses written without the scheme ("www.sitio.com/ruta")
+        for m in re!(r#"\bwww\.[\w-]+(?:\.[\w-]+)+(?:/[^\s<>"')]*)?"#).find_iter(&joined) {
+            let bare = m.as_str().trim_end_matches(['.', ',', ';', ':']);
+            if !links.iter().any(|l| l.url.ends_with(bare)) {
+                let url = format!("https://{bare}");
+                links.push(Link { kind: link_kind(&url), url, page: p.number });
+            }
+        }
+        let without_urls = re!(r#"https?://[^\s<>"')]+"#).replace_all(&joined, " ");
+        for m in re!(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+").find_iter(&without_urls) {
+            let e = m.as_str().trim_end_matches('.').to_lowercase();
+            if !emails.contains(&e) {
+                emails.push(e);
+            }
+        }
+    }
+    (links, emails)
+}
+
+fn find_indicators(pages: &[FlatPage], review: &mut Vec<Review>) -> Vec<IndicatorItem> {
+    let mut out = Vec::new();
+    for p in pages {
+        let has_table_header = re!(r"DIMENSI[OÓ]N\s+INDICADOR\s+DE\s+PRODUCTO").is_match(&p.flat);
+        let is_indicator_page = has_table_header || re!(r"INDICADORES\s+PARA\s+PROYECTOS").is_match(&p.flat);
+        if !is_indicator_page {
+            continue;
+        }
+        let agenda = if re!(r"(?i)TRABAJO\s+Y\s+EMPRENDIMIENTO").is_match(&p.flat) && !re!(r"(?i)ACCESO\s*A\s*DERECHOS").is_match(&p.flat) {
+            Some("trabajo_emprendimiento")
+        } else if re!(r"(?i)ACCESO\s*A\s*DERECHOS|SERVICIOS\s+ASISTENCIALES").is_match(&p.flat) {
+            Some("acceso_derechos")
+        } else {
+            None
+        };
+        let start = re!(r"^\s*(?:Porcentaje|Promedio|#)\s");
+        let mut current: Option<String> = None;
+        let mut flush = |cur: &mut Option<String>| {
+            if let Some(t) = cur.take() {
+                let text = flat(&t);
+                if text.chars().count() > 12 {
+                    out.push(IndicatorItem { text, agenda, page: p.number });
+                }
+            }
+        };
+        for line in p.clean.lines() {
+            let t = line.trim();
+            if t.is_empty() || is_heading(t) || t.starts_with("DIMENSIÓN") {
+                flush(&mut current);
+                continue;
+            }
+            if start.is_match(t) {
+                flush(&mut current);
+                current = Some(t.to_string());
+            } else if let Some(c) = current.as_mut() {
+                c.push(' ');
+                c.push_str(t);
+            }
+        }
+        flush(&mut current);
+        if has_table_header {
+            review.push(Review {
+                reason: "Tabla de indicadores: con el texto no se puede asignar a cada indicador su dimensión ni si es de producto o de resultado".into(),
+                page: p.number,
+                snippet: "DIMENSIÓN · INDICADOR DE PRODUCTO O INSUMO · INDICADOR DE RESULTADO".into(),
+            });
+        }
+    }
+    out
+}
+
+fn find_external(pages: &[FlatPage]) -> Vec<External> {
+    let mut out = Vec::new();
+    let monto = re!(r"(?i)el\s+monto[^.]{0,140}?(?:se\s+encontrar[aá]|encontrar[aá]|podr[aá]s?\s+consultar|se\s+indicar[aá])[^.]{0,100}?plataforma");
+    for p in pages {
+        if let Some(m) = monto.find(&p.flat) {
+            out.push(External { name: "monto", lives_in: "plataforma", evidence: Evidence { page: p.number, snippet: clip(&p.flat, m.start(), m.end()) } });
+            break;
+        }
+    }
+    out
+}
+
+// ------------------------------------------------------------------ tags, quality
+
+fn tag_pages(pages: &[FlatPage]) -> Vec<PageTags> {
+    let rules: [(&'static str, &Regex); 11] = [
+        ("elegibilidad", re!(r"(?i)criterios\s+m[ií]nimos|criterios\s+a\s+considerar|requisitos\s+de\s+participaci[oó]n|criterios\s+obligatorios|podr[aá]n\s+participar")),
+        ("fechas", re!(r"(?i)etapas\s+de\s+participaci[oó]n|calendario|fecha\s+l[ií]mite|\bdel\s+\d{1,2}\s+al\s+\d{1,2}\s+de\b")),
+        ("documentos", re!(r"(?i)matriz\s+de\s+documentos|gu[ií]a\s+de\s+documentos")),
+        ("financiable", re!(r"(?i)rubros?\s+financiables|gastos\s+de\s+inversi[oó]n|gastos\s+operativ|gastos\s+administrativ|lista\s+de\s+rubros")),
+        ("indicadores", re!(r"(?i)indicadores\s+para\s+proyectos|indicador\s+de\s+producto")),
+        ("poblacion", re!(r"(?i)poblaci[oó]n\s+objetivo|\bedades\b|^poblaci[oó]n")),
+        ("evaluacion", re!(r"(?i)se\s+evaluar[aá]|criterios\s+de\s+evaluaci[oó]n|se\s+priorizar[aá]n|se\s+valorar[aá]")),
+        ("estrategias", re!(r"(?i)estrategias?\s+de\b|modelos?\s+de\s+intervenci[oó]n")),
+        ("contacto", re!(r"(?i)contacto|escr[ií]benos|queremos\s+acompa")),
+        ("glosario", re!(r"(?i)glosario")),
+        ("objetivo", re!(r"(?i)\bobjetivo\b")),
+    ];
+    pages
+        .iter()
+        .map(|p| {
+            let mut tags: Vec<&'static str> = rules.iter().filter(|(_, r)| r.is_match(&p.flat)).map(|(t, _)| *t).collect();
+            if re!(r"https?://").is_match(&p.flat) {
+                tags.push("enlaces");
+            }
+            PageTags { page: p.number, tags }
+        })
+        .collect()
+}
+
+/// Pages where more than 2 % of the characters look like decoding noise.
+fn is_low_quality(clean: &str) -> bool {
+    let total = clean.chars().filter(|c| !c.is_whitespace()).count();
+    if total < 20 {
+        return false;
+    }
+    let bad = clean
+        .chars()
+        .filter(|c| {
+            !(c.is_alphanumeric() || c.is_whitespace() || c.is_ascii_punctuation() || "¿¡•·…“”‘’–—°º€ª«»".contains(*c))
+        })
+        .count();
+    bad * 50 > total
+}
+
+// ------------------------------------------------------------------ drafts for the requirement table
+
+pub(crate) fn requirement_drafts(x: &CallExtraction) -> Vec<RequirementDraft> {
+    let mut out: Vec<RequirementDraft> = Vec::new();
+    let mut add = |text: String, kind: &'static str, value: serde_json::Value, blocking: bool, source: Evidence| {
+        let code = format!("REQ-{:02}", out.len() + 1);
+        out.push(RequirementDraft { code, text, kind, value, blocking, origin: "document", source });
+    };
+    if let Some(l) = &x.legal_figures {
+        add(format!("Figura jurídica permitida: {}", l.values.join(", ")), "allowed_legal_figure", json!(l.values), true, l.evidence.clone());
+    }
+    for l in &x.limits {
+        let (text, blocking) = match l.kind {
+            "min_operating_years" => (format!("Operación continua mínima: {} años", l.value), true),
+            "max_duration_months" => (format!("Duración máxima del proyecto: {} meses", l.value), true),
+            "max_admin_percent" => (format!("Gastos administrativos: máximo {} % del donativo", l.value), true),
+            "max_amount" => (format!("Monto máximo: ${}", l.value), true),
+            "min_amount" => (format!("Monto mínimo: ${}", l.value), true),
+            _ => continue,
+        };
+        // a value tied to a category, or with other values beside it, is not a rule for everyone:
+        // it is offered to a person to confirm, never as a blocking requirement
+        if l.conditional || !l.others.is_empty() {
+            add(
+                format!("{text} (depende de la categoría o del caso; confirmar)"),
+                l.kind,
+                json!({ "value": l.value, "others": l.others, "conditional": l.conditional }),
+                false,
+                l.evidence.clone(),
+            );
+        } else {
+            add(text, l.kind, json!(l.value), blocking, l.evidence.clone());
+        }
+    }
+    for d in x.dates.iter().filter(|d| d.kind == "application_window") {
+        add("Ventana de postulación".to_string(), "deadline", json!({ "start": d.start, "end": d.end }), true, d.evidence.clone());
+    }
+    for d in x.documents.iter().filter(|d| d.source == "eligibility" || d.source == "review") {
+        add(format!("Documento: {}", d.text), "required_document", json!({ "name": d.text }), true, d.evidence.clone());
+    }
+    for d in x.documents.iter().filter(|d| d.source == "annex") {
+        add(format!("Documento {}: {}", d.number.unwrap_or(0), d.text), "required_document", json!({ "number": d.number, "name": d.text, "stage": null }), false, d.evidence.clone());
+    }
+    for group in ["inversion", "operativo", "administrativo", "otro"] {
+        let concepts: Vec<&str> = x.funded_concepts.iter().filter(|c| c.group == group).map(|c| c.text.as_str()).collect();
+        if let Some(first) = x.funded_concepts.iter().find(|c| c.group == group) {
+            add(
+                format!("Rubro financiable ({group}): {} conceptos", concepts.len()),
+                "allowed_category",
+                json!({ "group": group, "concepts": concepts }),
+                false,
+                Evidence { page: first.page, snippet: format!("RUBRO: {group}") },
+            );
+        }
+    }
+    // criteria that no typed rule covers stay as manual requirements for a person to mark
+    for c in &x.eligibility {
+        let typed = re!(r"(?i)sin\s+fines\s+de\s+lucro\s*\(|al\s+menos\s+\S+\s+a[nñ]os\s+de\s+operaci").is_match(&c.text)
+            || c.text.ends_with(':');
+        if !typed {
+            add(c.text.clone(), "manual", json!(null), true, c.evidence.clone());
+        }
+    }
+    out
+}
+
+// ------------------------------------------------------------------ criteria without bullets
+
+/// Criteria written as plain lines under a heading ("CRITERIOS OBLIGATORIOS QUE CUMPLIR…"), as in
+/// calls whose bullet symbols were drawn as images and left no character in the text. Lines are
+/// grouped into sentences: an item ends where a line ends in a period.
+fn find_unbulleted_criteria(pages: &[FlatPage]) -> Vec<TextItem> {
+    let mut out = Vec::new();
+    for p in pages {
+        let lines: Vec<&str> = p.clean.lines().map(str::trim).collect();
+        let Some(start) = lines.iter().position(|l| is_heading(l) && l.to_uppercase().contains("CRITERIOS")) else { continue };
+        let mut i = start;
+        // the heading itself wraps over several lines
+        while i < lines.len() && (lines[i].is_empty() || is_heading(lines[i])) {
+            i += 1;
+        }
+        let mut current = String::new();
+        for l in &lines[i..] {
+            if l.starts_with("NOTA") || (is_heading(l) && current.is_empty()) {
+                break;
+            }
+            if l.is_empty() || l.chars().all(|c| c.is_ascii_digit()) {
+                continue;
+            }
+            if !current.is_empty() {
+                current.push(' ');
+            }
+            current.push_str(l);
+            if l.ends_with('.') || l.ends_with(':') {
+                let text = flat(&current);
+                if (25..=500).contains(&text.chars().count()) {
+                    out.push(TextItem { evidence: Evidence { page: p.number, snippet: text.clone() }, text });
+                }
+                current.clear();
+            }
+        }
+    }
+    out
+}
+
+// ------------------------------------------------------------------ repeated pages
+
+fn shingles(flat: &str) -> std::collections::BTreeSet<String> {
+    let words: Vec<String> = flat
+        .split_whitespace()
+        .map(|w| w.chars().filter(|c| c.is_alphanumeric()).collect::<String>().to_lowercase())
+        .filter(|w| !w.is_empty())
+        .collect();
+    words.windows(6).map(|w| w.join(" ")).collect()
+}
+
+/// `(page, repeats_page)`: a page whose six-word phrases are 85 % contained in an earlier page.
+/// Comparing phrases, not lines, makes it indifferent to how the line breaks fall.
+fn find_duplicate_pages(pages: &[FlatPage]) -> Vec<(usize, usize)> {
+    let sets: Vec<_> = pages.iter().map(|p| shingles(&p.flat)).collect();
+    let mut dups: Vec<(usize, usize)> = Vec::new();
+    for j in 1..pages.len() {
+        if sets[j].len() < 30 {
+            continue;
+        }
+        for i in 0..j {
+            if dups.iter().any(|(d, _)| *d == pages[i].number) {
+                continue;
+            }
+            let shared = sets[j].intersection(&sets[i]).count();
+            if shared * 100 >= sets[j].len() * 85 {
+                dups.push((pages[j].number, pages[i].number));
+                break;
+            }
+        }
+    }
+    dups
+}
+
+// ------------------------------------------------------------------ document kind
+
+/// What the document is, from counting words and line shapes. `typed_signals` is how many limits,
+/// dates and criteria the rules already found: a text that yields several of them is a call even
+/// when it is too short to use the word counts.
+fn classify(pages: &[FlatPage], typed_signals: usize) -> (DocKind, Vec<String>) {
+    let all = pages.iter().map(|p| p.flat.as_str()).collect::<Vec<_>>().join(" ").to_lowercase();
+    let funding = re!(r"donativ|rubros?\b|financiamiento|apoyos?\s+econ[oó]mic|\bmonto\b").find_iter(&all).count();
+    let governance = re!(r"candidat|votaci[oó]n|\bvoto\b|consej|elecci[oó]n|sufragio|padr[oó]n").find_iter(&all).count();
+    let lines: Vec<&str> = pages.iter().flat_map(|p| p.clean.lines()).map(str::trim).filter(|l| !l.is_empty()).collect();
+    let indicator_lines = lines.iter().filter(|l| re!(r"^(?:Porcentaje|Promedio|#)\s").is_match(l)).count();
+    let rubro_lines = lines.iter().filter(|l| l.starts_with("RUBRO:")).count();
+    let first = pages.first().map(|p| p.flat.chars().take(300).collect::<String>().to_lowercase()).unwrap_or_default();
+    let reasons = vec![format!(
+        "términos de financiamiento: {funding}; de gobierno o elección: {governance}; líneas de indicador: {indicator_lines} de {}; líneas «RUBRO:»: {rubro_lines}; datos tipados hallados: {typed_signals}",
+        lines.len()
+    )];
+    let kind = if pages.is_empty() {
+        DocKind::Unknown
+    } else if rubro_lines >= 2 && pages.len() <= 3 {
+        DocKind::RubrosAnnex
+    } else if pages.len() <= 4 && !lines.is_empty() && indicator_lines * 4 >= lines.len() {
+        DocKind::Indicators
+    } else if first.contains("guía") || first.contains("guia") || first.contains("instructivo") {
+        // checked before "governance": a guide to filling in a form talks about boards and
+        // councils (the people who sign) without being an election notice
+        DocKind::Guide
+    } else if governance >= 8 && governance * 2 > funding * 3 {
+        DocKind::GovernanceNotice
+    } else if funding >= 15 || typed_signals >= 4 {
+        DocKind::FundingCall
+    } else {
+        DocKind::Unknown
+    };
+    (kind, reasons)
+}
+
+// ------------------------------------------------------------------ entry points
+
+/// Extracts a call from its pages' text.
+/// The dates the rules read in one piece of text (a candidate of the rail), as if it were its own
+/// page. `year` is the document's year, for dates written without one.
+pub(crate) fn dates_in(text: &str, page: usize, year: Option<u32>) -> Vec<DateItem> {
+    let clean = clean_text(text);
+    find_dates(&[FlatPage { number: page, flat: flat(&clean), clean }], year)
+}
+
+/// Like `dates_in`, also reading "15 Julio": for a line a model has said holds a date.
+pub(crate) fn dates_in_loose(text: &str, page: usize, year: Option<u32>) -> Vec<DateItem> {
+    let clean = clean_text(text);
+    find_dates_with(&[FlatPage { number: page, flat: flat(&clean), clean }], year, true)
+}
+
+/// The limits the rules read in one piece of text.
+pub(crate) fn limits_in(text: &str, page: usize) -> Vec<Limit> {
+    let clean = clean_text(text);
+    find_limits(&[FlatPage { number: page, flat: flat(&clean), clean }])
+}
+
+pub fn extract_call(pages: &[PageText]) -> CallExtraction {
+    let mut repaired_pages = Vec::new();
+    let mut low_quality_pages = Vec::new();
+    let fp: Vec<FlatPage> = pages
+        .iter()
+        .map(|p| {
+            let (clean, repaired) = clean_text_report(&p.text);
+            if repaired {
+                repaired_pages.push(p.number);
+            }
+            if is_low_quality(&clean) {
+                low_quality_pages.push(p.number);
+            }
+            FlatPage { number: p.number, flat: flat(&clean), clean }
+        })
+        .collect();
+
+    // some PDFs space the characters of a title: "20 24"
+    let year = fp
+        .first()
+        .and_then(|p| re!(r"\b(20)\s?(\d{2})\b").captures(&p.flat).and_then(|c| format!("{}{}", &c[1], &c[2]).parse().ok()))
+        .or_else(|| fp.iter().find_map(|p| re!(r"(?i)convocatoria\s+(20\d{2})").captures(&p.flat).and_then(|c| c[1].parse().ok())));
+    let title = fp.first().map(|p| p.flat.clone()).filter(|t| !t.is_empty() && t.chars().count() <= 120);
+
+    // some PDFs carry the whole text again on every page; read each text once
+    let duplicate_pages = find_duplicate_pages(&fp);
+    let all_pages = fp.clone();
+    let fp: Vec<FlatPage> = fp.into_iter().filter(|p| !duplicate_pages.iter().any(|(d, _)| *d == p.number)).collect();
+
+    let mut needs_review: Vec<Review> = Vec::new();
+    if !duplicate_pages.is_empty() {
+        let dup: Vec<usize> = duplicate_pages.iter().map(|(d, _)| *d).collect();
+        needs_review.push(Review {
+            reason: format!("Las páginas {dup:?} repiten el texto de otra página (el PDF arrastra el mismo contenido); se leyó una sola vez"),
+            page: duplicate_pages[0].0,
+            snippet: String::new(),
+        });
+    }
+    // The criteria live on the page that states the minimum years or the legal figures, even when
+    // that page has no title about participation (found on a held-out call: page 8 was five bullets).
+    let limits = find_limits(&fp);
+    let legal_figures = find_legal_figures(&fp);
+    let rule_pages: Vec<usize> = limits
+        .iter()
+        .filter(|l| l.kind == "min_operating_years")
+        .map(|l| l.evidence.page)
+        .chain(legal_figures.iter().map(|l| l.evidence.page))
+        .collect();
+    let (mut eligibility, eligibility_docs) = find_eligibility(&fp, &rule_pages);
+    if eligibility.is_empty() {
+        eligibility = find_unbulleted_criteria(&fp);
+    }
+    let mut documents = eligibility_docs;
+    documents.extend(find_annex_documents(&fp, &mut needs_review));
+    let (links, emails) = find_links(&fp);
+    let indicators = find_indicators(&fp, &mut needs_review);
+    let dates = find_dates(&fp, year);
+    let (doc_kind, doc_kind_reasons) = classify(&all_pages, limits.len() + dates.len() + eligibility.len());
+
+    let mut x = CallExtraction {
+        schema: SCHEMA,
+        pages: pages.len(),
+        doc_kind,
+        doc_kind_reasons,
+        duplicate_pages,
+        pages_without_text: Vec::new(),
+        needs_ocr: false,
+        low_quality_pages,
+        repaired_pages,
+        title,
+        year,
+        limits,
+        legal_figures,
+        dates,
+        eligibility,
+        documents,
+        funded_concepts: find_concepts(&fp),
+        links,
+        emails,
+        indicators,
+        external: find_external(&fp),
+        page_tags: tag_pages(&all_pages),
+        needs_review,
+        requirements: Vec::new(),
+    };
+    for e in &x.external {
+        x.needs_review.push(Review {
+            reason: format!("El valor «{}» no está en el documento: lo da la {}; debe capturarse aparte", e.name, e.lives_in),
+            page: e.evidence.page,
+            snippet: e.evidence.snippet.clone(),
+        });
+    }
+    for l in &x.limits {
+        if l.conditional || !l.others.is_empty() {
+            let detail = if l.others.is_empty() {
+                "el texto lo liga a una categoría o a un caso".to_string()
+            } else {
+                format!("el documento da también otros valores: {:?}", l.others)
+            };
+            x.needs_review.push(Review {
+                reason: format!("«{}» = {} no es un valor único: {detail}; una persona debe confirmar a qué aplica", l.kind, l.value),
+                page: l.evidence.page,
+                snippet: l.evidence.snippet.clone(),
+            });
+        }
+    }
+    // dates with no year that sit together come from a calendar drawn as a graphic: the text
+    // gives the dates but not which stage each belongs to
+    let mut inferred_pages: Vec<usize> = x.dates.iter().filter(|d| d.year_inferred).map(|d| d.evidence.page).collect();
+    inferred_pages.sort_unstable();
+    let mut seen: Vec<usize> = Vec::new();
+    for page in inferred_pages.iter().copied() {
+        if seen.contains(&page) {
+            continue;
+        }
+        seen.push(page);
+        let n = inferred_pages.iter().filter(|p| **p == page).count();
+        if n >= 2 {
+            x.needs_review.push(Review {
+                reason: format!("Calendario probablemente en gráfico: {n} fechas sin año salieron juntas; el texto no dice a qué etapa corresponde cada una, una persona debe confirmarlo"),
+                page,
+                snippet: String::new(),
+            });
+        }
+    }
+    // requirements only make sense for a call (or the list of fundable concepts on its own)
+    match x.doc_kind {
+        DocKind::GovernanceNotice => x.needs_review.push(Review {
+            reason: "Este documento no es una convocatoria de donativos (es un aviso oficial de otro tipo): no se generan requisitos".into(),
+            page: 1,
+            snippet: String::new(),
+        }),
+        DocKind::Guide => x.needs_review.push(Review {
+            reason: "Es una guía: sirve como material para que la IA lo lea por secciones, no se extraen requisitos".into(),
+            page: 1,
+            snippet: String::new(),
+        }),
+        DocKind::Indicators => {}
+        DocKind::FundingCall | DocKind::RubrosAnnex | DocKind::Unknown => x.requirements = requirement_drafts(&x),
+    }
+    x
+}
+
+/// Reads a PDF and extracts the call. A PDF that is mostly images is reported with `needs_ocr`
+/// and nothing is extracted from it.
+pub fn extract_pdf(path: &Path) -> Result<CallExtraction, PdfError> {
+    let pdf = read_pdf(path)?;
+    let pages: Vec<PageText> = pdf.pages.iter().enumerate().map(|(i, t)| PageText { number: i + 1, text: t.clone() }).collect();
+    let needs_ocr = pdf.pages_without_text.len() * 2 > pdf.pages.len();
+    let mut x = if needs_ocr { extract_call(&[]) } else { extract_call(&pages) };
+    x.pages = pdf.pages.len();
+    x.pages_without_text = pdf.pages_without_text;
+    x.needs_ocr = needs_ocr;
+    Ok(x)
+}
+
+// ------------------------------------------------------------------ tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const FIXTURE: &str = include_str!("../../../fixtures/convocatoria-ficticia-paginas.txt");
+
+    fn pages(text: &str) -> Vec<FlatPage> {
+        vec![FlatPage { number: 1, clean: clean_text(text), flat: flat(&clean_text(text)) }]
+    }
+
+    fn fixture() -> CallExtraction {
+        extract_call(&parse_dump(FIXTURE))
+    }
+
+    // ---- text cleaning
+
+    #[test]
+    fn ligatures_odd_spaces_and_broken_urls_are_normalized() {
+        assert_eq!(clean_text("sin ﬁnes de lucro, o\u{FB02}uente"), "sin fines de lucro, ofluente");
+        assert_eq!(clean_text("Estos  son   los\u{00A0}criterios"), "Estos son los criterios");
+        assert_eq!(clean_text("Ver https:/ /ejemplo.org/x"), "Ver https://ejemplo.org/x");
+        assert_eq!(clean_text("o/f_icial y mani/f_iesto"), "oficial y manifiesto");
+        assert_eq!(clean_text("a\n\n\n\nb"), "a\n\nb");
+    }
+
+    #[test]
+    fn wrongly_decoded_letters_are_repaired_only_when_they_sit_inside_words() {
+        let (t, repaired) = clean_text_report("el aæo, el rØgimen, clÆusulas, segœn y ˝ndice");
+        assert_eq!(t, "el año, el régimen, cláusulas, según y Índice");
+        assert!(repaired);
+        // clean Spanish is untouched
+        let (t, repaired) = clean_text_report("niños, régimen, cláusulas, según, índice");
+        assert_eq!(t, "niños, régimen, cláusulas, según, índice");
+        assert!(!repaired);
+    }
+
+    // ---- limits
+
+    #[test]
+    fn duration_admin_cap_and_minimum_years_are_read_even_across_line_breaks() {
+        let p = pages("Duración del proyecto: Máximo 12 meses.\nLos gastos administrativos relacionados con el proyecto\nno podrán superar el 15% del valor del donativo.\nTener al menos tres años de operación continua.");
+        let l = find_limits(&p);
+        let get = |k: &str| l.iter().find(|x| x.kind == k).map(|x| x.value);
+        assert_eq!(get("max_duration_months"), Some(12.0));
+        assert_eq!(get("max_admin_percent"), Some(15.0));
+        assert_eq!(get("min_operating_years"), Some(3.0));
+        assert!(l.iter().all(|x| !x.evidence.snippet.is_empty()));
+    }
+
+    #[test]
+    fn amounts_with_a_cap_word_become_limits_and_text_without_numbers_gives_none() {
+        let l = find_limits(&pages("El monto máximo de $500,000 por organización; monto mínimo de $50,000."));
+        assert_eq!(l.iter().find(|x| x.kind == "max_amount").map(|x| x.value), Some(500000.0));
+        assert_eq!(l.iter().find(|x| x.kind == "min_amount").map(|x| x.value), Some(50000.0));
+        assert!(find_limits(&pages("Texto sin cifras de interés para esta prueba.")).is_empty());
+        // a percent that is not about administrative expenses is not an admin cap
+        assert!(find_limits(&pages("El cofinanciamiento será de hasta 20% del proyecto.")).iter().all(|x| x.kind != "max_admin_percent"));
+    }
+
+    #[test]
+    fn legal_figures_come_from_the_parentheses() {
+        let f = find_legal_figures(&pages("Ser una organización privada sin fines de lucro (A.C., IAP, ABP).")).unwrap();
+        assert_eq!(f.values, vec!["AC", "IAP", "ABP"]);
+        assert!(find_legal_figures(&pages("Ser una organización privada.")).is_none());
+    }
+
+    // ---- dates
+
+    #[test]
+    fn dates_ranges_times_and_months_without_year() {
+        let p = pages("Llena el formulario de postulación del 8 al 15 de abril 2026.\nRegístrate en una sesión:\n• 7 abril 2026 12:30 p. m. CDMX\n• 8 abril 2026 10:00 a. m. CDMX\n3. Entrega de recursos A PARTIR DE JULIO");
+        let d = find_dates(&p, Some(2026));
+        let by = |k: &str| d.iter().filter(|x| x.kind == k).collect::<Vec<_>>();
+        let w = by("application_window");
+        assert_eq!((w[0].start.as_str(), w[0].end.as_deref()), ("2026-04-08", Some("2026-04-15")));
+        let s = by("info_session");
+        assert_eq!(s.iter().map(|x| x.start.as_str()).collect::<Vec<_>>(), vec!["2026-04-07T12:30", "2026-04-08T10:00"]);
+        assert_eq!(s[0].precision, "datetime");
+        let e = by("disbursement");
+        assert_eq!(e[0].start, "2026-07");
+        assert!(e[0].year_inferred);
+        // the range is not read again as a lone date
+        assert_eq!(d.iter().filter(|x| x.start == "2026-04-15").count(), 0);
+    }
+
+    #[test]
+    fn twelve_pm_stays_noon_and_text_without_dates_gives_none() {
+        let d = find_dates(&pages("Sesión el 6 mayo 2027 12:00 p. m. y otra el 7 de mayo de 2027 12:00 a. m."), None);
+        assert_eq!(d[0].start, "2027-05-06T12:00");
+        assert_eq!(d[1].start, "2027-05-07T00:00");
+        assert!(find_dates(&pages("Sin fechas aquí."), Some(2027)).is_empty());
+    }
+
+    #[test]
+    fn the_application_window_is_compared_with_a_given_day() {
+        let x = fixture();
+        assert_eq!(window_status(&x, "2027-05-01"), WindowStatus::NotYet);
+        assert_eq!(window_status(&x, "2027-05-10"), WindowStatus::Open);
+        assert_eq!(window_status(&x, "2027-05-14"), WindowStatus::Open);
+        assert_eq!(window_status(&x, "2027-05-15"), WindowStatus::Closed);
+        let none = extract_call(&[PageText { number: 1, text: "Sin fechas.".into() }]);
+        assert_eq!(window_status(&none, "2027-05-10"), WindowStatus::Unknown);
+    }
+
+    // ---- lists
+
+    #[test]
+    fn criteria_and_listed_documents_are_split_and_wrapped_lines_are_joined() {
+        let x = fixture();
+        let texts: Vec<&str> = x.eligibility.iter().map(|c| c.text.as_str()).collect();
+        assert!(texts.iter().any(|t| t.contains("dos años de operación continua demostrable como donataria autorizada, con estados financieros correspondientes")));
+        assert!(texts.iter().any(|t| t.starts_with("No se apoyarán organizaciones")));
+        // the documents under the bullet that ends in ":" are not criteria
+        assert!(!texts.iter().any(|t| t.starts_with("Acta constitutiva")));
+        let docs: Vec<&str> = x.documents.iter().filter(|d| d.source == "eligibility").map(|d| d.text.as_str()).collect();
+        assert_eq!(docs.len(), 3, "{docs:?}");
+        assert!(docs[0].starts_with("Estados financieros 2023"));
+        // after the blank line the bullets are criteria again
+        assert!(texts.iter().any(|t| t.starts_with("Contar con una diversidad de fuentes")));
+    }
+
+    #[test]
+    fn the_list_is_taken_from_the_page_that_has_it_not_from_the_table_of_contents() {
+        // page 1 only names the section (as an index does); page 2 holds the bullets
+        let dump = "=== PAGINA 1 ===\nCONTENIDO\nREQUISITOS DE PARTICIPACIÓN ........ 4\nPOBLACIÓN ........ 7\n\n=== PAGINA 2 ===\nREQUISITOS DE PARTICIPACIÓN\n\n• Ser una organización sin fines de lucro (AC, IAP).\n• Tener al menos tres años de operación.\n";
+        let x = extract_call(&parse_dump(dump));
+        assert_eq!(x.eligibility.len(), 2, "{:?}", x.eligibility);
+        assert_eq!(x.eligibility[0].evidence.page, 2);
+    }
+
+    #[test]
+    fn the_numbering_of_the_table_of_contents_is_not_taken_for_the_document_matrix() {
+        // found on the real call: the index numbers the stages "1. Postulación", "2. Registro" and
+        // mentions the annex, which displaced the real documents 1 to 3
+        let dump = "=== PAGINA 1 ===\nCONTENIDO\n1. Postulación.\n2. Registro.\n3. Entrega de Recursos.\nANEXO 1 GUÍA DE DOCUMENTOS\n\n=== PAGINA 2 ===\nMATRIZ DE DOCUMENTOS PARA LA CONVOCATORIA 2026\nNOMBRE DEL DOCUMENTO DESCRIPCIÓN\n1. Estados Financieros de los últimos años\n2. Acta constitutiva\n3. Poder del Representante Legal\n";
+        let x = extract_call(&parse_dump(dump));
+        let annex: Vec<&str> = x.documents.iter().filter(|d| d.source == "annex").map(|d| d.text.as_str()).collect();
+        assert_eq!(annex, vec!["Estados Financieros de los últimos años", "Acta constitutiva", "Poder del Representante Legal"]);
+    }
+
+    #[test]
+    fn participation_rules_stated_on_a_later_page_are_gathered_too() {
+        let dump = "=== PAGINA 1 ===\nREQUISITOS DE PARTICIPACIÓN\n\n• Ser una organización sin fines de lucro (AC, IAP).\n\n=== PAGINA 2 ===\nETAPAS DE PARTICIPACIÓN\n• Solo puedes participar en una sola agenda de derechos\n• Cumplir con los requisitos de participación del documento\n";
+        let x = extract_call(&parse_dump(dump));
+        let t: Vec<&str> = x.eligibility.iter().map(|c| c.text.as_str()).collect();
+        assert_eq!(t.len(), 3, "{t:?}");
+        assert!(t.iter().any(|s| s.contains("una sola agenda")));
+    }
+
+    #[test]
+    fn criteria_on_the_page_that_states_the_minimum_years_are_read_even_without_a_title() {
+        // found on a held-out call: the five bullets sit under no heading about participation, but
+        // the page is the one that says how many years of operation are asked
+        let dump = "=== PAGINA 1 ===\nCONVOCATORIA 2024\nLas organizaciones deberán:\n• Contar con al menos 3 años de operación continua.\n• Ser una organización sin fines de lucro (AC, IAP).\n• No tener adeudos con la institución.\nLas fechas se publican más adelante.\n";
+        let x = extract_call(&parse_dump(dump));
+        let t: Vec<&str> = x.eligibility.iter().map(|c| c.text.as_str()).collect();
+        assert_eq!(t.len(), 3, "{t:?}");
+        assert!(t.iter().all(|s| !s.contains("fechas")), "the paragraph after the list is not a criterion: {t:?}");
+    }
+
+    #[test]
+    fn a_calendar_written_as_month_then_days_gives_ranges_with_the_document_year() {
+        let p = pages("Abril 01 al 22 Registro\nMayo 03 al 20 Evaluación\nMayo 16 al 23 Visitas");
+        let d = find_dates(&p, Some(2024));
+        let find = |start: &str| d.iter().find(|x| x.start == start).unwrap_or_else(|| panic!("{start} not in {d:?}"));
+        let first = find("2024-04-01");
+        assert_eq!((first.end.as_deref(), first.year_inferred, first.precision), (Some("2024-04-22"), true, "day"));
+        assert_eq!(find("2024-05-03").end.as_deref(), Some("2024-05-20"));
+        assert_eq!(find("2024-05-16").end.as_deref(), Some("2024-05-23"));
+        // without a year anywhere there is nothing to build the date from
+        assert!(find_dates(&p, None).is_empty());
+    }
+
+    #[test]
+    fn a_24_hour_time_is_read_with_or_without_a_year() {
+        // found on a held-out call: "el 10 abril a las 11:00 hrs", with no year, was not read at all
+        let d = find_dates(&pages("Se realizará una sesión informativa el 10 de abril de 2027 a las 11:00 hrs."), Some(2027));
+        assert_eq!(d.len(), 1, "{d:?}");
+        assert_eq!((d[0].start.as_str(), d[0].precision, d[0].kind), ("2027-04-10T11:00", "datetime", "info_session"));
+        assert!(!d[0].year_inferred);
+        let d = find_dates(&pages("Asiste a la sesión informativa el 10 abril a las 11:00 hrs."), Some(2024));
+        assert_eq!(d.len(), 1, "{d:?}");
+        assert_eq!((d[0].start.as_str(), d[0].kind, d[0].year_inferred), ("2024-04-10T11:00", "info_session", true));
+        // a day and a month with no time and no year is too loose to be a date, and a bad hour is not a time
+        assert!(find_dates(&pages("El 10 abril es feriado."), Some(2024)).is_empty());
+        assert!(find_dates(&pages("el 10 abril a las 27:00 hrs"), Some(2024)).is_empty());
+        // 12-hour times still work
+        let d = find_dates(&pages("Sesión el 6 mayo 2027 12:00 p. m. CDMX"), Some(2027));
+        assert_eq!(d[0].start, "2027-05-06T12:00");
+    }
+
+    #[test]
+    fn a_day_and_a_month_with_nothing_else_is_read_only_when_a_model_said_the_line_holds_a_date() {
+        let line = "Etapa 6: Publicación de resultados y entrega de donativos 15 Julio";
+        assert!(dates_in(line, 24, Some(2024)).is_empty(), "too loose to read on its own");
+        let d = dates_in_loose(line, 24, Some(2024));
+        assert_eq!(d.len(), 1, "{d:?}");
+        assert_eq!((d[0].start.as_str(), d[0].kind, d[0].year_inferred), ("2024-07-15", "disbursement", true));
+        // what is already read in a stricter way is not read twice
+        let both = dates_in_loose("Sesión el 10 de abril de 2027 a las 11:00 hrs.", 1, Some(2027));
+        assert_eq!(both.len(), 1, "{both:?}");
+        assert!(dates_in_loose("Sin fecha", 1, Some(2027)).is_empty());
+    }
+
+    // ---- generalization found on other calls of the same funder
+
+    #[test]
+    fn duration_is_read_in_the_other_word_orders_calls_use() {
+        for text in ["Duración máxima de hasta 12 meses.", "Máximo 12 meses.", "Los proyectos durarán hasta 12 meses."] {
+            let l = find_limits(&pages(text));
+            assert_eq!(l.iter().find(|x| x.kind == "max_duration_months").map(|x| x.value), Some(12.0), "{text}");
+        }
+        assert!(find_limits(&pages("La duración será de doce semanas.")).is_empty());
+    }
+
+    #[test]
+    fn a_word_in_the_parentheses_is_not_a_legal_figure() {
+        let f = find_legal_figures(&pages("Ser una organización privada sin fines de lucro (AC, IAP, IBP, ABP, otras).")).unwrap();
+        assert_eq!(f.values, vec!["AC", "IAP", "IBP", "ABP"]);
+    }
+
+    #[test]
+    fn dates_written_without_year_or_without_de_use_the_document_year_and_say_so() {
+        let p = pages("PROYECTO 19 MAYO-6 JUNIO\nREGISTRO 15-24 SEPTIEMBRE\nRESULTADOS A PARTIR DEL 23 DE JUNIO*\nSe escribe tambien 22 de julio de 2025.");
+        let d = find_dates(&p, Some(2025));
+        let find = |start: &str| d.iter().find(|x| x.start == start).unwrap_or_else(|| panic!("{start} not in {d:?}"));
+        let cross = find("2025-05-19");
+        assert_eq!((cross.end.as_deref(), cross.year_inferred), (Some("2025-06-06"), true));
+        let same = find("2025-09-15");
+        assert_eq!((same.end.as_deref(), same.year_inferred), (Some("2025-09-24"), true));
+        let from = find("2025-06-23");
+        assert_eq!((from.end.as_deref(), from.year_inferred), (None, true));
+        assert!(!find("2025-07-22").year_inferred, "a written year is not inferred");
+        // with no year anywhere there is nothing to build a date from
+        assert!(find_dates(&p, None).iter().all(|x| x.start.starts_with("2025-07")));
+    }
+
+    #[test]
+    fn criteria_written_as_plain_lines_under_a_heading_are_grouped_into_sentences() {
+        let dump = "=== PAGINA 1 ===\nCONVOCATORIA 2025\n\n=== PAGINA 2 ===\nIntroducción que explica el contexto de la convocatoria en general.\nCRITERIOS OBLIGATORIOS QUE CUMPLIR POR\nLAS ORGANIZACIONES DE LA SOCIEDAD CIVIL\nEN LA CONVOCATORIA\nSer una organización privada sin fines de lucro (AC, IAP, IBP, ABP, otras).\nContar con autorización para recibir donativos deducibles de impuestos\nvigente en todas las etapas de la convocatoria.\nTener al menos tres años de operación continua demostrable.\nNOTA:\nTexto posterior que no es un criterio de participación.\n";
+        let x = extract_call(&parse_dump(dump));
+        let t: Vec<&str> = x.eligibility.iter().map(|c| c.text.as_str()).collect();
+        assert_eq!(t.len(), 3, "{t:?}");
+        assert!(t[1].contains("deducibles de impuestos vigente en todas las etapas"), "wrapped lines are joined: {t:?}");
+        assert!(t.iter().all(|s| !s.contains("posterior")));
+        assert!(x.limits.iter().any(|l| l.kind == "min_operating_years" && l.value == 3.0));
+    }
+
+    #[test]
+    fn a_limit_that_changes_with_the_category_is_not_presented_as_the_only_one() {
+        // found on a held-out call: "6 meses" belongs to one category and another value to the next
+        let p = pages("Los de la Categoría 1. Problemas Sociales podrán tener una duración máxima de 6 meses, mientras que los de la Categoría 2. Educación Financiera tendrán una duración máxima de 12 meses.");
+        let l = find_limits(&p);
+        let d = l.iter().find(|x| x.kind == "max_duration_months").unwrap();
+        assert_eq!((d.value, d.others.clone(), d.conditional), (6.0, vec![12.0], true));
+        // an amount tied to a category is flagged even with a single value
+        let l = find_limits(&pages("En el caso de la Categoría 2. Educación Financiera el monto máximo a solicitar será $350,000.00."));
+        let a = l.iter().find(|x| x.kind == "max_amount").unwrap();
+        assert_eq!((a.value, a.conditional, a.others.is_empty()), (350000.0, true, true));
+        // a plain limit stays plain
+        let l = find_limits(&pages("Duración del proyecto: Máximo 12 meses."));
+        let d = l.iter().find(|x| x.kind == "max_duration_months").unwrap();
+        assert!(!d.conditional && d.others.is_empty());
+    }
+
+    #[test]
+    fn ambiguous_limits_become_non_blocking_drafts_and_a_review_item() {
+        let dump = "=== PAGINA 1 ===\nCONVOCATORIA 2024\nLos proyectos de la Categoría 1 tendrán una duración máxima de 6 meses y los de la Categoría 2 una duración máxima de 12 meses. Tener al menos tres años de operación continua. Los gastos administrativos no podrán superar el 10% del donativo. Donativo donativo donativo donativo donativo donativo donativo donativo donativo donativo rubros rubros monto monto monto financiamiento.\n";
+        let x = extract_call(&parse_dump(dump));
+        let draft = x.requirements.iter().find(|r| r.kind == "max_duration_months").unwrap();
+        assert!(!draft.blocking, "{draft:?}");
+        assert!(draft.text.contains("confirmar"));
+        assert!(x.requirements.iter().find(|r| r.kind == "min_operating_years").unwrap().blocking, "a plain limit stays blocking");
+        assert!(x.needs_review.iter().any(|r| r.reason.contains("no es un valor único") && r.reason.contains("max_duration_months")));
+    }
+
+    #[test]
+    fn a_lone_date_about_a_document_is_not_an_application_window() {
+        // found on a held-out call: the word "formulario" was a few lines above the date
+        let p = pages("Llena el formulario de postulación en la plataforma y adjunta lo siguiente. Para donatarias nuevas, deberán contar con la siguiente documentación: o DOF publicado en 18 enero 2024. o Estados financieros de los últimos años.");
+        let d = find_dates(&p, Some(2024));
+        assert_eq!(d.len(), 1);
+        assert_eq!(d[0].kind, "other", "{d:?}");
+        // a real window is a range and keeps its kind
+        let d = find_dates(&pages("Llena el formulario de postulación del 8 al 15 de abril 2026."), Some(2026));
+        assert_eq!(d[0].kind, "application_window");
+        // a lone date with the cue right beside it is a window/deadline
+        let d = find_dates(&pages("Fecha límite de postulación: 15 de abril de 2026."), Some(2026));
+        assert_eq!(d[0].kind, "application_window");
+    }
+
+    #[test]
+    fn dates_without_year_that_sit_together_are_flagged_as_a_calendar_to_confirm() {
+        let dump = "=== PAGINA 1 ===\nCONVOCATORIA 2025\n\n=== PAGINA 2 ===\nREGISTRO 19 MAYO-6 JUNIO A PARTIR DEL 23 DE JUNIO* A PARTIR DEL 30 DE JUNIO*\n";
+        let x = extract_call(&parse_dump(dump));
+        assert!(x.dates.iter().all(|d| d.year_inferred));
+        assert!(x.needs_review.iter().any(|r| r.reason.contains("Calendario probablemente en gráfico") && r.page == 2), "{:?}", x.needs_review);
+    }
+
+    #[test]
+    fn a_guide_is_not_taken_for_an_election_notice_even_if_it_mentions_boards() {
+        let dump = "=== PAGINA 1 ===\n--- Confidencial --- Guía de Información General y Financiera\nEl consejo y el patronato firman. Candidato, padrón, consejero, consejo, patronato, elección del presidente del consejo, voto del consejo, sufragio de gastos.\n";
+        assert_eq!(kind_of(dump), DocKind::Guide);
+    }
+
+    #[test]
+    fn a_title_with_spaced_digits_still_gives_the_year() {
+        let x = extract_call(&[PageText { number: 1, text: "20 24 CONV OC A T ORIA INVERSIÓN SOCIAL".into() }]);
+        assert_eq!(x.year, Some(2024));
+    }
+
+    #[test]
+    fn pages_that_repeat_the_text_of_another_page_are_read_once_whatever_the_line_breaks() {
+        let body = "La Junta convoca a las instituciones que durante el ejercicio fiscal estén al corriente en sus obligaciones y deseen postular candidaturas para ocupar el cargo, del 2 al 7 de julio de 2026, mediante escrito libre firmado por la presidencia del patronato y entregado en el portal indicado en las bases de esta convocatoria oficial.";
+        let wrapped = body.replace(", ", ",\n").replace(" que ", "\nque ");
+        let dump = format!("=== PAGINA 1 ===\n{body}\n\n=== PAGINA 2 ===\n{wrapped}\n\n=== PAGINA 3 ===\n{body}\n\n=== PAGINA 4 ===\nUn texto totalmente distinto que habla de otro tema, con palabras diferentes y suficientes para formar frases de seis palabras sin repetir nada de lo anterior en absoluto.\n");
+        let x = extract_call(&parse_dump(&dump));
+        assert_eq!(x.duplicate_pages, vec![(2, 1), (3, 1)]);
+        // the date is read once, not three times
+        assert_eq!(x.dates.iter().filter(|d| d.start == "2026-07-02").count(), 1);
+        assert!(x.needs_review.iter().any(|r| r.reason.contains("repiten el texto")));
+    }
+
+    // ---- what kind of document it is
+
+    fn kind_of(dump: &str) -> DocKind {
+        extract_call(&parse_dump(dump)).doc_kind
+    }
+
+    #[test]
+    fn each_kind_of_document_is_recognised_from_its_content() {
+        // a funding call: the fixture
+        assert_eq!(fixture().doc_kind, DocKind::FundingCall);
+        // the list of fundable concepts on its own
+        assert_eq!(kind_of("=== PAGINA 1 ===\nCONCEPTO\nRUBRO: GASTOS DE INVERSIÓN\nEquipo de cómputo\nRUBRO: GASTOS OPERATIVOS\nAlimentos\nRUBRO: GASTOS ADMINISTRATIVOS\nPapelería\n"), DocKind::RubrosAnnex);
+        // a table of indicators on its own
+        let ind = "=== PAGINA 1 ===\nDIMENSIÓN INDICADOR\nPorcentaje de titulares que reciben tres comidas completas al día\nPorcentaje de verificaciones de higiene que cumplen\nPromedio de personas por dormitorio\n# de personas que acceden a un servicio de salud\n";
+        assert_eq!(kind_of(ind), DocKind::Indicators);
+        // a guide
+        assert_eq!(kind_of("=== PAGINA 1 ===\n--- Confidencial --- Guía de Información General y Financiera\nPara llenar el formato siga los pasos indicados en cada sección.\n"), DocKind::Guide);
+        // an election notice: lots of governance words, no donation words
+        let election = "=== PAGINA 1 ===\nProceso electoral de representantes ante el Consejo Directivo. Las candidaturas se postulan con el respaldo de dos instituciones. La votación será presencial y el voto es libre y secreto. Cada candidato expone su visión. El padrón de votación se publica y el consejo declara la elección. Las candidatas titulares y suplentes reciben constancia tras el escrutinio y el sufragio.\n";
+        assert_eq!(kind_of(election), DocKind::GovernanceNotice);
+        assert_eq!(kind_of("=== PAGINA 1 ===\nTexto cualquiera sin señales claras.\n"), DocKind::Unknown);
+        assert_eq!(extract_call(&[]).doc_kind, DocKind::Unknown);
+    }
+
+    #[test]
+    fn a_notice_that_is_not_a_funding_call_gets_no_requirements_and_says_why() {
+        let election = "=== PAGINA 1 ===\nConvocatoria 2026\nProceso electoral. Las candidaturas se postulan del 2 al 7 de julio de 2026. La votación será el 19 de agosto de 2026; el voto es libre. Candidato titular y suplente. Consejo Directivo, padrón de votación, elección, sufragio, escrutinio y candidaturas de las instituciones; cada candidato expone su visión antes de la votación y del voto.\n";
+        let x = extract_call(&parse_dump(election));
+        assert_eq!(x.doc_kind, DocKind::GovernanceNotice);
+        assert!(x.requirements.is_empty());
+        assert!(x.needs_review.iter().any(|r| r.reason.contains("no es una convocatoria de donativos")));
+        // the dates are still listed: a person may want them
+        assert!(!x.dates.is_empty());
+    }
+
+    #[test]
+    fn a_page_that_only_mentions_the_requirements_in_a_sentence_does_not_add_its_steps() {
+        // found on the real call: page 9 says "las organizaciones que cumplan con los requisitos de
+        // participación…" and lists procedure steps; those are not participation criteria
+        let dump = "=== PAGINA 1 ===\nREQUISITOS DE PARTICIPACIÓN\n\n• Ser una organización sin fines de lucro (AC, IAP).\n\n=== PAGINA 2 ===\nDESCRIPCIÓN DE ETAPAS\nLas organizaciones que cumplan con los requisitos de participación recibirán un correo.\n• Crear un usuario y contraseña en https://ejemplo.org/login\n• Cargar la documentación solicitada\n• 7 abril 2026 12:30 p. m. CDMX\n";
+        let x = extract_call(&parse_dump(dump));
+        assert_eq!(x.eligibility.len(), 1, "{:?}", x.eligibility);
+        // and inside a participation page, a session bullet (starts with a date) is not a criterion
+        let dump = "=== PAGINA 1 ===\nETAPAS DE PARTICIPACIÓN\n• Solo puedes participar en una sola agenda\n• 7 abril 2026 12:30 p. m. CDMX\n• Registro en https://ejemplo.org\n";
+        let x = extract_call(&parse_dump(dump));
+        assert_eq!(x.eligibility.len(), 1, "{:?}", x.eligibility);
+    }
+
+    #[test]
+    fn a_fact_repeated_on_two_pages_is_listed_once_and_bare_www_addresses_are_found() {
+        let dump = "=== PAGINA 1 ===\nCONVOCATORIA 2026\nRegistro. A partir de abril\n\n=== PAGINA 2 ===\n2. Registro\nA PARTIR DE ABRIL\nEscribe a www.ejemplo.org/etica\nformulario en https://www.otro.org/f/1 y www.otro.org/f/1\n";
+        let x = extract_call(&parse_dump(dump));
+        assert_eq!(x.dates.iter().filter(|d| d.start == "2026-04").count(), 1);
+        let urls: Vec<&str> = x.links.iter().map(|l| l.url.as_str()).collect();
+        assert_eq!(urls, vec!["https://www.otro.org/f/1", "https://www.ejemplo.org/etica"]);
+    }
+
+    #[test]
+    fn the_numbered_annex_flags_glued_names_gaps_and_the_unattachable_stage_marks() {
+        let x = fixture();
+        let annex: Vec<&DocumentItem> = x.documents.iter().filter(|d| d.source == "annex").collect();
+        assert_eq!(annex.iter().map(|d| d.number.unwrap()).collect::<Vec<_>>(), vec![1, 2, 3, 5]);
+        assert!(annex.iter().find(|d| d.number == Some(3)).unwrap().clean_name);
+        assert!(!annex.iter().find(|d| d.number == Some(2)).unwrap().clean_name, "name and description came glued");
+        assert!(x.needs_review.iter().any(|r| r.reason.contains("faltan los números [4]")));
+        assert!(x.needs_review.iter().any(|r| r.reason.contains("Matriz de documentos por etapa")));
+    }
+
+    #[test]
+    fn funded_concepts_are_grouped_by_rubro() {
+        let x = fixture();
+        let group = |g: &str| x.funded_concepts.iter().filter(|c| c.group == g).map(|c| c.text.as_str()).collect::<Vec<_>>();
+        assert_eq!(group("inversion"), vec!["Equipo de cómputo", "Remodelación de inmuebles"]);
+        assert_eq!(group("operativo"), vec!["Alimentos", "Material didáctico"]);
+        assert_eq!(group("administrativo"), vec!["Papelería administrativa", "Honorarios de personal administrativo"]);
+        assert!(x.funded_concepts.iter().all(|c| !c.text.starts_with("NOTA") && c.text != "CONCEPTO"));
+    }
+
+    // ---- links, indicators, external values
+
+    #[test]
+    fn urls_cut_by_the_page_width_are_rejoined_and_classified() {
+        let x = fixture();
+        let url = |k: &str| x.links.iter().filter(|l| l.kind == k).map(|l| l.url.as_str()).collect::<Vec<_>>();
+        assert_eq!(url("session"), vec!["https://eventos.ejemplo.org/sesion/abc123def456@tenant789-0000-1111-2222-333344445555"]);
+        assert_eq!(url("form"), vec!["https://www.formularios.ejemplo.org/f/998877"]);
+        assert_eq!(x.emails, vec!["contacto@ejemplo.org"]);
+        // a word on the next line is not a URL continuation
+        let (links, _) = find_links(&pages("Entra a https://ejemplo.org/a\nRegistro."));
+        assert_eq!(links[0].url, "https://ejemplo.org/a");
+        assert_eq!(link_kind("https://x.com/files/Documentos.zip?dl=0"), "download");
+    }
+
+    #[test]
+    fn indicators_are_joined_across_lines_and_get_their_agenda_but_the_table_is_flagged() {
+        let x = fixture();
+        assert_eq!(x.indicators.len(), 4, "{:?}", x.indicators);
+        assert!(x.indicators[0].text.starts_with("Porcentaje de titulares de derechos que reciben tres comidas completas al día"));
+        assert!(x.indicators.iter().all(|i| i.agenda == Some("acceso_derechos")));
+        assert!(x.indicators.iter().any(|i| i.text.starts_with("# de personas")));
+        assert!(x.needs_review.iter().any(|r| r.reason.contains("Tabla de indicadores")));
+    }
+
+    #[test]
+    fn a_value_that_lives_on_a_platform_is_reported_not_guessed() {
+        let x = fixture();
+        assert_eq!(x.external.len(), 1);
+        assert_eq!(x.external[0].name, "monto");
+        assert!(x.limits.iter().all(|l| l.kind != "max_amount"), "no amount was invented");
+        assert!(x.needs_review.iter().any(|r| r.reason.contains("monto")));
+    }
+
+    // ---- the whole extraction
+
+    #[test]
+    fn the_fixture_gives_typed_limits_dates_and_requirement_drafts() {
+        let x = fixture();
+        assert_eq!(x.schema, "call_extraction.v1");
+        assert_eq!((x.year, x.pages), (Some(2027), 6));
+        let get = |k: &str| x.limits.iter().find(|l| l.kind == k).map(|l| l.value);
+        assert_eq!((get("max_duration_months"), get("max_admin_percent"), get("min_operating_years")), (Some(10.0), Some(12.0), Some(2.0)));
+        assert_eq!(x.legal_figures.as_ref().unwrap().values, vec!["AC", "IAP", "ABP"]);
+        let kinds: Vec<&str> = x.requirements.iter().map(|r| r.kind).collect();
+        for k in ["allowed_legal_figure", "min_operating_years", "max_duration_months", "max_admin_percent", "deadline", "required_document", "allowed_category", "manual"] {
+            assert!(kinds.contains(&k), "{k} missing in {kinds:?}");
+        }
+        // criteria already typed are not repeated as manual ones
+        let manual: Vec<&str> = x.requirements.iter().filter(|r| r.kind == "manual").map(|r| r.text.as_str()).collect();
+        assert!(manual.iter().all(|t| !t.contains("años de operación")), "{manual:?}");
+        assert!(manual.iter().any(|t| t.contains("diversidad de fuentes")));
+        // every draft points to where it came from and none is confirmed yet
+        assert!(x.requirements.iter().all(|r| r.origin == "document" && r.source.page >= 1 && !r.source.snippet.is_empty()));
+        let codes: Vec<&String> = x.requirements.iter().map(|r| &r.code).collect();
+        assert_eq!(codes.len(), codes.iter().collect::<std::collections::BTreeSet<_>>().len());
+    }
+
+    #[test]
+    fn repaired_pages_and_the_repaired_words_are_reported() {
+        let x = fixture();
+        assert_eq!(x.repaired_pages, vec![3, 5]);
+        assert!(x.low_quality_pages.is_empty());
+    }
+
+    #[test]
+    fn pages_are_tagged_so_the_ai_can_read_only_what_it_needs() {
+        let x = fixture();
+        let tags = |n: usize| x.page_tags.iter().find(|p| p.page == n).unwrap().tags.clone();
+        assert!(tags(2).contains(&"elegibilidad"));
+        assert!(tags(3).contains(&"fechas") && tags(3).contains(&"enlaces"));
+        assert!(tags(4).contains(&"documentos"));
+        assert!(tags(5).contains(&"indicadores"));
+        assert!(tags(6).contains(&"financiable"));
+    }
+
+    #[test]
+    fn the_same_input_gives_the_same_json_and_it_serializes() {
+        let a = serde_json::to_string(&fixture()).unwrap();
+        let b = serde_json::to_string(&fixture()).unwrap();
+        assert_eq!(a, b);
+        let v: serde_json::Value = serde_json::from_str(&a).unwrap();
+        assert_eq!(v["schema"], "call_extraction.v1");
+        assert!(v["requirements"].as_array().unwrap().len() >= 10);
+    }
+
+    #[test]
+    fn empty_or_text_free_input_does_not_invent_anything() {
+        let x = extract_call(&[]);
+        assert!(x.limits.is_empty() && x.dates.is_empty() && x.requirements.is_empty() && x.legal_figures.is_none());
+        let x = extract_call(&[PageText { number: 1, text: "Texto cualquiera sin nada que extraer.".into() }]);
+        assert!(x.requirements.is_empty() && x.documents.is_empty());
+    }
+
+    #[test]
+    fn noisy_pages_are_marked_low_quality() {
+        let noise = "\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD} texto corto \u{E001}\u{E002}\u{E003}\u{E004}\u{E005}\u{E006}\u{E007}\u{E008}";
+        assert!(is_low_quality(noise));
+        // too little text to judge: not flagged
+        assert!(!is_low_quality("\u{FFFD}\u{FFFD}"));
+        assert!(!is_low_quality("Texto normal con acentos, ñ y signos ¿verdad?"));
+    }
+
+    // ---- PDFs
+
+    #[test]
+    fn a_scanned_pdf_is_reported_for_ocr_and_nothing_is_extracted() {
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/office/convocatoria-escaneada.pdf");
+        let x = extract_pdf(&p).unwrap();
+        assert!(x.needs_ocr);
+        assert_eq!(x.pages_without_text, vec![1]);
+        assert!(x.requirements.is_empty() && x.limits.is_empty());
+    }
+
+    #[test]
+    fn a_pdf_with_a_text_layer_is_extracted() {
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/office/convocatoria-con-tablas.pdf");
+        let x = extract_pdf(&p).unwrap();
+        assert!(!x.needs_ocr);
+        assert_eq!(x.pages, 2);
+        assert!(x.pages_without_text.is_empty());
+    }
+}
+
+/// Measures the extractor against a REAL call, comparing it with what a person read by hand.
+/// The PDF is not part of the repository: its path comes from the environment.
+///   $env:CIMIENTO_CALL_PDF="D:\...\convocatoria.pdf"
+///   cargo test measure_real_call -- --ignored --nocapture
+#[cfg(test)]
+mod real_call {
+    use super::*;
+
+    struct Fact {
+        name: &'static str,
+        found: bool,
+        /// A rule must settle it; failing makes the run fail.
+        must: bool,
+    }
+
+    #[test]
+    #[ignore]
+    fn measure_real_call() {
+        let pdf = std::env::var("CIMIENTO_CALL_PDF").expect("set CIMIENTO_CALL_PDF to a call PDF");
+        let x = extract_pdf(Path::new(&pdf)).unwrap();
+        let limit = |k: &str| x.limits.iter().find(|l| l.kind == k).map(|l| l.value);
+        let date = |kind: &str, start: &str, end: Option<&str>| x.dates.iter().any(|d| d.kind == kind && d.start == start && d.end.as_deref() == end);
+        let n = |g: &str| x.funded_concepts.iter().filter(|c| c.group == g).count();
+        let figs = x.legal_figures.as_ref().map(|l| l.values.clone()).unwrap_or_default();
+        let url = |frag: &str| x.links.iter().any(|l| l.url.contains(frag));
+        let annex = x.documents.iter().filter(|d| d.source == "annex").count();
+        let listed = x.documents.iter().filter(|d| d.source == "eligibility").count();
+        let annex_text = |n: u32| x.documents.iter().find(|d| d.source == "annex" && d.number == Some(n)).map(|d| d.text.clone()).unwrap_or_default();
+
+        // What a person read by hand in the 2026 NMP call (see docs/11).
+        let facts = vec![
+            Fact { name: "duración máxima = 12 meses", found: limit("max_duration_months") == Some(12.0), must: true },
+            Fact { name: "gastos administrativos ≤ 15 %", found: limit("max_admin_percent") == Some(15.0), must: true },
+            Fact { name: "mínimo 3 años de operación", found: limit("min_operating_years") == Some(3.0), must: true },
+            Fact { name: "figuras AC, IAP, IBP, ABP", found: figs == vec!["AC", "IAP", "IBP", "ABP"], must: true },
+            Fact { name: "ventana de postulación 8–15 abril 2026", found: date("application_window", "2026-04-08", Some("2026-04-15")), must: true },
+            Fact { name: "sesión informativa 7 abril 12:30", found: date("info_session", "2026-04-07T12:30", None), must: true },
+            Fact { name: "sesión informativa 8 abril 10:00", found: date("info_session", "2026-04-08T10:00", None), must: true },
+            Fact { name: "entrega de recursos a partir de julio", found: date("disbursement", "2026-07", None), must: true },
+            Fact { name: "8 criterios de la página 4", found: x.eligibility.iter().filter(|c| c.evidence.page == 4).count() == 8, must: true },
+            Fact { name: "criterio «no se apoyarán organizaciones … religiosos»", found: x.eligibility.iter().any(|c| c.text.contains("No se apoyarán") && c.text.contains("religiosos")), must: true },
+            Fact { name: "regla «solo una agenda» (página 8)", found: x.eligibility.iter().any(|c| c.text.contains("una sola agenda") && c.evidence.page == 8), must: true },
+            Fact { name: "regla «no se reciben proyectos fuera de fecha» (página 8)", found: x.eligibility.iter().any(|c| c.text.contains("fuera de las fechas")), must: true },
+            Fact { name: "11 criterios en total (8 + 3), sin los pasos de procedimiento de la página 9", found: x.eligibility.len() == 11 && !x.eligibility.iter().any(|c| c.evidence.page == 9), must: true },
+            Fact { name: "7 documentos listados en los criterios", found: listed == 7, must: true },
+            Fact { name: "el 1.º de esos documentos son los estados financieros 2022–2024", found: x.documents.iter().find(|d| d.source == "eligibility").is_some_and(|d| d.text.contains("2022, 2023 y 2024")), must: true },
+            Fact { name: "21 documentos numerados del Anexo 1", found: annex == 21, must: true },
+            Fact { name: "Anexo 1, n.º 1 = estados financieros", found: annex_text(1).contains("Estados Financieros"), must: true },
+            Fact { name: "Anexo 1, n.º 3 = acta constitutiva", found: annex_text(3).contains("Acta constitutiva"), must: true },
+            Fact { name: "Anexo 1, n.º 11 = opinión de cumplimiento del SAT", found: annex_text(11).contains("Opinión de cumplimiento del SAT"), must: true },
+            Fact { name: "Anexo 1, n.º 21 = comprobante de domicilio", found: annex_text(21).contains("Comprobante de domicilio"), must: true },
+            Fact { name: "el Anexo 1 no trae pasos de las etapas (Postulación, Registro…)", found: x.documents.iter().filter(|d| d.source == "annex").all(|d| !["Postulación.", "Registro.", "Entrega de Recursos."].contains(&d.text.as_str())), must: true },
+            Fact { name: "sin fechas repetidas", found: x.dates.iter().enumerate().all(|(i, a)| x.dates.iter().skip(i + 1).all(|b| !(a.kind == b.kind && a.start == b.start && a.end == b.end))), must: true },
+            Fact { name: "9 conceptos de inversión", found: n("inversion") == 9, must: true },
+            Fact { name: "46 conceptos operativos", found: n("operativo") == 46, must: true },
+            Fact { name: "7 conceptos administrativos", found: n("administrativo") == 7, must: true },
+            Fact { name: "9 enlaces (8 con esquema y 1 «www.» sin esquema)", found: x.links.len() == 9, must: true },
+            Fact { name: "enlace sin esquema de la línea ética", found: url("tipsanonimos.com/tulineaetica"), must: true },
+            Fact { name: "enlace de sesión completo (reunido en 2 líneas)", found: url("b03b4b99-667c-43cf-b6ea-c7f461e1d86b@f0113a99-d66e-4a33-8db7-618141ec1fd0"), must: true },
+            Fact { name: "enlace del formulario", found: url("tfaforms.com/5211814"), must: true },
+            Fact { name: "enlace de complementos (ZIP)", found: x.links.iter().any(|l| l.kind == "download" && l.url.contains("Documentos-Convocatoria.zip")), must: true },
+            Fact { name: "2 correos", found: x.emails.len() == 2, must: true },
+            Fact { name: "el monto se marca como externo (plataforma)", found: x.external.iter().any(|e| e.name == "monto"), must: true },
+            Fact { name: "NO inventa montos (el PDF no trae ninguno)", found: limit("max_amount").is_none() && limit("min_amount").is_none(), must: true },
+            Fact { name: "marca la tabla de documentos por etapa", found: x.needs_review.iter().any(|r| r.reason.contains("Matriz de documentos por etapa")), must: true },
+            Fact { name: "marca la tabla de indicadores", found: x.needs_review.iter().any(|r| r.reason.contains("Tabla de indicadores")), must: true },
+            Fact { name: "no pide OCR (el PDF tiene texto)", found: !x.needs_ocr, must: true },
+        ];
+
+        println!("\nPDF: {pdf}");
+        println!("páginas: {} · sin texto: {:?} · reparadas: {:?} · baja calidad: {:?}", x.pages, x.pages_without_text, x.repaired_pages, x.low_quality_pages);
+        println!("\nContra lo leído a mano:");
+        for f in &facts {
+            println!("  [{}] {}", if f.found { "x" } else { " " }, f.name);
+        }
+        let got = facts.iter().filter(|f| f.found).count();
+        println!("\n{got} de {} hechos de referencia los saca el código por reglas ({:.0} %)", facts.len(), got as f64 * 100.0 / facts.len() as f64);
+        println!("\nLo que el código extrajo (cantidades):");
+        println!("  límites: {} · fechas: {} · criterios: {} · documentos: {} · conceptos: {} · enlaces: {} · indicadores: {}", x.limits.len(), x.dates.len(), x.eligibility.len(), x.documents.len(), x.funded_concepts.len(), x.links.len(), x.indicators.len());
+        println!("  borradores de requisito: {}  ({} por escribir a mano, tipo manual)", x.requirements.len(), x.requirements.iter().filter(|r| r.kind == "manual").count());
+        println!("\nLo que NO resuelve por reglas y queda para persona o IA:");
+        for r in &x.needs_review {
+            println!("  - p.{}: {}", r.page, r.reason);
+        }
+        let narrative: Vec<usize> = x.page_tags.iter().filter(|p| p.tags.iter().any(|t| ["evaluacion", "estrategias", "poblacion"].contains(t))).map(|p| p.page).collect();
+        println!("  - texto narrativo (evaluación, estrategias, población) en las páginas {narrative:?}: la IA lo lee por etiqueta, solo si lo necesita");
+        println!("\nVentana de postulación frente a hoy: {:?}", window_status(&x, &crate::ai::settings::today_utc()));
+        if let Ok(path) = std::env::var("CIMIENTO_EXTRACT_JSON") {
+            std::fs::write(&path, serde_json::to_string_pretty(&x).unwrap()).unwrap();
+            println!("JSON completo escrito en {path}");
+        }
+        let failed: Vec<&str> = facts.iter().filter(|f| f.must && !f.found).map(|f| f.name).collect();
+        assert!(failed.is_empty(), "el extractor no saca: {failed:?}");
+    }
+}
+
+/// Runs the extractor over every PDF in a folder and prints one summary per file, so a new
+/// document is seen as it is BEFORE any rule is touched.
+///   $env:CIMIENTO_PDF_DIR="D:\...\carpeta"; $env:CIMIENTO_EXTRACT_DIR="D:\...\salida"
+///   cargo test survey_pdf_folder -- --ignored --nocapture
+#[cfg(test)]
+mod survey {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn survey_pdf_folder() {
+        let dir = std::env::var("CIMIENTO_PDF_DIR").expect("set CIMIENTO_PDF_DIR");
+        let out_dir = std::env::var("CIMIENTO_EXTRACT_DIR").ok();
+        let mut files: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("pdf")))
+            .collect();
+        files.sort();
+        for path in files {
+            let name = path.file_name().unwrap().to_string_lossy().to_string();
+            println!("\n##### {name}");
+            let x = match extract_pdf(&path) {
+                Ok(x) => x,
+                Err(e) => {
+                    println!("  NO SE PUDO LEER: {e}");
+                    continue;
+                }
+            };
+            println!(
+                "  páginas {} · sin texto {:?} · pide OCR: {} · reparadas {:?} · baja calidad {:?}",
+                x.pages, x.pages_without_text, x.needs_ocr, x.repaired_pages, x.low_quality_pages
+            );
+            println!("  TIPO: {:?} — {}", x.doc_kind, x.doc_kind_reasons.join(" "));
+            if !x.duplicate_pages.is_empty() {
+                println!("  páginas repetidas (página, repite a): {:?}", x.duplicate_pages);
+            }
+            println!("  título: {:?} · año: {:?}", x.title, x.year);
+            println!(
+                "  límites {} · fechas {} · criterios {} · documentos {} · conceptos {} · enlaces {} · correos {} · indicadores {} · requisitos {} (manuales {})",
+                x.limits.len(), x.dates.len(), x.eligibility.len(), x.documents.len(), x.funded_concepts.len(),
+                x.links.len(), x.emails.len(), x.indicators.len(), x.requirements.len(),
+                x.requirements.iter().filter(|r| r.kind == "manual").count()
+            );
+            if !x.limits.is_empty() {
+                println!("  límites: {:?}", x.limits.iter().map(|l| (l.kind, l.value)).collect::<Vec<_>>());
+            }
+            if let Some(l) = &x.legal_figures {
+                println!("  figuras: {:?}", l.values);
+            }
+            for d in x.dates.iter().take(8) {
+                println!("  fecha {} {} {:?} (p.{})", d.kind, d.start, d.end, d.evidence.page);
+            }
+            for r in x.needs_review.iter().take(6) {
+                println!("  revisar p.{}: {}", r.page, r.reason.chars().take(110).collect::<String>());
+            }
+            for e in &x.external {
+                println!("  externo: {} en {}", e.name, e.lives_in);
+            }
+            println!("  ventana frente a hoy: {:?}", window_status(&x, &crate::ai::settings::today_utc()));
+            if let Some(o) = &out_dir {
+                let stem = path.file_stem().unwrap().to_string_lossy().replace(|c: char| !c.is_ascii_alphanumeric(), "_");
+                std::fs::write(format!("{o}/{stem}.json"), serde_json::to_string_pretty(&x).unwrap()).unwrap();
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod exploration {
+    use crate::documents::pdf::read_pdf;
+    use std::path::Path;
+
+    /// Dumps the pages `pdf-extract` reads from a PDF, so the extractor is written against the
+    /// real text and not against a guess.
+    ///   $env:CIMIENTO_CALL_PDF="D:\...\convocatoria.pdf"; $env:CIMIENTO_DUMP="D:\...\paginas.txt"
+    ///   cargo test dump_call_pages -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn dump_call_pages() {
+        let pdf = std::env::var("CIMIENTO_CALL_PDF").expect("set CIMIENTO_CALL_PDF");
+        let out = std::env::var("CIMIENTO_DUMP").expect("set CIMIENTO_DUMP");
+        let r = read_pdf(Path::new(&pdf)).unwrap();
+        let mut s = String::new();
+        for (i, p) in r.pages.iter().enumerate() {
+            s.push_str(&format!("\n=== PAGINA {} ({} caracteres) ===\n{}", i + 1, p.chars().count(), p));
+        }
+        std::fs::write(&out, s).unwrap();
+        println!("{} páginas; sin texto: {:?}", r.pages.len(), r.pages_without_text);
+    }
+}

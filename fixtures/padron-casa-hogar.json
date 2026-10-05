@@ -1,0 +1,25 @@
+{
+  "_nota": "Personas ficticias para desarrollo y pruebas. Nada de esto es real.",
+  "staff": [
+    { "full_name": "María Elena Vázquez Cruz", "role": "Cuidadora o cuidador", "contract": "De planta", "shift": "Por turnos", "monthly_salary_mxn": "8500", "paid": "yes", "start_year": "2019", "phone": "55 5555 0111", "email": "mvazquez@casahogar-ejemplo.org" },
+    { "full_name": "Rosa Imelda Torres León", "role": "Cuidadora o cuidador", "contract": "De planta", "shift": "Nocturno", "monthly_salary_mxn": "8500", "paid": "yes", "start_year": "2020", "phone": "55 5555 0112" },
+    { "full_name": "Patricia Gómez Ramírez", "role": "Cuidadora o cuidador", "contract": "De planta", "shift": "Matutino", "monthly_salary_mxn": "8800", "paid": "yes", "start_year": "2018", "phone": "55 5555 0113" },
+    { "full_name": "Lucía Hernández Soto", "role": "Psicología", "contract": "Honorarios", "shift": "Medio tiempo", "monthly_salary_mxn": "11000", "paid": "yes", "start_year": "2022", "phone": "55 5555 0114", "email": "lhernandez@casahogar-ejemplo.org" },
+    { "full_name": "Ana Karen Morales Díaz", "role": "Administración", "contract": "De planta", "shift": "Matutino", "monthly_salary_mxn": "9800", "paid": "yes", "start_year": "2017", "phone": "55 5555 0115", "email": "administracion@casahogar-ejemplo.org" },
+    { "full_name": "Laura Beatriz Ríos Peña", "role": "Cocina", "contract": "De planta", "shift": "Matutino", "monthly_salary_mxn": "7200", "paid": "yes", "start_year": "2021", "phone": "55 5555 0116" },
+    { "full_name": "Gabriela Núñez Salas", "role": "Trabajo social", "contract": "Por tiempo definido", "shift": "Vespertino", "monthly_salary_mxn": "9000", "paid": "yes", "start_year": "2024", "phone": "55 5555 0117" },
+    { "full_name": "Fernando Aguirre Lara", "role": "Voluntariado", "shift": "Fines de semana", "paid": "no", "start_year": "2023", "phone": "55 5555 0118" }
+  ],
+  "beneficiary": [
+    { "full_name": "Valeria Ortega Ruiz", "category": "Niñas", "age": "7", "entry_year": "2023", "monthly_fee_mxn": "1500", "phone": "55 5555 0201" },
+    { "full_name": "Camila Reyes Mendoza", "category": "Niñas", "age": "9", "entry_year": "2022", "phone": "55 5555 0202" },
+    { "full_name": "Ximena Flores Aranda", "category": "Niñas", "age": "10", "entry_year": "2021", "monthly_fee_mxn": "1800", "phone": "55 5555 0203", "email": "tutor.flores@correo-ejemplo.org" },
+    { "full_name": "Renata Campos Luna", "category": "Niñas", "age": "6", "dependency": "low", "entry_year": "2025" },
+    { "full_name": "Daniela Silva Cortés", "category": "Niñas", "age": "11", "entry_year": "2020", "phone": "55 5555 0205" },
+    { "full_name": "Fernanda Duarte Ibarra", "category": "Adolescentes mujeres", "age": "13", "entry_year": "2019", "monthly_fee_mxn": "1200", "phone": "55 5555 0206" },
+    { "full_name": "Mariana Pineda Solís", "category": "Adolescentes mujeres", "age": "14", "entry_year": "2021", "phone": "55 5555 0207" },
+    { "full_name": "Andrea Navarro Beltrán", "category": "Adolescentes mujeres", "age": "15", "entry_year": "2018" },
+    { "full_name": "Regina Lozano Vega", "category": "Adolescentes mujeres", "age": "16", "dependency": "medium", "entry_year": "2017", "phone": "55 5555 0209" },
+    { "full_name": "Isabela Cano Rangel", "category": "Adolescentes mujeres", "age": "12", "entry_year": "2024", "monthly_fee_mxn": "1500", "phone": "55 5555 0210" }
+  ]
+}

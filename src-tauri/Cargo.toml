@@ -1,0 +1,65 @@
+[package]
+name = "cimiento"
+version = "0.1.0"
+description = "Herramienta local con IA para armar proyectos de donativos"
+authors = []
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "cimiento_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+rusqlite = { version = "0.40.2", features = ["bundled-sqlcipher-vendored-openssl"] }
+getrandom = "0.4.3"
+hex = "0.4.3"
+keyring-core = "1.0.0"
+calamine = "0.36.1"
+umya-spreadsheet = "3.1.0"
+zip = "8.6.0"
+regex = "1.13.1"
+sqlite-vec = "0.1.9"
+pdf-extract = "0.12.1"
+# the same version pdf-extract reads with: the content of a page is read here to find the lines of a table
+lopdf = "0.42.0"
+base64 = "0.22.1"
+ulid = "3.0.0"
+sha2 = "0.11.0"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "native-tls", "charset", "http2", "system-proxy"] }
+async-trait = "0.1.92"
+jsonschema = "0.58.3"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time"] }
+
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+# a damaged PDF can make the reader panic: it must be caught (`catch_unwind`), not end the program
+panic = "unwind"
+strip = true
+
+[dev-dependencies]
+tempfile = "3.27.0"
+wiremock = "0.6.5"
+# paused clock for tests that wait out a rate-limit window without really waiting
+tokio = { version = "1.53.1", features = ["test-util"] }
+roxmltree = "0.21.1"
+
+[target."cfg(windows)".dependencies]
+windows-native-keyring-store = "1.1.0"
+
+

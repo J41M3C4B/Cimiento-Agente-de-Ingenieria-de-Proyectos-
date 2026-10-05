@@ -1,0 +1,25 @@
+{
+  "_nota": "Personas ficticias para desarrollo y pruebas. Nada de esto es real.",
+  "staff": [
+    { "full_name": "Carmen Olivia Salazar Rojas", "role": "Enfermería", "contract": "De planta", "shift": "24 horas", "monthly_salary_mxn": "9500", "paid": "yes", "start_year": "2018", "phone": "55 5555 0121", "email": "csalazar@asilo-ejemplo.org" },
+    { "full_name": "Josefina Barrera Montes", "role": "Enfermería", "contract": "De planta", "shift": "Nocturno", "monthly_salary_mxn": "9500", "paid": "yes", "start_year": "2019", "phone": "55 5555 0122" },
+    { "full_name": "Alejandra Ponce Trejo", "role": "Enfermería", "contract": "Por tiempo definido", "shift": "Por turnos", "monthly_salary_mxn": "9200", "paid": "yes", "start_year": "2024", "phone": "55 5555 0123" },
+    { "full_name": "Beatriz Mejía Orozco", "role": "Cocina", "contract": "De planta", "shift": "Matutino", "monthly_salary_mxn": "7200", "paid": "yes", "start_year": "2016", "phone": "55 5555 0124" },
+    { "full_name": "Guadalupe Cervantes Ávila", "role": "Cocina", "contract": "De planta", "shift": "Vespertino", "monthly_salary_mxn": "7000", "paid": "yes", "start_year": "2020", "phone": "55 5555 0125" },
+    { "full_name": "Ricardo Escamilla Fuentes", "role": "Administración", "contract": "De planta", "shift": "Matutino", "monthly_salary_mxn": "10500", "paid": "yes", "start_year": "2015", "phone": "55 5555 0126", "email": "administracion@asilo-ejemplo.org" },
+    { "full_name": "Hermana Socorro Villanueva", "role": "Religiosa o religioso", "shift": "24 horas", "paid": "no", "start_year": "2010", "phone": "55 5555 0127" },
+    { "full_name": "Javier Montoya Reyes", "role": "Voluntariado", "shift": "Fines de semana", "paid": "no", "start_year": "2023", "phone": "55 5555 0128" }
+  ],
+  "beneficiary": [
+    { "full_name": "Doña Esperanza Robles Tapia", "category": "Mujeres adultas mayores", "age": "84", "dependency": "high", "entry_year": "2019", "monthly_fee_mxn": "6000", "phone": "55 5555 0211", "email": "familia.robles@correo-ejemplo.org" },
+    { "full_name": "Margarita Cisneros Arce", "category": "Mujeres adultas mayores", "age": "78", "dependency": "medium", "entry_year": "2021", "monthly_fee_mxn": "4500", "phone": "55 5555 0212" },
+    { "full_name": "Consuelo Palacios Ochoa", "category": "Mujeres adultas mayores", "age": "72", "dependency": "low", "entry_year": "2022", "monthly_fee_mxn": "3500", "phone": "55 5555 0213" },
+    { "full_name": "Amparo Zamora Quiroz", "category": "Mujeres adultas mayores", "age": "91", "dependency": "total", "entry_year": "2017", "phone": "55 5555 0214" },
+    { "full_name": "Evelia Santana Lira", "category": "Mujeres adultas mayores", "age": "69", "dependency": "low", "entry_year": "2024", "monthly_fee_mxn": "3500" },
+    { "full_name": "Don Aurelio Fierro Domínguez", "category": "Hombres adultos mayores", "age": "88", "dependency": "high", "entry_year": "2018", "monthly_fee_mxn": "6000", "phone": "55 5555 0216" },
+    { "full_name": "Raúl Benítez Carrillo", "category": "Hombres adultos mayores", "age": "76", "dependency": "medium", "entry_year": "2020", "phone": "55 5555 0217" },
+    { "full_name": "Ernesto Mondragón Paz", "category": "Hombres adultos mayores", "age": "81", "dependency": "medium", "entry_year": "2021", "monthly_fee_mxn": "4500", "phone": "55 5555 0218" },
+    { "full_name": "Salvador Rangel Ibáñez", "category": "Hombres adultos mayores", "age": "67", "dependency": "low", "entry_year": "2025", "phone": "55 5555 0219" },
+    { "full_name": "Felipe Arriaga Meza", "category": "Hombres adultos mayores", "age": "93", "dependency": "total", "entry_year": "2016", "phone": "55 5555 0220" }
+  ]
+}

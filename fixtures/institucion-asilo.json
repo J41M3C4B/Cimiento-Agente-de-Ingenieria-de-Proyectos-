@@ -1,0 +1,25 @@
+{
+  "institution": {
+    "name": "Asilo Hogar Ejemplo, A.C.",
+    "kind": "elderly_home",
+    "mission": "Brindar un hogar digno, atención y compañía a adultos mayores en situación de vulnerabilidad.",
+    "legal_rfc": "AHE200101AB1",
+    "contact_phone": "55 5555 0101",
+    "contact_email": "contacto@asilo-ejemplo.org",
+    "legal_rep_name": null
+  },
+  "capacity_total": 25,
+  "annual_budget_mxn": 1800000,
+  "notes": "Perfil ficticio para desarrollo y pruebas.",
+  "facilities": [
+    { "kind": "Dormitorio", "count": 8, "condition": "fair", "accessible": true, "notes": null },
+    { "kind": "Baño", "count": 3, "condition": "poor", "accessible": false, "notes": "Piso resbaloso, sin barras de apoyo ni regaderas con asiento." },
+    { "kind": "Cocina", "count": 1, "condition": "good", "accessible": null, "notes": null },
+    { "kind": "Enfermería", "count": 1, "condition": "fair", "accessible": true, "notes": null }
+  ],
+  "income": [
+    { "label": "Cuotas de recuperación", "annual_amount_mxn": 720000 },
+    { "label": "Donativos de particulares", "annual_amount_mxn": 680000 },
+    { "label": "Eventos y colectas", "annual_amount_mxn": 400000 }
+  ]
+}

@@ -1,0 +1,1027 @@
+//! Riel de convocatorias (ADR-013): the code finds the candidates, the model only labels them.
+//!
+//! This file is the first part of the rail, the segmenter. It cuts the pages of a call into
+//! **candidates**: the sentences, bullets and lines that may state a rule, a date or a figure.
+//! Each one has an id, and its text is copied from the page, never written by anyone: that is
+//! what lets a cheap model and an expensive one give the same words (the model will only answer
+//! "candidate p8-3 is a criterion that applies to everyone").
+//!
+//! The segmenter is deterministic and spends nothing. What it must guarantee, and the tests check:
+//! - every candidate's text is a literal piece of the cleaned page;
+//! - the same pages always give the same candidates with the same ids;
+//! - nothing the rules of `call_extract` found is left out of the candidates.
+
+use super::call_extract::{clean_text, PageText};
+use regex::Regex;
+use serde::Serialize;
+use std::collections::BTreeSet;
+use std::sync::OnceLock;
+
+macro_rules! re {
+    ($p:expr) => {{
+        static R: OnceLock<Regex> = OnceLock::new();
+        R.get_or_init(|| Regex::new($p).expect("valid regex"))
+    }};
+}
+
+/// A candidate longer than this is cut at a sentence boundary before it ever gets here; a wall of
+/// text that never ends is a page the extractor read badly, and the model should not label it.
+const MAX_CANDIDATE_CHARS: usize = 700;
+/// Shorter than this proves nothing, unless it carries a date ("Abril 01 al 22").
+const MIN_CANDIDATE_CHARS: usize = 14;
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Candidate {
+    /// `p8-3`: page 8, third candidate of that page. Stable for the same pages.
+    pub id: String,
+    pub page: usize,
+    /// The last heading above it, so the model knows where it sits ("CRITERIOS MÍNIMOS").
+    pub section: Option<String>,
+    /// The line that opened the list this item belongs to ("Para las organizaciones que nunca han
+    /// recibido donativo, deberán contar con la siguiente documentación:"). It says who the item
+    /// applies to, which the item alone does not.
+    pub lead: Option<String>,
+    /// Literal text of the page.
+    pub text: String,
+    /// Why it is a candidate: `bullet`, `obligation`, `exclusion`, `priority`, `participation`,
+    /// `limit`, `document`, `date`, `figure`, `table` (a calendar written as separate short lines:
+    /// the stages and their dates stay together because on their own a date says nothing), or `rule_section` (it sits under a heading about
+    /// requirements or criteria, where every paragraph is a rule even without a telltale word).
+    pub signals: Vec<&'static str>,
+}
+
+// ------------------------------------------------------------------ the closed vocabulary
+
+/// What a model may say a candidate is. The prompt (`call_review.v3.md`) defines each one, the
+/// schema (`ai/prompts.rs`) allows only these, and a test keeps the three in step.
+pub const LABELS: [&str; 15] = [
+    "criterion",
+    "project_requirement",
+    "funding_condition",
+    "exclusion",
+    "funded",
+    "priority",
+    "evaluation",
+    "document",
+    "objective",
+    "funder",
+    "category",
+    "population",
+    "calendar",
+    "submission",
+    "not_relevant",
+];
+
+/// Whom a candidate applies to. The code reads it from the candidate's own words and the line that
+/// opened its list (`call_review::derive_applies`); the model is not asked, because two models
+/// agreed on it barely half the time. `other` is kept for what the code cannot tell.
+#[allow(dead_code)]
+pub const APPLIES_TO: [&str; 5] = ["all", "new_organizations", "per_category", "per_stage", "other"];
+
+/// The questions every call gets, whatever the call says: each is answered with the ids of the
+/// candidates that state it, or "not in the text".
+pub const SLOTS: [&str; 9] = [
+    "application_window",
+    "registration",
+    "info_session",
+    "disbursement",
+    "max_duration_months",
+    "max_admin_percent",
+    "min_operating_years",
+    "max_amount",
+    "min_amount",
+];
+
+impl Candidate {
+    /// One line for the model: `p8-3 [sección: …] [lista: …] text`.
+    pub fn render(&self) -> String {
+        let cut = |s: &str, n: usize| s.chars().take(n).collect::<String>();
+        let mut line = self.id.clone();
+        if let Some(s) = &self.section {
+            line.push_str(&format!(" [sección: {}]", cut(s, 80)));
+        }
+        if let Some(l) = &self.lead {
+            line.push_str(&format!(" [lista: {}]", cut(l, 200)));
+        }
+        line.push(' ');
+        line.push_str(&self.text);
+        line
+    }
+}
+
+// ------------------------------------------------------------------ signals
+
+fn signals_of(text: &str, bullet: bool) -> Vec<&'static str> {
+    let mut out: Vec<&'static str> = Vec::new();
+    if bullet {
+        out.push("bullet");
+    }
+    let rules: [(&'static str, &Regex); 8] = [
+        (
+            "obligation",
+            re!(r"(?i)\b(deber[aá]n?|deben|debe|obligatori[oa]s?|se\s+requiere[n]?|ser[aá]\s+necesari[oa]|es\s+necesari[oa]|indispensable|requisitos?|cumplir|contar\s+con|cuent[ae]n?\s+con|tener\s+al\s+menos|presentar|entregar|adjuntar|llenar|completar)\b"),
+        ),
+        (
+            "exclusion",
+            re!(r"(?i)\bno\s+se\s+(apoyar|aceptar|recibir|permit|financi|consider|podr)|\bno\s+(podr[aá]n?|ser[aá]n?)\b|prohib|exclu[ií]|queda[n]?\s+fuera|improcedent|no\s+aplica|no\s+son\s+elegibles|fuera\s+de\s+(las\s+)?fechas"),
+        ),
+        (
+            "priority",
+            re!(r"(?i)prioridad|priorizar|se\s+evaluar|se\s+valorar|se\s+calificar|criterios?\s+de\s+evaluaci|puntaje|ponderaci"),
+        ),
+        (
+            "participation",
+            re!(r"(?i)podr[aá]n?\s+participar|solo\s+(podr[aá]n|puedes|pueden)|pueden\s+participar|elegib|dirigid[ao]s?\s+a\b|\bconvoca\b|\bobjetivo\b"),
+        ),
+        (
+            "limit",
+            re!(r"(?i)\b(m[aá]xim[oa]s?|m[ií]nim[oa]s?|hasta|al\s+menos|tope|l[ií]mite)\b|no\s+(mayor|menor)\s+(de|a|que)"),
+        ),
+        (
+            "document",
+            re!(r"(?i)\bdocumentos?\b|acta\s+constitutiva|estados?\s+financieros|constancia|comprobante|opini[oó]n\s+de\s+cumplimiento|poder\s+notarial|\banexo\b|\bformato\b|\bDOF\b"),
+        ),
+        (
+            "date",
+            re!(r"(?i)\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b.{0,12}\d|\d.{0,12}\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b|a\s+partir\s+d(el|e)\s+(mes\s+de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)"),
+        ),
+        (
+            "figure",
+            re!(r"(?i)\$\s?\d|\d\s?%|\d+\s+(meses|a[ñn]os|d[ií]as|semanas|horas)\b|\b(un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce)\s+(meses|a[ñn]os)\b|\bpor\s+ciento\b"),
+        ),
+    ];
+    for (name, r) in rules {
+        if r.is_match(text) {
+            out.push(name);
+        }
+    }
+    out
+}
+
+// ------------------------------------------------------------------ lines and units
+
+/// A line with a date is never a heading, even in capitals ("19 MAYO-6 JUNIO"): calendars are
+/// written like that.
+fn has_date(line: &str) -> bool {
+    signals_of(line, false).contains(&"date")
+}
+
+/// Headings about requirements, criteria, evaluation or what is not funded: what sits under them
+/// is a rule.
+fn is_rule_heading(section: &str) -> bool {
+    re!(r"(?i)requisitos|criterios|participaci|elegib|evaluaci|prioridad|priorizaci|obligatori|restriccion|no\s+se\s+financia|documentaci").is_match(section)
+}
+
+/// A line of capitals is a heading ("CRITERIOS MÍNIMOS DE PARTICIPACIÓN").
+fn is_caps_heading(line: &str) -> bool {
+    let letters: Vec<char> = line.chars().filter(|c| c.is_alphabetic()).collect();
+    letters.len() >= 8 && letters.iter().all(|c| c.is_uppercase())
+}
+
+/// A numbered title line ("3. Requisitos de participación"). It is a title only if the next line is
+/// blank (or there is none): an item of a numbered list that wraps ("1. Claridad del problema social
+/// que se busca atender y solidez / del diagnóstico.") has no period at the end of its first line and
+/// was taken for a title and thrown away, which lost 6 of the 8 evaluation criteria of Alsea.
+fn is_numbered_heading(lines: &[&str], idx: usize) -> bool {
+    let line = lines[idx].trim();
+    lines.get(idx + 1).map_or(true, |next| next.trim().is_empty())
+        && line.chars().count() <= 80
+        && !line.ends_with('.')
+        && !line.ends_with(':')
+        && re!(r"^(\d+(\.\d+)*\.?|[IVX]+\.)\s+\p{Lu}").is_match(line)
+        && !re!(r"\d{2,}").is_match(line)
+}
+
+/// Index lines ("REQUISITOS ........ 4") say where things are, not what they say.
+fn is_index_line(line: &str) -> bool {
+    re!(r"\.{4,}\s*\d+\s*$").is_match(line) || re!(r"^\s*\d{1,3}\s*$").is_match(line)
+}
+
+/// Starts of list items as the real calls write them: a bullet, a dash, the "o" a PDF makes of a
+/// sub-bullet, "1." / "1)" and "a)".
+fn bullet_start(line: &str) -> Option<&str> {
+    if let Some(rest) = line.strip_prefix('•') {
+        return Some(rest.trim());
+    }
+    for p in ["- ", "– ", "o ", "* "] {
+        if let Some(rest) = line.strip_prefix(p) {
+            // "o " is a bullet only when what follows is a sentence, not the word "o" (or)
+            if p == "o " && !rest.starts_with(|c: char| c.is_uppercase() || c.is_ascii_digit()) {
+                return None;
+            }
+            return Some(rest.trim());
+        }
+    }
+    if let Some(m) = re!(r"^(\d{1,2}[.)]|[a-z]\))\s+").find(line) {
+        return Some(line[m.end()..].trim());
+    }
+    None
+}
+
+/// A calendar laid out as a table comes out of the PDF as short lines: the stage titles
+/// ("PRESELECCIÓN", "EVALUACIÓN") and then their dates ("19 MAYO-6 JUNIO"), in the same order.
+/// Taken one by one the dates lose their stage, so a run of short lines holding several dates is
+/// kept as one block. Returns the first and last line index (inclusive) of each block.
+fn table_blocks(lines: &[&str]) -> Vec<(usize, usize)> {
+    const SHORT: usize = 45;
+    let mut blocks = Vec::new();
+    let mut run: Vec<usize> = Vec::new();
+    let mut close = |run: &mut Vec<usize>, blocks: &mut Vec<(usize, usize)>| {
+        let dates = run.iter().filter(|&&i| has_date(lines[i].trim())).count();
+        if run.len() >= 4 && dates >= 2 {
+            blocks.push((run[0], *run.last().unwrap()));
+        }
+        run.clear();
+    };
+    for (i, line) in lines.iter().enumerate() {
+        let t = line.trim();
+        if t.is_empty() {
+            continue; // the blank lines between the cells do not end the table
+        }
+        // a numbered stage ("1. Postulación", "2.1 Valoración integral") is a cell of the calendar;
+        // a bullet glyph is a list
+        let glyph_bullet = t.starts_with(['•', '-', '–', '*']) || (t.starts_with("o ") && bullet_start(t).is_some());
+        let is_cell = t.chars().count() <= SHORT && !glyph_bullet && !is_index_line(t) && (!t.ends_with('.') || has_date(t) || re!(r"^\d+(\.\d+)*\.\s+\p{Lu}").is_match(t));
+        if is_cell {
+            run.push(i);
+        } else {
+            close(&mut run, &mut blocks);
+        }
+    }
+    close(&mut run, &mut blocks);
+    blocks
+}
+
+#[derive(Debug)]
+struct Unit {
+    text: String,
+    bullet: bool,
+    table: bool,
+    lead: Option<String>,
+    section: Option<String>,
+}
+
+/// Cuts one page into units: list items (with their wrapped lines joined) and paragraphs.
+/// `section` is the heading in force when the page starts; the heading in force at the end is
+/// returned so the next page begins under it.
+fn units_of_page(clean: &str, mut section: Option<String>, early_page: bool) -> (Vec<Unit>, Option<String>, bool) {
+    let mut units: Vec<Unit> = Vec::new();
+    let mut current: Option<Unit> = None;
+    let mut lead: Option<String> = None;
+    let mut after_heading = false;
+    let mut heading_set_here = false;
+
+    fn flush(current: &mut Option<Unit>, units: &mut Vec<Unit>, lead: &mut Option<String>) {
+        if let Some(u) = current.take() {
+            let text = u.text.split_whitespace().collect::<Vec<_>>().join(" ");
+            if !text.is_empty() {
+                // an item that ends in ":" opens a list: the items that follow say who they are for
+                if text.ends_with(':') {
+                    *lead = Some(text.clone());
+                }
+                units.push(Unit { text, ..u });
+            }
+        }
+    }
+
+    let lines: Vec<&str> = clean.lines().collect();
+    let blocks = table_blocks(&lines);
+    let index = if early_page { index_lines(&lines) } else { BTreeSet::new() };
+    let mut skip_until: Option<usize> = None;
+    for (idx, line) in lines.iter().enumerate() {
+        if skip_until.is_some_and(|end| idx <= end) {
+            continue;
+        }
+        skip_until = None;
+        if let Some(&(first, last)) = blocks.iter().find(|(first, _)| *first == idx) {
+            flush(&mut current, &mut units, &mut lead);
+            lead = None;
+            after_heading = false;
+            // "Etapa 1: Preselección / Abril 01 al 22 / Etapa 5: Postulación del proyecto / Mayo 16
+            // al 23": each numbered stage with its own dates is a candidate, so the model can point
+            // at one stage and the code reads that stage's dates and no other
+            let cells: Vec<&str> = lines[first..=last].iter().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+            let starts: Vec<usize> = cells.iter().enumerate().filter(|(_, l)| re!(r"(?i)^etapa\s+\d+|^\d+\.\s+\p{Lu}").is_match(l)).map(|(i, _)| i).collect();
+            if starts.len() >= 2 {
+                for (k, &from) in starts.iter().enumerate() {
+                    let to = starts.get(k + 1).copied().unwrap_or(cells.len());
+                    units.push(Unit { text: cells[from..to].join(" "), bullet: false, table: true, lead: None, section: section.clone() });
+                }
+            } else {
+                units.push(Unit { text: cells.join(" "), bullet: false, table: true, lead: None, section: section.clone() });
+            }
+            skip_until = Some(last);
+            continue;
+        }
+        let t = line.trim();
+        if index.contains(&idx) {
+            // a line of the table of contents: it names a section, it says nothing
+            flush(&mut current, &mut units, &mut lead);
+            continue;
+        }
+        if t.is_empty() {
+            flush(&mut current, &mut units, &mut lead);
+            // a blank line ends the list the lead opened
+            lead = None;
+            after_heading = false;
+            continue;
+        }
+        if is_index_line(t) {
+            flush(&mut current, &mut units, &mut lead);
+            continue;
+        }
+        if (is_caps_heading(t) || is_numbered_heading(&lines, idx)) && !has_date(t) {
+            flush(&mut current, &mut units, &mut lead);
+            lead = None;
+            // a title that wraps over several lines is one heading
+            section = Some(match (&section, after_heading) {
+                (Some(prev), true) => format!("{prev} {t}"),
+                _ => t.to_string(),
+            });
+            after_heading = true;
+            heading_set_here = true;
+            continue;
+        }
+        // a short title alone between blank lines, followed by a paragraph ("Población objetivo"), is
+        // a heading: it names what follows, it is not a rule
+        if current.is_none() && is_lone_title(&lines, idx) {
+            lead = None;
+            section = Some(t.to_string());
+            after_heading = false;
+            heading_set_here = true;
+            continue;
+        }
+        after_heading = false;
+        if let Some(rest) = bullet_start(t) {
+            flush(&mut current, &mut units, &mut lead);
+            current = Some(Unit { text: rest.to_string(), bullet: true, table: false, lead: lead.clone(), section: section.clone() });
+            continue;
+        }
+        match current.as_mut() {
+            Some(c) => {
+                // a line that opens a new sentence after a closing period is a new paragraph, not
+                // the continuation of the item above
+                let new_sentence = c.text.trim_end().ends_with('.') && t.starts_with(|ch: char| ch.is_uppercase());
+                if new_sentence {
+                    let was_bullet = c.bullet;
+                    flush(&mut current, &mut units, &mut lead);
+                    if was_bullet {
+                        lead = None;
+                    }
+                    current = Some(Unit { text: t.to_string(), bullet: false, table: false, lead: None, section: section.clone() });
+                } else {
+                    c.text.push(' ');
+                    c.text.push_str(t);
+                }
+            }
+            None => current = Some(Unit { text: t.to_string(), bullet: false, table: false, lead: None, section: section.clone() }),
+        }
+    }
+    flush(&mut current, &mut units, &mut lead);
+    (join_continuations(units), section, heading_set_here)
+}
+
+/// A paragraph that stops without closing punctuation and is followed (across a blank line the PDF
+/// left between its lines) by one that starts in lowercase is one sentence cut in two: they are
+/// joined, so a model does not label each half.
+fn join_continuations(units: Vec<Unit>) -> Vec<Unit> {
+    let mut out: Vec<Unit> = Vec::new();
+    for u in units {
+        let continues = out.last().is_some_and(|p: &Unit| {
+            !p.bullet
+                && !p.table
+                && !u.bullet
+                && !u.table
+                && !p.text.trim_end().ends_with(['.', ':', ';', '?', '!', '"', '”'])
+                && u.text.starts_with(|c: char| c.is_lowercase())
+        });
+        if continues {
+            let p = out.last_mut().unwrap();
+            p.text.push(' ');
+            p.text.push_str(&u.text);
+        } else {
+            out.push(u);
+        }
+    }
+    out
+}
+
+/// The lines of a table of contents: five or more short title lines in a row, none closing with
+/// punctuation, none a bullet or a date. Only looked for on the first pages.
+fn index_lines(lines: &[&str]) -> BTreeSet<usize> {
+    let is_title = |t: &str| {
+        !t.is_empty()
+            && t.chars().count() <= 60
+            && t.starts_with(|c: char| c.is_uppercase())
+            && !t.ends_with(['.', ':', ';', ','])
+            && bullet_start(t).is_none()
+            && !has_date(t)
+    };
+    let mut out = BTreeSet::new();
+    let mut run: Vec<usize> = Vec::new();
+    let close = |run: &mut Vec<usize>, out: &mut BTreeSet<usize>| {
+        if run.len() >= 5 {
+            out.extend(run.iter().copied());
+        }
+        run.clear();
+    };
+    for (i, line) in lines.iter().enumerate() {
+        let t = line.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if is_title(t) {
+            run.push(i);
+        } else {
+            close(&mut run, &mut out);
+        }
+    }
+    close(&mut run, &mut out);
+    out
+}
+
+/// A short title with blank lines around it and a paragraph after it.
+fn is_lone_title(lines: &[&str], idx: usize) -> bool {
+    let t = lines[idx].trim();
+    let words = t.split_whitespace().count();
+    let alone_before = idx == 0 || lines[idx - 1].trim().is_empty();
+    let alone_after = lines.get(idx + 1).map_or(false, |l| l.trim().is_empty());
+    let next_paragraph_words = lines[idx + 1..].iter().map(|l| l.trim()).find(|l| !l.is_empty()).map_or(0, |l| l.split_whitespace().count());
+    (1..=6).contains(&words)
+        && t.chars().count() <= 60
+        && t.starts_with(|c: char| c.is_uppercase())
+        && !t.ends_with(['.', ':', ';', ',', '?', '!'])
+        && !t.chars().any(|c| c.is_ascii_digit())
+        && bullet_start(t).is_none()
+        && alone_before
+        && alone_after
+        && next_paragraph_words >= 6
+}
+
+/// Words that end in a period without ending the sentence.
+const ABBREVIATIONS: [&str; 16] = ["art", "arts", "núm", "num", "no", "dr", "dra", "lic", "sr", "sra", "ing", "fig", "tel", "cp", "vs", "p"];
+
+/// Cuts a paragraph into sentences at ". " followed by a capital, without cutting "A.C.",
+/// "I.A.P.", "p. m." or "Art. 5".
+fn sentences(text: &str) -> Vec<String> {
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+    let mut out: Vec<String> = Vec::new();
+    let mut start = 0;
+    for &(i, c) in chars.iter() {
+        if !matches!(c, '.' | '?' | '!') {
+            continue;
+        }
+        // what follows: whitespace, then a capital letter or an opening mark
+        let rest = &text[i + c.len_utf8()..];
+        let after = rest.trim_start();
+        if after.len() == rest.len() || after.is_empty() {
+            continue; // no space after the mark ("12.5", "A.C.") or the end of the text
+        }
+        if !after.starts_with(|ch: char| ch.is_uppercase() || ch == '¿' || ch == '¡') {
+            continue;
+        }
+        if c == '.' {
+            // the word the period closes
+            let word: String = text[start..i].chars().rev().take_while(|ch| ch.is_alphabetic() || *ch == '.').collect::<Vec<_>>().into_iter().rev().collect();
+            let lower = word.trim_matches('.').to_lowercase();
+            let initial = word.chars().filter(|ch| ch.is_alphabetic()).count() <= 1;
+            let acronym = word.contains('.') && word.chars().filter(|ch| ch.is_alphabetic()).all(|ch| ch.is_uppercase());
+            if initial || acronym || ABBREVIATIONS.contains(&lower.as_str()) {
+                // "p. m." and "Sr. Pérez" go on; "A.C. Sin fines de lucro" too (a capital after an
+                // acronym is more often the next word than the next sentence)
+                continue;
+            }
+        }
+        let end = i + c.len_utf8();
+        let piece = text[start..end].trim();
+        if !piece.is_empty() {
+            out.push(piece.to_string());
+        }
+        start = end;
+    }
+    let tail = text[start..].trim();
+    if !tail.is_empty() {
+        out.push(tail.to_string());
+    }
+    out
+}
+
+/// Cuts a sentence that is too long at its last ";" or ", " before the limit. Rare: it only
+/// happens when a page was read as one endless line.
+fn cut_long(sentence: String) -> Vec<String> {
+    if sentence.chars().count() <= MAX_CANDIDATE_CHARS {
+        return vec![sentence];
+    }
+    let mut out = Vec::new();
+    let mut rest = sentence.as_str();
+    while rest.chars().count() > MAX_CANDIDATE_CHARS {
+        let limit: usize = rest.char_indices().nth(MAX_CANDIDATE_CHARS).map_or(rest.len(), |(i, _)| i);
+        let head = &rest[..limit];
+        let at = head.rfind("; ").or_else(|| head.rfind(", ")).map_or(limit, |p| p + 1);
+        out.push(rest[..at].trim().to_string());
+        rest = rest[at..].trim_start();
+    }
+    if !rest.is_empty() {
+        out.push(rest.to_string());
+    }
+    out
+}
+
+/// What makes two candidates "the same" when a header or a repeated block shows up on many pages.
+fn key(text: &str) -> String {
+    text.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+}
+
+// ------------------------------------------------------------------ the segmenter
+
+/// Cuts every page into candidates, in page order. A repeated text is a candidate once (the
+/// first time), because a header or a footer that repeats on every page is not a rule.
+pub fn segment(pages: &[PageText]) -> Vec<Candidate> {
+    let mut out: Vec<Candidate> = Vec::new();
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut section: Option<String> = None;
+    let mut section_page = 0;
+    for page in pages {
+        let clean = clean_text(&page.text);
+        let (units, last_section, set_here) = units_of_page(&clean, section.clone(), page.number <= 3);
+        section = last_section;
+        if set_here {
+            section_page = page.number;
+        }
+        // a heading about requirements reaches its own page and the next one; further on it is
+        // stale and would turn every paragraph of the document into a candidate
+        let in_force = page.number <= section_page + 1;
+        let mut n = 0;
+        for u in units {
+            // list items stay whole (an item is one rule); paragraphs are cut into sentences
+            let pieces: Vec<String> = if u.bullet || u.table { cut_long(u.text.clone()) } else { sentences(&u.text).into_iter().flat_map(cut_long).collect() };
+            for text in pieces {
+                let mut signals = signals_of(&text, u.bullet);
+                if u.table {
+                    signals.push("table");
+                }
+                if in_force && text.chars().count() >= 20 && u.section.as_deref().is_some_and(is_rule_heading) {
+                    signals.push("rule_section");
+                }
+                if signals.is_empty() {
+                    continue;
+                }
+                let only_a_url = !text.contains(' ') && text.contains("http");
+                let has_date = signals.contains(&"date");
+                if only_a_url || (text.chars().count() < MIN_CANDIDATE_CHARS && !has_date) {
+                    continue;
+                }
+                if !seen.insert(key(&text)) {
+                    continue;
+                }
+                n += 1;
+                out.push(Candidate {
+                    id: format!("p{}-{n}", page.number),
+                    page: page.number,
+                    section: u.section.clone(),
+                    lead: u.lead.clone(),
+                    text,
+                    signals,
+                });
+            }
+        }
+    }
+    out
+}
+
+/// The candidates of some pages, in order.
+#[allow(dead_code)]
+pub fn for_pages<'a>(candidates: &'a [Candidate], pages: &[usize]) -> Vec<&'a Candidate> {
+    candidates.iter().filter(|c| pages.contains(&c.page)).collect()
+}
+
+// ------------------------------------------------------------------ tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::documents::call_extract::{extract_call, parse_dump};
+
+    const FIXTURE: &str = include_str!("../../../fixtures/convocatoria-ficticia-paginas.txt");
+
+    fn page(n: usize, text: &str) -> PageText {
+        PageText { number: n, text: text.to_string() }
+    }
+
+    fn texts(c: &[Candidate]) -> Vec<&str> {
+        c.iter().map(|c| c.text.as_str()).collect()
+    }
+
+    #[test]
+    fn a_bullet_with_wrapped_lines_is_one_candidate_and_the_next_bullet_is_another() {
+        let c = segment(&[page(
+            4,
+            "CRITERIOS MÍNIMOS\n\n• Contar con autorización para recibir donativos\ndeducibles de impuestos vigente.\n• Tener al menos tres años de operación\ncontinua demostrable.\n",
+        )]);
+        assert_eq!(
+            texts(&c),
+            vec![
+                "Contar con autorización para recibir donativos deducibles de impuestos vigente.",
+                "Tener al menos tres años de operación continua demostrable."
+            ]
+        );
+        assert_eq!(c[0].id, "p4-1");
+        assert_eq!(c[1].id, "p4-2");
+        assert_eq!(c[0].section.as_deref(), Some("CRITERIOS MÍNIMOS"));
+        assert!(c[0].signals.contains(&"bullet") && c[0].signals.contains(&"obligation"));
+        assert!(c[1].signals.contains(&"limit") && c[1].signals.contains(&"figure"));
+    }
+
+    #[test]
+    fn the_items_under_a_bullet_that_ends_in_a_colon_keep_that_line_as_their_lead() {
+        // found on a held-out call: "DOF publicado…" is a document only for organizations that
+        // never received a donation; the item alone does not say so
+        let c = segment(&[page(
+            25,
+            "• Para las organizaciones que nunca han recibido donativo de NMP, deberán\ncontar con la siguiente documentación:\no DOF publicado en 18 enero 2024.\no Deberán presentar los Estados financieros de los últimos tres años.\n\n• Asistir a la sesión informativa donde te explicaremos las bases.\n",
+        )]);
+        let dof = c.iter().find(|c| c.text.starts_with("DOF publicado")).unwrap();
+        assert!(dof.lead.as_deref().unwrap().starts_with("Para las organizaciones que nunca han recibido donativo"));
+        let fin = c.iter().find(|c| c.text.contains("Estados financieros")).unwrap();
+        assert_eq!(fin.lead, dof.lead);
+        let session = c.iter().find(|c| c.text.starts_with("Asistir")).unwrap();
+        assert_eq!(session.lead, None, "the blank line closes the list");
+    }
+
+    #[test]
+    fn acronyms_and_abbreviations_do_not_cut_a_sentence() {
+        let c = segment(&[page(
+            2,
+            "Podrán participar organizaciones constituidas como A.C., I.A.P. o A.B.P. que tengan sede en México. Deberán presentar su acta constitutiva. La sesión será a las 12:30 p. m. del 7 de abril.",
+        )]);
+        let t = texts(&c);
+        assert!(t.contains(&"Podrán participar organizaciones constituidas como A.C., I.A.P. o A.B.P. que tengan sede en México."), "{t:?}");
+        assert!(t.contains(&"Deberán presentar su acta constitutiva."), "{t:?}");
+        assert!(t.contains(&"La sesión será a las 12:30 p. m. del 7 de abril."), "{t:?}");
+    }
+
+    #[test]
+    fn dates_and_figures_are_candidates_even_when_they_are_short_and_prose_without_signals_is_not() {
+        let c = segment(&[page(
+            24,
+            "Etapa 1: Preselección\nAbril 01 al 22\n\nLos proyectos durarán hasta 12 meses y los gastos administrativos no serán mayores al 15 %.\n\nLa fundación nació del cariño de un grupo de religiosas por las personas mayores.\n",
+        )]);
+        let t = texts(&c);
+        assert!(t.iter().any(|x| x.ends_with("Abril 01 al 22")), "the title and its dates are one candidate: {t:?}");
+        assert!(t.iter().any(|x| x.contains("hasta 12 meses")));
+        assert!(!t.iter().any(|x| x.contains("religiosas")), "no signal, no candidate: {t:?}");
+        let date = c.iter().find(|c| c.text.ends_with("Abril 01 al 22")).unwrap();
+        assert!(date.signals.contains(&"date"));
+        let money = c.iter().find(|c| c.text.contains("15 %")).unwrap();
+        assert!(money.signals.contains(&"figure") && money.signals.contains(&"limit"));
+    }
+
+    #[test]
+    fn paragraphs_under_a_heading_about_requirements_are_candidates_even_without_a_telltale_word() {
+        // found on the 2025 call: no bullets, a three-line heading, and "Ser una organización
+        // privada sin fines de lucro" has no word of obligation
+        let c = segment(&[page(
+            14,
+            "A continuación, se presentan los criterios mínimos que deben cumplir:\n\nCRITERIOS OBLIGATORIOS QUE CUMPLIR POR\nLAS ORGANIZACIONES DE LA SOCIEDAD CIVIL\nEN LA CONVOCATORIA\n\nSer una organización privada sin fines de lucro (AC, IAP, IBP, ABP, otras).\n\nTener al menos tres años de operación continua demostrable.\n",
+        )]);
+        let ser = c.iter().find(|c| c.text.starts_with("Ser una organización privada")).expect("the criterion is a candidate");
+        assert!(ser.signals.contains(&"rule_section"), "{:?}", ser.signals);
+        assert_eq!(ser.section.as_deref(), Some("CRITERIOS OBLIGATORIOS QUE CUMPLIR POR LAS ORGANIZACIONES DE LA SOCIEDAD CIVIL EN LA CONVOCATORIA"));
+    }
+
+    #[test]
+    fn a_stale_requirements_heading_does_not_turn_the_rest_of_the_document_into_candidates() {
+        let c = segment(&[
+            page(2, "REQUISITOS DE PARTICIPACIÓN\n\nSer una organización privada sin fines de lucro.\n"),
+            page(3, "Continúan los requisitos de la organización en este texto largo.\n"),
+            page(9, "La fundación atiende a personas mayores desde hace muchos años con cariño.\n"),
+        ]);
+        assert!(c.iter().any(|c| c.page == 3), "the next page is still under the heading");
+        assert!(!c.iter().any(|c| c.page == 9), "{:?}", texts(&c));
+    }
+
+    #[test]
+    fn a_line_of_capitals_with_a_date_is_a_date_not_a_heading() {
+        let c = segment(&[page(31, "PRESELECCIÓN\n\n19 MAYO-6 JUNIO\n\nA PARTIR DEL 23 DE JUNIO*\n")]);
+        let t = texts(&c);
+        assert!(t.contains(&"19 MAYO-6 JUNIO"), "{t:?}");
+        assert!(t.contains(&"A PARTIR DEL 23 DE JUNIO*"), "{t:?}");
+        assert!(!t.contains(&"PRESELECCIÓN"), "a title alone says nothing: {t:?}");
+    }
+
+    #[test]
+    fn a_calendar_written_as_short_lines_stays_together_with_its_stages() {
+        // the 2025 call: the stages first, their dates after, in the same order
+        let text = "Las organizaciones que cumplan con los criterios mínimos recibirán una notificación.\n\nPRESELECCIÓN\n\nEVALUACIÓN\n\nREGISTRO\n\n19 MAYO-6 JUNIO\n\nA PARTIR DEL 23 DE JUNIO*\n\nA PARTIR DEL 30 DE JUNIO*\n\nRegistrarse para la sesión informativa en este link y llenar el formulario.\n";
+        let c = segment(&[page(31, text)]);
+        let table = c.iter().find(|c| c.signals.contains(&"table")).expect("the calendar is one candidate");
+        assert_eq!(table.text, "PRESELECCIÓN EVALUACIÓN REGISTRO 19 MAYO-6 JUNIO A PARTIR DEL 23 DE JUNIO* A PARTIR DEL 30 DE JUNIO*");
+        assert!(table.signals.contains(&"date"));
+        // its lines are not also candidates on their own
+        assert_eq!(c.iter().filter(|c| c.text.contains("19 MAYO")).count(), 1);
+        // and it is a literal piece of the page, like every candidate
+        let flat = clean_text(text).split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(flat.contains(&table.text));
+    }
+
+    #[test]
+    fn a_numbered_outline_of_stages_with_their_dates_is_one_candidate_per_stage() {
+        // the 2026 call: "1. Postulación / ABRIL / 2. Registro … / A PARTIR DE ABRIL / 3. Entrega…"
+        let text = "Te comunicaremos las etapas por las que tu organización transitará, revisa las notificaciones.
+1. Postulación
+ABRIL
+2. Registro
+2.1 Valoración integral
+2.2 Actividad anual
+2.3 Proyecto 2026
+A PARTIR DE ABRIL
+3. Entrega de recursos
+A PARTIR DE JULIO
+";
+        let c = segment(&[page(8, text)]);
+        let t: Vec<&str> = c.iter().filter(|c| c.signals.contains(&"table")).map(|c| c.text.as_str()).collect();
+        assert_eq!(
+            t,
+            vec![
+                "1. Postulación ABRIL",
+                "2. Registro 2.1 Valoración integral 2.2 Actividad anual 2.3 Proyecto 2026 A PARTIR DE ABRIL",
+                "3. Entrega de recursos A PARTIR DE JULIO"
+            ],
+            "each numbered stage is its own candidate"
+        );
+    }
+
+    #[test]
+    fn a_calendar_of_numbered_stages_is_one_candidate_per_stage() {
+        // the 2024 call: the stages come out of the PDF in layout order, each with its own dates
+        let text = "Etapa 1: \nPreselección\nAbril 01 al 22\n\nEtapa 5:\nPostulación\ndel proyecto\nMayo 16 al 23\n\nEtapa 3:\nRegistro y \nvalidación legal\nMayo 03 al 20\n Etapa 2:\nEvaluación\nMayo 03 al 20\n\nEtapa 4: \nActividad anual \ny financiera\nMayo 21 al 27\n\nEtapa 6:\nPublicación de resultados \ny entrega de donativos\n15 Julio\n";
+        let c = segment(&[page(24, text)]);
+        let t = texts(&c);
+        assert_eq!(c.len(), 6, "{t:?}");
+        assert!(t.contains(&"Etapa 5: Postulación del proyecto Mayo 16 al 23"), "{t:?}");
+        assert!(t.contains(&"Etapa 6: Publicación de resultados y entrega de donativos 15 Julio"), "{t:?}");
+        assert!(c.iter().all(|c| c.signals.contains(&"table") && c.signals.contains(&"date")));
+        // each is still a literal piece of the page
+        let flat = clean_text(text).split_whitespace().collect::<Vec<_>>().join(" ");
+        for cand in &c {
+            assert!(flat.contains(&cand.text), "{}", cand.text);
+        }
+    }
+
+    #[test]
+    fn a_table_of_contents_is_not_made_of_rules_even_if_its_titles_say_requisitos() {
+        // found by comparing two models on the 2025 call: the cheaper one labeled the lines of the
+        // index "Requisitos de participación" and "Criterios obligatorios…" as criteria
+        let c = segment(&[
+            page(2, "CONTENIDO\nObjetivo de la convocatoria\nRequisitos de participación\nCriterios obligatorios que cumplir por las organizaciones\nCriterios por cumplir para los proyectos\nEtapas de participación\nAnexos\n"),
+            page(14, "• Contar con autorización vigente para recibir donativos.\n"),
+        ]);
+        let t = texts(&c);
+        assert_eq!(t, vec!["Contar con autorización vigente para recibir donativos."], "{t:?}");
+        // the same lines on a later page are not an index
+        let later = segment(&[page(9, "Objetivo de la convocatoria\nRequisitos de participación\nCriterios obligatorios que cumplir\nCriterios por cumplir para los proyectos\nEtapas de participación\nAnexos\n")]);
+        assert!(!later.is_empty(), "only the first pages are searched for an index");
+    }
+
+    #[test]
+    fn a_short_title_alone_before_a_paragraph_is_a_heading_not_a_candidate() {
+        let c = segment(&[page(
+            14,
+            "Población objetivo\n\nLas organizaciones deberán atender a personas mayores en situación de vulnerabilidad.\n\nActa constitutiva\n\nRFC de la organización\n",
+        )]);
+        let t = texts(&c);
+        assert!(!t.contains(&"Población objetivo"), "{t:?}");
+        let sentence = c.iter().find(|c| c.text.starts_with("Las organizaciones deberán")).unwrap();
+        assert_eq!(sentence.section.as_deref(), Some("Población objetivo"), "the title becomes the section");
+        // two short lines in a list of documents are not titles: the next paragraph is not a paragraph
+        assert!(c.iter().all(|c| c.text != "Población objetivo"));
+    }
+
+    #[test]
+    fn a_sentence_cut_by_a_blank_line_is_one_candidate_again() {
+        // found on the 2026 call (p. 4): one sentence came as five candidates
+        let c = segment(&[page(
+            4,
+            "Este esfuerzo busca responder a los retos prioritarios en trabajo y\n\nemprendimiento digno, así como en el acceso a derechos y servicios\n\nasistenciales, y deberán participar todas las organizaciones.\n",
+        )]);
+        let t = texts(&c);
+        assert_eq!(t.len(), 1, "{t:?}");
+        assert_eq!(t[0], "Este esfuerzo busca responder a los retos prioritarios en trabajo y emprendimiento digno, así como en el acceso a derechos y servicios asistenciales, y deberán participar todas las organizaciones.");
+        // a paragraph that closes with a period is not joined to the one after it
+        let two = segment(&[page(5, "Los proyectos deberán incluir indicadores.\n\nmuchos factores influyen en el resultado final del proyecto que deberán presentar.\n")]);
+        assert_eq!(two.len(), 2, "{:?}", texts(&two));
+    }
+
+    #[test]
+    fn the_items_of_a_numbered_list_that_wrap_are_not_taken_for_titles() {
+        // found with Alsea: only items 5 and 6, whose first line ends in a period, survived
+        let text = "Criterios de Evaluación de Proyectos
+1. Claridad del problema social que se busca atender y solidez
+del diagnóstico.
+2. Teoría de cambio consistente, con enfoque sistémico y
+basada en evidencia.
+3. Enfoque de derechos humanos, inclusión y equidad.
+";
+        let c = segment(&[page(7, text)]);
+        let t = texts(&c);
+        for item in [
+            "Claridad del problema social que se busca atender y solidez del diagnóstico.",
+            "Teoría de cambio consistente, con enfoque sistémico y basada en evidencia.",
+            "Enfoque de derechos humanos, inclusión y equidad.",
+        ] {
+            assert!(t.contains(&item), "{item} is missing: {t:?}");
+        }
+        // the title glued to its list is one more candidate (the model says it is nothing): cheaper than losing items
+        assert_eq!(t.len(), 4, "{t:?}");
+        // a numbered title with a blank line after it is still a title
+        let titled = segment(&[page(3, "3. Requisitos de participación
+
+• Ser una organización sin fines de lucro (AC, IAP).
+")]);
+        assert_eq!(titled[0].section.as_deref(), Some("3. Requisitos de participación"));
+    }
+
+    #[test]
+    fn a_few_short_lines_with_one_date_are_not_a_table() {
+        let c = segment(&[page(3, "Fecha límite\n\n15 DE MAYO\n\nHorario\n\nSin cambios\n")]);
+        assert!(!c.iter().any(|c| c.signals.contains(&"table")));
+    }
+
+    #[test]
+    fn exclusions_and_priorities_are_told_apart() {
+        let c = segment(&[page(
+            8,
+            "• No se apoyarán organizaciones que persigan fines políticos, partidistas o religiosos.\n• Se dará prioridad a las organizaciones que operen en Colima y Campeche.\n",
+        )]);
+        assert!(c[0].signals.contains(&"exclusion"), "{:?}", c[0].signals);
+        assert!(c[1].signals.contains(&"priority"), "{:?}", c[1].signals);
+    }
+
+    #[test]
+    fn an_index_line_is_not_a_candidate_and_the_heading_is_carried_to_the_next_page() {
+        let c = segment(&[
+            page(1, "CONTENIDO\nREQUISITOS DE PARTICIPACIÓN ........ 4\nFECHAS ........ 9\n"),
+            page(2, "REQUISITOS DE PARTICIPACIÓN\n\n• Ser una organización sin fines de lucro (AC, IAP).\n"),
+            page(3, "• Tener al menos tres años de operación.\n"),
+        ]);
+        assert_eq!(c.len(), 2, "{:?}", texts(&c));
+        assert_eq!(c[0].section.as_deref(), Some("REQUISITOS DE PARTICIPACIÓN"));
+        assert_eq!(c[1].page, 3);
+        assert_eq!(c[1].section.as_deref(), Some("REQUISITOS DE PARTICIPACIÓN"), "page 3 continues the section of page 2");
+    }
+
+    #[test]
+    fn a_text_repeated_on_several_pages_is_a_candidate_once() {
+        let line = "• Los proyectos deberán presentarse en el formato oficial de la convocatoria.\n";
+        let c = segment(&[page(5, line), page(6, line), page(7, line)]);
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].page, 5);
+    }
+
+    #[test]
+    fn the_same_pages_give_the_same_candidates_and_ids() {
+        let pages = parse_dump(FIXTURE);
+        assert_eq!(segment(&pages), segment(&pages));
+        let c = segment(&pages);
+        let ids: BTreeSet<&str> = c.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids.len(), c.len(), "ids are unique");
+    }
+
+    #[test]
+    fn every_candidate_is_a_literal_piece_of_its_page() {
+        // the point of the rail: the text the model labels is the PDF's, not anybody's wording
+        let pages = parse_dump(FIXTURE);
+        let c = segment(&pages);
+        assert!(c.len() > 15, "the fixture has many rules: {}", c.len());
+        for cand in &c {
+            let raw = pages.iter().find(|p| p.number == cand.page).unwrap();
+            let flat = clean_text(&raw.text).split_whitespace().collect::<Vec<_>>().join(" ");
+            assert!(flat.contains(&cand.text), "p{}: «{}» is not in the page", cand.page, cand.text);
+        }
+    }
+
+    #[test]
+    fn nothing_the_rules_found_is_left_out_of_the_candidates() {
+        // recall against the rules: whatever `call_extract` read has to be among the candidates,
+        // or the model would never get the chance to confirm it
+        let pages = parse_dump(FIXTURE);
+        let x = extract_call(&pages);
+        let c = segment(&pages);
+        let uncovered = uncovered_by_rules(&x, &c);
+        assert!(uncovered.is_empty(), "{uncovered:#?}");
+    }
+
+    /// Items the rules found that no candidate of their page covers (by shared words).
+    pub(super) fn uncovered_by_rules(x: &crate::documents::call_extract::CallExtraction, c: &[Candidate]) -> Vec<String> {
+        let mut missing = Vec::new();
+        let mut check = |what: &str, page: usize, snippet: &str, whole: bool| {
+            let ok = if whole { covers_item(c, page, snippet) } else { covers_context(c, page, snippet) };
+            if !ok {
+                missing.push(format!("{what} p.{page}: {snippet}"));
+            }
+        };
+        for i in &x.eligibility {
+            check("criterio", i.evidence.page, &i.evidence.snippet, true);
+        }
+        for d in x.documents.iter().filter(|d| d.source == "eligibility") {
+            check("documento", d.evidence.page, &d.evidence.snippet, true);
+        }
+        for d in &x.dates {
+            check("fecha", d.evidence.page, &d.evidence.snippet, false);
+        }
+        for l in &x.limits {
+            check("límite", l.evidence.page, &l.evidence.snippet, false);
+        }
+        if let Some(f) = &x.legal_figures {
+            check("figuras", f.evidence.page, &f.evidence.snippet, false);
+        }
+        missing
+    }
+
+    fn core_words(snippet: &str) -> BTreeSet<String> {
+        let keep = |w: &&&str| w.chars().count() >= 4 || w.chars().any(|ch| ch.is_ascii_digit());
+        let all: Vec<&str> = snippet.split(|ch: char| !ch.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
+        let n = all.len();
+        all[n / 3..n - n / 3].iter().filter(keep).map(|w| w.to_lowercase()).collect()
+    }
+
+    fn words_of(text: &str) -> BTreeSet<String> {
+        text.split(|ch: char| !ch.is_alphanumeric()).map(str::to_lowercase).collect()
+    }
+
+    /// An item the rules found whole (a criterion, a document): one candidate of the page holds
+    /// 70 % of its middle words.
+    pub(super) fn covers_item(c: &[Candidate], page: usize, snippet: &str) -> bool {
+        let core = core_words(snippet);
+        core.is_empty() || c.iter().filter(|k| k.page == page).any(|k| {
+            let have = words_of(&k.text);
+            core.iter().filter(|w| have.contains(*w)).count() as f64 / core.len() as f64 >= 0.7
+        })
+    }
+
+    /// A fact the rules found with the context they clipped around it (about 70 characters on each
+    /// side, which may belong to the neighbouring sentences): 80 % of the middle words are in the
+    /// candidates of the page taken together.
+    pub(super) fn covers_context(c: &[Candidate], page: usize, snippet: &str) -> bool {
+        let core = core_words(snippet);
+        let have: BTreeSet<String> = c.iter().filter(|k| k.page == page).flat_map(|k| words_of(&k.text)).collect();
+        core.is_empty() || core.iter().filter(|w| have.contains(*w)).count() as f64 / core.len() as f64 >= 0.8
+    }
+}
+
+/// Measures the segmenter on real calls: how many candidates it cuts, how big that is for a model,
+/// and whether anything the rules found is missing. Uses the PDFs of a folder, so it is not part of
+/// the normal run and the PDFs never go in the repository.
+///   $env:CIMIENTO_PDF_DIR="D:\...\carpeta"; cargo test survey_candidates -- --ignored --nocapture
+///   ($env:CIMIENTO_DUMP_CANDIDATES="D:\...\salida" also writes the candidates of each PDF as JSON)
+#[cfg(test)]
+mod survey {
+    use super::*;
+    use crate::documents::call_extract::extract_call;
+    use crate::documents::pdf::read_pdf;
+    use std::path::Path;
+
+    #[test]
+    #[ignore]
+    fn survey_candidates() {
+        let dir = std::env::var("CIMIENTO_PDF_DIR").expect("set CIMIENTO_PDF_DIR to a folder with PDFs");
+        let mut files: Vec<_> = std::fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("pdf"))).collect();
+        files.sort();
+        for path in files {
+            let Ok(text) = read_pdf(Path::new(&path)) else {
+                println!("\n=== {}: no se pudo leer", path.display());
+                continue;
+            };
+            let pages: Vec<PageText> = text.pages.iter().enumerate().map(|(i, t)| PageText { number: i + 1, text: t.clone() }).collect();
+            let x = extract_call(&pages);
+            let c = segment(&pages);
+            if let Ok(dump) = std::env::var("CIMIENTO_DUMP_CANDIDATES") {
+                let stem = path.file_stem().unwrap().to_string_lossy().replace(|ch: char| !ch.is_ascii_alphanumeric(), "_");
+                std::fs::write(format!("{dump}/candidatos_{stem}.json"), serde_json::to_string_pretty(&c).unwrap()).unwrap();
+            }
+            let chars: usize = c.iter().map(|k| k.text.chars().count()).sum();
+            println!("\n=== {} ({} páginas, tipo {:?})", path.file_name().unwrap().to_string_lossy(), pages.len(), x.doc_kind);
+            println!("candidatos: {} · {} caracteres (≈ {} tokens)", c.len(), chars, chars / 4);
+            for s in ["bullet", "obligation", "exclusion", "priority", "participation", "limit", "document", "date", "figure"] {
+                print!("{s}={} ", c.iter().filter(|k| k.signals.contains(&s)).count());
+            }
+            println!();
+            let mut per_page: std::collections::BTreeMap<usize, usize> = Default::default();
+            for k in &c {
+                *per_page.entry(k.page).or_default() += 1;
+            }
+            let busiest: Vec<String> = {
+                let mut v: Vec<_> = per_page.iter().collect();
+                v.sort_by(|a, b| b.1.cmp(a.1));
+                v.into_iter().take(5).map(|(p, n)| format!("p.{p}={n}")).collect()
+            };
+            println!("páginas con más candidatos: {}", busiest.join(", "));
+            let missing = super::tests::uncovered_by_rules(&x, &c);
+            let found = x.eligibility.len() + x.documents.iter().filter(|d| d.source == "eligibility").count() + x.dates.len() + x.limits.len() + usize::from(x.legal_figures.is_some());
+            println!("lo que las reglas encontraron y está entre los candidatos: {}/{}", found - missing.len(), found);
+            for m in missing.iter().take(12) {
+                println!("  FALTA {m}");
+            }
+        }
+    }
+}

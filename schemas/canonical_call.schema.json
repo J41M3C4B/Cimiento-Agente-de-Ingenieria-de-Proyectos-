@@ -1,0 +1,1617 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cimiento.local/schemas/canonical_call.schema.json",
+  "title": "Convocatoria canónica",
+  "description": "Contrato universal para leer una convocatoria de donativos, sea cual sea su institución, formato o idioma de redacción. Reglas que valen en todo el schema: (1) cada dato lleva cita literal, página y documento; el código verifica la cita. (2) 'no_aparece' es una respuesta válida; nunca se inventa. (3) Fechas, montos, porcentajes y duraciones los normaliza el código leyendo la cita (campos x-llena=codigo); el modelo solo señala dónde están. (4) Las listas son exhaustivas. (5) Si dos partes se contradicen, se listan ambas en `conflictos`; no se elige. (6) Anotaciones propias: x-llena (modelo|codigo), x-tipo (normalizador). Quitar x-llena=codigo y los if/then antes de enviar a un proveedor con subconjunto de JSON Schema.",
+  "x-version": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "metadatos": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version_schema": {
+          "const": "1.1.0"
+        },
+        "fuentes": {
+          "type": "array",
+          "minItems": 1,
+          "x-llena": "codigo",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "documento": {
+                "type": "string"
+              },
+              "rol": {
+                "type": "string",
+                "enum": [
+                  "convocatoria",
+                  "bases_o_reglas",
+                  "anexo",
+                  "formato",
+                  "guia",
+                  "otro"
+                ]
+              },
+              "paginas": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "documento",
+              "paginas"
+            ]
+          },
+          "description": "Archivos que componen la convocatoria. LO LLENA EL CÓDIGO."
+        },
+        "lectura": {
+          "x-llena": "codigo",
+          "description": "Trazabilidad de la lectura. LO LLENA EL CÓDIGO.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "modelo": {
+                  "type": "string"
+                },
+                "fecha": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "tokens_entrada": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tokens_salida": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "costo_mxn": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "modelo",
+                "fecha",
+                "tokens_entrada",
+                "tokens_salida",
+                "costo_mxn"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "version_schema",
+        "fuentes",
+        "lectura"
+      ],
+      "description": "Origen y trazabilidad. Nada de esta sección lo decide el modelo.",
+      "x-llena": "codigo"
+    },
+    "identidad": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tipo_de_documento": {
+          "$ref": "#/$defs/DatoTipoDocumento",
+          "description": "Qué clase de documento es lo que se leyó, en las palabras del propio documento: convocatoria, reglas de operación, lineamientos, aviso, guía, formato. Si el paquete trae varios, el principal."
+        },
+        "nombre": {
+          "$ref": "#/$defs/DatoTexto",
+          "description": "Nombre oficial de la convocatoria o programa, tal como lo titula el documento (suele estar en la portada o al inicio). El título de una sección («Objetivo», «Requisitos», «Antecedentes») no es el nombre."
+        },
+        "convocante": {
+          "$ref": "#/$defs/DatoTexto",
+          "description": "Institución, fundación, gobierno u organismo que convoca (quien da el apoyo)."
+        },
+        "edicion": {
+          "$ref": "#/$defs/DatoTexto",
+          "description": "Año, número o ciclo de esta edición."
+        },
+        "objetivo_general": {
+          "$ref": "#/$defs/DatoTexto",
+          "description": "Para qué existe la convocatoria, en las palabras del documento."
+        },
+        "que_apoya": {
+          "$ref": "#/$defs/Lista",
+          "description": "Tipos de proyectos o acciones que la convocatoria dice apoyar."
+        }
+      },
+      "required": [
+        "tipo_de_documento",
+        "nombre",
+        "convocante",
+        "edicion",
+        "objetivo_general",
+        "que_apoya"
+      ]
+    },
+    "temporalidad": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hitos": {
+          "$ref": "#/$defs/ListaHitos"
+        },
+        "periodo_ejecucion": {
+          "$ref": "#/$defs/DatoDuracion",
+          "description": "Duración o periodo en que debe ejecutarse el proyecto apoyado."
+        }
+      },
+      "required": [
+        "hitos",
+        "periodo_ejecucion"
+      ]
+    },
+    "elegibilidad": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "quienes_pueden_participar": {
+          "$ref": "#/$defs/Lista",
+          "description": "Tipos de organización o persona que pueden solicitar."
+        },
+        "quienes_no_pueden": {
+          "$ref": "#/$defs/Lista",
+          "description": "Exclusiones: quién o qué NO puede participar o ser apoyado."
+        },
+        "requisitos_organizacion": {
+          "$ref": "#/$defs/Lista",
+          "description": "Condiciones que la organización debe cumplir (figura legal, antigüedad, autorizaciones, cuentas, etc.)."
+        },
+        "regiones": {
+          "$ref": "#/$defs/Lista",
+          "description": "Zonas geográficas donde debe operar o donde se aplica el apoyo."
+        },
+        "poblacion_objetivo": {
+          "$ref": "#/$defs/Lista",
+          "description": "A quién debe atender el proyecto y a quién no; definiciones por tipo de población o de institución."
+        },
+        "limites_participacion": {
+          "$ref": "#/$defs/Lista",
+          "description": "Cuántas solicitudes, cuántas veces o en cuántas líneas puede participar una misma organización."
+        }
+      },
+      "required": [
+        "quienes_pueden_participar",
+        "quienes_no_pueden",
+        "requisitos_organizacion",
+        "regiones",
+        "poblacion_objetivo",
+        "limites_participacion"
+      ]
+    },
+    "financiamiento": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "moneda": {
+          "$ref": "#/$defs/DatoTexto",
+          "description": "Moneda en que se expresan los montos, si el documento la indica."
+        },
+        "monto_minimo": {
+          "$ref": "#/$defs/DatoMonto",
+          "description": "Mínimo por solicitud SI vale para todas. Si cambia por modalidad, no_aparece aquí y se llena `modalidades`."
+        },
+        "monto_maximo": {
+          "$ref": "#/$defs/DatoMonto",
+          "description": "Máximo por solicitud SI vale para todas. Si cambia por modalidad, no_aparece aquí y se llena `modalidades`."
+        },
+        "porcentaje_cofinanciamiento": {
+          "$ref": "#/$defs/DatoPorcentaje",
+          "description": "Contrapartida mínima exigida al solicitante, si vale para todas."
+        },
+        "tope_gastos_administrativos": {
+          "$ref": "#/$defs/DatoPorcentaje",
+          "description": "Máximo del apoyo que puede ir a gastos administrativos o indirectos."
+        },
+        "modalidades": {
+          "$ref": "#/$defs/ListaModalidades",
+          "description": "Líneas, categorías o tipos de apoyo con montos o condiciones propias."
+        },
+        "conceptos_financiables": {
+          "$ref": "#/$defs/Lista",
+          "description": "TODO lo que el apoyo puede pagar (rubros, conceptos)."
+        },
+        "conceptos_no_financiables": {
+          "$ref": "#/$defs/Lista",
+          "description": "TODO lo que el apoyo NO puede pagar."
+        },
+        "condiciones_del_apoyo": {
+          "$ref": "#/$defs/Lista",
+          "description": "Lo que la organización debe o no hacer si resulta apoyada (informes, cuentas, transferencias, comprobación)."
+        }
+      },
+      "required": [
+        "moneda",
+        "monto_minimo",
+        "monto_maximo",
+        "porcentaje_cofinanciamiento",
+        "tope_gastos_administrativos",
+        "modalidades",
+        "conceptos_financiables",
+        "conceptos_no_financiables",
+        "condiciones_del_apoyo"
+      ]
+    },
+    "proyecto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tipos": {
+          "$ref": "#/$defs/Lista",
+          "description": "Líneas, ejes, categorías o tipos de proyecto elegibles."
+        },
+        "objetivos": {
+          "$ref": "#/$defs/Lista",
+          "description": "Objetivos que el proyecto debe perseguir."
+        },
+        "resultados_esperados": {
+          "$ref": "#/$defs/Lista",
+          "description": "Resultados o impactos que se espera lograr."
+        },
+        "indicadores": {
+          "$ref": "#/$defs/Lista",
+          "description": "Indicadores que se piden o se sugieren para medir resultados."
+        },
+        "requisitos_del_proyecto": {
+          "$ref": "#/$defs/Lista",
+          "description": "Lo que la propuesta debe incluir o cumplir (componentes, enfoque, estructura, evidencias)."
+        }
+      },
+      "required": [
+        "tipos",
+        "objetivos",
+        "resultados_esperados",
+        "indicadores",
+        "requisitos_del_proyecto"
+      ]
+    },
+    "documentacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "obligatoria": {
+          "$ref": "#/$defs/Lista",
+          "description": "Documentos que siempre se piden; `titulo` = nombre del documento."
+        },
+        "condicional": {
+          "$ref": "#/$defs/Lista",
+          "description": "Documentos que se piden solo en cierto caso; `aplica_a` = la condición."
+        },
+        "opcional": {
+          "$ref": "#/$defs/Lista",
+          "description": "Documentos que se pueden presentar pero no se exigen."
+        },
+        "formatos_a_utilizar": {
+          "$ref": "#/$defs/Lista",
+          "description": "Formatos, plantillas o anexos que el documento manda usar."
+        }
+      },
+      "required": [
+        "obligatoria",
+        "condicional",
+        "opcional",
+        "formatos_a_utilizar"
+      ]
+    },
+    "evaluacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "criterios": {
+          "$ref": "#/$defs/ListaCriterios",
+          "description": "Criterios con que se evalúan las propuestas, con su peso si lo hay."
+        },
+        "puntaje_minimo": {
+          "$ref": "#/$defs/DatoEntero",
+          "description": "Puntaje mínimo para ser considerada, si existe."
+        },
+        "prioridades": {
+          "$ref": "#/$defs/Lista",
+          "description": "Preferencias o prioridades de selección (a quién se da preferencia)."
+        },
+        "causas_descalificacion": {
+          "$ref": "#/$defs/Lista",
+          "description": "Motivos por los que una solicitud se rechaza o no se recibe."
+        },
+        "proceso_evaluacion": {
+          "$ref": "#/$defs/Lista",
+          "description": "Quién evalúa y cómo es el proceso (comités, etapas, visitas, entrevistas)."
+        }
+      },
+      "required": [
+        "criterios",
+        "puntaje_minimo",
+        "prioridades",
+        "causas_descalificacion",
+        "proceso_evaluacion"
+      ]
+    },
+    "entrega": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "medio_o_lugar": {
+          "$ref": "#/$defs/DatoTexto",
+          "description": "Plataforma, dirección o medio donde se entrega la solicitud."
+        },
+        "horario": {
+          "$ref": "#/$defs/DatoTexto",
+          "description": "Horario de recepción o límite de hora, si lo hay."
+        },
+        "formato_de_entrega": {
+          "$ref": "#/$defs/Lista",
+          "description": "En qué forma se entrega (físico, USB, PDF, plataforma, número de copias)."
+        },
+        "instrucciones": {
+          "$ref": "#/$defs/Lista",
+          "description": "Pasos e indicaciones de cómo presentar la solicitud."
+        },
+        "contacto": {
+          "$ref": "#/$defs/Lista",
+          "description": "Correos, teléfonos o enlaces para dudas."
+        }
+      },
+      "required": [
+        "medio_o_lugar",
+        "horario",
+        "formato_de_entrega",
+        "instrucciones",
+        "contacto"
+      ]
+    },
+    "conflictos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "campo": {
+            "type": "string",
+            "description": "Ruta del campo en el schema (p. ej. financiamiento.porcentaje_cofinanciamiento)."
+          },
+          "versiones": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "valor_texto": {
+                  "type": "string"
+                },
+                "evidencia": {
+                  "$ref": "#/$defs/Evidencia"
+                }
+              },
+              "required": [
+                "valor_texto",
+                "evidencia"
+              ]
+            },
+            "description": "Cada valor en conflicto con su prueba. El código NO elige uno: los muestra todos."
+          },
+          "nota": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "campo",
+          "versiones",
+          "nota"
+        ],
+        "description": "Dos partes del paquete dicen cosas distintas sobre el mismo dato."
+      },
+      "description": "Contradicciones dentro del paquete de documentos."
+    },
+    "otros_hallazgos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tema": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Etiqueta corta del tema («plazo único», «solicitudes incompletas»…)."
+          },
+          "evidencias": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/Evidencia"
+            }
+          },
+          "nota": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "tema",
+          "evidencias",
+          "nota"
+        ],
+        "description": "Dato relevante para quien solicita que no cabe en ningún campo anterior."
+      },
+      "description": "Válvula de escape: lo importante que ningún campo recoge. Mejor aquí que perdido."
+    },
+    "dudas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "texto": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opinión o duda del modelo. Es texto libre y se marca como SUPUESTO DE LA IA."
+          },
+          "evidencias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Evidencia"
+            }
+          }
+        },
+        "required": [
+          "texto",
+          "evidencias"
+        ]
+      }
+    }
+  },
+  "required": [
+    "metadatos",
+    "identidad",
+    "temporalidad",
+    "elegibilidad",
+    "financiamiento",
+    "proyecto",
+    "documentacion",
+    "evaluacion",
+    "entrega",
+    "conflictos",
+    "otros_hallazgos",
+    "dudas"
+  ],
+  "$defs": {
+    "Estado": {
+      "type": "string",
+      "enum": [
+        "encontrado",
+        "no_aparece",
+        "ambiguo"
+      ],
+      "description": "encontrado: el documento lo dice con claridad. no_aparece: se buscó y el documento no lo dice (respuesta válida, nunca se inventa). ambiguo: el documento lo menciona pero no alcanza para dar un valor único, o dos partes se contradicen (anótalo también en `conflictos`)."
+    },
+    "Evidencia": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cita": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Fragmento COPIADO LITERAL del documento, sin parafrasear ni corregir. El código comprueba que exista en la página indicada."
+        },
+        "pagina": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Número que aparece en el encabezado `[Página N | archivo]` de la página donde copió la cita."
+        },
+        "documento": {
+          "type": "string",
+          "minLength": 1,
+          "x-llena": "codigo",
+          "description": "Archivo fuente de la página citada (una convocatoria puede ser un paquete de varios archivos). LO LLENA EL CÓDIGO a partir de `pagina`."
+        }
+      },
+      "required": [
+        "cita",
+        "pagina",
+        "documento"
+      ],
+      "description": "Prueba de un dato: de dónde sale."
+    },
+    "DatoTexto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "valor_texto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "El dato tal como aparece, SUBCADENA EXACTA de la cita (la cifra, la fecha, el nombre). null si el estado es no_aparece. No conviertas ni calcules: el código normaliza."
+        },
+        "evidencias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          },
+          "description": "Una o más pruebas. Vacío solo si el estado es no_aparece."
+        },
+        "normalizado": {
+          "description": "LO LLENA EL CÓDIGO leyendo la cita (regex y reglas). El modelo no lo envía.",
+          "x-llena": "codigo",
+          "type": "null"
+        }
+      },
+      "required": [
+        "estado",
+        "valor_texto",
+        "evidencias"
+      ],
+      "description": "Un dato único de tipo texto.",
+      "x-tipo": "texto",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "valor_texto": {
+                "type": "null"
+              },
+              "evidencias": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "evidencias": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatoFecha": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "valor_texto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "El dato tal como aparece, SUBCADENA EXACTA de la cita (la cifra, la fecha, el nombre). null si el estado es no_aparece. No conviertas ni calcules: el código normaliza."
+        },
+        "evidencias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          },
+          "description": "Una o más pruebas. Vacío solo si el estado es no_aparece."
+        },
+        "normalizado": {
+          "description": "LO LLENA EL CÓDIGO leyendo la cita (regex y reglas). El modelo no lo envía.",
+          "x-llena": "codigo",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "fecha": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date",
+                  "description": "AAAA-MM-DD; null si la cita solo trae mes o año."
+                },
+                "hora": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                  "description": "HH:MM en 24 horas, si la cita la trae."
+                },
+                "precision": {
+                  "type": "string",
+                  "enum": [
+                    "dia",
+                    "mes",
+                    "anio",
+                    "no_interpretable"
+                  ]
+                },
+                "anio_inferido": {
+                  "type": "boolean",
+                  "description": "true si la cita no trae año y se tomó el del documento."
+                }
+              },
+              "required": [
+                "fecha",
+                "hora",
+                "precision",
+                "anio_inferido"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "estado",
+        "valor_texto",
+        "evidencias"
+      ],
+      "description": "Un dato único de tipo fecha.",
+      "x-tipo": "fecha",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "valor_texto": {
+                "type": "null"
+              },
+              "evidencias": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "evidencias": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatoMonto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "valor_texto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "El dato tal como aparece, SUBCADENA EXACTA de la cita (la cifra, la fecha, el nombre). null si el estado es no_aparece. No conviertas ni calcules: el código normaliza."
+        },
+        "evidencias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          },
+          "description": "Una o más pruebas. Vacío solo si el estado es no_aparece."
+        },
+        "normalizado": {
+          "description": "LO LLENA EL CÓDIGO leyendo la cita (regex y reglas). El modelo no lo envía.",
+          "x-llena": "codigo",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cantidad": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "moneda": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$",
+                  "description": "Código ISO 4217 (MXN, USD, EUR…)."
+                }
+              },
+              "required": [
+                "cantidad",
+                "moneda"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "estado",
+        "valor_texto",
+        "evidencias"
+      ],
+      "description": "Un dato único de tipo monto.",
+      "x-tipo": "monto",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "valor_texto": {
+                "type": "null"
+              },
+              "evidencias": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "evidencias": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatoPorcentaje": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "valor_texto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "El dato tal como aparece, SUBCADENA EXACTA de la cita (la cifra, la fecha, el nombre). null si el estado es no_aparece. No conviertas ni calcules: el código normaliza."
+        },
+        "evidencias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          },
+          "description": "Una o más pruebas. Vacío solo si el estado es no_aparece."
+        },
+        "normalizado": {
+          "description": "LO LLENA EL CÓDIGO leyendo la cita (regex y reglas). El modelo no lo envía.",
+          "x-llena": "codigo",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "valor": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "valor"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "estado",
+        "valor_texto",
+        "evidencias"
+      ],
+      "description": "Un dato único de tipo porcentaje.",
+      "x-tipo": "porcentaje",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "valor_texto": {
+                "type": "null"
+              },
+              "evidencias": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "evidencias": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatoDuracion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "valor_texto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "El dato tal como aparece, SUBCADENA EXACTA de la cita (la cifra, la fecha, el nombre). null si el estado es no_aparece. No conviertas ni calcules: el código normaliza."
+        },
+        "evidencias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          },
+          "description": "Una o más pruebas. Vacío solo si el estado es no_aparece."
+        },
+        "normalizado": {
+          "description": "LO LLENA EL CÓDIGO leyendo la cita (regex y reglas). El modelo no lo envía.",
+          "x-llena": "codigo",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "valor": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unidad": {
+                  "type": "string",
+                  "enum": [
+                    "dias",
+                    "semanas",
+                    "meses",
+                    "anios"
+                  ]
+                }
+              },
+              "required": [
+                "valor",
+                "unidad"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "estado",
+        "valor_texto",
+        "evidencias"
+      ],
+      "description": "Un dato único de tipo duracion.",
+      "x-tipo": "duracion",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "valor_texto": {
+                "type": "null"
+              },
+              "evidencias": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "evidencias": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatoEntero": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "valor_texto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "El dato tal como aparece, SUBCADENA EXACTA de la cita (la cifra, la fecha, el nombre). null si el estado es no_aparece. No conviertas ni calcules: el código normaliza."
+        },
+        "evidencias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          },
+          "description": "Una o más pruebas. Vacío solo si el estado es no_aparece."
+        },
+        "normalizado": {
+          "description": "LO LLENA EL CÓDIGO leyendo la cita (regex y reglas). El modelo no lo envía.",
+          "x-llena": "codigo",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "valor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "valor"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "estado",
+        "valor_texto",
+        "evidencias"
+      ],
+      "description": "Un dato único de tipo entero.",
+      "x-tipo": "entero",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "valor_texto": {
+                "type": "null"
+              },
+              "evidencias": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "evidencias": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Elemento": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "titulo": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Nombre corto SOLO si el documento lo da (p. ej. el nombre de un documento solicitado o de una categoría). Si no, null."
+        },
+        "evidencias": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          },
+          "description": "El elemento ES su cita: el texto del elemento lo pone el código a partir de aquí."
+        },
+        "aplica_a": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A quién, a qué categoría, etapa o condición aplica SOLO si el documento lo restringe (p. ej. «organizaciones nuevas», «Categoría 2», «si recibe donativos en especie»). null = aplica a todos."
+        },
+        "obligatoriedad": {
+          "type": "string",
+          "enum": [
+            "obligatorio",
+            "deseable",
+            "informativo",
+            "no_indicado"
+          ],
+          "description": "Según el verbo o la redacción del documento; si no se puede saber, no_indicado."
+        },
+        "nota": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Comentario breve tuyo. Se marca como SUPUESTO DE LA IA y nunca sustituye a la cita."
+        }
+      },
+      "required": [
+        "titulo",
+        "evidencias",
+        "aplica_a",
+        "obligatoriedad",
+        "nota"
+      ],
+      "description": "Un elemento de una lista, respaldado por su cita."
+    },
+    "Lista": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "elementos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Elemento"
+          },
+          "description": "TODOS los elementos que el documento enumera, no una muestra. Vacío solo si el estado es no_aparece."
+        }
+      },
+      "required": [
+        "estado",
+        "elementos"
+      ],
+      "description": "Colección de elementos.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "elementos": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "elementos": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Hito": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tipo": {
+          "type": "string",
+          "enum": [
+            "publicacion",
+            "apertura",
+            "cierre",
+            "sesion_informativa",
+            "registro",
+            "evaluacion",
+            "resultados",
+            "entrega_recursos",
+            "inicio_proyecto",
+            "fin_proyecto",
+            "informe",
+            "otro"
+          ],
+          "description": "Clase del hito. Si ninguna encaja, otro y se explica en `etiqueta`."
+        },
+        "etiqueta": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Nombre del hito como lo llama el documento («Etapa 5: Postulación del proyecto»)."
+        },
+        "inicio_texto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Fecha o fecha inicial, subcadena exacta de la cita."
+        },
+        "fin_texto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Fecha final si es un rango; null si es un solo día."
+        },
+        "evidencias": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          }
+        },
+        "normalizado": {
+          "x-llena": "codigo",
+          "description": "LO LLENA EL CÓDIGO.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "inicio": {
+                  "$ref": "#/$defs/DatoFechaNormalizado"
+                },
+                "fin": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/DatoFechaNormalizado"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "inicio",
+                "fin"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tipo",
+        "etiqueta",
+        "inicio_texto",
+        "fin_texto",
+        "evidencias"
+      ],
+      "description": "Una fecha o rango del calendario."
+    },
+    "DatoFechaNormalizado": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fecha": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "description": "AAAA-MM-DD; null si la cita solo trae mes o año."
+        },
+        "hora": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+          "description": "HH:MM en 24 horas, si la cita la trae."
+        },
+        "precision": {
+          "type": "string",
+          "enum": [
+            "dia",
+            "mes",
+            "anio",
+            "no_interpretable"
+          ]
+        },
+        "anio_inferido": {
+          "type": "boolean",
+          "description": "true si la cita no trae año y se tomó el del documento."
+        }
+      },
+      "required": [
+        "fecha",
+        "hora",
+        "precision",
+        "anio_inferido"
+      ]
+    },
+    "ListaHitos": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "hitos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Hito"
+          },
+          "description": "TODAS las fechas del calendario, una por etapa. No elijas «la» fecha de cierre: lista cada etapa con su tipo."
+        }
+      },
+      "required": [
+        "estado",
+        "hitos"
+      ],
+      "description": "Calendario por etapas.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "hitos": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "hitos": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Criterio": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "titulo": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Nombre del criterio como lo escribe el documento."
+        },
+        "ponderacion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DatoEntero"
+            },
+            {
+              "$ref": "#/$defs/DatoPorcentaje"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Peso o puntaje si el documento lo da (puntos → entero; porcentaje → porcentaje). null si no."
+        },
+        "evidencias": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          }
+        },
+        "nota": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Comentario breve tuyo (supuesto de la IA)."
+        }
+      },
+      "required": [
+        "titulo",
+        "ponderacion",
+        "evidencias",
+        "nota"
+      ],
+      "description": "Criterio de evaluación."
+    },
+    "ListaCriterios": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "criterios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Criterio"
+          },
+          "description": "TODOS los criterios, con su peso si lo hay."
+        }
+      },
+      "required": [
+        "estado",
+        "criterios"
+      ],
+      "description": "Criterios de evaluación.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "criterios": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "criterios": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Modalidad": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nombre": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nombre de la línea, categoría, tipo de apoyo o monto como lo llama el documento."
+        },
+        "evidencias": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          }
+        },
+        "monto_minimo": {
+          "$ref": "#/$defs/DatoMonto"
+        },
+        "monto_maximo": {
+          "$ref": "#/$defs/DatoMonto"
+        },
+        "porcentaje_cofinanciamiento": {
+          "$ref": "#/$defs/DatoPorcentaje",
+          "description": "Contrapartida mínima exigida a esta modalidad."
+        },
+        "duracion_maxima": {
+          "$ref": "#/$defs/DatoDuracion"
+        },
+        "requisitos_propios": {
+          "$ref": "#/$defs/Lista",
+          "description": "Requisitos o condiciones que solo valen para esta modalidad."
+        }
+      },
+      "required": [
+        "nombre",
+        "evidencias",
+        "monto_minimo",
+        "monto_maximo",
+        "porcentaje_cofinanciamiento",
+        "duracion_maxima",
+        "requisitos_propios"
+      ],
+      "description": "Una modalidad con condiciones propias."
+    },
+    "ListaModalidades": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "modalidades": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Modalidad"
+          }
+        }
+      },
+      "required": [
+        "estado",
+        "modalidades"
+      ],
+      "description": "Modalidades de apoyo.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "modalidades": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatoTipoDocumento": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estado": {
+          "$ref": "#/$defs/Estado"
+        },
+        "valor_texto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Las palabras con que el documento se nombra, SUBCADENA EXACTA de la cita (por ejemplo «Convocatoria» o «Reglas de Operación»). null si el estado es no_aparece. No elijas de una lista ni clasifiques: el código lo hace."
+        },
+        "evidencias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          },
+          "description": "Una o más pruebas. Vacío solo si el estado es no_aparece."
+        },
+        "normalizado": {
+          "description": "LO LLENA EL CÓDIGO leyendo las palabras del documento. El modelo no lo envía.",
+          "x-llena": "codigo",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "clase": {
+                  "type": "string",
+                  "enum": [
+                    "convocatoria",
+                    "reglas_de_operacion",
+                    "lineamientos",
+                    "aviso",
+                    "guia",
+                    "formato",
+                    "anexo",
+                    "otro"
+                  ]
+                }
+              },
+              "required": [
+                "clase"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "estado",
+        "valor_texto",
+        "evidencias"
+      ],
+      "description": "Un dato único: cómo se llama a sí mismo el documento (convocatoria, reglas de operación, lineamientos, aviso, guía, formato...). Es descriptivo: no decide nada, solo dice qué clase de documento se leyó.",
+      "x-tipo": "tipo_documento",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estado": {
+                "const": "no_aparece"
+              }
+            },
+            "required": [
+              "estado"
+            ]
+          },
+          "then": {
+            "properties": {
+              "valor_texto": {
+                "type": "null"
+              },
+              "evidencias": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "evidencias": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
