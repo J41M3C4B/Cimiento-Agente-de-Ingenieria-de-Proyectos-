@@ -27,9 +27,9 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-50 p-6 text-[15px] text-stone-900">
+    <div className="flex min-h-screen items-center justify-center bg-canvas p-6 text-[15px] text-stone-900">
       <form
-        className="w-full max-w-md space-y-5 rounded-2xl border border-stone-200 bg-white p-9 shadow-lift"
+        className="w-full max-w-md space-y-5 rounded-3xl bg-white p-9 shadow-float"
         onSubmit={(e) => {
           e.preventDefault();
           if (pin) void enter();

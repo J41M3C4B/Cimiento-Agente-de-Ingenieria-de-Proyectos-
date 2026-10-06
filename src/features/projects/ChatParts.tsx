@@ -8,14 +8,14 @@ const t = es.conversation;
 const reduceMotion = () =>
   typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** The round mark of the assistant. It breathes while it works. */
+/** The small mark of the assistant: only shown while it works, so the conversation itself stays free of chrome. */
 export function Mark({ active }: { active?: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`msg-mark flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-navy-700 to-navy-950 text-brass-300 shadow-card ${active ? "anim-breathe" : ""}`}
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-900 text-white ${active ? "anim-breathe" : ""}`}
     >
-      <Icon name="sparkles" size={15} />
+      <Icon name="sparkles" size={13} />
     </span>
   );
 }
@@ -39,7 +39,7 @@ export function Typed({ text, onDone }: { text: string; onDone: () => void }) {
       <span className="sr-only">{text}</span>
       <span aria-hidden="true">
         {text.slice(0, shown)}
-        {shown < text.length && <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-stone-700" />}
+        {shown < text.length && <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-stone-500" />}
       </span>
     </>
   );
@@ -50,20 +50,17 @@ export function Message({ turn, animate, onTyped }: { turn: TurnView; animate: b
   if (mine) {
     return (
       <div className="anim-rise flex flex-col items-end gap-1">
-        <span className="text-[12px] font-medium text-stone-600">{t.you}</span>
-        <div className="max-w-[82%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-navy-800 px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-card">{turn.text}</div>
+        <span className="sr-only">{t.you}</span>
+        <div className="max-w-[78%] whitespace-pre-wrap rounded-[20px] rounded-br-lg bg-white px-5 py-3 text-[15px] leading-relaxed text-stone-900 shadow-card">{turn.text}</div>
       </div>
     );
   }
   return (
-    <div className="msg-assistant anim-rise flex gap-3">
-      <Mark active={animate} />
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="msg-name text-[12px] font-semibold text-stone-600">{t.assistant}</p>
-        <p className="max-w-[64ch] whitespace-pre-wrap rounded-2xl rounded-tl-md border border-stone-200 bg-stone-50 px-4 py-3 text-[15px] leading-relaxed text-stone-900 shadow-card">
-          {animate ? <Typed text={turn.text} onDone={onTyped} /> : turn.text}
-        </p>
-      </div>
+    <div className="anim-rise">
+      <p className="sr-only">{t.assistant}</p>
+      <p className="max-w-[62ch] whitespace-pre-wrap text-[15.5px] leading-[1.7] text-stone-800">
+        {animate ? <Typed text={turn.text} onDone={onTyped} /> : turn.text}
+      </p>
     </div>
   );
 }
@@ -92,15 +89,12 @@ export function Thinking({ phrases }: { phrases: readonly string[] }) {
   );
 }
 
-/** What the assistant says at a later step of the chat, as plain text with its mark. */
-export function Said({ children, active }: { children: React.ReactNode; active?: boolean }) {
+/** What the assistant says at a later step of the chat, as plain text. */
+export function Said({ children }: { children: React.ReactNode; active?: boolean }) {
   return (
-    <div className="msg-assistant anim-rise flex gap-3">
-      <Mark active={active} />
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="msg-name text-[12px] font-semibold text-stone-600">{t.assistant}</p>
-        <div className="max-w-[64ch] rounded-2xl rounded-tl-md border border-stone-200 bg-stone-50 px-4 py-3 text-[15px] leading-relaxed text-stone-900 shadow-card">{children}</div>
-      </div>
+    <div className="anim-rise">
+      <p className="sr-only">{t.assistant}</p>
+      <div className="max-w-[62ch] text-[15.5px] leading-[1.7] text-stone-800">{children}</div>
     </div>
   );
 }

@@ -251,7 +251,7 @@ export function CallPanel({ readingId }: { readingId: string | null }) {
 
   return (
     <>
-      <section className="flex flex-wrap items-center gap-3 rounded-xl border border-stone-200 bg-white px-5 py-3">
+      <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-white px-5 py-3 shadow-card">
         <IconTile icon="file" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold">{r.name}</p>

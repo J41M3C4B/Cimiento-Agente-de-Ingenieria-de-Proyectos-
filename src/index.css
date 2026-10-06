@@ -1,53 +1,56 @@
 @import "tailwindcss";
 
 /*
-  Sistema visual de Cimiento: sobrio e institucional. Tinta azul marino, neutros cálidos de papel, un solo azul
-  de acción y un acento latón que se usa con mucha mesura. Los titulares van en serif editorial (Newsreader) y
-  la interfaz en Inter. Se redefinen las escalas de Tailwind que ya usa la app, así que todo lo que dice `stone`,
-  `blue` o `rounded-*` toma el estilo sin tocarlo.
+  Sistema visual de Cimiento: minimalista. Un lienzo gris claro sobre el que flotan superficies blancas sin borde
+  (una barra lateral y tarjetas con sombra suave), mucho aire, tinta casi negra como color principal y el azul
+  solo para enlaces y lo seleccionado. Los titulares de página llevan una serif editorial (Newsreader); el resto,
+  Inter. Se redefinen las escalas de Tailwind que ya usa la app (`stone`, `blue`, `rounded-*`), así que toda la
+  interfaz toma el estilo sin tocarla pieza por pieza.
 */
 @theme {
   --font-sans: "Inter Variable", "SF Pro Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-display: "Newsreader Variable", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
 
-  /* neutros cálidos, como papel; la tinta (stone-900) es azul marino casi negro */
-  --color-stone-50: #f8f7f4;
-  --color-stone-100: #f0eeea;
-  --color-stone-200: #e5e2dc;
-  --color-stone-300: #d2cfc7;
-  --color-stone-400: #bab6ab;
-  --color-stone-500: #7f7b70;
-  --color-stone-600: #5d5a51;
-  --color-stone-700: #46443d;
-  --color-stone-800: #2b2c32;
-  --color-stone-900: #101828;
+  /* el lienzo: lo que queda detrás de las superficies blancas */
+  --color-canvas: #ebecee;
 
-  /* la marca: azul marino profundo (encabezados, marca, superficies de énfasis) */
+  /* neutros casi puros; la tinta (stone-900) es un negro suave */
+  --color-stone-50: #f7f7f8;
+  --color-stone-100: #f0f1f3;
+  --color-stone-200: #e5e6ea;
+  --color-stone-300: #d4d6db;
+  --color-stone-400: #bcbfc6;
+  --color-stone-500: #7c808a;
+  --color-stone-600: #5b5f68;
+  --color-stone-700: #43464d;
+  --color-stone-800: #26282d;
+  --color-stone-900: #0f1115;
+
+  /* la marca: azul marino, solo para pequeños detalles */
   --color-navy-700: #253f78;
   --color-navy-800: #1b2f5e;
   --color-navy-900: #132447;
   --color-navy-950: #0c1730;
 
-  /* el azul de acción: lo único que se puede pulsar o está seleccionado */
-  --color-blue-50: #eff3fb;
-  --color-blue-100: #dde6f6;
-  --color-blue-200: #bccbea;
+  /* el azul: enlaces, foco y lo que está seleccionado */
+  --color-blue-50: #f0f4fc;
+  --color-blue-100: #e0e8f8;
+  --color-blue-200: #c0cfee;
   --color-blue-300: #8fa6dc;
-  --color-blue-600: #24459a;
-  --color-blue-700: #24459a;
-  --color-blue-800: #24459a;
-  --color-blue-900: #1a3478;
+  --color-blue-600: #2a4fb0;
+  --color-blue-700: #2a4fb0;
+  --color-blue-800: #2a4fb0;
+  --color-blue-900: #1f3d90;
 
-  /* el acento latón: detalles finos, nunca superficies grandes */
   --color-brass-50: #faf5e9;
   --color-brass-300: #e0c183;
   --color-brass-500: #b88a3e;
   --color-brass-700: #85601f;
 
   /* la paleta que distingue (no actúan, clasifican): cada cifra y cada estado tiene la suya */
-  --color-violet-50: #f0ecff;
+  --color-violet-50: #f1eefc;
   --color-violet-700: #5b3fd1;
-  --color-teal-50: #e1f5f2;
+  --color-teal-50: #e4f4f1;
   --color-teal-700: #0b766b;
 
   /* estados: texto oscuro sobre fondo suave */
@@ -64,15 +67,17 @@
 
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
-  --radius-2xl: 22px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 28px;
 
-  /* tres alturas: en reposo, elevado y flotante */
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 1px rgba(16, 24, 40, 0.03);
-  --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px rgba(16, 24, 40, 0.06);
-  --shadow-lift: 0 2px 6px rgba(16, 24, 40, 0.08), 0 24px 56px rgba(16, 24, 40, 0.2);
-  --shadow-brand: 0 1px 2px rgba(12, 23, 48, 0.25), 0 10px 28px -8px rgba(12, 23, 48, 0.45);
+  /* las superficies no llevan borde: un hilo de sombra y una sombra suave las separan del lienzo */
+  --shadow-card: 0 0 0 1px rgba(15, 17, 21, 0.035), 0 1px 2px rgba(15, 17, 21, 0.04), 0 8px 24px -12px rgba(15, 17, 21, 0.1);
+  --shadow-panel: 0 0 0 1px rgba(15, 17, 21, 0.04), 0 2px 4px rgba(15, 17, 21, 0.04), 0 16px 40px -16px rgba(15, 17, 21, 0.16);
+  --shadow-float: 0 0 0 1px rgba(15, 17, 21, 0.05), 0 2px 6px rgba(15, 17, 21, 0.05), 0 18px 44px -14px rgba(15, 17, 21, 0.22);
+  --shadow-lift: 0 2px 6px rgba(15, 17, 21, 0.08), 0 24px 56px rgba(15, 17, 21, 0.2);
+  --shadow-brand: 0 1px 2px rgba(15, 17, 21, 0.25), 0 10px 28px -8px rgba(15, 17, 21, 0.4);
 }
 
 html {
@@ -84,12 +89,12 @@ html {
   h1 {
     font-family: var(--font-display);
     font-optical-sizing: auto;
-    letter-spacing: -0.012em;
+    letter-spacing: -0.015em;
   }
 }
 
 body {
-  background: #fff;
+  background: var(--color-canvas);
   color: var(--color-stone-900);
   font-size: 14px;
   line-height: 1.5;
@@ -128,16 +133,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .anim-rise, .anim-dot, .anim-shine, .anim-breathe { animation: none; }
   .anim-shine { color: var(--color-stone-700); background: none; }
-}
-
-/*
-  Mensajes seguidos de la ayuda automática: la marca y el nombre se muestran solo en el primero del grupo.
-  El nombre sigue ahí para quien usa lector de pantalla.
-*/
-.msg-assistant + .msg-assistant { margin-top: -1.25rem; }
-.msg-assistant + .msg-assistant .msg-mark { visibility: hidden; }
-.msg-assistant + .msg-assistant .msg-name {
-  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
 /* el aro de foco es el mismo en todo el programa */

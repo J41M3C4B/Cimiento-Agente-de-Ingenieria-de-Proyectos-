@@ -30,12 +30,12 @@ export function Workspace({
   const [tab, setTab] = useState<Tab>(project ? "project" : "call");
   const showing: Tab = project ? tab : "call";
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 gap-4">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
       {panelOpen && (
         <aside
           aria-label={es.workspace.panelTitle}
-          className="flex w-[380px] shrink-0 flex-col border-l border-stone-200 bg-white max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:w-[min(380px,92vw)] max-lg:shadow-lift"
+          className="flex w-[380px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-card max-lg:fixed max-lg:inset-y-3 max-lg:right-3 max-lg:z-30 max-lg:w-[min(380px,92vw)] max-lg:shadow-lift"
         >
           {project && (
             <div className="shrink-0 px-6 pt-5">
@@ -53,7 +53,7 @@ export function Workspace({
           <div role="tabpanel" id={`panel-${showing}`} aria-labelledby={`tab-${showing}`} className="min-h-0 flex-1">
             {showing === "project" ? project : <CallIndex readingId={readingId} />}
           </div>
-          {footer && <footer className="shrink-0 border-t border-stone-200 bg-white px-6 py-5">{footer}</footer>}
+          {footer && <footer className="shrink-0 border-t border-stone-200 px-6 py-5">{footer}</footer>}
         </aside>
       )}
     </div>

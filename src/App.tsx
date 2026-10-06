@@ -37,10 +37,11 @@ export default function App() {
 
   const institution = profile.data?.input.institution.name?.trim() || es.nav.profile;
 
-  // The label of a link or block: hidden while the bar is a thin rail, shown when it opens (hover or keyboard focus)
-  const reveal = "whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/side:opacity-100 group-has-[:focus-visible]/side:opacity-100";
+  // The label of a link or block: on wide screens the bar is always open; on narrow ones it is a thin rail that
+  // opens (hover or keyboard focus) over the page
+  const reveal = "whitespace-nowrap opacity-0 transition-opacity duration-150 xl:opacity-100 group-hover/side:opacity-100 group-has-[:focus-visible]/side:opacity-100";
 
-  // Mi institución uses the whole width, on a white surface
+  // Mi institución uses the whole width
   const wide = page === "profile";
 
   const link = ([id, label, icon]: [Page, string, IconName]) => (
@@ -50,44 +51,41 @@ export default function App() {
       title={label}
       aria-current={page === id ? "page" : undefined}
       onClick={() => setPage(id)}
-      className={`relative flex h-11 w-full items-center gap-3 rounded-xl px-4 text-left text-[14px] font-medium transition-colors ${
-        page === id ? "bg-blue-50 text-navy-900" : "text-stone-700 hover:bg-stone-100 hover:text-stone-900"
+      className={`flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[14px] transition-colors ${
+        page === id ? "bg-stone-100 font-semibold text-stone-900" : "font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900"
       }`}
     >
-      {page === id && <span aria-hidden="true" className="absolute -left-3 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brass-500" />}
-      <Icon name={icon} className={page === id ? "shrink-0 text-navy-800" : "shrink-0"} />
+      <Icon name={icon} size={18} className={page === id ? "shrink-0 text-stone-900" : "shrink-0 text-stone-500"} />
       <span className={reveal}>{label}</span>
     </button>
   );
 
   return (
-    <div className="min-h-screen bg-white text-stone-900">
+    <div className="min-h-screen bg-canvas text-stone-900">
       <aside
         aria-label="Menú"
-        className="peer/side group/side fixed inset-y-0 left-0 z-40 flex w-[76px] flex-col gap-1 overflow-hidden border-r border-stone-200 bg-stone-50 p-3 transition-[width,box-shadow] duration-200 ease-out hover:w-64 hover:shadow-lift has-[:focus-visible]:w-64 has-[:focus-visible]:shadow-lift"
+        className="peer/side group/side fixed bottom-3 left-3 top-3 z-40 flex w-[64px] flex-col overflow-hidden rounded-3xl bg-white p-3 shadow-panel transition-[width,box-shadow] duration-200 ease-out hover:w-[232px] hover:shadow-lift has-[:focus-visible]:w-[232px] has-[:focus-visible]:shadow-lift xl:w-[232px]"
       >
-        <div className="flex items-center gap-3 pb-5 pl-1.5 pt-2">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-navy-700 to-navy-950 text-brass-300 shadow-brand">
-            <Icon name="logo" />
+        <div className="flex items-center gap-2.5 pb-6 pl-0.5 pt-1">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-stone-900 text-white">
+            <Icon name="logo" size={18} />
           </span>
-          <p className={`font-display text-[22px] font-semibold leading-tight tracking-tight text-navy-900 ${reveal}`}>{es.app.name}</p>
+          <p className={`text-[16px] font-semibold tracking-tight ${reveal}`}>{es.app.name}</p>
         </div>
         <nav aria-label="Secciones" className="flex flex-col gap-1">
           {MAIN.map(link)}
-          <div className="relative h-10">
-            <span aria-hidden="true" className="absolute inset-x-3 top-1/2 h-px bg-stone-300 transition-opacity group-hover/side:opacity-0 group-has-[:focus-visible]/side:opacity-0" />
-            <p className={`absolute inset-x-4 bottom-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-600 ${reveal}`}>{es.nav.settings}</p>
-          </div>
+        </nav>
+        <nav aria-label={es.nav.settings} className="mt-auto flex flex-col gap-1 pb-3">
           {MORE.map(link)}
         </nav>
-        <div className="mt-auto flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-[7px]">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-navy-700 to-navy-900 font-display text-[16px] font-semibold text-white" aria-hidden="true">
+        <div className="flex items-center gap-2.5 border-t border-stone-200 pt-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-[13px] font-semibold text-stone-800" aria-hidden="true">
             {institution.charAt(0).toUpperCase()}
           </span>
           <div className={`min-w-0 flex-1 ${reveal}`}>
             <p className="truncate text-[13px] font-semibold">{institution}</p>
             {pin.data === true && (
-              <button type="button" onClick={() => setUnlocked(false)} className="flex items-center gap-1 text-[12px] font-medium text-blue-800 hover:underline">
+              <button type="button" onClick={() => setUnlocked(false)} className="flex items-center gap-1 text-[12px] font-medium text-stone-500 hover:text-stone-900">
                 <Icon name="lock" size={13} />
                 {es.nav.lock}
               </button>
@@ -95,22 +93,22 @@ export default function App() {
           </div>
         </div>
       </aside>
-      {/* when the bar opens over the page, the page steps back so what it covers does not look cut off */}
+      {/* when the thin bar opens over the page, the page steps back so what it covers does not look cut off */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-30 bg-navy-950/25 opacity-0 transition-opacity duration-200 peer-hover/side:opacity-100 peer-has-[:focus-visible]/side:opacity-100"
+        className="pointer-events-none fixed inset-0 z-30 bg-stone-900/20 opacity-0 transition-opacity duration-200 peer-hover/side:opacity-100 peer-has-[:focus-visible]/side:opacity-100 xl:hidden"
       />
-      <main className="min-w-0 pl-[76px]">
+      <main className="min-w-0 pl-[88px] xl:pl-[256px]">
         {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
             project, the project that was open and what they were writing are still there when they come back */}
-        <div hidden={page !== "projects"} className="px-8 py-7">
+        <div hidden={page !== "projects"} className="px-6 py-6">
           <ProjectsPage />
         </div>
         {wide ? (
           <>{page === "profile" && <ProfilePage />}</>
         ) : (
           page !== "projects" && (
-            <div className="mx-auto max-w-5xl px-8 py-8">
+            <div className="mx-auto max-w-5xl px-6 py-8">
               {page === "documents" && <DocumentsPage />}
               {page === "ai" && <AiSettingsPage />}
               {page === "security" && <SecurityPage />}

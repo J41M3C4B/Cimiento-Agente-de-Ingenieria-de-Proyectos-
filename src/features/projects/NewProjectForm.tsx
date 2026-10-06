@@ -139,7 +139,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
 
       {step === 0 && (
         <>
-          <section className="space-y-5 rounded-xl border border-stone-200 bg-white p-7 shadow-card">
+          <section className="space-y-5 rounded-2xl bg-white p-7 shadow-card">
             <div className="space-y-1">
               <h2 className="text-[18px] font-semibold">{t.step1Title}</h2>
               <p className="text-stone-700">{t.step1Help}</p>
@@ -231,7 +231,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
             {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
           </section>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-6 py-4 shadow-lift">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-6 py-4 shadow-float">
             <Button variant="ghost" onClick={onCancel}>
               {es.common.cancel}
             </Button>
@@ -251,7 +251,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
             if (ready) create.mutate(undefined);
           }}
         >
-          <section className="space-y-5 rounded-xl border border-stone-200 bg-white p-7 shadow-card">
+          <section className="space-y-5 rounded-2xl bg-white p-7 shadow-card">
             <div className="flex flex-wrap items-center gap-3.5 rounded-lg bg-stone-50 p-3.5">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-800">
                 <Icon name="file" />
@@ -300,7 +300,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
             </Alert>
           </section>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-6 py-4 shadow-lift">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-6 py-4 shadow-float">
             <Button variant="ghost" onClick={() => setStep(0)}>
               {t.wizardBack}
             </Button>

@@ -68,7 +68,7 @@ export function ProjectPage({ projectId, onBack }: { projectId: string; onBack: 
           {t.backToProjects}
         </button>
         <div className="space-y-0.5">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-navy-900">{view.project.title}</h1>
+          <h1 className="text-[30px] font-medium leading-tight">{view.project.title}</h1>
           {(by || view.project.needs_review) && (
             <p className="text-[13px] text-stone-700">
               {by}
@@ -83,8 +83,8 @@ export function ProjectPage({ projectId, onBack }: { projectId: string; onBack: 
           <Steps steps={stepsForView} current={current} compact />
           {current > 0 && (
             <details className="relative">
-              <summary className="cursor-pointer text-[13px] font-semibold text-blue-800">{t.goBack}</summary>
-              <div className="absolute left-0 z-20 mt-2 w-72 rounded-xl border border-stone-200 bg-white p-4 shadow-lift">
+              <summary className="cursor-pointer text-[13px] font-medium text-stone-600 hover:text-stone-900">{t.goBack}</summary>
+              <div className="absolute left-0 z-20 mt-2 w-72 rounded-2xl bg-white p-4 shadow-lift">
                 <p className="text-[13px] text-stone-700">{t.goBackHelp}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {PROJECT_STEPS.slice(0, current).map((s) => (
@@ -109,11 +109,11 @@ export function ProjectPage({ projectId, onBack }: { projectId: string; onBack: 
 
   if (working) {
     return (
-      <div className="flex flex-col gap-5 lg:h-[calc(100vh-3.5rem)]">
-        <div className="shrink-0">{header}</div>
+      <div className="flex flex-col gap-4 lg:h-[calc(100vh-3rem)]">
+        <div className="shrink-0 px-1">{header}</div>
         {error && <Alert tone="warn">{error}</Alert>}
-        {/* edge to edge, under the header: the chat is the main thing and the call is its background */}
-        <div className="-mx-8 -mb-7 flex min-h-0 flex-1 border-t border-stone-200">
+        {/* the chat is the main thing, free on the canvas; the call is a floating panel beside it */}
+        <div className="flex min-h-0 flex-1">
           <div className="min-h-[520px] min-w-0 flex-1 lg:min-h-0">
             {stage === "DIAGNOSIS" && <DiagnosisPanel view={view} onView={setView} onContinue={() => move(() => projectAdvance(projectId))} busy={busy} panelOpen={panel} />}
             {stage === "PRIORITIZATION" && <ObjectivesStage view={view} onView={setView} onContinue={() => move(() => projectAdvance(projectId))} busy={busy} panelOpen={panel} />}

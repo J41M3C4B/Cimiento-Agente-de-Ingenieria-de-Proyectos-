@@ -148,10 +148,10 @@ export function ConversationChat({
   const proposing = view.phase === "root_proposed" && canWrite;
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-white" aria-label={t.title}>
+    <section className="flex h-full min-h-0 flex-col" aria-label={t.title}>
       <header className="shrink-0 px-6 pt-5">
         <div className="mx-auto flex w-full max-w-[720px] items-center gap-4">
-          <p className="shrink-0 text-[13px] font-medium text-stone-700">{progressLabel(view)}</p>
+          <p className="shrink-0 text-[13px] font-medium text-stone-500">{progressLabel(view)}</p>
           <div className="w-40 max-w-full">
             <Segments
               total={view.max_whys + 1}
@@ -163,7 +163,7 @@ export function ConversationChat({
       </header>
 
       <div role="log" aria-live="polite" className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[720px] space-y-8 px-6 pb-6 pt-8">
+        <div className="mx-auto w-full max-w-[720px] space-y-7 px-6 pb-8 pt-6">
           {view.fit && view.fit.fit !== "fits" && (
             <Alert tone="warn">
               <p className="font-semibold">{view.fit.fit === "mismatch" ? t.fitMismatch : t.fitPartial}</p>
@@ -221,10 +221,10 @@ export function ConversationChat({
                       box.current?.focus();
                     } else void send(option);
                   }}
-                  className={`rounded-lg border px-3.5 py-2 text-[14px] font-medium transition-colors ${
+                  className={`rounded-full px-4 py-2 text-[14px] font-medium transition-colors ${
                     proposing && i === 0
-                      ? "border-transparent bg-stone-900 text-white hover:bg-stone-800"
-                      : "border-stone-300 bg-white text-stone-900 hover:border-stone-400 hover:bg-stone-50"
+                      ? "bg-stone-900 text-white hover:bg-stone-700"
+                      : "bg-white text-stone-900 shadow-card hover:bg-stone-50"
                   }`}
                 >
                   {option}
@@ -233,7 +233,7 @@ export function ConversationChat({
             </div>
           )}
           <form
-            className="flex items-end gap-2 rounded-2xl border border-stone-300 bg-white p-2.5 shadow-card transition-colors focus-within:border-blue-800"
+            className="flex items-end gap-2 rounded-[24px] bg-white p-2.5 pl-3 shadow-float"
             onSubmit={(e) => {
               e.preventDefault();
               if (canWrite && text.trim()) void submit(text);
@@ -254,15 +254,14 @@ export function ConversationChat({
                     if (canWrite && text.trim()) void submit(text);
                   }
                 }}
-                className="w-full resize-none rounded-lg border-0 bg-transparent px-3 py-2 text-[15px] text-stone-900 outline-none placeholder:text-stone-500 focus-visible:outline-none disabled:opacity-60"
+                className="w-full resize-none rounded-lg border-0 bg-transparent px-2 py-2 text-[15px] text-stone-900 outline-none placeholder:text-stone-500 focus-visible:outline-none disabled:opacity-60"
               />
             </label>
-            <Button type="submit" variant="primary" disabled={!canWrite || !text.trim()}>
-              {t.send}
-              <Icon name="send" size={15} />
+            <Button type="submit" variant="primary" aria-label={t.send} title={t.send} disabled={!canWrite || !text.trim()} className="!h-10 !min-h-0 !w-10 shrink-0 !rounded-full !p-0">
+              <Icon name="send" size={16} />
             </Button>
           </form>
-          <p className="px-1 text-[12.5px] text-stone-600">{later && closed ? later.hint : closed ? t.hintClosed : t.hint}</p>
+          <p className="px-2 text-center text-[12px] text-stone-500">{later && closed ? later.hint : closed ? t.hintClosed : t.hint}</p>
         </div>
       </footer>
 

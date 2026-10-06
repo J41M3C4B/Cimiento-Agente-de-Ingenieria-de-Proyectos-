@@ -52,7 +52,7 @@ export function CallConfirm({ readingId, onContinue, busy: parentBusy = false }:
         <p className="max-w-[60ch] text-stone-700">{t.step1Intro}</p>
       </header>
 
-      <section aria-label={t.callTitle} className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+      <section aria-label={t.callTitle} className="overflow-hidden rounded-2xl bg-white shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3 px-6 py-5">
           <div className="min-w-0 space-y-1">
             <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{t.callTitle}</p>
@@ -96,12 +96,12 @@ export function CallConfirm({ readingId, onContinue, busy: parentBusy = false }:
       ) : null}
 
       {canView && d.card && (
-        <section className="rounded-2xl border border-stone-200 bg-white px-6 py-6">
+        <section className="rounded-2xl bg-white px-6 py-6 shadow-card">
           <CallCardView detail={d} onSeeDetail={() => setAll(true)} />
         </section>
       )}
 
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white px-6 py-4 shadow-lift">
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white px-6 py-4 shadow-float">
         {!canView && <p className="text-stone-700">{t.waitingToConfirm}</p>}
         {canView && !r.confirmed_at && (
           <>

@@ -40,38 +40,30 @@ export function ProjectFolder({
 }) {
   const [picking, setPicking] = useState(false);
   const color = project.color ?? defaultColor(project.id);
-  const { fill, ink } = FOLDER[color];
+  const { fill } = FOLDER[color];
   const i = stepIndex(project.stage);
   const done = project.stage === "READY";
   const filled = done ? PROJECT_STEPS.length : Math.max(i, 0) + 1;
 
   return (
-    <li className="flex min-w-0 flex-col" style={{ color: ink }}>
-      {/* the tab, with a small curve where it meets the body */}
-      <div className="relative z-10 inline-flex max-w-[76%] items-center self-start rounded-t-2xl px-5 py-3" style={{ background: fill }}>
-        <p className="truncate text-[14px] font-semibold leading-snug">{project.donor_kind ? t.kinds[project.donor_kind] : t.kindNone}</p>
-        <span aria-hidden="true" className="absolute -right-3 bottom-0 h-3 w-3" style={{ background: `radial-gradient(circle at 100% 0, transparent 12px, ${fill} 12.5px)` }} />
-      </div>
-
-      <div className="flex aspect-[7/5] min-h-[210px] flex-col rounded-2xl rounded-tl-none p-6" style={{ background: fill }}>
-        <div className="flex items-start justify-between gap-3">
-          <h2 className="line-clamp-3 min-w-0 text-[20px] font-semibold leading-snug" title={project.title}>
-            {project.title}
-          </h2>
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              aria-label={t.colorLabel}
-              title={t.colorLabel}
-              aria-expanded={picking}
-              onClick={() => setPicking((v) => !v)}
-              className="h-5 w-5 rounded-full border-2 transition-transform hover:scale-110"
-              style={{ borderColor: ink, background: "rgba(255,255,255,0.28)" }}
-            />
+    <li className="group flex min-w-0 flex-col rounded-2xl bg-white p-6 shadow-card transition-shadow hover:shadow-panel">
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-[12px] font-medium uppercase tracking-[0.1em] text-stone-500">{project.donor_kind ? t.kinds[project.donor_kind] : t.kindNone}</p>
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            aria-label={t.colorLabel}
+            title={t.colorLabel}
+            aria-expanded={picking}
+            onClick={() => setPicking((v) => !v)}
+            className="flex h-6 w-6 items-center justify-center rounded-full transition-transform hover:scale-110"
+          >
+            <span className="h-3 w-3 rounded-full ring-4 ring-stone-100" style={{ background: fill }} />
+          </button>
             {picking && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setPicking(false)} aria-hidden="true" />
-                <div role="group" aria-label={t.colorLabel} className="absolute right-0 top-8 z-20 w-[236px] rounded-xl border border-stone-200 bg-white p-3 text-stone-900 shadow-lift">
+                <div role="group" aria-label={t.colorLabel} className="absolute right-0 top-8 z-20 w-[236px] rounded-2xl bg-white p-3 text-stone-900 shadow-lift">
                   <p className="mb-2 text-[12px] font-semibold text-stone-600">{t.colorLabel}</p>
                   <div className="flex flex-wrap gap-2.5">
                     {FOLDER_COLORS.map((name) => (
@@ -113,37 +105,40 @@ export function ProjectFolder({
                 </div>
               </>
             )}
-          </div>
         </div>
+      </div>
 
-        <div className="mt-auto">
-          <div className="flex gap-1.5" role="img" aria-label={t.stepOf(filled, PROJECT_STEPS.length)}>
-            {PROJECT_STEPS.map((s, n) => (
-              <span key={s} className="h-1.5 flex-1 rounded-full" style={{ background: ink, opacity: n < filled ? 1 : 0.28 }} />
-            ))}
-          </div>
-          <div className="mt-2.5 flex items-center justify-between gap-3 text-[12.5px] font-normal opacity-90">
-            <span>{t.status(done ? t.guideReady : es.steps[project.stage]!)}</span>
-            {project.needs_review && <span className="font-medium">{t.review}</span>}
-          </div>
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={busy}
-              className="rounded-md py-1 text-[13px] font-medium opacity-80 transition-opacity hover:underline hover:opacity-100 disabled:opacity-40"
-            >
-              {t.delete}
-            </button>
-            <button
-              type="button"
-              onClick={onOpen}
-              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-white px-4 text-[13px] font-semibold text-stone-900 transition-colors hover:bg-stone-100"
-            >
-              {done ? t.open : t.resume}
-              {!done && <Icon name="next" size={15} />}
-            </button>
-          </div>
+      <h2 className="mt-5 line-clamp-3 min-w-0 text-[20px] font-semibold leading-snug tracking-tight" title={project.title}>
+        {project.title}
+      </h2>
+
+      <div className="mt-auto pt-10">
+        <div className="flex gap-1.5" role="img" aria-label={t.stepOf(filled, PROJECT_STEPS.length)}>
+          {PROJECT_STEPS.map((s, n) => (
+            <span key={s} className="h-1.5 flex-1 rounded-full" style={{ background: n < filled ? fill : "var(--color-stone-200)" }} />
+          ))}
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-stone-600">
+          <span>{t.status(done ? t.guideReady : es.steps[project.stage]!)}</span>
+          {project.needs_review && <span className="font-medium text-amber-800">{t.review}</span>}
+        </div>
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={busy}
+            className="rounded-md py-1 text-[13px] font-medium text-stone-500 transition-colors hover:text-red-800 disabled:opacity-40"
+          >
+            {t.delete}
+          </button>
+          <button
+            type="button"
+            onClick={onOpen}
+            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl bg-stone-900 px-4 text-[13px] font-semibold text-white transition-colors hover:bg-stone-700"
+          >
+            {done ? t.open : t.resume}
+            {!done && <Icon name="next" size={15} />}
+          </button>
         </div>
       </div>
     </li>
