@@ -38,7 +38,7 @@ export function Workspace({
           className="flex w-[380px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-card max-lg:fixed max-lg:inset-y-3 max-lg:right-3 max-lg:z-30 max-lg:w-[min(380px,92vw)] max-lg:shadow-lift"
         >
           {project && (
-            <div className="shrink-0 border-b border-stone-200 px-6">
+            <div className="shrink-0 px-6 pb-1 pt-5">
               <Tabs
                 label={es.workspace.panelTabs}
                 value={showing}

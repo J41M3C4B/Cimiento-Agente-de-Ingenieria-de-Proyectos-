@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Button, FactRow, Facts, Figures, IconTile, RowActions, Sheet, StatusDot, Tabs, TextButton } from "../../components/ui";
+import { Button, FactRow, Facts, Figures, IconTile, RowActions, Sheet, Tabs, Tag, TextButton } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileConfirm, profileGet, profileSave, rosterOverview, toAppError } from "../../lib/tauri";
@@ -127,6 +127,7 @@ export function ProfilePage() {
   const peopleCount = peopleRoster.data?.entries.length ?? 0;
   const facilities = view?.input.facilities ?? [];
   const income = view?.input.income ?? [];
+  const incomeTotal = income.reduce((n, it) => n + (it.annual_amount_mxn ?? 0), 0);
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
 
   // what is still missing, each one leading to where it is filled in
@@ -141,12 +142,11 @@ export function ProfilePage() {
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 
   // what the money is made of: each source as a share of the total, drawn as one bar
-  const incomeTotal = income.reduce((n, it) => n + (it.annual_amount_mxn ?? 0), 0);
   const shades = ["bg-stone-900", "bg-stone-600", "bg-stone-400", "bg-stone-300", "bg-stone-200"];
   const [showTodo, setShowTodo] = useState(false);
 
   return (
-    <div className="mx-auto max-w-[1080px] px-6 py-6">
+    <div className="mx-auto max-w-[1360px] px-6 py-6">
       <Sheet>
         <header className="px-12 pb-6 pt-8">
           <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
@@ -183,7 +183,10 @@ export function ProfilePage() {
 
           {view && (
             <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-stone-600">
-              <StatusDot tone={view.is_draft ? "amber" : "green"}>{view.is_draft ? t.status.draft : t.status.confirmed}</StatusDot>
+              <Tag tone={view.is_draft ? "amber" : "green"}>
+                <Icon name={view.is_draft ? "warn" : "check"} size={13} strokeWidth={2.6} />
+                {view.is_draft ? t.status.draft : t.status.confirmed}
+              </Tag>
               {todo.length > 0 && (
                 <button type="button" aria-expanded={showTodo} onClick={() => setShowTodo((v) => !v)} className="inline-flex items-center gap-1 font-medium text-stone-900 hover:underline">
                   {t.todo.summary(todo.length)}
@@ -237,12 +240,12 @@ export function ProfilePage() {
                   { label: t.kpi.people, value: money(totals.population), sub: view.input.capacity_total ? t.kpi.peopleOf(money(view.input.capacity_total)) : undefined, fill: view.input.capacity_total ? (totals.population / view.input.capacity_total) * 100 : undefined },
                   { label: t.kpi.payroll, value: peso(totals.payroll_monthly_mxn), sub: t.kpi.perYear(peso(totals.payroll_annual_mxn)) },
                   { label: t.kpi.fees, value: peso(totals.fees_monthly_mxn), sub: t.kpi.payers(totals.fee_payers) },
-                  { label: t.cards.income, value: peso(totals.income_annual_mxn), sub: income.length > 0 ? undefined : t.incomeEmpty },
+                  { label: t.cards.income, value: peso(incomeTotal), sub: income.length > 0 ? t.incomeSources(income.length) : t.incomeEmpty },
                 ]}
               />
             </div>
 
-            <div className="border-b border-stone-200 px-12">
+            <div className="border-b border-stone-200 px-12 py-4">
               <Tabs
                 label={t.sections.basics}
                 value={tab}
@@ -258,13 +261,13 @@ export function ProfilePage() {
 
             <div role="tabpanel" id="panel-general" aria-labelledby="tab-general" hidden={tab !== "general"} className="px-12 py-2">
               <FactRow title={t.cards.institution} action={edition({ kind: "institution" })}>
-                <Facts columns={2} items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
+                <Facts items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
               </FactRow>
               <FactRow title={t.cards.contact} note={t.privateNote} action={edition({ kind: "contact" })}>
-                <Facts columns={2} items={[[t.fields.phone, inst?.contact_phone], [t.fields.email, inst?.contact_email]]} />
+                <Facts items={[[t.fields.phone, inst?.contact_phone], [t.fields.email, inst?.contact_email]]} />
               </FactRow>
               <FactRow title={t.cards.legal} note={t.legalNote} action={edition({ kind: "legal" })}>
-                <Facts columns={2} items={[[t.fields.rfc, inst?.legal_rfc], [t.fields.legalRep, inst?.legal_rep_name]]} />
+                <Facts items={[[t.fields.rfc, inst?.legal_rfc], [t.fields.legalRep, inst?.legal_rep_name]]} />
               </FactRow>
               <FactRow title={t.cards.capacity} action={edition({ kind: "capacity" })}>
                 <Facts

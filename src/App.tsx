@@ -62,7 +62,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-canvas text-stone-900">
       <header className="sticky top-0 z-40 border-b border-stone-300/50 bg-canvas/85 backdrop-blur">
-        <div className="mx-auto flex h-[52px] max-w-[1440px] items-center gap-9 px-6">
+        <div className="mx-auto flex h-[52px] max-w-[1360px] items-center gap-9 px-6">
           <div className="flex items-center gap-2.5">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900 text-white">
               <Icon name="logo" size={15} />
@@ -123,7 +123,7 @@ export default function App() {
       <main className="min-w-0">
         {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
             project, the project that was open and what they were writing are still there when they come back */}
-        <div hidden={page !== "projects"} className="mx-auto max-w-[1440px] px-6 py-6">
+        <div hidden={page !== "projects"} className="mx-auto max-w-[1360px] px-6 py-6">
           <ProjectsPage />
         </div>
         {wide ? (

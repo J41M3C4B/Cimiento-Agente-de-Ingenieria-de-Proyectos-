@@ -105,6 +105,7 @@ export const es = {
     editData: "Editar datos",
     addSource: "Agregar fuente",
     incomeTotal: "Total al año",
+    incomeSources: (n: number) => (n === 1 ? "1 fuente" : `${n} fuentes`),
     privateNote: "Estos datos no se comparten con la ayuda automática.",
     legalNote: "Solo los pedimos cuando una convocatoria los necesita.",
     cards: {

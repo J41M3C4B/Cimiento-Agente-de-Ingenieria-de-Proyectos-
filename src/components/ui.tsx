@@ -176,7 +176,7 @@ export function FactRow({ title, note, action, children }: { title: string; note
 /** What is known, read-only: small label over the value. An empty value says so instead of leaving a hole. */
 export function Facts({ items, columns = 3 }: { items: [string, ReactNode][]; columns?: 1 | 2 | 3 }) {
   return (
-    <dl className={`grid gap-x-8 gap-y-4 ${columns === 3 ? "sm:grid-cols-2 lg:grid-cols-3" : columns === 2 ? "sm:grid-cols-2" : ""}`}>
+    <dl className={`grid gap-x-8 gap-y-4 ${columns === 3 ? "sm:grid-cols-3" : columns === 2 ? "sm:grid-cols-2" : ""}`}>
       {items.map(([label, value]) => (
         <div key={label} className="min-w-0">
           <dt className="text-[12.5px] text-stone-500">{label}</dt>
@@ -220,7 +220,7 @@ export function Figures({ items }: { items: { label: string; value: string; sub?
   );
 }
 
-/** Tabs underlined: the chosen one is ink with a line under it; the count is a quiet number beside the name. */
+/** Tabs as a segmented control: a soft track, the chosen one lifted on white. The count is a small quiet number. */
 export function Tabs<T extends string>({
   items,
   value,
@@ -233,7 +233,7 @@ export function Tabs<T extends string>({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="flex max-w-full gap-7 overflow-x-auto">
+    <div role="tablist" aria-label={label} className="inline-flex max-w-full flex-wrap gap-1 rounded-xl bg-stone-100 p-1">
       {items.map((t) => {
         const on = t.id === value;
         return (
@@ -245,12 +245,14 @@ export function Tabs<T extends string>({
             aria-selected={on}
             aria-controls={`panel-${t.id}`}
             onClick={() => onChange(t.id)}
-            className={`-mb-px flex shrink-0 items-center gap-1.5 border-b-2 py-3 text-[14px] font-medium transition-colors ${
-              on ? "border-stone-900 text-stone-900" : "border-transparent text-stone-500 hover:text-stone-900"
+            className={`flex items-center gap-2 rounded-lg px-4 py-1.5 text-[14px] transition-all ${
+              on ? "bg-white font-semibold text-stone-900 shadow-card" : "font-medium text-stone-600 hover:bg-white/60 hover:text-stone-900"
             }`}
           >
             {t.label}
-            {t.count !== undefined && t.count > 0 && <span className="text-[12.5px] font-normal tabular-nums text-stone-500">{t.count}</span>}
+            {t.count !== undefined && t.count > 0 && (
+              <span className={`rounded-md px-1.5 text-[12px] font-semibold tabular-nums ${on ? "bg-stone-900 text-white" : "bg-stone-200 text-stone-600"}`}>{t.count}</span>
+            )}
             {t.alert && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-800" />}
           </button>
         );
@@ -322,7 +324,7 @@ export const seriesTone = (index: number): TagTone => SERIES[((index % SERIES.le
 export const toneOfText = (text: string): TagTone => seriesTone([...text].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7));
 
 export function Tag({ tone, children }: { tone: TagTone; children: ReactNode }) {
-  return <span className={`inline-flex min-h-6 items-center whitespace-nowrap rounded-md px-2.5 text-[12.5px] font-semibold ${tagTones[tone]}`}>{children}</span>;
+  return <span className={`inline-flex min-h-6 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[12.5px] font-semibold ${tagTones[tone]}`}>{children}</span>;
 }
 
 /** The round mark of a person: their initials, in a color of their own. */

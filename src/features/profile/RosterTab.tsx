@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Modal, RowActions, Select, TextArea, TextInput, THead } from "../../components/ui";
+import { Alert, Button, Modal, RowActions, Select, Tag, TextArea, TextInput, THead, seriesTone, toneOfText } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { rosterEntryDelete, rosterEntrySave, rosterFieldDelete, rosterFieldSave, rosterOverview, toAppError } from "../../lib/tauri";
 import type { Entity, FieldKind, ProfileTotals, ProfileView, RosterEntry, RosterField, RosterOverview } from "../../lib/types";
@@ -320,6 +320,12 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
   }
 
   const rows = shown.slice(current * PAGE, current * PAGE + PAGE);
+  // the first selector of the table (the position, the group) is shown as a colored tag, one color per option
+  const tagged = columns.find((f) => f.kind === "select");
+  const tagTone = (f: RosterField, v: string) => {
+    const i = f.options.findIndex((o) => o.value === v);
+    return i >= 0 ? seriesTone(i) : toneOfText(v);
+  };
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2.5">
@@ -377,11 +383,13 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
               {rows.map((e) => (
                 <tr key={e.id} className="group border-b border-stone-100 transition-colors hover:bg-stone-50">
                   {columns.map((f, i) => (
-                    <td key={f.key} className={`max-w-[240px] px-3 py-3 first:pl-0 ${f.kind === "money" || f.kind === "number" ? "tabular-nums" : ""} ${e.data[f.key] ? "" : "text-stone-300"}`}>
+                    <td key={f.key} className={`max-w-[240px] px-3 py-3 first:pl-0 ${f.kind === "money" || f.kind === "number" ? "tabular-nums" : ""} ${e.data[f.key] ? "" : "text-stone-400"}`}>
                       {i === 0 ? (
                         <button type="button" onClick={() => open(e)} className="block text-left font-medium hover:underline">
                           <span className="line-clamp-1">{show(f, e.data[f.key])}</span>
                         </button>
+                      ) : f === tagged && e.data[f.key] ? (
+                        <Tag tone={tagTone(f, e.data[f.key]!)}>{show(f, e.data[f.key])}</Tag>
                       ) : (
                         <span className="line-clamp-1">{show(f, e.data[f.key])}</span>
                       )}
