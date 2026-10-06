@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Avatar, Button, Modal, RowActions, Select, Tag, TextArea, TextInput, THead, seriesTone, toneOfText } from "../../components/ui";
+import { Alert, Button, Modal, RowActions, Select, TextArea, TextInput, THead } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { rosterEntryDelete, rosterEntrySave, rosterFieldDelete, rosterFieldSave, rosterOverview, toAppError } from "../../lib/tauri";
 import type { Entity, FieldKind, ProfileTotals, ProfileView, RosterEntry, RosterField, RosterOverview } from "../../lib/types";
@@ -320,13 +320,6 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
   }
 
   const rows = shown.slice(current * PAGE, current * PAGE + PAGE);
-  // the first selector of the table (the position, the group) is shown as a colored tag, one color per option
-  const tagged = columns.find((f) => f.kind === "select");
-  const tagTone = (f: RosterField, v: string) => {
-    const i = f.options.findIndex((o) => o.value === v);
-    return i >= 0 ? seriesTone(i) : toneOfText(v);
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2.5">
@@ -340,7 +333,7 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
               setPage(0);
             }}
             placeholder={text.search}
-            className="min-h-[36px] w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-[14px] placeholder:text-stone-500 hover:border-stone-400 focus-visible:border-blue-800 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-blue-100"
+            className="min-h-[34px] w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-[14px] placeholder:text-stone-500 hover:border-stone-400 focus-visible:border-stone-900 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-stone-200"
           />
         </label>
         {filterField && (
@@ -353,11 +346,11 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
               setPage(0);
             }}
             options={[["", `${filterField.title}: ${r.table.all}`], ...filterField.options.map((o) => [o.value, o.label] as [string, string])]}
-            className="min-w-[200px] [&_select]:min-h-[36px]"
+            className="min-w-[200px] [&_select]:min-h-[34px]"
           />
         )}
         <div className="ml-auto flex gap-2">
-          <Button size="sm" onClick={() => setConfiguring(true)}>
+          <Button size="sm" variant="plain" onClick={() => setConfiguring(true)}>
             <Icon name="sliders" size={15} />
             {r.form.configure}
           </Button>
@@ -369,7 +362,7 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
       </div>
 
       {entries.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-stone-300 px-6 py-12 text-center">
+        <div className="rounded-2xl bg-stone-50 px-6 py-12 text-center">
           <p className="mx-auto max-w-sm text-stone-700">{text.empty}</p>
           <Button className="mt-4" variant="primary" disabled={!overview.isSuccess} onClick={() => open()}>
             <Icon name="plus" size={16} strokeWidth={2.4} />
@@ -382,28 +375,25 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
             <THead columns={[...columns.map((f) => ({ key: f.key, title: f.title })), { key: "actions", title: "" }]} />
             <tbody>
               {rows.map((e) => (
-                <tr key={e.id} className="group border-t border-stone-200 hover:bg-stone-50">
+                <tr key={e.id} className="group border-b border-stone-100 transition-colors hover:bg-stone-50">
                   {columns.map((f, i) => (
-                    <td key={f.key} className={`max-w-[240px] px-3 py-2.5 ${f.kind === "money" || f.kind === "number" ? "tabular-nums" : ""}`}>
+                    <td key={f.key} className={`max-w-[240px] px-3 py-3 first:pl-0 ${f.kind === "money" || f.kind === "number" ? "tabular-nums" : ""} ${e.data[f.key] ? "" : "text-stone-300"}`}>
                       {i === 0 ? (
-                        <button type="button" onClick={() => open(e)} className="flex items-center gap-2.5 text-left font-medium hover:text-blue-800">
-                          <Avatar name={e.data[f.key]} />
+                        <button type="button" onClick={() => open(e)} className="block text-left font-medium hover:underline">
                           <span className="line-clamp-1">{show(f, e.data[f.key])}</span>
                         </button>
-                      ) : f === tagged && e.data[f.key] ? (
-                        <Tag tone={tagTone(f, e.data[f.key]!)}>{show(f, e.data[f.key])}</Tag>
                       ) : (
                         <span className="line-clamp-1">{show(f, e.data[f.key])}</span>
                       )}
                     </td>
                   ))}
-                  <td className="w-28 px-1 py-1.5 text-right">
+                  <td className="w-24 px-1 py-1.5 text-right">
                     <RowActions onEdit={() => open(e)} onRemove={() => remove(e.id)} busy={busy} />
                   </td>
                 </tr>
               ))}
               {shown.length === 0 && (
-                <tr className="border-t border-stone-200">
+                <tr>
                   <td colSpan={columns.length + 1} className="px-3 py-6 text-stone-700">
                     {r.table.noResults}
                   </td>
@@ -411,7 +401,7 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
               )}
             </tbody>
           </table>
-          <div className="flex items-center justify-between gap-3 border-t border-stone-200 px-1 py-3 text-[13px] text-stone-700">
+          <div className="flex items-center justify-between gap-3 px-0 py-3 text-[13px] text-stone-500">
             <span>{r.table.count(shown.length)}</span>
             {pages > 1 && (
               <span className="flex items-center gap-2">

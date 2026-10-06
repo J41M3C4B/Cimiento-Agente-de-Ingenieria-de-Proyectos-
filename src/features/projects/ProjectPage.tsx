@@ -109,7 +109,7 @@ export function ProjectPage({ projectId, onBack }: { projectId: string; onBack: 
 
   if (working) {
     return (
-      <div className="flex flex-col gap-4 lg:h-[calc(100vh-3rem)]">
+      <div className="flex flex-col gap-4 lg:h-[calc(100vh-6.25rem)]">
         <div className="shrink-0 px-1">{header}</div>
         {error && <Alert tone="warn">{error}</Alert>}
         {/* the chat is the main thing, free on the canvas; the call is a floating panel beside it */}

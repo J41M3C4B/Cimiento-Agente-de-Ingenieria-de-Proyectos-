@@ -3,8 +3,7 @@
 /*
   Sistema visual de Cimiento: minimalista. Un lienzo gris claro sobre el que flotan superficies blancas sin borde
   (una barra lateral y tarjetas con sombra suave), mucho aire, tinta casi negra como color principal y el azul
-  solo para enlaces y lo seleccionado. Los titulares de página llevan una serif editorial (Newsreader); el resto,
-  Inter. Se redefinen las escalas de Tailwind que ya usa la app (`stone`, `blue`, `rounded-*`), así que toda la
+  solo para enlaces y lo seleccionado. Todo en Inter. Se redefinen las escalas de Tailwind que ya usa la app (`stone`, `blue`, `rounded-*`), así que toda la
   interfaz toma el estilo sin tocarla pieza por pieza.
 */
 @theme {
@@ -67,8 +66,8 @@
 
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
   --radius-2xl: 20px;
   --radius-3xl: 28px;
 
@@ -82,15 +81,6 @@
 
 html {
   font-size: 16px;
-}
-
-/* los titulares de página llevan la serif editorial; todo lo demás, Inter */
-@layer base {
-  h1 {
-    font-family: var(--font-display);
-    font-optical-sizing: auto;
-    letter-spacing: -0.015em;
-  }
 }
 
 body {

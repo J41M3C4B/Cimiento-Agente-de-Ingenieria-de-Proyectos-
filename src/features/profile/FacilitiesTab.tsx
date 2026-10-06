@@ -1,12 +1,11 @@
 import { Icon } from "../../components/icons";
-import { Button, RowActions, Tag, THead } from "../../components/ui";
-import type { TagTone } from "../../components/ui";
+import { Button, RowActions, StatusDot, THead } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { Condition, FacilityInput } from "../../lib/types";
 
 const t = es.profile;
 
-const conditionTone: Record<Condition, TagTone> = { good: "green", fair: "amber", poor: "orange", critical: "red" };
+const conditionTone: Record<Condition, "green" | "amber" | "red"> = { good: "green", fair: "amber", poor: "red", critical: "red" };
 
 /** The spaces of the institution and how they are today: a table, with a button to add one. */
 export function FacilitiesTab({
@@ -21,7 +20,7 @@ export function FacilitiesTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-stone-700">{t.sections.facilitiesHelp}</p>
+        <p className="text-stone-500">{t.sections.facilitiesHelp}</p>
         <Button size="sm" variant="primary" onClick={onAdd}>
           <Icon name="plus" size={15} strokeWidth={2.4} />
           {t.facilitiesTab.add}
@@ -29,7 +28,7 @@ export function FacilitiesTab({
       </div>
 
       {facilities.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-stone-300 px-6 py-12 text-center">
+        <div className="rounded-2xl bg-stone-50 px-6 py-12 text-center">
           <p className="mx-auto max-w-sm text-stone-700">{t.empty.facilities}</p>
           <Button className="mt-4" variant="primary" onClick={onAdd}>
             <Icon name="plus" size={16} strokeWidth={2.4} />
@@ -51,28 +50,26 @@ export function FacilitiesTab({
             />
             <tbody>
               {facilities.map((f, i) => (
-                <tr key={i} className="group border-t border-stone-200 hover:bg-stone-50">
-                  <td className="px-3 py-2.5 font-medium">
-                    <button type="button" onClick={() => onEdit(i)} className="text-left hover:text-blue-800">
+                <tr key={i} className="group border-b border-stone-100 transition-colors hover:bg-stone-50">
+                  <td className="py-3 pr-3 font-medium">
+                    <button type="button" onClick={() => onEdit(i)} className="block text-left hover:underline">
                       {f.kind}
                     </button>
                   </td>
-                  <td className="px-3 py-2.5 tabular-nums">{f.count}</td>
-                  <td className="px-3 py-2.5">{f.condition ? <Tag tone={conditionTone[f.condition]}>{t.condition[f.condition]}</Tag> : "—"}</td>
-                  <td className="px-3 py-2.5">
-                    {f.accessible === null ? "—" : <Tag tone={f.accessible ? "green" : "orange"}>{f.accessible ? es.common.yes : es.common.no}</Tag>}
-                  </td>
-                  <td className="max-w-[280px] px-3 py-2.5 text-stone-700">
+                  <td className="px-3 py-3 tabular-nums">{f.count}</td>
+                  <td className="px-3 py-3">{f.condition ? <StatusDot tone={conditionTone[f.condition]}>{t.condition[f.condition]}</StatusDot> : <span className="text-stone-300">—</span>}</td>
+                  <td className="px-3 py-3">{f.accessible === null ? <span className="text-stone-300">—</span> : f.accessible ? es.common.yes : es.common.no}</td>
+                  <td className={`max-w-[280px] px-3 py-3 ${f.notes ? "text-stone-600" : "text-stone-300"}`}>
                     <span className="line-clamp-1">{f.notes || "—"}</span>
                   </td>
-                  <td className="w-28 px-1 py-1.5 text-right">
+                  <td className="w-24 px-1 py-1.5 text-right">
                     <RowActions onEdit={() => onEdit(i)} onRemove={() => onRemove(i)} busy={busy} />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="border-t border-stone-200 px-1 py-3 text-[13px] text-stone-700">{t.facilitiesTab.count(facilities.length)}</div>
+          <div className="py-3 text-[13px] text-stone-500">{t.facilitiesTab.count(facilities.length)}</div>
         </div>
       )}
     </div>

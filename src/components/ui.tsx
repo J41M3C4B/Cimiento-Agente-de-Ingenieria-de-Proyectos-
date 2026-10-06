@@ -23,9 +23,9 @@ const variants: Record<Variant, string> = {
 };
 
 const sizes: Record<Size, string> = {
-  sm: "min-h-[34px] px-3 text-[13px]",
-  md: "min-h-[40px] px-4 text-[14px]",
-  lg: "min-h-[46px] px-5 text-[15px]",
+  sm: "min-h-[30px] px-3 text-[13px]",
+  md: "min-h-[36px] px-4 text-[14px]",
+  lg: "min-h-[42px] px-5 text-[14px]",
 };
 
 export function Button({
@@ -38,13 +38,13 @@ export function Button({
     <button
       type="button"
       {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl border font-semibold transition-colors disabled:cursor-not-allowed disabled:border-transparent disabled:bg-stone-100 disabled:text-stone-500 disabled:shadow-none ${sizes[size]} ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg border font-medium transition-colors disabled:cursor-not-allowed disabled:border-transparent disabled:bg-stone-100 disabled:text-stone-500 disabled:shadow-none ${sizes[size]} ${variants[variant]} ${className}`}
     />
   );
 }
 
 const inputClass =
-  "w-full min-h-[42px] rounded-xl border border-stone-300 bg-white px-3.5 text-[14px] text-stone-900 placeholder:text-stone-500 hover:border-stone-400 focus-visible:border-stone-900 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-stone-200 disabled:bg-stone-100";
+  "w-full min-h-[36px] rounded-lg border border-stone-300 bg-white px-3.5 text-[14px] text-stone-900 placeholder:text-stone-500 hover:border-stone-400 focus-visible:border-stone-900 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-stone-200 disabled:bg-stone-100";
 
 type FieldProps = { label: string; hint?: string; error?: string; children: ReactNode; className?: string; hideLabel?: boolean };
 
@@ -146,39 +146,29 @@ export function IconTile({ icon, tone = "blue", small }: { icon: IconName; tone?
   );
 }
 
-/**
- * A section of the page, flat: a title, what is known about it below and «Editar» on the right. Sections are told
- * apart by a thin line and the space between them, not by boxes.
- */
-export function Block({ title, note, action, children }: { title: string; note?: string; action?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="py-6">
-      <header className="mb-4 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold leading-snug">{title}</h2>
-          {note && <p className="mt-0.5 text-[13px] text-stone-600">{note}</p>}
-        </div>
-        {action}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-/** «Editar» as a text button: it is there when needed and does not shout. */
+/** «Editar» as a quiet text link: it is there when needed and does not shout. */
 export function TextButton({ className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type="button" {...props} className={`shrink-0 rounded-md px-1.5 py-0.5 text-[13px] font-semibold text-blue-800 transition-colors hover:bg-blue-50 ${className}`} />;
+  return <button type="button" {...props} className={`shrink-0 rounded-md px-1.5 py-0.5 text-[13px] font-medium text-stone-500 transition-colors hover:text-stone-900 ${className}`} />;
 }
 
-/** A card, kept for the secondary things on the side (income, what is missing): the main column has none. */
-export function Widget({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+/** The white sheet a page is written on. Pages do not stack cards: the sheet is the only surface. */
+export function Sheet({ children }: { children: ReactNode }) {
+  return <div className="overflow-hidden rounded-[20px] bg-white shadow-card">{children}</div>;
+}
+
+/**
+ * One line of the sheet: its title on the left, what is known in the middle and its action on the right.
+ * Lines are told apart by a hairline and space, never by boxes.
+ */
+export function FactRow({ title, note, action, children }: { title: string; note?: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-2xl bg-white shadow-card">
-      <header className="flex items-center justify-between gap-3 px-6 pt-5">
+    <section className="grid gap-x-8 gap-y-3 border-t border-stone-200 py-5 first:border-t-0 md:grid-cols-[200px_minmax(0,1fr)_auto]">
+      <div>
         <h2 className="text-[14px] font-semibold">{title}</h2>
-        {action}
-      </header>
-      <div className="px-6 pb-5 pt-3">{children}</div>
+        {note && <p className="mt-1 max-w-[190px] text-[12px] leading-snug text-stone-500">{note}</p>}
+      </div>
+      <div className="min-w-0">{children}</div>
+      <div className="md:text-right">{action}</div>
     </section>
   );
 }
@@ -189,29 +179,40 @@ export function Facts({ items, columns = 3 }: { items: [string, ReactNode][]; co
     <dl className={`grid gap-x-8 gap-y-4 ${columns === 3 ? "sm:grid-cols-2 lg:grid-cols-3" : columns === 2 ? "sm:grid-cols-2" : ""}`}>
       {items.map(([label, value]) => (
         <div key={label} className="min-w-0">
-          <dt className="text-[12px] font-medium text-stone-600">{label}</dt>
-          <dd className="mt-0.5 break-words text-[14px] font-medium text-stone-900">
-            {value || <span className="font-normal text-stone-500">{es.profile.fields.optionNone}</span>}
-          </dd>
+          <dt className="text-[12.5px] text-stone-500">{label}</dt>
+          <dd className="mt-0.5 break-words text-[14px] text-stone-900">{value || <span className="text-stone-400">{es.profile.fields.optionNone}</span>}</dd>
         </div>
       ))}
     </dl>
   );
 }
 
-/** The figures a screen adds up to: one soft tile each, the number big and its detail small underneath. */
-export function StatStrip({ items }: { items: { icon: IconName; label: string; value: string; sub?: string; tone?: Tone }[] }) {
+/** A state told with a small dot and its words (never only a color). */
+export function StatusDot({ tone, children }: { tone: "green" | "amber" | "red" | "neutral"; children: ReactNode }) {
+  const dot = { green: "bg-green-800", amber: "bg-amber-300", red: "bg-red-800", neutral: "bg-stone-400" }[tone];
   return (
-    <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <span className="inline-flex items-center gap-2">
+      <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+      {children}
+    </span>
+  );
+}
+
+/** The figures a screen adds up to: one row, the number first and its detail small underneath, told apart by hairlines. */
+export function Figures({ items }: { items: { label: string; value: string; sub?: string; fill?: number }[] }) {
+  return (
+    <dl className="grid grid-cols-2 gap-y-6 lg:grid-cols-4 lg:divide-x lg:divide-stone-200">
       {items.map((s) => (
-        <div key={s.label} className="rounded-2xl bg-white p-5 shadow-card">
-          <dt className="flex items-center justify-between gap-3 text-[13px] font-medium text-stone-600">
-            {s.label}
-            <IconTile icon={s.icon} tone={s.tone} small />
-          </dt>
-          <dd className="mt-4">
-            <span className="block text-[32px] font-semibold leading-none tracking-[-0.03em] tabular-nums">{s.value}</span>
-            {s.sub && <span className="mt-2.5 block text-[12.5px] text-stone-500">{s.sub}</span>}
+        <div key={s.label} className="min-w-0 px-0 lg:px-8 lg:first:pl-0 lg:last:pr-0">
+          <dt className="text-[12.5px] text-stone-500">{s.label}</dt>
+          <dd className="mt-1.5">
+            <span className="block text-[24px] font-semibold leading-none tracking-[-0.025em] tabular-nums">{s.value}</span>
+            {s.fill !== undefined ? (
+              <span className="mt-3 block h-1 overflow-hidden rounded-full bg-stone-200">
+                <span className="block h-full rounded-full bg-stone-900" style={{ width: `${Math.max(0, Math.min(100, s.fill))}%` }} />
+              </span>
+            ) : null}
+            {s.sub && <span className="mt-2 block text-[12.5px] text-stone-500">{s.sub}</span>}
           </dd>
         </div>
       ))}
@@ -219,7 +220,7 @@ export function StatStrip({ items }: { items: { icon: IconName; label: string; v
   );
 }
 
-/** Tabs as a segmented control: the chosen one is filled with dark ink. */
+/** Tabs underlined: the chosen one is ink with a line under it; the count is a quiet number beside the name. */
 export function Tabs<T extends string>({
   items,
   value,
@@ -232,7 +233,7 @@ export function Tabs<T extends string>({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl bg-white p-1 shadow-card">
+    <div role="tablist" aria-label={label} className="flex max-w-full gap-7 overflow-x-auto">
       {items.map((t) => {
         const on = t.id === value;
         return (
@@ -244,15 +245,13 @@ export function Tabs<T extends string>({
             aria-selected={on}
             aria-controls={`panel-${t.id}`}
             onClick={() => onChange(t.id)}
-            className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-[14px] font-medium transition-colors ${
-              on ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+            className={`-mb-px flex shrink-0 items-center gap-1.5 border-b-2 py-3 text-[14px] font-medium transition-colors ${
+              on ? "border-stone-900 text-stone-900" : "border-transparent text-stone-500 hover:text-stone-900"
             }`}
           >
             {t.label}
-            {t.count !== undefined && t.count > 0 && (
-              <span className={`rounded-md px-1.5 text-[12px] font-semibold tabular-nums ${on ? "bg-white/20 text-white" : "bg-white text-stone-700"}`}>{t.count}</span>
-            )}
-            {t.alert && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-800 ring-2 ring-white" />}
+            {t.count !== undefined && t.count > 0 && <span className="text-[12.5px] font-normal tabular-nums text-stone-500">{t.count}</span>}
+            {t.alert && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-800" />}
           </button>
         );
       })}
@@ -260,14 +259,14 @@ export function Tabs<T extends string>({
   );
 }
 
-/** The head of a table: every column title is its own soft pill. */
+/** The head of a table: small quiet titles over a hairline. */
 export function THead({ columns }: { columns: { key: string; title: string; align?: "right" }[] }) {
   return (
     <thead>
-      <tr>
+      <tr className="border-b border-stone-200">
         {columns.map((c) => (
-          <th key={c.key} scope="col" className="px-0.5 pb-2 text-left font-medium first:pl-0 last:pr-0">
-            {c.title && <span className={`block rounded-md bg-stone-100 px-3 py-2 text-[12px] font-medium text-stone-700 ${c.align === "right" ? "text-right" : ""}`}>{c.title}</span>}
+          <th key={c.key} scope="col" className={`px-3 pb-2.5 text-left text-[12.5px] font-normal text-stone-500 first:pl-0 ${c.align === "right" ? "text-right" : ""}`}>
+            {c.title}
           </th>
         ))}
       </tr>

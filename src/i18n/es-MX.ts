@@ -137,6 +137,7 @@ export const es = {
       staff: "Todavía no registra a su personal",
       population: "Todavía no registra a las personas que atiende",
       facilities: "Todavía no registra sus instalaciones",
+      summary: (n: number) => (n === 1 ? "Falta 1 cosa por completar" : `Faltan ${n} cosas por completar`),
     },
     kpi: {
       people: "Personas que atendemos",
