@@ -88,8 +88,8 @@ export function ProjectsPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1.5">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-tight">{t.title}</h1>
-          <p className="text-stone-700">{t.intro}</p>
+          <h1 className="text-[34px] font-medium leading-tight">{t.title}</h1>
+          <p className="text-stone-600">{t.intro}</p>
         </div>
         <Button variant="primary" onClick={() => setCreating(true)}>
           <Icon name="plus" />
@@ -100,8 +100,8 @@ export function ProjectsPage() {
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
       {projects.data?.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-stone-400 bg-white px-6 py-14 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-800">
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-14 shadow-card text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-stone-100 text-stone-800">
             <Icon name="folder" size={26} />
           </span>
           <p className="text-[15px] font-semibold">{t.empty}</p>

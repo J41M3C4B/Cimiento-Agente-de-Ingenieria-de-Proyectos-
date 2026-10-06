@@ -20,7 +20,7 @@ function GuideContents() {
       </header>
       <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 pb-6">
         {t.includes.map((x) => (
-          <li key={x} className="flex gap-2.5 rounded-lg bg-stone-50 px-4 py-3">
+          <li key={x} className="flex gap-2.5 rounded-xl bg-white px-4 py-3 shadow-card">
             <span aria-hidden className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-700" />
             <span>{x}</span>
           </li>

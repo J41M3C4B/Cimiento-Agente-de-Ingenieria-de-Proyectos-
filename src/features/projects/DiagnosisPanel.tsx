@@ -111,7 +111,7 @@ export function DiagnosisPanel({
   ) : summary && !confirmed ? (
     <div className="space-y-3">
       <Said>{t.summaryReady}</Said>
-      <div className="pl-11">
+      <div>
         <Button onClick={() => setOpen(true)}>{t.summaryOpen}</Button>
       </div>
     </div>
@@ -255,7 +255,7 @@ function SummaryParts({ summary, confirmed, fromAi, unsupported }: { summary: Su
     <div className="space-y-3">
       <p className="text-[13px] text-stone-700">{confirmed ? t.confirmed : fromAi ? t.suggested : t.edited}</p>
       {unsupported.length > 0 && !confirmed && <Alert tone="warn">{t.figuresWarning(unsupported.join(", "))}</Alert>}
-      <div className="rounded-xl bg-blue-50 px-5 py-4">
+      <div className="rounded-2xl bg-white px-5 py-4 shadow-card">
         <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-blue-900">{f.need}</h3>
         <p className="mt-1 text-[16px] font-semibold leading-snug">{summary.reframed_need}</p>
       </div>
@@ -280,7 +280,7 @@ function SummaryParts({ summary, confirmed, fromAi, unsupported }: { summary: Su
         <Disclosure title={f.alternatives} count={summary.alternatives.length}>
           <ul className="space-y-3">
             {summary.alternatives.map((a, i) => (
-              <li key={i} className="rounded-lg bg-stone-50 p-3.5">
+              <li key={i} className="rounded-xl bg-white p-3.5 shadow-card">
                 <p className="font-semibold">{a.title}</p>
                 {a.pros.length > 0 && (
                   <p className="mt-1 text-[13.5px]">

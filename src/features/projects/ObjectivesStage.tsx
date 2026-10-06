@@ -117,7 +117,7 @@ export function ObjectivesStage({
       {error && <Alert tone="error">{error}</Alert>}
 
       {!proposing && list.length === 0 && v && (
-        <div className="space-y-3 pl-11">
+        <div className="space-y-3">
           <p className="text-[14px] text-stone-700">{t.empty}</p>
           <Button variant="primary" onClick={suggest} disabled={working || !job.ready}>
             {t.retry}
@@ -126,11 +126,11 @@ export function ObjectivesStage({
       )}
 
       {list.length > 0 && (
-        <ul className="space-y-3 pl-11">
+        <ul className="space-y-3">
           {list.map((n) => (
             <li
               key={n.id}
-              className={`anim-rise rounded-xl border p-5 transition-colors ${n.selected ? "border-blue-800 bg-blue-50" : "border-stone-200 bg-white hover:border-stone-300"}`}
+              className={`anim-rise rounded-2xl bg-white p-5 shadow-card transition-shadow ${n.selected ? "ring-2 ring-stone-900" : "hover:shadow-panel"}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-1.5">
@@ -170,7 +170,7 @@ export function ObjectivesStage({
   const next = chosen ? (
     <div className="space-y-3">
       <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{es.diagnosis.nextStep}</p>
-      <div className="rounded-lg bg-stone-50 px-3.5 py-3">
+      <div className="rounded-xl bg-stone-100 px-3.5 py-3">
         <p className="text-[12px] text-stone-600">{t.yourChoice}</p>
         <p className="text-[14px] font-semibold leading-snug">{chosen.title}</p>
       </div>

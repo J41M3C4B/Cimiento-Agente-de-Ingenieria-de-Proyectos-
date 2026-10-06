@@ -22,18 +22,6 @@ const ZERO: ProfileTotals = {
   payroll_monthly_mxn: 0, payroll_annual_mxn: 0, fee_payers: 0, fees_monthly_mxn: 0, fees_annual_mxn: 0,
 };
 
-/** Nested squares, each turned a little: a single thin line that closes in on a point, in the corner of the banner. */
-function BannerPattern() {
-  return (
-    <svg aria-hidden="true" viewBox="-200 -200 400 400" className="pointer-events-none absolute -right-24 -top-44 h-[420px] w-[420px] text-brass-300/30">
-      {Array.from({ length: 18 }, (_, i) => {
-        const half = 190 * Math.pow(0.87, i);
-        return <rect key={i} x={-half} y={-half} width={half * 2} height={half * 2} fill="none" stroke="currentColor" strokeWidth="1.1" transform={`rotate(${i * 8})`} />;
-      })}
-    </svg>
-  );
-}
-
 /**
  * Mi institución. Reading order, top to bottom: who the institution is (name, state, «Sobre nosotros»), what it
  * adds up to (four figures, each in its own color), then the detail by tab. The detail is flat sections separated
@@ -152,72 +140,65 @@ export function ProfilePage() {
 
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 
+  const initial = (inst?.name?.trim() || "C").charAt(0).toUpperCase();
+
   return (
-    <div>
-      <header className="relative mx-8 mt-7 overflow-hidden rounded-2xl bg-gradient-to-br from-navy-900 via-navy-800 to-navy-700 px-8 pb-6 pt-5 text-white shadow-brand">
-        <BannerPattern />
-        <div className="relative">
-        <div className="flex items-center justify-between gap-4">
-          <p className="flex items-center gap-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-brass-300"><span aria-hidden="true" className="h-px w-6 bg-brass-300/70" />{t.title}</p>
+    <div className="px-6 py-6">
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pb-6">
+        <div className="flex min-w-0 flex-1 items-start gap-4">
+          <span aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-stone-900 font-display text-[26px] font-medium text-white shadow-card">
+            {initial}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-stone-500">{t.title}</p>
+            <h1 className={`mt-0.5 break-words text-[34px] font-medium leading-[1.1] ${inst?.name ? "text-stone-900" : "text-stone-500"}`}>{inst?.name || t.banner.namePlaceholder}</h1>
+            <div className="mt-3 max-w-2xl">
+              <h2 className="text-[12px] font-medium text-stone-500">{t.about.title}</h2>
+              <textarea
+                aria-label={t.about.label}
+                rows={1}
+                value={about}
+                onChange={(e) => setAbout(e.target.value)}
+                onBlur={saveAbout}
+                readOnly={!view}
+                placeholder={view ? t.about.placeholder : t.about.needsName}
+                className="mt-0.5 block w-full resize-none bg-transparent text-[14px] leading-relaxed text-stone-700 [field-sizing:content] placeholder:text-stone-500 focus-visible:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-3">
           {import.meta.env.DEV && (
-            <p className="flex items-center gap-3 text-[12px] text-white/70">
+            <p className="flex items-center gap-3 text-[12px] text-stone-500">
               {t.banner.loadExample}
-              <button type="button" onClick={() => loadExample("asilo")} disabled={busy} className="font-medium text-white hover:underline disabled:opacity-50">
+              <button type="button" onClick={() => loadExample("asilo")} disabled={busy} className="font-medium text-stone-800 hover:underline disabled:opacity-50">
                 {t.devAsilo}
               </button>
-              <button type="button" onClick={() => loadExample("casa-hogar")} disabled={busy} className="font-medium text-white hover:underline disabled:opacity-50">
+              <button type="button" onClick={() => loadExample("casa-hogar")} disabled={busy} className="font-medium text-stone-800 hover:underline disabled:opacity-50">
                 {t.devCasaHogar}
               </button>
             </p>
           )}
+          {view && (
+            <div className="flex gap-2">
+              {view.is_draft && (
+                <Button variant="primary" onClick={confirm} disabled={busy}>
+                  <Icon name="check" size={15} strokeWidth={2.6} />
+                  {t.confirm}
+                </Button>
+              )}
+              <Button variant="secondary" onClick={() => open({ kind: "institution" })}>
+                <Icon name="pencil" size={14} />
+                {t.edit}
+              </Button>
+            </div>
+          )}
         </div>
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className={`break-words text-[46px] font-semibold leading-[1.04] tracking-[-0.02em] ${inst?.name ? "" : "text-white/60"}`}>{inst?.name || t.banner.namePlaceholder}</h1>
-          </div>
-        </div>
-        <div className="mt-5 max-w-3xl pr-64">
-          <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/60">{t.about.title}</h2>
-          <textarea
-            aria-label={t.about.label}
-            rows={1}
-            value={about}
-            onChange={(e) => setAbout(e.target.value)}
-            onBlur={saveAbout}
-            readOnly={!view}
-            placeholder={view ? t.about.placeholder : t.about.needsName}
-            className="mt-0.5 block w-full resize-none bg-transparent text-[14px] leading-relaxed text-white/90 caret-white [field-sizing:content] placeholder:text-white/60 focus-visible:outline-none"
-          />
-        </div>
-        </div>
-        {view && (
-          <div className="absolute bottom-5 right-8 flex gap-2">
-            {view.is_draft && (
-              <button
-                type="button"
-                onClick={confirm}
-                disabled={busy}
-                className="inline-flex min-h-[36px] items-center gap-2 rounded-lg bg-white px-3.5 text-[13px] font-semibold text-blue-900 transition-colors hover:bg-blue-50 disabled:opacity-60"
-              >
-                <Icon name="check" size={15} strokeWidth={2.6} />
-                {t.confirm}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => open({ kind: "institution" })}
-              className="inline-flex min-h-[36px] items-center gap-2 rounded-lg bg-white/15 px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-white/25"
-            >
-              <Icon name="pencil" size={14} />
-              {t.edit}
-            </button>
-          </div>
-        )}
       </header>
 
-      <div className="space-y-6 px-8 py-6">
+      <div className="space-y-5">
         {profile.isSuccess && !view && (
-          <section className="flex flex-wrap items-center justify-between gap-5 rounded-xl border border-dashed border-stone-300 px-6 py-8">
+          <section className="flex flex-wrap items-center justify-between gap-5 rounded-2xl bg-white px-6 py-8 shadow-card">
             <div className="max-w-xl">
               <h2 className="text-[18px] font-semibold">{t.onboarding.title}</h2>
               <p className="mt-1 text-stone-700">{t.onboarding.text}</p>
@@ -243,7 +224,7 @@ export function ProfilePage() {
             {headsUp.length > 0 && (
               <ul className="space-y-2">
                 {headsUp.map((i, n) => (
-                  <li key={n} className="flex items-center gap-2.5 rounded-lg bg-amber-50 px-3.5 py-2.5 text-amber-800">
+                  <li key={n} className="flex items-center gap-2.5 rounded-xl bg-amber-50 px-3.5 py-2.5 text-amber-800">
                     <Icon name="warn" size={16} />
                     {es.issues[i.code]}
                   </li>
@@ -263,8 +244,8 @@ export function ProfilePage() {
               ]}
             />
 
-            <div role="tabpanel" id="panel-general" aria-labelledby="tab-general" hidden={tab !== "general"} className="grid items-start gap-x-12 gap-y-8 xl:grid-cols-[minmax(0,1fr)_340px]">
-              <div className="divide-y divide-stone-200">
+            <div role="tabpanel" id="panel-general" aria-labelledby="tab-general" hidden={tab !== "general"} className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="divide-y divide-stone-200 rounded-2xl bg-white px-7 py-3 shadow-card">
                 <Block title={t.cards.institution} action={edition({ kind: "institution" })}>
                   <Facts items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
                 </Block>
@@ -333,13 +314,13 @@ export function ProfilePage() {
               </aside>
             </div>
 
-            <div role="tabpanel" id="panel-staff" aria-labelledby="tab-staff" hidden={tab !== "staff"}>
+            <div role="tabpanel" id="panel-staff" aria-labelledby="tab-staff" hidden={tab !== "staff"} className="rounded-2xl bg-white p-6 shadow-card">
               <RosterTab entity="staff" onProfile={onRosterProfile} />
             </div>
-            <div role="tabpanel" id="panel-population" aria-labelledby="tab-population" hidden={tab !== "population"}>
+            <div role="tabpanel" id="panel-population" aria-labelledby="tab-population" hidden={tab !== "population"} className="rounded-2xl bg-white p-6 shadow-card">
               <RosterTab entity="beneficiary" onProfile={onRosterProfile} />
             </div>
-            <div role="tabpanel" id="panel-facilities" aria-labelledby="tab-facilities" hidden={tab !== "facilities"}>
+            <div role="tabpanel" id="panel-facilities" aria-labelledby="tab-facilities" hidden={tab !== "facilities"} className="rounded-2xl bg-white p-6 shadow-card">
               <FacilitiesTab
                 facilities={facilities}
                 busy={busy}

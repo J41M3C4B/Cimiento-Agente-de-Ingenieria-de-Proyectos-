@@ -152,7 +152,7 @@ export function DraftingStage({
             {t.proposalTitle} {t.proposalHelp(v.asks_for_proposal)}
           </Said>
           {!v.asks_confirmed ? (
-            <div className="flex flex-wrap gap-2 pl-11">
+            <div className="flex flex-wrap gap-2">
               <Button variant="primary" disabled={working} onClick={() => answer(true)}>
                 {t.proposalYes}
               </Button>
@@ -168,18 +168,18 @@ export function DraftingStage({
             <>
               <Said>{t.texts.chooseTitle}</Said>
               {choosing && (
-                <div className="grid gap-3 pl-11 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-3">
                   {textChoices.map(([id, icon, variant]) => (
                     <button
                       key={id}
                       type="button"
                       disabled={asking || working}
                       onClick={() => (id === "mine" ? setMine(true) : void writeAll(id))}
-                      className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition-colors disabled:opacity-60 ${
-                        variant === "primary" ? "border-blue-800 bg-blue-50 hover:bg-blue-100" : "border-stone-300 bg-white hover:border-stone-400 hover:bg-stone-50"
+                      className={`flex flex-col gap-2 rounded-2xl p-4 text-left transition-colors disabled:opacity-60 ${
+                        variant === "primary" ? "bg-white shadow-card ring-2 ring-stone-900 hover:shadow-panel" : "bg-white shadow-card hover:shadow-panel"
                       }`}
                     >
-                      <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${variant === "primary" ? "bg-blue-800 text-white" : "bg-stone-100 text-stone-700"}`}>
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${variant === "primary" ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700"}`}>
                         <Icon name={icon} size={17} />
                       </span>
                       <span className="text-[14px] font-semibold">{t.texts[id].title}</span>
