@@ -68,7 +68,7 @@ export function ProjectPage({ projectId, onBack }: { projectId: string; onBack: 
           {t.backToProjects}
         </button>
         <div className="space-y-0.5">
-          <h1 className="text-[22px] font-semibold leading-tight tracking-tight">{view.project.title}</h1>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-navy-900">{view.project.title}</h1>
           {(by || view.project.needs_review) && (
             <p className="text-[13px] text-stone-700">
               {by}

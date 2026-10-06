@@ -25,7 +25,7 @@ const ZERO: ProfileTotals = {
 /** Nested squares, each turned a little: a single thin line that closes in on a point, in the corner of the banner. */
 function BannerPattern() {
   return (
-    <svg aria-hidden="true" viewBox="-200 -200 400 400" className="pointer-events-none absolute -right-24 -top-44 h-[420px] w-[420px] text-white/30">
+    <svg aria-hidden="true" viewBox="-200 -200 400 400" className="pointer-events-none absolute -right-24 -top-44 h-[420px] w-[420px] text-brass-300/30">
       {Array.from({ length: 18 }, (_, i) => {
         const half = 190 * Math.pow(0.87, i);
         return <rect key={i} x={-half} y={-half} width={half * 2} height={half * 2} fill="none" stroke="currentColor" strokeWidth="1.1" transform={`rotate(${i * 8})`} />;
@@ -154,11 +154,11 @@ export function ProfilePage() {
 
   return (
     <div>
-      <header className="relative mx-8 mt-7 overflow-hidden rounded-2xl bg-blue-800 px-8 pb-5 pt-4 text-white">
+      <header className="relative mx-8 mt-7 overflow-hidden rounded-2xl bg-gradient-to-br from-navy-900 via-navy-800 to-navy-700 px-8 pb-6 pt-5 text-white shadow-brand">
         <BannerPattern />
         <div className="relative">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-[12px] font-medium uppercase tracking-[0.1em] text-white/70">{t.title}</p>
+          <p className="flex items-center gap-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-brass-300"><span aria-hidden="true" className="h-px w-6 bg-brass-300/70" />{t.title}</p>
           {import.meta.env.DEV && (
             <p className="flex items-center gap-3 text-[12px] text-white/70">
               {t.banner.loadExample}
@@ -173,11 +173,11 @@ export function ProfilePage() {
         </div>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className={`break-words text-[44px] font-extrabold leading-[1.05] tracking-tight ${inst?.name ? "" : "text-white/60"}`}>{inst?.name || t.banner.namePlaceholder}</h1>
+            <h1 className={`break-words text-[46px] font-semibold leading-[1.04] tracking-[-0.02em] ${inst?.name ? "" : "text-white/60"}`}>{inst?.name || t.banner.namePlaceholder}</h1>
           </div>
         </div>
         <div className="mt-5 max-w-3xl pr-64">
-          <h2 className="text-[12px] font-semibold text-white/70">{t.about.title}</h2>
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/60">{t.about.title}</h2>
           <textarea
             aria-label={t.about.label}
             rows={1}
@@ -186,7 +186,7 @@ export function ProfilePage() {
             onBlur={saveAbout}
             readOnly={!view}
             placeholder={view ? t.about.placeholder : t.about.needsName}
-            className="mt-0.5 block w-full resize-none bg-transparent text-[13px] leading-relaxed text-white caret-white [field-sizing:content] placeholder:text-white/60 focus-visible:outline-none"
+            className="mt-0.5 block w-full resize-none bg-transparent text-[14px] leading-relaxed text-white/90 caret-white [field-sizing:content] placeholder:text-white/60 focus-visible:outline-none"
           />
         </div>
         </div>

@@ -51,11 +51,11 @@ export default function App() {
       aria-current={page === id ? "page" : undefined}
       onClick={() => setPage(id)}
       className={`relative flex h-11 w-full items-center gap-3 rounded-xl px-4 text-left text-[14px] font-medium transition-colors ${
-        page === id ? "bg-[#e4eaf7] text-stone-900" : "text-stone-700 hover:bg-stone-100 hover:text-stone-900"
+        page === id ? "bg-blue-50 text-navy-900" : "text-stone-700 hover:bg-stone-100 hover:text-stone-900"
       }`}
     >
-      {page === id && <span aria-hidden="true" className="absolute -left-3 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-blue-800" />}
-      <Icon name={icon} className={page === id ? "shrink-0 text-blue-800" : "shrink-0"} />
+      {page === id && <span aria-hidden="true" className="absolute -left-3 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brass-500" />}
+      <Icon name={icon} className={page === id ? "shrink-0 text-navy-800" : "shrink-0"} />
       <span className={reveal}>{label}</span>
     </button>
   );
@@ -64,13 +64,13 @@ export default function App() {
     <div className="min-h-screen bg-white text-stone-900">
       <aside
         aria-label="Menú"
-        className="group/side fixed inset-y-0 left-0 z-40 flex w-[76px] flex-col gap-1 overflow-hidden border-r border-stone-200 bg-stone-50 p-3 transition-[width,box-shadow] duration-200 ease-out hover:w-64 hover:shadow-lift has-[:focus-visible]:w-64 has-[:focus-visible]:shadow-lift"
+        className="peer/side group/side fixed inset-y-0 left-0 z-40 flex w-[76px] flex-col gap-1 overflow-hidden border-r border-stone-200 bg-stone-50 p-3 transition-[width,box-shadow] duration-200 ease-out hover:w-64 hover:shadow-lift has-[:focus-visible]:w-64 has-[:focus-visible]:shadow-lift"
       >
         <div className="flex items-center gap-3 pb-5 pl-1.5 pt-2">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-800 text-white">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-navy-700 to-navy-950 text-brass-300 shadow-brand">
             <Icon name="logo" />
           </span>
-          <p className={`text-[18px] font-semibold leading-tight tracking-tight ${reveal}`}>{es.app.name}</p>
+          <p className={`font-display text-[22px] font-semibold leading-tight tracking-tight text-navy-900 ${reveal}`}>{es.app.name}</p>
         </div>
         <nav aria-label="Secciones" className="flex flex-col gap-1">
           {MAIN.map(link)}
@@ -81,7 +81,7 @@ export default function App() {
           {MORE.map(link)}
         </nav>
         <div className="mt-auto flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-[7px]">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[14px] font-semibold text-blue-900" aria-hidden="true">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-navy-700 to-navy-900 font-display text-[16px] font-semibold text-white" aria-hidden="true">
             {institution.charAt(0).toUpperCase()}
           </span>
           <div className={`min-w-0 flex-1 ${reveal}`}>
@@ -95,6 +95,11 @@ export default function App() {
           </div>
         </div>
       </aside>
+      {/* when the bar opens over the page, the page steps back so what it covers does not look cut off */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-30 bg-navy-950/25 opacity-0 transition-opacity duration-200 peer-hover/side:opacity-100 peer-has-[:focus-visible]/side:opacity-100"
+      />
       <main className="min-w-0 pl-[76px]">
         {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
             project, the project that was open and what they were writing are still there when they come back */}

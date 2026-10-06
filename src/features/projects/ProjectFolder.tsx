@@ -8,14 +8,14 @@ const t = es.projects;
 
 /** Each color of a folder: a flat, full color, and the ink that reads well over it. */
 const FOLDER: Record<ProjectColor, { fill: string; ink: string }> = {
-  blue: { fill: "#2f5cf0", ink: "#ffffff" },
-  violet: { fill: "#6d4aff", ink: "#ffffff" },
-  teal: { fill: "#0f9d8c", ink: "#ffffff" },
-  green: { fill: "#1f9d55", ink: "#ffffff" },
-  amber: { fill: "#f5b301", ink: "#2b1d00" },
-  orange: { fill: "#f26a1b", ink: "#ffffff" },
-  pink: { fill: "#e0398a", ink: "#ffffff" },
-  red: { fill: "#e03c3c", ink: "#ffffff" },
+  blue: { fill: "#24459a", ink: "#ffffff" },
+  violet: { fill: "#5a4aa8", ink: "#ffffff" },
+  teal: { fill: "#1b7a74", ink: "#ffffff" },
+  green: { fill: "#2f7a52", ink: "#ffffff" },
+  amber: { fill: "#d9a13b", ink: "#2b1d00" },
+  orange: { fill: "#c8693a", ink: "#ffffff" },
+  pink: { fill: "#a8456f", ink: "#ffffff" },
+  red: { fill: "#a93a3a", ink: "#ffffff" },
 };
 export const FOLDER_COLORS = Object.keys(FOLDER) as ProjectColor[];
 

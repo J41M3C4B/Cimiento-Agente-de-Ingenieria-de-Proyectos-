@@ -13,7 +13,7 @@ export function Mark({ active }: { active?: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-900 text-white ${active ? "anim-breathe" : ""}`}
+      className={`msg-mark flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-navy-700 to-navy-950 text-brass-300 shadow-card ${active ? "anim-breathe" : ""}`}
     >
       <Icon name="sparkles" size={15} />
     </span>
@@ -51,16 +51,16 @@ export function Message({ turn, animate, onTyped }: { turn: TurnView; animate: b
     return (
       <div className="anim-rise flex flex-col items-end gap-1">
         <span className="text-[12px] font-medium text-stone-600">{t.you}</span>
-        <div className="max-w-[82%] whitespace-pre-wrap rounded-xl bg-stone-100 px-4 py-2.5 text-[15px] leading-relaxed text-stone-900">{turn.text}</div>
+        <div className="max-w-[82%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-navy-800 px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-card">{turn.text}</div>
       </div>
     );
   }
   return (
-    <div className="anim-rise flex gap-3">
+    <div className="msg-assistant anim-rise flex gap-3">
       <Mark active={animate} />
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-[12px] font-medium text-stone-600">{t.assistant}</p>
-        <p className="max-w-[64ch] whitespace-pre-wrap text-[15px] leading-relaxed text-stone-900">
+        <p className="msg-name text-[12px] font-semibold text-stone-600">{t.assistant}</p>
+        <p className="max-w-[64ch] whitespace-pre-wrap rounded-2xl rounded-tl-md border border-stone-200 bg-stone-50 px-4 py-3 text-[15px] leading-relaxed text-stone-900 shadow-card">
           {animate ? <Typed text={turn.text} onDone={onTyped} /> : turn.text}
         </p>
       </div>
@@ -95,11 +95,11 @@ export function Thinking({ phrases }: { phrases: readonly string[] }) {
 /** What the assistant says at a later step of the chat, as plain text with its mark. */
 export function Said({ children, active }: { children: React.ReactNode; active?: boolean }) {
   return (
-    <div className="anim-rise flex gap-3">
+    <div className="msg-assistant anim-rise flex gap-3">
       <Mark active={active} />
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-[12px] font-medium text-stone-600">{t.assistant}</p>
-        <p className="max-w-[64ch] text-[15px] leading-relaxed text-stone-900">{children}</p>
+        <p className="msg-name text-[12px] font-semibold text-stone-600">{t.assistant}</p>
+        <div className="max-w-[64ch] rounded-2xl rounded-tl-md border border-stone-200 bg-stone-50 px-4 py-3 text-[15px] leading-relaxed text-stone-900 shadow-card">{children}</div>
       </div>
     </div>
   );
