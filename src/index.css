@@ -1,33 +1,48 @@
 @import "tailwindcss";
 
 /*
-  Sistema visual de Cimiento. Referencia: tableros claros y densos (marco gris azulado, panel blanco grande,
-  tarjetas con borde fino, un solo azul para lo que se puede pulsar o está seleccionado). Se redefinen las
-  escalas de Tailwind que ya usa la app, así que todo lo que dice `stone`, `blue` o `rounded-*` toma el estilo
-  sin tocarlo.
+  Sistema visual de Cimiento: sobrio e institucional. Tinta azul marino, neutros cálidos de papel, un solo azul
+  de acción y un acento latón que se usa con mucha mesura. Los titulares van en serif editorial (Newsreader) y
+  la interfaz en Inter. Se redefinen las escalas de Tailwind que ya usa la app, así que todo lo que dice `stone`,
+  `blue` o `rounded-*` toma el estilo sin tocarlo.
 */
 @theme {
   --font-sans: "Inter Variable", "SF Pro Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Newsreader Variable", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
 
-  /* neutros con un toque azul: el marco de la app es stone-100, la tinta stone-900 */
-  --color-stone-50: #f6f8fb;
-  --color-stone-100: #eef1f6;
-  --color-stone-200: #e3e8f0;
-  --color-stone-300: #d3dae6;
-  --color-stone-400: #c0c9d8;
-  --color-stone-500: #8d99ad;
-  --color-stone-600: #657089;
-  --color-stone-700: #4f5b72;
-  --color-stone-800: #2f3a50;
-  --color-stone-900: #141b2b;
+  /* neutros cálidos, como papel; la tinta (stone-900) es azul marino casi negro */
+  --color-stone-50: #f8f7f4;
+  --color-stone-100: #f0eeea;
+  --color-stone-200: #e5e2dc;
+  --color-stone-300: #d2cfc7;
+  --color-stone-400: #bab6ab;
+  --color-stone-500: #7f7b70;
+  --color-stone-600: #5d5a51;
+  --color-stone-700: #46443d;
+  --color-stone-800: #2b2c32;
+  --color-stone-900: #101828;
 
-  /* el azul: lo único que se puede pulsar o está seleccionado */
-  --color-blue-50: #eef2ff;
-  --color-blue-100: #dde6ff;
-  --color-blue-600: #2f5cf0;
-  --color-blue-700: #2f5cf0;
-  --color-blue-800: #2f5cf0;
-  --color-blue-900: #2347c4;
+  /* la marca: azul marino profundo (encabezados, marca, superficies de énfasis) */
+  --color-navy-700: #253f78;
+  --color-navy-800: #1b2f5e;
+  --color-navy-900: #132447;
+  --color-navy-950: #0c1730;
+
+  /* el azul de acción: lo único que se puede pulsar o está seleccionado */
+  --color-blue-50: #eff3fb;
+  --color-blue-100: #dde6f6;
+  --color-blue-200: #bccbea;
+  --color-blue-300: #8fa6dc;
+  --color-blue-600: #24459a;
+  --color-blue-700: #24459a;
+  --color-blue-800: #24459a;
+  --color-blue-900: #1a3478;
+
+  /* el acento latón: detalles finos, nunca superficies grandes */
+  --color-brass-50: #faf5e9;
+  --color-brass-300: #e0c183;
+  --color-brass-500: #b88a3e;
+  --color-brass-700: #85601f;
 
   /* la paleta que distingue (no actúan, clasifican): cada cifra y cada estado tiene la suya */
   --color-violet-50: #f0ecff;
@@ -53,13 +68,24 @@
   --radius-xl: 14px;
   --radius-2xl: 22px;
 
-  --shadow-card: 0 1px 2px rgba(20, 27, 43, 0.04);
-  --shadow-panel: 0 1px 2px rgba(20, 27, 43, 0.05), 0 8px 24px rgba(20, 27, 43, 0.05);
-  --shadow-lift: 0 2px 6px rgba(20, 27, 43, 0.08), 0 24px 56px rgba(20, 27, 43, 0.18);
+  /* tres alturas: en reposo, elevado y flotante */
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 1px rgba(16, 24, 40, 0.03);
+  --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-lift: 0 2px 6px rgba(16, 24, 40, 0.08), 0 24px 56px rgba(16, 24, 40, 0.2);
+  --shadow-brand: 0 1px 2px rgba(12, 23, 48, 0.25), 0 10px 28px -8px rgba(12, 23, 48, 0.45);
 }
 
 html {
   font-size: 16px;
+}
+
+/* los titulares de página llevan la serif editorial; todo lo demás, Inter */
+@layer base {
+  h1 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.012em;
+  }
 }
 
 body {
@@ -85,8 +111,8 @@ body {
   to { background-position: -200% 0; }
 }
 @keyframes breathe {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 92, 240, 0.35); }
-  50% { box-shadow: 0 0 0 6px rgba(47, 92, 240, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(36, 69, 154, 0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(36, 69, 154, 0); }
 }
 .anim-rise { animation: rise 0.28s ease-out both; }
 .anim-dot { animation: dots 1.2s infinite ease-in-out; }
@@ -104,8 +130,18 @@ body {
   .anim-shine { color: var(--color-stone-700); background: none; }
 }
 
+/*
+  Mensajes seguidos de la ayuda automática: la marca y el nombre se muestran solo en el primero del grupo.
+  El nombre sigue ahí para quien usa lector de pantalla.
+*/
+.msg-assistant + .msg-assistant { margin-top: -1.25rem; }
+.msg-assistant + .msg-assistant .msg-mark { visibility: hidden; }
+.msg-assistant + .msg-assistant .msg-name {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
 /* el aro de foco es el mismo en todo el programa */
 :focus-visible {
-  outline: 3px solid var(--color-blue-100);
+  outline: 3px solid var(--color-blue-200);
   outline-offset: 2px;
 }

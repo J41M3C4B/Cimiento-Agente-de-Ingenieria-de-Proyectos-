@@ -12,8 +12,8 @@ type Variant = "primary" | "secondary" | "soft" | "danger" | "ghost" | "plain";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-blue-800 text-white border-transparent hover:bg-blue-900",
-  secondary: "bg-white text-stone-900 border-stone-300 hover:bg-stone-50 hover:border-stone-400",
+  primary: "bg-blue-800 text-white border-transparent shadow-card hover:bg-blue-900 active:translate-y-px",
+  secondary: "bg-white text-stone-900 border-stone-300 shadow-card hover:bg-stone-50 hover:border-stone-400 active:translate-y-px",
   /** the quiet blue button: «Editar», «Ver todo» */
   soft: "bg-blue-50 text-blue-900 border-transparent hover:bg-blue-100",
   danger: "bg-white text-red-800 border-red-800/30 hover:bg-red-50",
@@ -119,7 +119,7 @@ export const Select = forwardRef<
 /** A block with a title: where one thing is done. */
 export function Section({ title, help, children }: { title: string; help?: string; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-stone-200 bg-white p-5">
+    <section className="rounded-xl border border-stone-200 bg-white p-5 shadow-card">
       <h2 className="text-[16px] font-semibold leading-snug">{title}</h2>
       {help && <p className="mt-1 text-[14px] text-stone-700">{help}</p>}
       <div className="mt-4 space-y-4">{children}</div>
@@ -173,9 +173,9 @@ export function TextButton({ className = "", ...props }: ButtonHTMLAttributes<HT
 /** A card, kept for the secondary things on the side (income, what is missing): the main column has none. */
 export function Widget({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-stone-200 bg-white">
+    <section className="rounded-xl border border-stone-200 bg-white shadow-card">
       <header className="flex items-center justify-between gap-3 px-5 pt-4">
-        <h2 className="text-[14px] font-semibold">{title}</h2>
+        <h2 className="text-[14px] font-semibold text-navy-900">{title}</h2>
         {action}
       </header>
       <div className="px-5 pb-4 pt-3">{children}</div>
@@ -202,7 +202,7 @@ export function Facts({ items, columns = 3 }: { items: [string, ReactNode][]; co
 /** One strip of figures, each with its icon: what the screen adds up to, at a glance. */
 export function StatStrip({ items }: { items: { icon: IconName; label: string; value: string; sub?: string; tone?: Tone }[] }) {
   return (
-    <dl className="grid overflow-hidden rounded-xl border border-stone-200 bg-white sm:grid-cols-2 xl:grid-cols-4 xl:divide-x xl:divide-stone-200">
+    <dl className="grid overflow-hidden rounded-xl border border-stone-200 bg-white shadow-card sm:grid-cols-2 xl:grid-cols-4 xl:divide-x xl:divide-stone-200">
       {items.map((s) => (
         <div key={s.label} className="px-5 py-3.5">
           <dt className="flex items-center gap-2.5 text-[13px] font-medium text-stone-700">
@@ -245,7 +245,7 @@ export function Tabs<T extends string>({
             aria-controls={`panel-${t.id}`}
             onClick={() => onChange(t.id)}
             className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-[14px] font-medium transition-colors ${
-              on ? "bg-stone-900 text-white shadow-sm" : "text-stone-700 hover:bg-white hover:text-stone-900"
+              on ? "bg-navy-900 text-white shadow-card" : "text-stone-700 hover:bg-white hover:text-stone-900"
             }`}
           >
             {t.label}
@@ -539,7 +539,7 @@ export function Modal({
   }, []);
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/45 p-4 backdrop-blur-[3px]"
       onMouseDown={(e) => dismissable && e.target === e.currentTarget && onClose?.()}
     >
       <div
@@ -551,7 +551,7 @@ export function Modal({
         className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-lift outline-none ${size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-3xl" : "max-w-xl"}`}
       >
         <header className="flex items-center justify-between gap-4 px-6 pb-3 pt-5">
-          <h2 className="text-[18px] font-semibold">{title}</h2>
+          <h2 className="font-display text-[22px] font-semibold tracking-tight text-navy-900">{title}</h2>
           {onClose && (
             <Button size="sm" variant="plain" aria-label={es.common.close} title={es.common.close} onClick={onClose} className="!px-2">
               <Icon name="x" size={18} />
