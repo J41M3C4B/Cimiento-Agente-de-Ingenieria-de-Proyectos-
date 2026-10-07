@@ -90,18 +90,18 @@ Para fondos suaves de etiquetas y estados: el acento al **16 %** sobre la bandej
 
 ## 4. Tipografía
 
-Una sola familia: **Plus Jakarta Sans** (variable, 300–800), de formas geométricas y abiertas, legible en pantallas pequeñas y con buen soporte de acentos. Respaldo: `"Segoe UI Variable", system-ui, sans-serif`. Cifras con `font-variant-numeric: tabular-nums` cuando se alinean.
+Una sola familia: **Plus Jakarta Sans** (variable, 400–800), de formas geométricas y abiertas, legible en pantallas pequeñas y con buen soporte de acentos. Respaldo: `"Segoe UI Variable", system-ui, sans-serif`. Cifras con `font-variant-numeric: tabular-nums` cuando se alinean.
 
 | Rol | Tamaño / interlínea | Peso | Uso |
 |---|---|---|---|
-| Cifra grande | 72 / 1 | 300 | Fecha del calendario, total, pendientes |
-| Título de página | 28 / 1.15 | 600 | Nombre de la institución, del proyecto |
-| Título de bandeja | 18 / 1.25 | 600 | «Mi institución», «Asistente» |
-| Cuerpo | 15 / 1.6 | 400 | Chat, textos |
-| Interfaz | 14 / 1.45 | 500 | Botones, filas, valores |
-| Etiqueta | 12.5 / 1.3 | 500 | Encabezados de tabla, ayudas |
+| Cifra grande | 72 / 1 | 400 | Fecha del calendario, total, pendientes |
+| Título de página | 28 / 1.15 | 700 | Nombre de la institución, del proyecto |
+| Título de bandeja | 18 / 1.25 | 700 | «Mi institución», «Asistente» |
+| Cuerpo | 15 / 1.6 | 500 | Chat, textos |
+| Interfaz | 14 / 1.45 | 600 | Botones, filas, valores |
+| Etiqueta | 12.5 / 1.3 | 600 | Encabezados de tabla, ayudas |
 
-Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Pesos: 300, 400, 500, 600. Las cifras grandes van en 300; los títulos, en 600.
+Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Pesos: 400, 500, 600, 700, 800. El texto base va en 500 (no en 400) para que se lea con firmeza en pantallas pequeñas y a distancia; las cifras grandes, en 400; los títulos, en 700; los avatares, en 800.
 
 ## 5. Espacio, radios y tamaños
 
@@ -138,7 +138,7 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 - **Botón principal:** fondo `ink`, texto blanco, 44 px, radio 999. Uno por bandeja como máximo. Secundario: blanco con borde de 1 px; terciario: texto.
 - **Botón circular de ícono:** 44 px, blanco, borde 1 px `line`; activo en `ink`; peligro en `red` sólido.
 - **Cápsula:** píldora blanca de 52 px de alto con estado, fecha y avance.
-- **Etiqueta (tag):** tinte del acento al 16 %, texto del acento oscuro, radio 999, 28 px de alto, 13 px, peso 600. Con punto o ícono si hay espacio.
+- **Etiqueta (tag):** tinte del acento al 16 %, texto del acento oscuro, radio 999, 28 px de alto, 13 px, peso 700. Con punto o ícono si hay espacio.
 - **Casilla:** 22 px, radio 7; marcada = `ink` con palomita blanca; el texto hecho se tacha y baja a `ink-3`.
 - **Avatar de iniciales:** círculo de 36 px (28 en filas densas) de color sólido; pila de avatares solapados 10 px con anillo de 2 px del color de la bandeja.
 - **Tarjeta de persona:** interior (nivel 3) con avatar, nombre, dato secundario y estado a la derecha.
@@ -148,7 +148,7 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 - **Chat:** mensajes de la persona en burbuja de interior alineada a la derecha con su avatar; los del asistente en burbuja de interior a la izquierda con avatar `ink` «AI». Caja de escribir: interior con campo, botón de micrófono (si existe) y envío circular `ink`.
 - **Barra de pasos:** seis puntos o píldoras con el color de su paso; lo hecho lleno, lo actual con anillo, lo que sigue vacío con el color al 25 %.
 - **Barra de composición:** segmentos continuos de 8 px de alto con los colores de las fuentes (ingresos, avance).
-- **Tabla:** sin cabecera rellena; filas de 52 px con línea fina; la primera columna en peso 600; etiquetas de color para la categoría.
+- **Tabla:** sin cabecera rellena; filas de 52 px con línea fina; la primera columna en peso 700; etiquetas de color para la categoría.
 - **Ventana (modal):** bandeja de 28 con título de 18, secciones con etiqueta en mayúsculas pequeñas y botones al pie; fondo atenuado.
 
 ## 8. Movimiento
