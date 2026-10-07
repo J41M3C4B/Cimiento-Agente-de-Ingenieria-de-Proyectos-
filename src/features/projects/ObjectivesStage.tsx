@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Tag } from "../../components/ui";
+import { Alert, Button, Eyebrow, Inset, Tag } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { needAdd, needSelect, needsGet, needsPropose, toAppError } from "../../lib/tauri";
 import type { AiStatus, ConversationView, Decision, NeedRow, NeedsView } from "../../lib/types";
-import { Mark, Thinking } from "./ChatParts";
+import { Said, Thinking } from "./ChatParts";
 import { ConversationChat } from "./ConversationChat";
 import { useProjectJob } from "./useProjectJob";
 import { Workspace } from "./Workspace";
@@ -103,14 +103,8 @@ export function ObjectivesStage({
   const proposedByAi = list.filter((n) => n.origin === "ai_assumption").length;
 
   const tail = (
-    <div className="space-y-5">
-      <div className="anim-rise flex gap-3">
-        <Mark active={proposing} />
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-[12px] font-medium text-stone-600">{es.conversation.assistant}</p>
-          <p className="max-w-[64ch] text-[15px] leading-relaxed text-stone-900">{t.intro}</p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-3">
+      <Said active={proposing}>{t.intro}</Said>
 
       {proposing && <Thinking phrases={t.thinking} />}
       {noticeText && <Alert tone="warn">{noticeText}</Alert>}
@@ -118,7 +112,7 @@ export function ObjectivesStage({
 
       {!proposing && list.length === 0 && v && (
         <div className="space-y-3">
-          <p className="text-[14px] text-stone-700">{t.empty}</p>
+          <p className="text-ui text-ink-2">{t.empty}</p>
           <Button variant="primary" onClick={suggest} disabled={working || !job.ready}>
             {t.retry}
           </Button>
@@ -128,22 +122,19 @@ export function ObjectivesStage({
       {list.length > 0 && (
         <ul className="space-y-3">
           {list.map((n) => (
-            <li
-              key={n.id}
-              className={`anim-rise rounded-2xl bg-white p-5 shadow-card transition-shadow ${n.selected ? "ring-2 ring-stone-900" : "hover:shadow-panel"}`}
-            >
+            <li key={n.id} className={`anim-rise rounded-inset bg-inset p-4 ${n.selected ? "ring-2 ring-ink" : ""}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="min-w-0 flex-1 basis-48 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-[15px] font-semibold">{n.title}</h3>
+                    <h3 className="text-body font-bold">{n.title}</h3>
                     {proposedByAi > 1 && n.id === firstAi && (
                       <Tag tone="green" icon="check">
                         {t.recommended}
                       </Tag>
                     )}
-                    {n.origin === "user" && <Tag>{t.yours}</Tag>}
+                    {n.origin === "user" && <Tag variant="line">{t.yours}</Tag>}
                   </div>
-                  {n.description && <p className="leading-relaxed text-stone-800">{n.description}</p>}
+                  {n.description && <p className="text-ui text-ink-2">{n.description}</p>}
                 </div>
                 <Button variant={n.selected ? "secondary" : "primary"} onClick={() => choose(n)} disabled={working || n.selected}>
                   {n.selected && <Icon name="check" size={16} strokeWidth={3} />}
@@ -155,34 +146,26 @@ export function ObjectivesStage({
         </ul>
       )}
 
-      {chosen && (
-        <div className="anim-rise flex gap-3">
-          <Mark />
-          <div className="min-w-0 flex-1 space-y-1">
-            <p className="text-[12px] font-medium text-stone-600">{es.conversation.assistant}</p>
-            <p className="max-w-[64ch] text-[15px] leading-relaxed text-stone-900">{t.chosenNote(chosen.title)}</p>
-          </div>
-        </div>
-      )}
+      {chosen && <Said>{t.chosenNote(chosen.title)}</Said>}
     </div>
   );
 
   const next = chosen ? (
     <div className="space-y-3">
-      <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{es.diagnosis.nextStep}</p>
-      <div className="rounded-xl bg-stone-100 px-3.5 py-3">
-        <p className="text-[12px] text-stone-600">{t.yourChoice}</p>
-        <p className="text-[14px] font-semibold leading-snug">{chosen.title}</p>
-      </div>
+      <Eyebrow>{es.diagnosis.nextStep}</Eyebrow>
+      <Inset className="!px-4 !py-3">
+        <p className="text-caption text-ink-3">{t.yourChoice}</p>
+        <p className="text-ui font-bold leading-snug">{chosen.title}</p>
+      </Inset>
       <Button variant="primary" className="w-full" onClick={onContinue} disabled={working}>
         {es.projects.continue}
         <Icon name="next" size={15} />
       </Button>
     </div>
   ) : (
-    <div className="space-y-1.5">
-      <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{es.diagnosis.nextStep}</p>
-      <p className="text-[13px] text-stone-600">{t.nextHint}</p>
+    <div className="space-y-2">
+      <Eyebrow>{es.diagnosis.nextStep}</Eyebrow>
+      <p className="text-small text-ink-3">{t.nextHint}</p>
     </div>
   );
 

@@ -1,13 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Tag, Tile, Modal } from "../../components/ui";
+import { Alert, Button, Card, Eyebrow, FileTile, Inset, ListRow, Modal, Tag } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { callReadingConfirm, callReadingRetry, toAppError } from "../../lib/tauri";
 import { CallCardView } from "./CallCardView";
 import { Differences, isBusy, statusTone, Understood, useReading } from "./CallReading";
 
 const t = es.calls;
+
+/** «bases.pdf» → «pdf», for the colored square of the file. */
+const fileExt = (name: string) => (name.includes(".") ? (name.split(".").pop() ?? "") : "·");
 
 /**
  * The first step of a project: confirm that the call that was read is the one the person wants to use. One calm
@@ -39,53 +42,54 @@ export function CallConfirm({ readingId, onContinue, busy: parentBusy = false }:
 
   if (readingId === null) return <Alert tone="warn">{t.callMissing}</Alert>;
   const d = detail.data;
-  if (!d) return <p>{es.common.loading}</p>;
+  if (!d) return <p className="text-ui text-ink-3">{es.common.loading}</p>;
   const r = d.reading;
   const canView = r.status === "ready" || r.status === "partial";
   const canRetry = (r.status === "waiting" || r.status === "partial" || r.status === "failed") && !isBusy(r);
   const notACall = d.summary?.document_kind && ["aviso", "guia", "formato", "anexo", "otro"].includes(d.summary.document_kind.class);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="space-y-4">
       <header className="space-y-2">
-        <h2 className="text-[22px] font-semibold leading-tight tracking-tight">{t.step1Title}</h2>
-        <p className="max-w-[60ch] text-stone-700">{t.step1Intro}</p>
+        <h2 className="text-subtitle font-bold tracking-tight">{t.step1Title}</h2>
+        <p className="max-w-[60ch] text-body text-ink-2">{t.step1Intro}</p>
       </header>
 
-      <section aria-label={t.callTitle} className="overflow-hidden rounded-2xl bg-white shadow-card">
-        <div className="flex flex-wrap items-start justify-between gap-3 px-6 py-5">
+      <Card as="section">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{t.callTitle}</p>
-            <h3 className="text-[16px] font-semibold leading-snug">{r.name}</h3>
-            {(r.funder || r.year) && <p className="text-[13px] text-stone-700">{t.byFunder(r.funder, r.year)}</p>}
+            <Eyebrow>{t.callTitle}</Eyebrow>
+            <h3 className="text-heading font-bold leading-snug">{r.name}</h3>
+            {(r.funder || r.year) && <p className="text-ui text-ink-3">{t.byFunder(r.funder, r.year)}</p>}
           </div>
           <Tag tone={statusTone(r.status)} icon={r.status === "ready" ? "check" : undefined}>
             {t.status[r.status]}
           </Tag>
         </div>
-        <ul className="divide-y divide-stone-200 border-t border-stone-200">
-          {r.files.map((f) => (
-            <li key={f.document_id} className="flex flex-wrap items-center gap-3 px-6 py-3.5">
-              <Tile icon="file" small />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-medium">{f.name}</p>
-                <p className="text-[12.5px] text-stone-600">{t.pagesCount(f.pages)}</p>
-              </div>
-              <Tag tone={f.role === "main" ? "sky" : "neutral"} variant="soft">{t.roleOf(f.role)}</Tag>
-            </li>
-          ))}
-        </ul>
+        {r.files.length > 0 && (
+          <ul className="-mx-2 mt-4 space-y-1">
+            {r.files.map((f) => (
+              <ListRow
+                key={f.document_id}
+                lead={<FileTile ext={fileExt(f.name)} small />}
+                title={<span title={f.name}>{f.name}</span>}
+                detail={t.pagesCount(f.pages)}
+                state={f.role === "main" ? <Tag tone="sky" variant="soft">{t.roleOf(f.role)}</Tag> : <Tag variant="line">{t.roleOf(f.role)}</Tag>}
+              />
+            ))}
+          </ul>
+        )}
         {(canRetry || notice) && (
-          <div className="flex flex-wrap items-center gap-3 border-t border-stone-200 bg-stone-50 px-6 py-3.5">
-            {notice && <p className="min-w-0 flex-1 text-[13px] text-stone-700">{notice}</p>}
+          <Inset className="mt-4 flex flex-wrap items-center gap-3 !py-3">
+            {notice && <p className="min-w-0 flex-1 text-small font-semibold text-ink-2">{notice}</p>}
             {canRetry && (
-              <Button size="sm" variant="primary" onClick={() => retry.mutate()} disabled={retry.isPending}>
+              <Button size="sm" variant="secondary" onClick={() => retry.mutate()} disabled={retry.isPending}>
                 {t.retry}
               </Button>
             )}
-          </div>
+          </Inset>
         )}
-      </section>
+      </Card>
 
       {(r.note && t.notes[r.note]) || d.differences.length > 0 || notACall ? (
         <div className="space-y-3">
@@ -96,18 +100,18 @@ export function CallConfirm({ readingId, onContinue, busy: parentBusy = false }:
       ) : null}
 
       {canView && d.card && (
-        <section className="rounded-2xl bg-white px-6 py-6 shadow-card">
+        <Card as="section">
           <CallCardView detail={d} onSeeDetail={() => setAll(true)} />
-        </section>
+        </Card>
       )}
 
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white px-6 py-4 shadow-float">
-        {!canView && <p className="text-stone-700">{t.waitingToConfirm}</p>}
+      <Card small className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-4 shadow-float">
+        {!canView && <p className="text-ui text-ink-2">{t.waitingToConfirm}</p>}
         {canView && !r.confirmed_at && (
           <>
-            <div>
-              <p className="font-semibold">{t.askConfirm}</p>
-              <p className="text-[13px] text-stone-700">{t.stageHelp}</p>
+            <div className="min-w-0">
+              <p className="text-ui font-bold">{t.askConfirm}</p>
+              <p className="text-small text-ink-3">{t.stageHelp}</p>
             </div>
             <Button variant="primary" onClick={() => confirm.mutate()} disabled={confirm.isPending || parentBusy}>
               {confirm.isPending ? t.confirming : t.confirm}
@@ -123,7 +127,7 @@ export function CallConfirm({ readingId, onContinue, busy: parentBusy = false }:
             </Button>
           </>
         )}
-      </div>
+      </Card>
 
       {all && (
         <Modal title={r.name} size="lg" dismissable onClose={() => setAll(false)}>

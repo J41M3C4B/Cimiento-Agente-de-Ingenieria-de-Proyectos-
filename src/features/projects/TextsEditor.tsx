@@ -1,6 +1,7 @@
 import { Icon } from "../../components/icons";
-import { Button } from "../../components/ui";
+import { Bar, Button, Inset } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { projectTone } from "../../lib/palette";
 import type { DraftMode, DraftingView } from "../../lib/types";
 import { textCounts } from "./ProjectIndex";
 import { SectionCard } from "./SectionCard";
@@ -31,34 +32,37 @@ export function TextsEditor({
   const readyToConfirm = texts.filter((s) => (s.status === "draft_ai" || s.status === "draft_user") && s.unsupported_figures.length === 0).length;
 
   return (
-    <div className="space-y-5">
-      <p className="text-stone-700">{t.sectionsIntro}</p>
+    <div className="space-y-6">
+      <p className="max-w-2xl text-ui text-ink-2">{t.sectionsIntro}</p>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 px-4 py-3">
-        <p className="text-[14px]">{t.proposalConfirmed(view.asks_for_proposal)}</p>
-        <Button size="sm" variant="plain" disabled={disabled} onClick={() => onAnswer(!view.asks_for_proposal)}>
+      <Inset className="flex flex-wrap items-center justify-between gap-3 !py-3">
+        <p className="text-ui font-semibold">{t.proposalConfirmed(view.asks_for_proposal)}</p>
+        <Button size="sm" disabled={disabled} onClick={() => onAnswer(!view.asks_for_proposal)}>
           {t.proposalChange}
         </Button>
-      </div>
+      </Inset>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[14px] text-stone-700">{t.texts.progress(counts.confirmed, counts.total)}</p>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={disabled} onClick={() => onWrite("full")}>
-            <Icon name="sparkles" size={15} />
-            {t.texts.draftPending}
-          </Button>
-          <Button size="sm" disabled={disabled} onClick={() => onWrite("guide")}>
-            {t.texts.guideAgain}
-          </Button>
-          <Button size="sm" variant="primary" disabled={disabled || readyToConfirm === 0} onClick={onConfirmReady}>
-            <Icon name="check" size={15} strokeWidth={2.6} />
-            {t.texts.confirmReady(readyToConfirm)}
-          </Button>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-ui font-bold">{t.texts.progress(counts.confirmed, counts.total)}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={disabled} onClick={() => onWrite("full")}>
+              <Icon name="sparkles" size={16} />
+              {t.texts.draftPending}
+            </Button>
+            <Button size="sm" disabled={disabled} onClick={() => onWrite("guide")}>
+              {t.texts.guideAgain}
+            </Button>
+            <Button size="sm" variant="primary" disabled={disabled || readyToConfirm === 0} onClick={onConfirmReady}>
+              <Icon name="check" size={16} strokeWidth={2.6} />
+              {t.texts.confirmReady(readyToConfirm)}
+            </Button>
+          </div>
         </div>
+        <Bar percent={counts.total > 0 ? (counts.confirmed / counts.total) * 100 : 0} label={t.texts.progress(counts.confirmed, counts.total)} tone={projectTone(view.project.color, view.project.id)} />
       </div>
 
-      <ul className="space-y-2.5">
+      <ul className="space-y-3">
         {view.sections.map((s) => (
           <SectionCard key={s.key} projectId={view.project.id} section={s} onView={onView} disabled={disabled} />
         ))}

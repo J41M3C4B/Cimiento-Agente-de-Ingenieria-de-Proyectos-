@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
-import { Icon } from "../../components/icons";
-import { Alert, Button, Tag, Modal, RowActions, Select, TextInput } from "../../components/ui";
+import { AddSlot, Alert, Button, Inset, ListRow, Modal, RowActions, Select, Tag, TextInput } from "../../components/ui";
+import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { projectTone } from "../../lib/palette";
 import { scheduleConfirm, scheduleDeleteActivity, scheduleSaveActivity, toAppError } from "../../lib/tauri";
 import type { ActivityView, Decision, DraftingView, QuarantineReport } from "../../lib/types";
 
@@ -17,13 +18,13 @@ interface Pending {
 }
 
 /** The months at a glance: one bar per activity, from its first month to its last, with the months numbered. */
-function Gantt({ activities, total }: { activities: ActivityView[]; total: number }) {
+function Gantt({ activities, total, tone }: { activities: ActivityView[]; total: number; tone: Tone }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-stone-200 p-4">
-      <div className="min-w-[560px] space-y-2">
+    <Inset className="overflow-x-auto">
+      <div className="min-w-[560px] space-y-3">
         <div className="grid grid-cols-[minmax(8rem,14rem)_1fr] items-end gap-3">
           <span />
-          <div className="grid text-center text-[11px] font-medium text-stone-600" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }} aria-hidden>
+          <div className="tabular grid text-center text-caption font-semibold text-ink-3" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }} aria-hidden>
             {Array.from({ length: total }, (_, i) => (
               <span key={i}>{i + 1}</span>
             ))}
@@ -31,17 +32,14 @@ function Gantt({ activities, total }: { activities: ActivityView[]; total: numbe
         </div>
         {activities.map((a) => (
           <div key={a.id} className="grid grid-cols-[minmax(8rem,14rem)_1fr] items-center gap-3">
-            <span className="truncate text-[13px] font-medium">{a.title}</span>
-            <div className="relative h-5 rounded-md bg-stone-100" aria-hidden>
-              <span
-                className={`absolute top-0 h-5 rounded-md ${a.origin === "ai_assumption" ? "bg-blue-300" : "bg-blue-800"}`}
-                style={{ left: `${((a.start_month - 1) / total) * 100}%`, width: `${((a.end_month - a.start_month + 1) / total) * 100}%` }}
-              />
+            <span className="truncate text-small font-bold">{a.title}</span>
+            <div className={`bar tone-${tone} !bg-card`} aria-hidden>
+              <i className={a.origin === "ai_assumption" ? "opacity-60" : ""} style={{ marginLeft: `${((a.start_month - 1) / total) * 100}%`, width: `${((a.end_month - a.start_month + 1) / total) * 100}%` }} />
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </Inset>
   );
 }
 
@@ -59,6 +57,7 @@ export function ScheduleEditor({ view, onView, disabled }: { view: DraftingView;
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const working = busy || disabled;
+  const tone = projectTone(view.project.color, view.project.id);
   const { activities, duration_months, confirmed } = view.schedule;
   // the call may limit how long the project lasts; the months to choose from go a little beyond what is planned
   const limit = view.requirements.max_duration_months?.value ?? 24;
@@ -97,41 +96,38 @@ export function ScheduleEditor({ view, onView, disabled }: { view: DraftingView;
   const close = () => setEditing(null);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <p className="max-w-2xl text-stone-700">{t.scheduleIntro}</p>
-        <Button size="sm" variant={activities.length === 0 ? "primary" : "secondary"} onClick={() => open(null)} disabled={working}>
-          <Icon name="plus" size={15} strokeWidth={2.4} />
-          {t.addActivity}
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <p className="max-w-2xl text-ui text-ink-2">{t.scheduleIntro}</p>
 
       {activities.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-stone-300 px-6 py-10 text-center text-stone-700">{t.emptySchedule}</div>
+        <Inset className="py-8 text-center text-ui text-ink-2">{t.emptySchedule}</Inset>
       ) : (
         <>
-          <Gantt activities={activities} total={Math.max(duration_months, 1)} />
-          <ul className="divide-y divide-stone-200 rounded-xl border border-stone-200">
+          <Gantt activities={activities} total={Math.max(duration_months, 1)} tone={tone} />
+          <ul>
             {activities.map((a) => (
-              <li key={a.id} className="group flex flex-wrap items-center gap-3 px-4 py-2.5">
-                <p className="min-w-0 flex-1 font-medium">
-                  {a.title}
-                  {a.origin === "ai_assumption" && (
-                    <span className="ml-2 align-middle">
-                      <Tag tone="sky" variant="soft">{t.proposed}</Tag>
-                    </span>
-                  )}
-                </p>
-                <p className="text-[13px] text-stone-700">{t.months(a.start_month, a.end_month)}</p>
-                <RowActions onEdit={() => open(a)} onRemove={() => guarded(async () => onView(await scheduleDeleteActivity(project, a.id)))} busy={working} />
-              </li>
+              <ListRow
+                key={a.id}
+                title={a.title}
+                detail={t.months(a.start_month, a.end_month)}
+                state={
+                  a.origin === "ai_assumption" ? (
+                    <Tag tone="sky" variant="soft">
+                      {t.proposed}
+                    </Tag>
+                  ) : undefined
+                }
+                actions={<RowActions onEdit={() => open(a)} onRemove={() => guarded(async () => onView(await scheduleDeleteActivity(project, a.id)))} busy={working} />}
+              />
             ))}
           </ul>
         </>
       )}
 
-      {error && <Alert tone="warn">{error}</Alert>}
-      {activities.length > 0 && <p className="font-semibold">{t.projectLasts(duration_months)}</p>}
+      <AddSlot onClick={() => !working && open(null)}>{t.addActivity}</AddSlot>
+
+      {error && <Alert tone="error">{error}</Alert>}
+      {activities.length > 0 && <p className="text-heading font-bold">{t.projectLasts(duration_months)}</p>}
       {activities.length > 0 &&
         (confirmed ? (
           <Alert tone="ok">{t.scheduleConfirmed}</Alert>
@@ -158,7 +154,7 @@ export function ScheduleEditor({ view, onView, disabled }: { view: DraftingView;
         >
           <form
             id="activity"
-            className="space-y-4"
+            className="space-y-6"
             onSubmit={(e) => {
               e.preventDefault();
               if (canSave) void save(editing === "new" ? null : editing, title, Number(start), Number(end));

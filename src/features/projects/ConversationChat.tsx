@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Segments } from "../../components/ui";
+import { Alert, Button, Composer, Segments } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { conversationRetry, conversationSend, conversationStart, toAppError } from "../../lib/tauri";
 import type { AnswerOutcome, ConversationView, Decision, QuarantineReport } from "../../lib/types";
@@ -148,25 +148,24 @@ export function ConversationChat({
   const proposing = view.phase === "root_proposed" && canWrite;
 
   return (
-    <section className="flex h-full min-h-0 flex-col" aria-label={t.title}>
-      <header className="shrink-0 px-6 pt-5">
-        <div className="mx-auto flex w-full max-w-[720px] items-center gap-4">
-          <p className="shrink-0 text-[13px] font-medium text-stone-500">{progressLabel(view)}</p>
-          <div className="w-40 max-w-full">
-            <Segments
-              total={view.max_whys + 1}
-              filled={view.phase === "closed" || view.phase === "root_proposed" ? view.max_whys + 1 : view.why_level + 1}
-              label={progressLabel(view)}
-            />
-          </div>
+    <section className="flex h-full min-h-0 flex-col gap-3" aria-label={t.title}>
+      <header className="flex shrink-0 items-center gap-4">
+        <p className="shrink-0 text-small font-semibold text-ink-3">{progressLabel(view)}</p>
+        <div className="w-40 max-w-full">
+          <Segments
+            total={view.max_whys + 1}
+            tone="pc"
+            filled={view.phase === "closed" || view.phase === "root_proposed" ? view.max_whys + 1 : view.why_level + 1}
+            label={progressLabel(view)}
+          />
         </div>
       </header>
 
-      <div role="log" aria-live="polite" className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[720px] space-y-7 px-6 pb-8 pt-6">
+      <div role="log" aria-live="polite" className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
+        <div className="flex w-full flex-col gap-3 pb-4 pt-1">
           {view.fit && view.fit.fit !== "fits" && (
             <Alert tone="warn">
-              <p className="font-semibold">{view.fit.fit === "mismatch" ? t.fitMismatch : t.fitPartial}</p>
+              <p className="font-bold">{view.fit.fit === "mismatch" ? t.fitMismatch : t.fitPartial}</p>
               {view.fit.note && <p>{view.fit.note}</p>}
             </Alert>
           )}
@@ -194,10 +193,10 @@ export function ConversationChat({
             </div>
           )}
           {closed && !writing && (
-            <p role="status" className="anim-rise flex items-center gap-3 text-[13px] font-medium text-stone-600">
-              <span aria-hidden="true" className="h-px flex-1 bg-stone-200" />
+            <p role="status" className="anim-rise flex items-center gap-3 py-2 text-small font-semibold text-ink-3">
+              <span aria-hidden="true" className="h-px flex-1 bg-line" />
               {t.ended}
-              <span aria-hidden="true" className="h-px flex-1 bg-stone-200" />
+              <span aria-hidden="true" className="h-px flex-1 bg-line" />
             </p>
           )}
           {closed && !writing && tail}
@@ -206,44 +205,45 @@ export function ConversationChat({
       </div>
 
       {/* the box is always here, like in any chat: when there is nothing to write it says where to go on */}
-      <footer className="shrink-0 px-6 pb-5 pt-2">
-        <div className="mx-auto w-full max-w-[720px] space-y-3">
-          {quick.length > 0 && (
-            <div className="flex flex-wrap gap-2" aria-label={t.quickReplies}>
-              {quick.map((option, i) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => {
-                    if (proposing && i === 0) void confirmRoot();
-                    else if (proposing) {
-                      setCorrecting(true);
-                      box.current?.focus();
-                    } else void send(option);
-                  }}
-                  className={`rounded-full px-4 py-2 text-[14px] font-medium transition-colors ${
-                    proposing && i === 0
-                      ? "bg-stone-900 text-white hover:bg-stone-700"
-                      : "bg-white text-stone-900 shadow-card hover:bg-stone-50"
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          )}
-          <form
-            className="flex items-end gap-2 rounded-[24px] bg-white p-2.5 pl-3 shadow-float"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (canWrite && text.trim()) void submit(text);
-            }}
+      <footer className="shrink-0 space-y-3">
+        {quick.length > 0 && (
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t.quickReplies}>
+            {quick.map((option, i) => (
+              <Button
+                key={option}
+                variant={proposing && i === 0 ? "primary" : "secondary"}
+                onClick={() => {
+                  if (proposing && i === 0) void confirmRoot();
+                  else if (proposing) {
+                    setCorrecting(true);
+                    box.current?.focus();
+                  } else void send(option);
+                }}
+              >
+                {option}
+              </Button>
+            ))}
+          </div>
+        )}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (canWrite && text.trim()) void submit(text);
+          }}
+        >
+          <Composer
+            send={
+              <Button type="submit" variant="primary" aria-label={t.send} title={t.send} disabled={!canWrite || !text.trim()} className="w-ctl shrink-0 !px-0">
+                <Icon name="send" size={18} />
+              </Button>
+            }
           >
-            <label className="flex-1">
+            <label className="flex min-w-0 flex-1">
               <span className="sr-only">{t.answerLabel}</span>
               <textarea
                 ref={box}
-                rows={2}
+                rows={1}
+                wrap="off"
                 value={text}
                 disabled={!canWrite}
                 placeholder={later && closed ? later.placeholder : closed ? t.placeholderClosed : correcting ? t.placeholderCorrect : t.placeholder}
@@ -254,15 +254,12 @@ export function ConversationChat({
                     if (canWrite && text.trim()) void submit(text);
                   }
                 }}
-                className="w-full resize-none rounded-lg border-0 bg-transparent px-2 py-2 text-[15px] text-stone-900 outline-none placeholder:text-stone-500 focus-visible:outline-none disabled:opacity-60"
+                className="w-full overflow-hidden text-ellipsis pt-2 disabled:opacity-60"
               />
             </label>
-            <Button type="submit" variant="primary" aria-label={t.send} title={t.send} disabled={!canWrite || !text.trim()} className="!h-10 !min-h-0 !w-10 shrink-0 !rounded-full !p-0">
-              <Icon name="send" size={16} />
-            </Button>
-          </form>
-          <p className="px-2 text-center text-[12px] text-stone-500">{later && closed ? later.hint : closed ? t.hintClosed : t.hint}</p>
-        </div>
+          </Composer>
+        </form>
+        <p className="text-center text-caption text-ink-3">{later && closed ? later.hint : closed ? t.hintClosed : t.hint}</p>
       </footer>
 
       {pending && (

@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Button, FactRow, Facts, Figures, Tile, RowActions, Card, Segmented, Tag, TextButton } from "../../components/ui";
+import { Alert, Button, Card, Dock, Eyebrow, FactRow, Facts, Inset, Metric, RowActions, TabPanel, Tag, TextButton, Toast } from "../../components/ui";
+import type { Tone } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileConfirm, profileGet, profileSave, rosterOverview, toAppError } from "../../lib/tauri";
@@ -22,11 +23,14 @@ const ZERO: ProfileTotals = {
   payroll_monthly_mxn: 0, payroll_annual_mxn: 0, fee_payers: 0, fees_monthly_mxn: 0, fees_annual_mxn: 0,
 };
 
+/** The colors of the income sources in the composition bar and its legend (red and amber are kept for what is wrong). */
+const SOURCE_TONES: Tone[] = ["sky", "violet", "cyan", "teal", "rose", "green"];
+const SOURCE_BG: Partial<Record<Tone, string>> = { sky: "bg-sky", violet: "bg-violet", cyan: "bg-cyan", teal: "bg-teal", rose: "bg-rose", green: "bg-green" };
+
 /**
- * Mi institución. Reading order, top to bottom: who the institution is (name, state, «Sobre nosotros»), what it
- * adds up to (four figures, each in its own color), then the detail by tab. The detail is flat sections separated
- * by a line; only the secondary things on the right (income, what is missing) are cards. What is on the screen is
- * what is saved: «Editar» opens a window with just those fields, so there is no half-edited page.
+ * Mi institución (docs/13 §10). One header tray in two halves: who the institution is (name, mission, state) and
+ * its four figures; below, the detail by cut-out tab. What is on the screen is what is saved: «Editar» opens a
+ * window with just those fields, so there is no half-edited page.
  */
 export function ProfilePage() {
   const qc = useQueryClient();
@@ -43,8 +47,6 @@ export function ProfilePage() {
 
   const view = profile.data ?? null;
   const inst = view?.input.institution;
-  const [about, setAbout] = useState("");
-  useEffect(() => setAbout(inst?.mission ?? ""), [inst?.mission]);
 
   // the notice goes away by itself
   useEffect(() => {
@@ -101,13 +103,6 @@ export function ProfilePage() {
     }
   }
 
-  function saveAbout() {
-    if (!view || about.trim() === (inst?.mission ?? "")) return;
-    const input = toInput(fromView(view));
-    input.institution.mission = about.trim() || null;
-    void commit(input);
-  }
-
   function removeItem(kind: "income" | "facilities", index: number) {
     if (!view) return;
     const f = fromView(view);
@@ -141,180 +136,177 @@ export function ProfilePage() {
 
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 
-  // what the money is made of: each source as a share of the total, drawn as one bar
-  const shades = ["bg-stone-900", "bg-stone-600", "bg-stone-400", "bg-stone-300", "bg-stone-200"];
   const [showTodo, setShowTodo] = useState(false);
+  const tone = (i: number): Tone => SOURCE_TONES[i % SOURCE_TONES.length]!;
+  const capacity = view?.input.capacity_total ?? 0;
 
   return (
-    <div className="mx-auto max-w-[1360px] px-6 py-6">
-      <Card flush>
-        <header className="px-12 pb-6 pt-8">
-          <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-            <div className="min-w-0 flex-1">
-              <h1 className={`break-words text-[28px] font-semibold leading-tight tracking-[-0.02em] ${inst?.name ? "text-stone-900" : "text-stone-400"}`}>
-                {inst?.name || t.banner.namePlaceholder}
-              </h1>
-              <textarea
-                aria-label={t.about.label}
-                rows={1}
-                value={about}
-                onChange={(e) => setAbout(e.target.value)}
-                onBlur={saveAbout}
-                readOnly={!view}
-                placeholder={view ? t.about.placeholder : t.about.needsName}
-                className="-mx-2 mt-1.5 block w-full max-w-3xl resize-none rounded-md bg-transparent px-2 py-1 text-[14px] leading-relaxed text-stone-600 transition-colors [field-sizing:content] placeholder:text-stone-400 hover:bg-stone-50 focus-visible:bg-stone-50 focus-visible:outline-none"
-              />
-            </div>
-            {view && (
-              <div className="flex shrink-0 gap-2">
-                {view.is_draft && (
-                  <Button variant="primary" onClick={confirm} disabled={busy}>
-                    <Icon name="check" size={15} strokeWidth={2.4} />
-                    {t.confirm}
-                  </Button>
-                )}
-                <Button variant="secondary" onClick={() => open({ kind: "institution" })}>
-                  <Icon name="pencil" size={14} />
-                  {t.edit}
-                </Button>
-              </div>
-            )}
+    <div className="flex flex-col gap-4">
+      <Card className="grid gap-6 min-[1000px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Eyebrow>{t.title}</Eyebrow>
+          <div className="my-auto flex flex-col gap-4 py-2">
+            <h1 className={`break-words text-hero font-bold tracking-tight ${inst?.name ? "text-ink" : "text-ink-3"}`}>{inst?.name || t.banner.namePlaceholder}</h1>
+            <p className={`max-w-[44ch] text-body ${inst?.mission ? "text-ink-2" : "text-ink-3"}`}>{inst?.mission || (view ? t.about.placeholder : t.about.needsName)}</p>
           </div>
-
           {view && (
-            <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-stone-600">
-              <Tag tone={view.is_draft ? "amber" : "green"}>
-                <Icon name={view.is_draft ? "warn" : "check"} size={13} strokeWidth={2.6} />
+            <div className="flex flex-wrap items-center gap-3">
+              <Tag tone={view.is_draft ? "amber" : "green"} icon={view.is_draft ? "warn" : "check"}>
                 {view.is_draft ? t.status.draft : t.status.confirmed}
               </Tag>
+              {view.is_draft && (
+                <Button size="sm" variant="primary" onClick={confirm} disabled={busy}>
+                  <Icon name="check" size={16} strokeWidth={2.4} />
+                  {t.confirm}
+                </Button>
+              )}
+              <Button size="sm" variant="secondary" onClick={() => open({ kind: "institution" })}>
+                <Icon name="pencil" size={16} />
+                {t.edit}
+              </Button>
               {todo.length > 0 && (
-                <button type="button" aria-expanded={showTodo} onClick={() => setShowTodo((v) => !v)} className="inline-flex items-center gap-1 font-medium text-stone-900 hover:underline">
+                <TextButton aria-expanded={showTodo} onClick={() => setShowTodo((v) => !v)} className="inline-flex items-center gap-1">
                   {t.todo.summary(todo.length)}
                   <Icon name="down" size={14} className={`transition-transform ${showTodo ? "rotate-180" : ""}`} />
-                </button>
+                </TextButton>
               )}
             </div>
           )}
           {showTodo && todo.length > 0 && (
-            <ul className="mt-3 flex flex-wrap gap-2">
+            <ul className="flex flex-wrap gap-2">
               {todo.map((x) => (
                 <li key={x.text}>
-                  <button type="button" onClick={x.go} className="inline-flex items-center gap-1.5 rounded-lg bg-stone-100 px-3 py-1.5 text-[13px] text-stone-800 transition-colors hover:bg-stone-200">
+                  <Button size="sm" variant="soft" onClick={x.go}>
                     {x.text}
-                    <Icon name="next" size={13} className="text-stone-500" />
-                  </button>
+                    <Icon name="next" size={14} />
+                  </Button>
                 </li>
               ))}
             </ul>
           )}
-          {headsUp.length > 0 && (
-            <ul className="mt-4 space-y-2">
-              {headsUp.map((i, n) => (
-                <li key={n} className="flex items-center gap-2.5 rounded-lg bg-amber-50 px-3.5 py-2.5 text-[13px] text-amber-800">
-                  <Icon name="warn" size={15} />
-                  {es.issues[i.code]}
-                </li>
-              ))}
-            </ul>
-          )}
-        </header>
+        </div>
 
-        {profile.isSuccess && !view && (
-          <section className="mx-12 mb-10 flex flex-wrap items-center justify-between gap-5 rounded-2xl bg-stone-50 px-8 py-8">
-            <div className="max-w-xl">
-              <h2 className="text-[18px] font-semibold">{t.onboarding.title}</h2>
-              <p className="mt-1 text-stone-600">{t.onboarding.text}</p>
-            </div>
-            <Button variant="primary" onClick={() => open({ kind: "institution" })}>
-              <Icon name="plus" size={16} strokeWidth={2.4} />
-              {t.onboarding.action}
-            </Button>
-          </section>
+        {view ? (
+          <div className="grid min-w-0 grid-cols-2 gap-3 max-[520px]:grid-cols-1">
+            <Metric icon="heart" tone="violet" label={t.kpi.people} value={money(totals.population)} sub={capacity ? t.kpi.peopleOf(money(capacity)) : undefined} fill={capacity ? (totals.population / capacity) * 100 : undefined} />
+            <Metric icon="briefcase" tone="teal" label={t.kpi.staff} value={money(staffRoster.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)} sub={t.kpi.staffPaid(totals.staff_paid)} />
+            <Metric icon="banknote" tone="amber" label={t.kpi.payroll} value={peso(totals.payroll_monthly_mxn)} sub={t.kpi.perYear(peso(totals.payroll_annual_mxn))} />
+            <Metric icon="wallet" tone="green" label={t.kpi.fees} value={peso(totals.fees_monthly_mxn)} sub={t.kpi.payers(totals.fee_payers)} />
+          </div>
+        ) : (
+          profile.isSuccess && (
+            <Inset className="flex flex-col justify-center gap-4 !p-6">
+              <div>
+                <h2 className="text-heading font-bold">{t.onboarding.title}</h2>
+                <p className="mt-1 text-ui text-ink-2">{t.onboarding.text}</p>
+              </div>
+              <div>
+                <Button variant="primary" onClick={() => open({ kind: "institution" })}>
+                  <Icon name="plus" size={16} strokeWidth={2.4} />
+                  {t.onboarding.action}
+                </Button>
+              </div>
+            </Inset>
+          )
         )}
 
-        {view && (
-          <>
-            <div className="border-y border-stone-200 px-12 py-5">
-              <Figures
-                items={[
-                  { label: t.kpi.people, value: money(totals.population), sub: view.input.capacity_total ? t.kpi.peopleOf(money(view.input.capacity_total)) : undefined, fill: view.input.capacity_total ? (totals.population / view.input.capacity_total) * 100 : undefined },
-                  { label: t.kpi.payroll, value: peso(totals.payroll_monthly_mxn), sub: t.kpi.perYear(peso(totals.payroll_annual_mxn)) },
-                  { label: t.kpi.fees, value: peso(totals.fees_monthly_mxn), sub: t.kpi.payers(totals.fee_payers) },
-                  { label: t.cards.income, value: peso(incomeTotal), sub: income.length > 0 ? t.incomeSources(income.length) : t.incomeEmpty },
-                ]}
-              />
-            </div>
+        {headsUp.length > 0 && (
+          <div className="space-y-2 min-[1000px]:col-span-2">
+            {headsUp.map((i, n) => (
+              <Alert key={n} tone="warn">
+                {es.issues[i.code]}
+              </Alert>
+            ))}
+          </div>
+        )}
+      </Card>
 
-            <div className="border-b border-stone-200 px-12 py-4">
-              <Segmented
-                label={t.sections.basics}
-                value={tab}
-                onChange={setTab}
-                items={[
-                  { id: "general", label: t.tabs.general },
-                  { id: "staff", label: t.tabs.staff, count: staffCount },
-                  { id: "population", label: t.tabs.population, count: peopleCount },
-                  { id: "facilities", label: t.tabs.facilities, count: facilities.length },
-                ]}
-              />
-            </div>
+      {view && (
+        <Dock
+          label={t.sections.basics}
+          value={tab}
+          onChange={setTab}
+          items={[
+            { id: "general", label: t.tabs.general },
+            { id: "staff", label: t.tabs.staff, count: staffCount },
+            { id: "population", label: t.tabs.population, count: peopleCount },
+            { id: "facilities", label: t.tabs.facilities, count: facilities.length },
+          ]}
+        >
+          <TabPanel id="general" active={tab === "general"}>
+            <div className="grid gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <Card>
+                <FactRow title={t.cards.institution} action={edition({ kind: "institution" })}>
+                  <Facts columns={2} items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
+                </FactRow>
+                <FactRow title={t.cards.contact} note={t.privateNote} action={edition({ kind: "contact" })}>
+                  <Facts columns={2} items={[[t.fields.phone, inst?.contact_phone], [t.fields.email, inst?.contact_email]]} />
+                </FactRow>
+                <FactRow title={t.cards.legal} note={t.legalNote} action={edition({ kind: "legal" })}>
+                  <Facts columns={2} items={[[t.fields.rfc, inst?.legal_rfc], [t.fields.legalRep, inst?.legal_rep_name]]} />
+                </FactRow>
+                <FactRow title={t.cards.capacity} action={edition({ kind: "capacity" })}>
+                  <Facts
+                    columns={2}
+                    items={[
+                      [t.fields.capacity, view.input.capacity_total !== null ? `${money(view.input.capacity_total)} personas` : null],
+                      [t.fields.annualBudget, view.input.annual_budget_mxn !== null ? peso(view.input.annual_budget_mxn) : null],
+                      [t.fields.notes, view.input.notes],
+                    ]}
+                  />
+                </FactRow>
+              </Card>
 
-            <div role="tabpanel" id="panel-general" aria-labelledby="tab-general" hidden={tab !== "general"} className="px-12 py-2">
-              <FactRow title={t.cards.institution} action={edition({ kind: "institution" })}>
-                <Facts items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
-              </FactRow>
-              <FactRow title={t.cards.contact} note={t.privateNote} action={edition({ kind: "contact" })}>
-                <Facts items={[[t.fields.phone, inst?.contact_phone], [t.fields.email, inst?.contact_email]]} />
-              </FactRow>
-              <FactRow title={t.cards.legal} note={t.legalNote} action={edition({ kind: "legal" })}>
-                <Facts items={[[t.fields.rfc, inst?.legal_rfc], [t.fields.legalRep, inst?.legal_rep_name]]} />
-              </FactRow>
-              <FactRow title={t.cards.capacity} action={edition({ kind: "capacity" })}>
-                <Facts
-                  items={[
-                    [t.fields.capacity, view.input.capacity_total !== null ? `${money(view.input.capacity_total)} personas` : null],
-                    [t.fields.annualBudget, view.input.annual_budget_mxn !== null ? peso(view.input.annual_budget_mxn) : null],
-                    [t.fields.notes, view.input.notes],
-                  ]}
-                />
-              </FactRow>
-              <FactRow
-                title={t.cards.income}
-                action={<TextButton onClick={() => open({ kind: "income", index: null })}>{t.addSource}</TextButton>}
-              >
+              <Card className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="text-heading font-bold">{t.cards.income}</h2>
+                  <Button size="sm" variant="secondary" onClick={() => open({ kind: "income", index: null })}>
+                    <Icon name="plus" size={16} strokeWidth={2.4} />
+                    {t.addSource}
+                  </Button>
+                </div>
                 {income.length === 0 ? (
-                  <p className="text-stone-500">{t.incomeEmpty}</p>
+                  <p className="text-ui text-ink-3">{t.incomeEmpty}</p>
                 ) : (
-                  <div>
+                  <>
+                    <div>
+                      <div className="tabular text-hero font-normal tracking-tight">{peso(incomeTotal)}</div>
+                      <div className="text-small text-ink-3">{t.incomeSources(income.length)}</div>
+                    </div>
                     {incomeTotal > 0 && (
-                      <div role="img" aria-label={t.cards.income} className="mb-4 flex h-1.5 gap-0.5 overflow-hidden rounded-full">
+                      <div role="img" aria-label={t.cards.income} className="flex h-3 gap-1 overflow-hidden rounded-pill">
                         {income.map((it, i) => (
-                          <span key={i} className={`h-full ${shades[i % shades.length]}`} style={{ width: `${((it.annual_amount_mxn ?? 0) / incomeTotal) * 100}%` }} />
+                          <span key={i} className={`h-full ${SOURCE_BG[tone(i)]}`} style={{ width: `${((it.annual_amount_mxn ?? 0) / incomeTotal) * 100}%` }} />
                         ))}
                       </div>
                     )}
-                    <ul className="divide-y divide-stone-100">
+                    <ul className="divide-y divide-line">
                       {income.map((it, i) => (
-                        <li key={i} className="group flex items-center gap-3 py-2">
-                          <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${shades[i % shades.length]}`} />
-                          <span className="min-w-0 flex-1 break-words">{it.label}</span>
-                          <span className="tabular-nums text-stone-600">{it.annual_amount_mxn !== null ? peso(it.annual_amount_mxn) : "—"}</span>
+                        <li key={i} className="group flex items-center gap-3 py-3">
+                          <span aria-hidden="true" className={`h-3 w-3 shrink-0 rounded-pill ${SOURCE_BG[tone(i)]}`} />
+                          <span className="min-w-0 flex-1 break-words text-ui">{it.label}</span>
+                          <span className="tabular text-ui font-bold">{it.annual_amount_mxn !== null ? peso(it.annual_amount_mxn) : "—"}</span>
                           <RowActions onEdit={() => open({ kind: "income", index: i })} onRemove={() => removeItem("income", i)} busy={busy} />
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </>
                 )}
-              </FactRow>
+              </Card>
             </div>
-
-            <div role="tabpanel" id="panel-staff" aria-labelledby="tab-staff" hidden={tab !== "staff"} className="px-12 py-8">
+          </TabPanel>
+          <TabPanel id="staff" active={tab === "staff"}>
+            <Card>
               <RosterTab entity="staff" onProfile={onRosterProfile} />
-            </div>
-            <div role="tabpanel" id="panel-population" aria-labelledby="tab-population" hidden={tab !== "population"} className="px-12 py-8">
+            </Card>
+          </TabPanel>
+          <TabPanel id="population" active={tab === "population"}>
+            <Card>
               <RosterTab entity="beneficiary" onProfile={onRosterProfile} />
-            </div>
-            <div role="tabpanel" id="panel-facilities" aria-labelledby="tab-facilities" hidden={tab !== "facilities"} className="px-12 py-8">
+            </Card>
+          </TabPanel>
+          <TabPanel id="facilities" active={tab === "facilities"}>
+            <Card>
               <FacilitiesTab
                 facilities={facilities}
                 busy={busy}
@@ -322,20 +314,20 @@ export function ProfilePage() {
                 onEdit={(i) => open({ kind: "facility", index: i })}
                 onRemove={(i) => removeItem("facilities", i)}
               />
-            </div>
-          </>
-        )}
-      </Card>
+            </Card>
+          </TabPanel>
+        </Dock>
+      )}
 
       {import.meta.env.DEV && (
-        <p className="mt-4 flex items-center justify-center gap-3 text-[12px] text-stone-500">
+        <p className="flex flex-wrap items-center justify-center gap-3 text-small text-ink-3">
           {t.banner.loadExample}
-          <button type="button" onClick={() => loadExample("asilo")} disabled={busy} className="font-medium text-stone-700 hover:underline disabled:opacity-50">
+          <Button size="sm" variant="plain" onClick={() => loadExample("asilo")} disabled={busy}>
             {t.devAsilo}
-          </button>
-          <button type="button" onClick={() => loadExample("casa-hogar")} disabled={busy} className="font-medium text-stone-700 hover:underline disabled:opacity-50">
+          </Button>
+          <Button size="sm" variant="plain" onClick={() => loadExample("casa-hogar")} disabled={busy}>
             {t.devCasaHogar}
-          </button>
+          </Button>
         </p>
       )}
 
@@ -351,12 +343,7 @@ export function ProfilePage() {
         />
       )}
 
-      {toast && (
-        <div role="status" className="fixed bottom-6 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2.5 rounded-xl bg-stone-900 px-4 py-2.5 text-[14px] font-medium text-white shadow-lift">
-          <Tile icon={toast.tone === "ok" ? "check" : "alert"} tone="neutral" small />
-          {toast.text}
-        </div>
-      )}
+      {toast && <Toast tone={toast.tone}>{toast.text}</Toast>}
     </div>
   );
 }

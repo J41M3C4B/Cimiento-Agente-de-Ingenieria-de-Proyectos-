@@ -2,8 +2,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
-import { Alert, Button, Tag, Modal } from "../../components/ui";
+import { Alert, Bar, Button, Eyebrow, Modal, Tag, Tile } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { projectTone } from "../../lib/palette";
 import { draftingGet, draftingPrepare, draftingSetAsks, sectionsConfirmAll, sectionsDraftAll, toAppError } from "../../lib/tauri";
 import type { AiStatus, ConversationView, DraftMode, DraftingView } from "../../lib/types";
 import { BudgetEditor } from "./BudgetEditor";
@@ -168,22 +169,20 @@ export function DraftingStage({
             <>
               <Said>{t.texts.chooseTitle}</Said>
               {choosing && (
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
                   {textChoices.map(([id, icon, variant]) => (
                     <button
                       key={id}
                       type="button"
                       disabled={asking || working}
                       onClick={() => (id === "mine" ? setMine(true) : void writeAll(id))}
-                      className={`flex flex-col gap-2 rounded-2xl p-4 text-left transition-colors disabled:opacity-60 ${
-                        variant === "primary" ? "bg-white shadow-card ring-2 ring-stone-900 hover:shadow-panel" : "bg-white shadow-card hover:shadow-panel"
-                      }`}
+                      className={`radio-card-face !items-start text-left disabled:opacity-60 ${variant === "primary" ? "!border-ink bg-inset" : ""}`}
                     >
-                      <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${variant === "primary" ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700"}`}>
-                        <Icon name={icon} size={17} />
+                      <Tile icon={icon} tone={variant === "primary" ? "ink" : "neutral"} />
+                      <span className="min-w-0 flex-1">
+                        <b className="block text-ui font-bold">{t.texts[id].title}</b>
+                        <span className="mt-1 block text-small font-medium text-ink-3">{t.texts[id].text}</span>
                       </span>
-                      <span className="text-[14px] font-semibold">{t.texts[id].title}</span>
-                      <span className="text-[13px] leading-relaxed text-stone-700">{t.texts[id].text}</span>
                     </button>
                   ))}
                 </div>
@@ -203,14 +202,26 @@ export function DraftingStage({
     </div>
   );
 
+  const totalParts = v ? v.sections.filter((s) => s.kind === "text" && s.required).length + 2 : 0;
+  const doneParts = Math.max(0, totalParts - missing);
+
   const next = (
     <div className="space-y-3">
-      <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{t.index.nextStep}</p>
-      {v && missing === 0 ? <Tag tone="green" icon="check">{t.allConfirmed}</Tag> : <p className="text-[13px] text-stone-700">{t.progress(missing)}</p>}
+      <Eyebrow>{t.index.nextStep}</Eyebrow>
+      {v && (
+        <>
+          <div className="flex items-baseline justify-between gap-3 text-ui font-semibold">
+            {missing === 0 ? <Tag tone="green" icon="check">{t.allConfirmed}</Tag> : <span>{t.progress(missing)}</span>}
+            <b className="tabular font-bold">{t.index.countOf(doneParts, totalParts)}</b>
+          </div>
+          <Bar percent={totalParts > 0 ? (doneParts / totalParts) * 100 : 0} tone={projectTone(v.project.color, v.project.id)} label={t.index.countOf(doneParts, totalParts)} />
+        </>
+      )}
       <Button variant="primary" className="w-full" onClick={onContinue} disabled={working || asking || !v || missing > 0}>
         {t.toReview}
-        <Icon name="next" size={15} />
+        <Icon name="next" size={16} />
       </Button>
+      {missing > 0 && <p className="text-small text-ink-3">{t.index.locked}</p>}
     </div>
   );
 

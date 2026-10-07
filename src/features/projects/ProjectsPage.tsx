@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Modal } from "../../components/ui";
+import { Alert, Button, Card, Modal } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { projectDelete, projectList, projectSetColor, projectSetDonorKind, toAppError } from "../../lib/tauri";
 import type { DonorKind, ProjectColor, ProjectRow } from "../../lib/types";
@@ -70,24 +70,25 @@ export function ProjectsPage({ openId, onOpen, creating, onCreating }: { openId:
 
   if (creating) {
     return (
-      <div className="mx-auto max-w-5xl">
-        <NewProjectForm
-          onCancel={() => onCreating(false)}
-          onCreated={(p) => {
-            onCreating(false);
-            onOpen(p.id);
-          }}
-        />
-      </div>
+      <NewProjectForm
+        onCancel={() => onCreating(false)}
+        onCreated={(p) => {
+          onCreating(false);
+          onOpen(p.id);
+        }}
+      />
     );
   }
 
+  // the button of the project that is in progress (the most recent one not ready) is the main one
+  const current = projects.data?.find((p) => p.stage !== "READY") ?? projects.data?.[0];
+
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1.5">
-          <h1 className="text-[34px] font-medium leading-tight">{t.title}</h1>
-          <p className="text-stone-600">{t.intro}</p>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-title font-bold tracking-tight">{t.title}</h1>
+          <p className="text-ui text-ink-3">{t.intro}</p>
         </div>
         <Button variant="primary" onClick={() => onCreating(true)}>
           <Icon name="plus" />
@@ -98,25 +99,26 @@ export function ProjectsPage({ openId, onOpen, creating, onCreating }: { openId:
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
       {projects.data?.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-14 shadow-card text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-stone-100 text-stone-800">
-            <Icon name="folder" size={26} />
+        <Card className="flex flex-col items-center gap-3 py-12 text-center">
+          <span className="grid h-ctl w-ctl place-items-center rounded-pill bg-inset text-ink-2">
+            <Icon name="folder" size={22} />
           </span>
-          <p className="text-[15px] font-semibold">{t.empty}</p>
-          <p className="max-w-md text-stone-700">{t.emptyHelp}</p>
+          <p className="text-body font-bold">{t.empty}</p>
+          <p className="max-w-md text-ui text-ink-2">{t.emptyHelp}</p>
           <Button variant="primary" onClick={() => onCreating(true)}>
             <Icon name="plus" />
             {t.newProject}
           </Button>
-        </div>
+        </Card>
       )}
 
-      <ul className="grid gap-x-5 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))]">
         {projects.data?.map((p) => (
           <ProjectFolder
             key={p.id}
             project={p}
             busy={remove.isPending}
+            primary={p.id === current?.id}
             onOpen={() => onOpen(p.id)}
             onDelete={() => setToDelete(p)}
             onColor={(color) => paint.mutate({ id: p.id, color })}
@@ -126,19 +128,22 @@ export function ProjectsPage({ openId, onOpen, creating, onCreating }: { openId:
       </ul>
 
       {toDelete && (
-        <Modal title={t.deleteTitle} onClose={() => setToDelete(null)}>
-          <p className="text-[15px]">
-            <strong>{toDelete.title}</strong>
-          </p>
-          <p className="text-[15px]">{t.deleteBody}</p>
-          <div className="flex flex-wrap gap-3">
-            <Button variant="danger" onClick={() => remove.mutate(toDelete.id)} disabled={remove.isPending}>
-              {t.deleteConfirm}
-            </Button>
-            <Button onClick={() => setToDelete(null)} disabled={remove.isPending}>
-              {es.common.cancel}
-            </Button>
-          </div>
+        <Modal
+          title={t.deleteTitle}
+          onClose={() => setToDelete(null)}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setToDelete(null)} disabled={remove.isPending}>
+                {es.common.cancel}
+              </Button>
+              <Button variant="danger" onClick={() => remove.mutate(toDelete.id)} disabled={remove.isPending}>
+                {t.deleteConfirm}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-body font-bold">{toDelete.title}</p>
+          <p className="text-body text-ink-2">{t.deleteBody}</p>
         </Modal>
       )}
     </div>
