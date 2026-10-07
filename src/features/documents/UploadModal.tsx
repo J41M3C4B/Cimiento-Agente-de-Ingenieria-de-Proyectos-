@@ -1,22 +1,12 @@
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, DropZone, Eyebrow, Inset, Modal, RadioCard, Select, TextArea, TextInput } from "../../components/ui";
+import { Alert, Button, DropZone, FormSection, Inset, Modal, RadioCard, Select, TextArea, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { baseName, extOf, fileSize, isPlainText } from "./documentsModel";
 import type { DocCol, Draft, UploadTarget } from "./documentsModel";
 
 const t = es.documents;
 const f = t.form;
-
-function FormSection({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Eyebrow>{children}</Eyebrow>
-      <span className="h-px flex-1 bg-line" aria-hidden="true" />
-    </div>
-  );
-}
 
 /**
  * The window to upload a document. From a subfolder the destination is known (it shows as a route) and the form only
@@ -120,8 +110,7 @@ export function UploadModal({
           </fieldset>
         )}
 
-        <div className="space-y-4">
-          <FormSection>{f.fileSection}</FormSection>
+        <FormSection title={f.fileSection}>
           <div>
             <span className="field-label">{f.fileLabel}</span>
             <DropZone label={f.drop} hint={f.dropHint} file={picked} changeHint={f.change} onFile={take} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.md" />
@@ -136,13 +125,12 @@ export function UploadModal({
               <option key={d} value={d} />
             ))}
           </datalist>
-        </div>
+        </FormSection>
 
-        <div className="space-y-4">
-          <FormSection>{f.pasteSection}</FormSection>
+        <FormSection title={f.pasteSection}>
           <TextInput label={t.name} required value={name} onChange={(e) => setName(e.target.value)} />
           <TextArea label={t.text} hint={f.pasteHint} required rows={8} value={text} onChange={(e) => setText(e.target.value)} />
-        </div>
+        </FormSection>
 
         {notice && notice.tone !== "ok" && <Alert tone={notice.tone}>{notice.text}</Alert>}
       </form>

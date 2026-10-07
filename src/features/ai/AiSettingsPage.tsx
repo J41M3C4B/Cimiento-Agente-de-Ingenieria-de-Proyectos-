@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Alert, Bar, Button, Card, Disclosure, Inset, RadioCard, Section, Select, StatusDot, THead, Tag, TextInput } from "../../components/ui";
+import { Alert, Bar, Button, Card, Disclosure, Inset, RadioCard, Section, Select, StatusDot, THead, Tag, TextInput, PageHeader } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import {
@@ -237,10 +237,7 @@ export function AiSettingsPage() {
   const level: Level = s ? (s.paused ? "full" : s.near_cap ? "warn" : "ok") : "ok";
   return (
     <div className="space-y-6">
-      <header className="space-y-1.5">
-        <h1 className="text-title font-bold leading-tight tracking-tight">{t.title}</h1>
-        <p className="text-ui text-ink-2">{t.intro}</p>
-      </header>
+      <PageHeader title={t.title} intro={t.intro} />
 
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 

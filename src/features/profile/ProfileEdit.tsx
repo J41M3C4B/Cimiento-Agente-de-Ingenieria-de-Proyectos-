@@ -1,10 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Alert, Button, Choice, Modal, RadioCard, TextArea, TextInput } from "../../components/ui";
+import { Alert, Button, Choice, Modal, RadioCard, TextArea, TextInput, FormSection } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { ProfileInput, ProfileIssue, ProfileView } from "../../lib/types";
-import { FormSection } from "./FormSection";
 import { emptyForm, formSchema, fromView, toInput, type FormValues } from "./profileForm";
 
 const t = es.profile;

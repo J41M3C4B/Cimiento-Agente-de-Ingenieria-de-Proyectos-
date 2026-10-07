@@ -197,6 +197,8 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 | `Tag` | 28 | pill | — | `text-small` 700, relleno 13 | `solid` (acento + `onc`), `soft` (acento al 18 % + texto mezclado), `line` (borde 1.5 px) |
 | `Avatar` | 36 (`sm` 28) | círculo | — | 12 (10.5) px 800 | color por nombre |
 | `Tile` (cuadro de ícono) | 40 (`sm` 32) | `field` | — | — | acento sólido, ícono `onc` |
+| `PageHeader` | — | — | — | título `text-title` 700; línea `text-ui` `ink-2` | en todas las páginas igual: título + una línea + acción principal a la derecha |
+| `FormSection` | — | — | línea 1 px `line` | `Eyebrow` | agrupa campos en una ventana |
 | `Card` (bandeja) | — | `card` | `shadow-card` | — | relleno 24 (20 en pequeñas) |
 | `Inset` (interior) | — | `inset` | — | — | fondo `inset`, relleno 16–20 |
 | `Folder` (carpeta con pestaña) | pestaña 46 | pestaña 18, cuerpo `card` | `drop-shadow` | título `text-body` 800 | color del proyecto en `--pc`/`--pt` |

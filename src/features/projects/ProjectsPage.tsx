@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Card, Modal } from "../../components/ui";
+import { Alert, Button, Card, Modal, PageHeader } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { projectDelete, projectList, projectSetColor, projectSetDonorKind, toAppError } from "../../lib/tauri";
 import type { DonorKind, ProjectColor, ProjectRow } from "../../lib/types";
@@ -85,16 +85,16 @@ export function ProjectsPage({ openId, onOpen, creating, onCreating }: { openId:
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-title font-bold tracking-tight">{t.title}</h1>
-          <p className="text-ui text-ink-3">{t.intro}</p>
-        </div>
-        <Button variant="primary" onClick={() => onCreating(true)}>
-          <Icon name="plus" />
-          {t.newProject}
-        </Button>
-      </header>
+      <PageHeader
+        title={t.title}
+        intro={t.intro}
+        action={
+          <Button variant="primary" onClick={() => onCreating(true)}>
+            <Icon name="plus" />
+            {t.newProject}
+          </Button>
+        }
+      />
 
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 

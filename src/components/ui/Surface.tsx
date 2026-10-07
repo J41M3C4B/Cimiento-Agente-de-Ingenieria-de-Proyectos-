@@ -1,5 +1,6 @@
 import type { ElementType, ReactNode } from "react";
 import { es } from "../../i18n/es-MX";
+import { Eyebrow } from "./Content";
 import type { Tone } from "./Tag";
 
 /** A tray: the white block where one thing is done (docs/13 §2). */
@@ -109,5 +110,31 @@ export function Figures({ items }: { items: { label: string; value: string; sub?
         </Inset>
       ))}
     </dl>
+  );
+}
+
+/** The head of every page: its title, one line that says what it is for, and (on the right) its main action. */
+export function PageHeader({ title, intro, action }: { title: string; intro?: string; action?: ReactNode }) {
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+      <div className="min-w-[260px] flex-1 space-y-1">
+        <h1 className="text-title font-bold tracking-tight">{title}</h1>
+        {intro && <p className="text-ui text-ink-2">{intro}</p>}
+      </div>
+      {action}
+    </header>
+  );
+}
+
+/** A group of fields in a window: a small heading in capitals with a hairline, then the fields (docs/13 §7, «Formulario»). */
+export function FormSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section aria-label={title} className="flex flex-col gap-3">
+      <div aria-hidden="true" className="flex items-center gap-3">
+        <Eyebrow>{title}</Eyebrow>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+      {children}
+    </section>
   );
 }

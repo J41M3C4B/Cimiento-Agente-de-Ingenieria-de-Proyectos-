@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Toast } from "../../components/ui";
+import { Alert, Button, Toast, PageHeader } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { documentAddText, documentEmergencyDelete, documentsList, toAppError } from "../../lib/tauri";
@@ -126,16 +126,16 @@ export function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-4">
-        <div className="min-w-[260px] flex-1 space-y-1.5">
-          <h1 className="text-title font-bold leading-tight tracking-tight">{t.title}</h1>
-          <p className="text-ui text-ink-2">{t.intro}</p>
-        </div>
-        <Button variant="primary" onClick={() => openForm(null)}>
-          <Icon name="upload" size={18} />
-          {t.upload}
-        </Button>
-      </header>
+      <PageHeader
+        title={t.title}
+        intro={t.intro}
+        action={
+          <Button variant="primary" onClick={() => openForm(null)}>
+            <Icon name="upload" size={18} />
+            {t.upload}
+          </Button>
+        }
+      />
 
       {notice && !form && <Alert tone={notice.tone}>{notice.text}</Alert>}
 

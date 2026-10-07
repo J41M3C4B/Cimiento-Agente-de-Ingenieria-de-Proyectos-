@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "../../components/icons";
-import { Avatar, Button, Calendar, Card, Folder, NextBox, Steps, Tag } from "../../components/ui";
+import { Avatar, Button, Calendar, Card, Folder, NextBox, Steps, Tag, PageHeader } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { projectTone } from "../../lib/palette";
 import { profileGet, projectList } from "../../lib/tauri";
@@ -48,16 +48,16 @@ export function HomePage({
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-title font-bold tracking-tight">{t.greeting}</h1>
-          <p className="text-ui text-ink-3">{today}</p>
-        </div>
-        <Button variant="primary" onClick={onNewProject}>
-          <Icon name="plus" />
-          {t.newProject}
-        </Button>
-      </header>
+      <PageHeader
+        title={t.greeting}
+        intro={today}
+        action={
+          <Button variant="primary" onClick={onNewProject}>
+            <Icon name="plus" />
+            {t.newProject}
+          </Button>
+        }
+      />
 
       {projects.isSuccess && !current && (
         <Card className="flex flex-col items-center gap-3 py-12 text-center">

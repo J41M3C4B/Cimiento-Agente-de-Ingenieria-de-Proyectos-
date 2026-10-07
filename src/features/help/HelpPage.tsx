@@ -1,4 +1,4 @@
-import { Avatar, Card, Disclosure } from "../../components/ui";
+import { Avatar, Card, Disclosure, PageHeader } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 
 const t = es.help;
@@ -7,10 +7,7 @@ const t = es.help;
 export function HelpPage() {
   return (
     <div className="space-y-6">
-      <header className="space-y-1.5">
-        <h1 className="text-title font-bold leading-tight tracking-tight">{t.title}</h1>
-        <p className="text-ui text-ink-2">{t.intro}</p>
-      </header>
+      <PageHeader title={t.title} intro={t.intro} />
 
       <div className="grid items-start gap-4 min-[1000px]:grid-cols-2">
         <Card as="section">

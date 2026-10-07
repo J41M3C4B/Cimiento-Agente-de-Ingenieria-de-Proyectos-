@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Alert, Button, DropZone, Modal, Section, StatusDot, TextInput } from "../../components/ui";
+import { Alert, Button, DropZone, Modal, Section, StatusDot, TextInput, PageHeader } from "../../components/ui";
 import { extOf, fileSize } from "../documents/documentsModel";
 import { es } from "../../i18n/es-MX";
 import { backupCreate, backupRestore, pinClear, pinSet, pinStatus, securityScan, toAppError } from "../../lib/tauri";
@@ -199,10 +199,7 @@ function ScanSection() {
 export function SecurityPage() {
   return (
     <div className="space-y-6">
-      <header className="space-y-1.5">
-        <h1 className="text-title font-bold leading-tight tracking-tight">{t.title}</h1>
-        <p className="text-ui text-ink-2">{t.intro}</p>
-      </header>
+      <PageHeader title={t.title} intro={t.intro} />
       <div className="grid items-start gap-4 min-[1000px]:grid-cols-2">
         <div className="space-y-4">
           <PinSection />
