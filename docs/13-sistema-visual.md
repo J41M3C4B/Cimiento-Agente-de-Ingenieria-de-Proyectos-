@@ -11,26 +11,24 @@ Cimiento acompaña a personas que dan asistencia social, con poco tiempo y poca 
 Tres ideas sostienen todo lo demás:
 
 1. **Color con significado.** Cada cosa que importa tiene su color sólido y lo conserva en toda la app. El color ayuda a reconocer dónde se está y qué sigue; las monjas que probaron las referencias lo señalaron como lo que más les facilita el uso. Nunca es el único dato: siempre va con palabras.
-2. **Bandejas sobre un marco.** Todo vive dentro de un marco redondeado claro; dentro, cada tema es una bandeja blanca, grande, con mucho aire. Una pantalla es un tablero de bandejas, no una página larga.
+2. **Bandejas sobre el fondo.** No hay una hoja ni un marco entre la ventana y el contenido (parecería una aplicación dentro de otra): cada tema es una bandeja blanca, grande, con mucho aire, directamente sobre el fondo de la ventana. Una pantalla es un tablero de bandejas, no una página larga.
 3. **Una cosa a la vez.** Cada bandeja responde una pregunta. Lo que se puede hacer ahora es lo más grande y lo más oscuro de la pantalla.
 
 Corolario para Inicio y para cualquier pantalla de entrada: **mostrar menos**. Lo que se hace con el asistente se hace en su pantalla, no se duplica en miniatura; lo que es mantenimiento (la ficha de la institución) se resume en una línea y un enlace; y cada dato aparece una sola vez.
 
 ## 2. Superficies
 
-Tres niveles, de atrás hacia adelante. La profundidad la da el cambio de tono y una sombra muy suave, no los bordes.
+Tres niveles, de atrás hacia adelante; **no hay un nivel de «hoja» o «marco» entre el fondo y las bandejas**. La profundidad la da el cambio de tono y una sombra muy suave, no los bordes.
 
 | Nivel | Qué es | Claro | Oscuro | Radio |
 |---|---|---|---|---|
-| 0 · Lienzo | El fondo de la ventana | `#E4E5E8` | `#0E0F12` | — |
-| 1 · Marco | La hoja grande que contiene todo | `#F2F2F4` | `#17181C` | 32 px |
-| 2 · Bandeja | Cada módulo | `#FFFFFF` | `#1F2025` | 28 px |
-| 3 · Interior | Elementos dentro de una bandeja (burbujas, calendario, campos) | `#F6F6F8` | `#26272D` | 18–20 px |
+| 0 · Fondo | La ventana misma (token `canvas`) | `#F2F2F4` | `#16171B` | — |
+| 1 · Bandeja | Cada módulo | `#FFFFFF` | `#1F2025` | 28 px |
+| 2 · Interior | Elementos dentro de una bandeja (burbujas, calendario, campos) | `#F6F6F8` | `#26272D` | 18–20 px |
 
 Sombras:
 
 - Bandeja: `0 1px 1px rgb(20 20 30 / .03), 0 10px 30px -12px rgb(20 20 30 / .12)`.
-- Marco: `0 30px 80px -30px rgb(20 20 30 / .25)`.
 - Flotante (menús, ventanas): `0 24px 60px -16px rgb(20 20 30 / .3)`.
 - Las bandejas con pestaña usan `filter: drop-shadow(...)` en lugar de `box-shadow`, para que la sombra siga la forma.
 
@@ -101,7 +99,7 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 ## 5. Espacio, radios y tamaños
 
 - Escala de espacio (px): 4 · 8 · 12 · 16 · 24 · 32 · 48. Entre bandejas: 16. Relleno interior de una bandeja: 24 (20 en las pequeñas).
-- Radios: marco 32 · bandeja 28 · interior 18–20 · campo 14 · etiqueta y botón de ícono: círculo completo (999).
+- Radios: bandeja 28 · interior 18–20 · campo 14 · etiqueta y botón de ícono: círculo completo (999).
 - Altura de controles: 40 (botón), 44 (botón circular de ícono), 36 (etiqueta y campo compacto). Botón principal de una bandeja: 44.
 - Íconos: trazo de 1.8 px (los actuales de `icons.tsx`), 18–20 px.
 
@@ -112,7 +110,7 @@ Los valores de §2–§5 viven en **un solo lugar**, `src/index.css`, en tres ni
 | Nivel | Qué es | Dónde | Ejemplos |
 |---|---|---|---|
 | 1 · Primitivos | Los ocho acentos y la letra sobre ellos; no cambian con el tema | `@theme` | `sky violet rose red amber green teal cyan`, `onc` |
-| 2 · Semánticos | Superficies, tinta y líneas; cambian con el tema claro/oscuro | `:root` y `[data-theme]` (variables), expuestos en `@theme inline` | `canvas frame card inset line ink ink-2 ink-3 on-ink` |
+| 2 · Semánticos | Superficies, tinta y líneas; cambian con el tema claro/oscuro | `:root` y `[data-theme]` (variables), expuestos en `@theme inline` | `canvas card inset line ink ink-2 ink-3 on-ink` |
 | 3 · De componente | Medidas y formas que un componente comparte con todos los demás | `@theme` (radios, alturas, tipografía, sombras) y clases de componente | `rounded-field`, `h-field`, `text-ui`, `shadow-card`, `.btn`, `.field`, `.tag` |
 
 Nombres de las superficies: **`card`** es la bandeja blanca (nivel 2 de §2), **`inset`** el interior (nivel 3).
@@ -122,9 +120,9 @@ Nombres de las superficies: **`card`** es la bandeja blanca (nivel 2 de §2), **
 | Texto de estado | `text-sky-ink` · `text-red-ink` · `text-amber-ink` · `text-green-ink` | el acento al 45 % mezclado con `ink`; ≥ 5:1 sobre la bandeja en claro y oscuro. Para palabras sueltas de estado (un error bajo un campo, «Por revisar»); lo demás usa etiquetas sólidas |
 | Tipografía | `text-caption` · `text-small` · `text-ui` · `text-body` · `text-heading` · `text-subtitle` · `text-title` · `text-hero` · `text-display` | 12.5 · 13 · 14 · 15 · 18 · 22 · 28 · 32 · 72 px |
 | Peso | `font-normal` (cifras) · `font-medium` (base) · `font-semibold` · `font-bold` (títulos, botones, etiquetas) · `font-extrabold` (avatares, pestañas) | 400 · 500 · 600 · 700 · 800 |
-| Radios | `rounded-tick` · `rounded-field` · `rounded-inset` · `rounded-card` · `rounded-frame` · `rounded-pill` | 8 · 14 · 20 · 28 · 32 · 999 px |
+| Radios | `rounded-tick` · `rounded-field` · `rounded-inset` · `rounded-card` · `rounded-pill` | 8 · 14 · 20 · 28 · 999 px |
 | Alturas | `h-tag` · `h-ctl-sm` · `h-ctl` · `h-field` | 28 · 36 · 44 · 48 px |
-| Sombras | `shadow-card` · `shadow-frame` · `shadow-float` | ver §2 |
+| Sombras | `shadow-card` · `shadow-float` | ver §2 |
 | Espacio | escala de 4 px de Tailwind, solo 1 · 2 · 3 · 4 · 6 · 8 · 12 (4, 8, 12, 16, 24, 32, 48) | §5 |
 
 Los tamaños, radios, colores y sombras de Tailwind que no están en estas tablas **no existen** (se vaciaron en `@theme`): una clase como `text-sm`, `rounded-xl` o `bg-stone-100` no genera nada.
@@ -132,24 +130,22 @@ Los tamaños, radios, colores y sombras de Tailwind que no están en estas tabla
 ## 6. Estructura de pantalla
 
 ```
-┌ Lienzo ─────────────────────────────────────────────────────────┐
-│ ┌ Marco ──────────────────────────────────────────────────────┐ │
-│ │ [logo] [cápsula: dónde estoy · avance]        (🔔)(🔍)(☰)(C)│ │
-│ │ (⌂)  ┌ bandeja ┐ ┌ bandeja ┐ ┌ bandeja con pestaña ───────┐ │ │
-│ │ (▣)  │         │ │         │ │                            │ │ │
-│ │ (♜)  └─────────┘ └─────────┘ └────────────────────────────┘ │ │
-│ │ (▤)  ┌ bandeja ──────┐ ┌ chat ────────────┐ ┌ cifra ──────┐ │ │
-│ │ ...  └───────────────┘ └──────────────────┘ └─────────────┘ │ │
-│ │ (⏻)                                                          │ │
-│ └──────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────┘
+┌ Fondo de la ventana ────────────────────────────────────────────┐
+│  [logo] [cápsula: dónde estoy · avance]            (☾)  Institución (C) │
+│  (⌂)   ┌ bandeja ┐  ┌ bandeja ┐  ┌ bandeja con pestaña ──────┐ │
+│  (▣)   │         │  │         │  │                           │ │
+│  (♜)   └─────────┘  └─────────┘  └───────────────────────────┘ │
+│  (▤)   ┌ bandeja ──────┐  ┌ chat ───────────┐  ┌ cifra ─────┐ │
+│  ...   └───────────────┘  └─────────────────┘  └────────────┘ │
+│  (⏻)                                                            │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-- **Marco:** ocupa la ventana con 16 px de margen; contenido a 1440 px como máximo.
+- **Ventana:** el contenido ocupa toda la ventana con 16 px de margen y 1440 px como máximo, **directamente sobre el fondo**: no hay marco, hoja ni sombra entre el fondo y las bandejas.
 - **Barra superior:** a la izquierda el logo y una **cápsula** (píldora blanca) que dice dónde se está: proyecto, paso y su avance en seis puntos del color del proyecto. A la derecha, botones circulares con borde de 1 px: avisos, buscar, menú y la institución.
 - **Riel izquierdo:** botones circulares de 44 px, en columna: Inicio, Mis proyectos, Mi institución, Documentos; separador; Ayuda automática, Seguridad; al fondo Ayuda y **Bloquear en rojo**. El activo va relleno de `ink`. Con etiqueta al pasar el cursor (tooltip a la derecha), no desplegable.
 - **Cuadrícula:** 12 columnas, separación de 16. Las bandejas ocupan 3, 4, 5, 6 o 8 columnas; en pantallas angostas (< 900 px) pasan a una columna y el riel se vuelve una fila horizontal.
-- **Bandeja con pestaña:** el título vive en una pestaña recortada en la esquina superior izquierda (esquinas cóncavas); sirve para bandejas con un tema («Mi institución», «Resumen del proyecto»). Las pestañas **de una página** (Mi institución) no llevan bandeja gris: son píldoras directamente sobre el marco y la activa se levanta en blanco.
+- **Bandeja con pestaña:** el título vive en una pestaña recortada en la esquina superior izquierda (esquinas cóncavas); sirve para bandejas con un tema («Mi institución», «Resumen del proyecto»). Las pestañas **de una página** (Mi institución) no llevan bandeja gris: son píldoras directamente sobre el fondo y la activa se levanta en blanco.
 - **Bandeja de proyecto como carpeta:** cada proyecto se muestra en una bandeja con **pestaña de carpeta**: 46 px de alto, **una sola línea** con el título del proyecto, esquinas superiores de 18 px y una esquina cóncava de 18 px a la derecha. Una pestaña más alta (con dos líneas) se ve como una gorra, no como una pestaña. La pestaña lleva **el color del proyecto**, el que su dueña le asignó (`project.color`), con el texto de 3.2. **Quien convoca va dentro del cuerpo, a la derecha de la etiqueta del paso**, en `ink-3`. El título que no cabe se corta con puntos suspensivos y el completo va en el atributo `title`. El **paso** va como etiqueta sólida **en el mismo color del proyecto**; los pasos no tienen color propio. El cuerpo es blanco, con la esquina superior izquierda recta bajo la pestaña, y la sombra va con `drop-shadow` para seguir la forma. En la bandeja del proyecto en curso, **la fecha de cierre va dentro de la pestaña**, a la derecha del título, como una cápsula blanca («Cierra el 15 oct»; en pantallas angostas solo «15 oct»); en las tarjetas resumidas la fecha va en el pie. No hay botón «Continuar» en la pestaña.
 
 ## 7. Componentes
@@ -202,7 +198,7 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 | `Card` (bandeja) | — | `card` | `shadow-card` | — | relleno 24 (20 en pequeñas) |
 | `Inset` (interior) | — | `inset` | — | — | fondo `inset`, relleno 16–20 |
 | `Folder` (carpeta con pestaña) | pestaña 46 | pestaña 18, cuerpo `card` | `drop-shadow` | título `text-body` 800 | color del proyecto en `--pc`/`--pt` |
-| `Dock` y `DockTab` (pestañas de página) | 44 | pill | `shadow-card` en la activa | `text-ui` 700 | van **directamente sobre el marco**, sin bandeja gris detrás; la activa se levanta en blanco y el contenido de cada pestaña también va sobre el marco, en sus propias bandejas |
+| `Dock` y `DockTab` (pestañas de página) | 44 | pill | `shadow-card` en la activa | `text-ui` 700 | van **directamente sobre el fondo**, sin bandeja gris detrás; la activa se levanta en blanco y el contenido de cada pestaña también va sobre el marco, en sus propias bandejas |
 | `Segmented` (control segmentado) | 44 (pista) / 36 (opción) | pill | — | `text-small` 700 | opción activa en `card` con `shadow-card` |
 | `Check` | 24 | `tick` | 2 px `line` | — | marcada = `ink` |
 | `Switch` | 28 × 48 | pill | — | — | activo en `green` |
@@ -235,7 +231,7 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 |---|---|
 | **Inicio** (nueva) | Responde solo dos preguntas: «¿qué hago ahora?» y «¿se me viene un plazo?». Un saludo corto con «Empezar un proyecto nuevo» como botón principal a la derecha; la bandeja principal del proyecto en curso (pestaña de carpeta con el título, en el color del proyecto, y la cápsula con el cierre dentro de la pestaña; en el cuerpo la etiqueta con el paso, también del color del proyecto, y a la derecha quien convoca; los seis pasos con su nombre, todos del color del proyecto, **un único bloque destacado «Lo siguiente»** que contiene **el único botón de continuar de la bandeja**: un círculo negro con una flecha que, al pasar el cursor o enfocarlo, se abre en una píldora con la palabra «Continuar» dentro del mismo botón (nunca un letrero aparte, que se leería como un segundo botón); el bloque entero también es pulsable, dos filas de «Después, en este paso», una línea de lo ya terminado y un enlace de ayuda al asistente); «Fechas clave» con el calendario del cierre; una tarjeta pequeña de la institución (estado de la ficha y una razón para tenerla al día, sin listas ni botones de alta); y «Otros proyectos» con una tarjeta resumida por proyecto (ver «Tarjeta de proyecto» en 7). Sin chat, sin pestañas y sin casillas: el avance lo decide el asistente, no la persona |
 | **Mis proyectos** | Todos los proyectos con la misma tarjeta resumida que Inicio (la del proyecto más urgente incluida), ordenados por fecha de cierre; «Empezar un proyecto nuevo» como botón principal en el encabezado |
-| **Mi institución** | Una sola bandeja de cabecera en dos mitades: a la izquierda la identidad, sin ícono de perfil, en tres alturas: «Mi institución» como etiqueta pequeña arriba, el nombre (32 px) y la misión centrados verticalmente con mucho aire entre ellos, y la etiqueta de estado con «Editar» pegadas al fondo; a la derecha un grupo de 2×2 con las cifras en interiores (personas `violet` con barra de ocupación, personal `teal`, nómina `amber`, cuotas `green`), cada una con su ícono en cuadro de color, etiqueta, cifra de 30 px y detalle. Debajo, las pestañas (píldoras sobre el marco, sin bandeja gris detrás); datos en bandejas con filas; en Personal, Beneficiarios e Instalaciones, el botón principal «Agregar …» va arriba a la derecha de la barra de herramientas **y** la casilla discontinua al final de la lista (los dos); ingresos con barra de composición; tablas con avatares y etiquetas. Por debajo de 1000 px la bandeja pasa a una columna y por debajo de 520 px el grupo también |
+| **Mi institución** | Una sola bandeja de cabecera en dos mitades: a la izquierda la identidad, sin ícono de perfil, en tres alturas: «Mi institución» como etiqueta pequeña arriba, el nombre (32 px) y la misión centrados verticalmente con mucho aire entre ellos, y la etiqueta de estado con «Editar» pegadas al fondo; a la derecha un grupo de 2×2 con las cifras en interiores (personas `violet` con barra de ocupación, personal `teal`, nómina `amber`, cuotas `green`), cada una con su ícono en cuadro de color, etiqueta, cifra de 30 px y detalle. Debajo, las pestañas (píldoras sobre el fondo, sin bandeja gris detrás); datos en bandejas con filas; en Personal, Beneficiarios e Instalaciones, el botón principal «Agregar …» va arriba a la derecha de la barra de herramientas **y** la casilla discontinua al final de la lista (los dos); ingresos con barra de composición; tablas con avatares y etiquetas. Por debajo de 1000 px la bandeja pasa a una columna y por debajo de 520 px el grupo también |
 | **Espacio de trabajo (Asistente)** | La misma carpeta de proyecto que en Inicio, a ocho columnas: pestaña con el título y la cápsula de cierre, etiqueta del paso con quien convoca, los seis pasos y el chat (burbujas, respuestas rápidas como píldoras, caja con envío circular negro). A cuatro columnas, un panel con **tres pestañas**: **Proyecto** (objetivo, partes con su estado y el «Siguiente paso» con la barra «3 de 14» y el botón de revisión, que explica por qué está cerrado), **Convocatoria** (resumen y lo más importante) y **Fuentes** (los documentos que el asistente consulta para este proyecto: la convocatoria, los del donante y los de la institución, con un enlace a Documentos para administrarlos). Todo en el color del proyecto; solo los estados usan `amber` o `green` |
 | **Documentos** | Dos contenedores de carpeta con pestaña negra, lado a lado: **«De mi institución»** (acta, estados financieros, reportes) y **«De los donantes»** (reglas, indicadores, formatos que casi no cambian y valen para varias convocatorias). Cada uno se **agrupa** a elección con un control segmentado: el de la institución por **tipo** (Legales, Financieros, Programas) o **año**; el de los donantes por **donante** o **tipo** (Reglas, Indicadores, Guías y formatos). Los grupos son subcarpetas con viñeta y borde, plegables, cada una con su botón «Subir a «…»» y arrastre (ver Componentes), y hay búsqueda en vivo. «Subir documento» (botón principal del encabezado) abre un formulario: de quién es (tarjetas), archivo, donante (si aplica, con sugerencias de los ya existentes) y tipo. Tras subirlo aparece como «Leyendo…» y pasa a «Leído» cuando el asistente termina |
 | **Ventanas** | Igual que hoy, con el estilo de bandeja |
@@ -244,10 +240,10 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 
 | Hoy | Propuesta |
 |---|---|
-| Lienzo gris + una hoja blanca + barra superior de texto | Marco claro redondeado con riel de íconos y cápsula superior |
+| Lienzo gris + una hoja blanca + barra superior de texto | Riel de íconos y cápsula superior, con bandejas directamente sobre el fondo de la ventana (sin hoja ni marco) |
 | Casi sin color (tinta + un azul) | Ocho acentos sólidos y vivos, iguales en claro y oscuro, con significado fijo |
 | Inter | Plus Jakarta Sans |
-| Pestañas segmentadas | Píldoras de pestaña sobre el marco, la activa levantada en blanco (sin bandeja gris detrás) |
+| Pestañas segmentadas | Píldoras de pestaña sobre el fondo, la activa levantada en blanco (sin bandeja gris detrás) |
 | Etiquetas apagadas | Etiquetas sólidas con el texto de 3.2 |
 | Radios 10 / 20 | 14 / 20 / 28 / 32 |
 
@@ -258,7 +254,7 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 - **Riel de íconos:** sin etiqueta visible cuesta reconocer las secciones. Mitigación: tooltip inmediato y etiqueta bajo el ícono activo. Decidir en la prueba con las monjas.
 - **Avatares de color para personas:** vuelven a aparecer nombres de personal en pantalla; es lo mismo que hoy (datos locales) pero hay que mantener que no salgan en documentos.
 - **Fuente:** `@fontsource-variable/plus-jakarta-sans` se empaqueta con la app (sin red); confirmar el peso extra (~100 KB).
-- **Lienzo y marco en ventana pequeña:** por debajo de 900 px el riel pasa a fila y las bandejas a una columna; verificar en la ventana real de Tauri.
+- **Ventana pequeña:** por debajo de 900 px el riel pasa a fila y las bandejas a una columna; verificar en la ventana real de Tauri.
 
 ## 13. Validación
 

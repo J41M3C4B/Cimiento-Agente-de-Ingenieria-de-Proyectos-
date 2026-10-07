@@ -22,7 +22,7 @@ const MORE: [Page, string, IconName][] = [
 ];
 
 /**
- * The frame of the whole program (docs/13 §6): a light rounded sheet with a rail of round buttons on the left, a
+ * The layout of the whole program (docs/13 §6): a rail of round buttons on the left, a
  * capsule on top that says where the person is, and the page in the middle.
  */
 export function Shell({

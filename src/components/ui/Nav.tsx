@@ -5,7 +5,7 @@ import type { Tone } from "./Tag";
 type TabItem<T extends string> = { id: T; label: string; count?: number; alert?: boolean };
 
 /**
- * The tabs of a page (docs/13 §6): pills straight on the frame, the chosen one lifted on white; the panels below sit on the frame too, with no tray behind. The panel is the
+ * The tabs of a page (docs/13 §6): pills straight on the window background, the chosen one lifted on white; the panels below sit there too, with no tray behind. The panel is the
  * `children` (use `TabPanel`); each tab names it with `aria-controls`.
  */
 export function Dock<T extends string>({

@@ -63,7 +63,6 @@
   --radius-field: 14px;
   --radius-inset: 20px;
   --radius-card: 28px;
-  --radius-frame: 32px;
   --radius-pill: 999px;
 
   /* alturas de los controles */
@@ -74,14 +73,12 @@
 
   /* sombras */
   --shadow-card: 0 1px 1px rgb(20 20 30 / 0.03), 0 10px 30px -12px rgb(20 20 30 / 0.12);
-  --shadow-frame: 0 30px 80px -30px rgb(20 20 30 / 0.25);
   --shadow-float: 0 24px 60px -16px rgb(20 20 30 / 0.3);
 }
 
 /* ── 2 · Semánticos (tema claro por defecto) ─────────────────────────────────────────────────────────────────── */
 :root {
-  --canvas: #e4e5e8;
-  --frame: #f2f2f4;
+  --canvas: #f2f2f4;
   --card: #ffffff;
   --inset: #f5f5f8;
   --line: #e6e6ea;
@@ -93,13 +90,11 @@
   --drop: rgb(20 20 30 / 0.1);
   --ring: color-mix(in srgb, var(--color-sky) 45%, transparent);
   --shadow-card-v: 0 1px 1px rgb(20 20 30 / 0.03), 0 10px 30px -12px rgb(20 20 30 / 0.12);
-  --shadow-frame-v: 0 30px 80px -30px rgb(20 20 30 / 0.25);
   --shadow-float-v: 0 24px 60px -16px rgb(20 20 30 / 0.3);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --canvas: #0c0d10;
-    --frame: #16171b;
+    --canvas: #16171b;
     --card: #1f2025;
     --inset: #292a30;
     --line: #30323a;
@@ -109,14 +104,12 @@
     --on-ink: #121216;
     --drop: rgb(0 0 0 / 0.35);
     --shadow-card-v: 0 1px 1px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.5);
-    --shadow-frame-v: 0 30px 80px -30px rgb(0 0 0 / 0.6);
     --shadow-float-v: 0 24px 60px -16px rgb(0 0 0 / 0.7);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --canvas: #0c0d10;
-  --frame: #16171b;
+  --canvas: #16171b;
   --card: #1f2025;
   --inset: #292a30;
   --line: #30323a;
@@ -126,7 +119,6 @@
   --on-ink: #121216;
   --drop: rgb(0 0 0 / 0.35);
   --shadow-card-v: 0 1px 1px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.5);
-  --shadow-frame-v: 0 30px 80px -30px rgb(0 0 0 / 0.6);
   --shadow-float-v: 0 24px 60px -16px rgb(0 0 0 / 0.7);
   color-scheme: dark;
 }
@@ -134,7 +126,6 @@
 /* los semánticos se exponen como clases de Tailwind (bg-card, text-ink-2, border-line…) */
 @theme inline {
   --color-canvas: var(--canvas);
-  --color-frame: var(--frame);
   --color-card: var(--card);
   --color-inset: var(--inset);
   --color-line: var(--line);
@@ -148,7 +139,6 @@
   --color-amber-ink: color-mix(in srgb, var(--color-amber) 45%, var(--ink));
   --color-green-ink: color-mix(in srgb, var(--color-green) 45%, var(--ink));
   --shadow-card: var(--shadow-card-v);
-  --shadow-frame: var(--shadow-frame-v);
   --shadow-float: var(--shadow-float-v);
 }
 
@@ -485,9 +475,9 @@ h1, h2, h3 {
   .next-box:hover .next-go > span, .next-box:focus-visible .next-go > span { max-width: 110px; margin-right: 10px; opacity: 1; }
   @media (max-width: 520px) { .next-box { padding-right: 22px; padding-bottom: 76px; } .next-go { top: auto; bottom: 16px; transform: none; } }
 
-  /* Marco, riel y cápsula (docs/13 §6) */
-  .shell { display: flex; justify-content: center; align-items: stretch; min-height: 100vh; padding: 16px; }
-  .frame { align-content: start; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px 20px; width: 100%; max-width: 1440px; padding: 16px; background: var(--frame); border-radius: var(--radius-frame); box-shadow: var(--shadow-frame-v); }
+  /* Ventana, riel y cápsula (docs/13 §6): todo va directamente sobre el fondo de la ventana, sin una hoja o marco intermedio */
+  .shell { display: flex; justify-content: center; min-height: 100vh; }
+  .frame { align-content: start; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px 20px; width: 100%; max-width: 1440px; padding: 16px; }
   .topbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
   .capsule { flex: 1 1 240px; max-width: 640px; min-width: 0; display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 8px 0 22px; border-radius: var(--radius-pill); background: var(--card); box-shadow: var(--shadow-card-v); }
   .rail { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; padding-top: 4px; }
@@ -500,7 +490,7 @@ h1, h2, h3 {
   }
   .rail .icon-btn[data-tip]:hover::after, .rail .icon-btn[data-tip]:focus-visible::after { opacity: 1; transform: translateY(-50%); }
   @media (max-width: 860px) {
-    .frame { grid-template-columns: minmax(0, 1fr); padding: 12px; border-radius: 26px; }
+    .frame { grid-template-columns: minmax(0, 1fr); padding: 12px; }
     .rail { flex-direction: row; order: 1; max-width: 100%; padding: 4px 2px 8px; overflow-x: auto; }
     .rail-gap, .rail-sep { display: none; }
     .rail .icon-btn[data-tip]::after { display: none; }

@@ -1,4 +1,4 @@
-# ADR-025 · Identidad visual: bandejas sobre un marco, color con significado y tokens como única fuente
+# ADR-025 · Identidad visual: bandejas sobre el fondo de la ventana, color con significado y tokens como única fuente
 
 **Estado:** aceptada.
 
@@ -8,7 +8,7 @@ La interfaz anterior (tinta, un azul, hoja blanca, Inter) era correcta pero gen�
 
 ## Decisión
 
-1. Se adopta el sistema descrito en `docs/13-sistema-visual.md`: marco redondeado con riel de íconos y cápsula superior, bandejas de 28 px, ocho acentos sólidos iguales en claro y oscuro con letra negra, «un proyecto, un color» y Plus Jakarta Sans.
+1. Se adopta el sistema descrito en `docs/13-sistema-visual.md`: riel de íconos y cápsula superior con bandejas de 28 px directamente sobre el fondo de la ventana (sin marco ni hoja intermedia, que parecía una aplicación dentro de otra), ocho acentos sólidos iguales en claro y oscuro con letra negra, «un proyecto, un color» y Plus Jakarta Sans.
 2. **Los tokens son la única fuente de verdad** y viven en `src/index.css` en tres niveles (primitivos, semánticos, de componente). Se vacían las escalas por defecto de Tailwind (colores, tamaños de letra, radios, sombras) para que solo existan los tokens del sistema.
 3. **Las pantallas componen componentes**, que viven en `src/components/ui/`. Cada componente tiene una sola medida (tabla 7.1 del documento).
 4. **La regla se hace cumplir con una prueba** (`src/design.test.ts`) que falla si una pantalla usa colores sueltos, tamaños arbitrarios o las escalas de Tailwind eliminadas.

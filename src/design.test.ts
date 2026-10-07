@@ -20,10 +20,10 @@ const walk = (dir: string): string[] =>
 // the catalog and the tokens are where the values live; tests and texts are not interface code
 const screens = walk(SRC).filter((f) => /\.(tsx?)$/.test(f) && !/\.test\.tsx?$/.test(f) && !f.includes(`${join("components", "ui")}`) && !f.includes("i18n") && !f.includes("design.test"));
 
-const COLORS = "ink|ink-2|ink-3|on-ink|onc|sky-ink|red-ink|amber-ink|green-ink|sky|violet|rose|red|amber|green|teal|cyan|card|inset|line|canvas|frame|current|transparent|inherit";
+const COLORS = "ink|ink-2|ink-3|on-ink|onc|sky-ink|red-ink|amber-ink|green-ink|sky|violet|rose|red|amber|green|teal|cyan|card|inset|line|canvas|current|transparent|inherit";
 const SIZES = "caption|small|ui|body|heading|subtitle|title|hero|display";
 const ALIGN = "left|center|right|justify|start|end|wrap|nowrap|balance|pretty|ellipsis|clip";
-const RADII = "tick|field|inset|card|frame|pill|none";
+const RADII = "tick|field|inset|card|pill|none";
 
 type Rule = { name: string; test: RegExp; why: string };
 const rules: Rule[] = [
@@ -32,11 +32,11 @@ const rules: Rule[] = [
   { name: "white or black", test: /\b(?:bg|text|border|ring|fill|stroke|divide)-(?:white|black)\b/, why: "use bg-card / text-on-ink / bg-ink" },
   { name: "arbitrary value for identity", test: /\b(?:text|rounded(?:-[a-z]{1,2})?|shadow|bg|border(?:-[a-z])?|ring|font|leading|tracking|p[xytrbl]?|m[xytrbl]?|gap(?:-[xy])?|space-[xy]|size|inset|top|bottom|left|right)-\[/, why: "use a token (text-ui, rounded-field, shadow-card…); only layout sizes (w-, h-, min-, max-, grid-cols-) may be arbitrary" },
   { name: "Tailwind default size", test: /\btext-(?:xs|sm|base|lg|xl|[2-9]xl)\b/, why: "text sizes are caption, small, ui, body, heading, subtitle, title, hero, display" },
-  { name: "Tailwind default radius", test: /\brounded(?:-(?:t|b|l|r|tl|tr|bl|br|s|e))?(?:-(?:xs|sm|md|lg|xl|2xl|3xl|4xl|full))?(?=["'`\s}]|$)(?<!rounded-(?:t|b|l|r|tl|tr|bl|br|s|e))/, why: "radii are rounded-tick, field, inset, card, frame, pill" },
-  { name: "Tailwind default shadow", test: /\bshadow(?:-(?:2xs|xs|sm|md|lg|xl|2xl|inner|lift|panel))?(?=["'`\s}]|$)/, why: "shadows are shadow-card, shadow-frame, shadow-float" },
+  { name: "Tailwind default radius", test: /\brounded(?:-(?:t|b|l|r|tl|tr|bl|br|s|e))?(?:-(?:xs|sm|md|lg|xl|2xl|3xl|4xl|full))?(?=["'`\s}]|$)(?<!rounded-(?:t|b|l|r|tl|tr|bl|br|s|e))/, why: "radii are rounded-tick, field, inset, card, pill" },
+  { name: "Tailwind default shadow", test: /\bshadow(?:-(?:2xs|xs|sm|md|lg|xl|2xl|inner|lift|panel))?(?=["'`\s}]|$)/, why: "shadows are shadow-card, shadow-float" },
   { name: "unknown text-*", test: new RegExp(`\\btext-(?!(?:${SIZES}|${ALIGN}|${COLORS})(?![\\w-]))[a-z][\\w-]*`), why: "unknown text token (sizes or colors from src/index.css)" },
   { name: "unknown bg-*", test: new RegExp(`\\bbg-(?!(?:${COLORS}|none|gradient|linear|radial|conic|clip|fixed|local|scroll|center|cover|contain|repeat|no-repeat)(?![\\w-]))[a-z][\\w-]*`), why: "unknown background token" },
-  { name: "unknown rounded-*", test: new RegExp(`\\brounded-(?:(?:t|b|l|r|tl|tr|bl|br|s|e)-)?(?!(?:${RADII})(?![\\w-]))[a-z0-9][\\w-]*`), why: "radii are rounded-tick, field, inset, card, frame, pill" },
+  { name: "unknown rounded-*", test: new RegExp(`\\brounded-(?:(?:t|b|l|r|tl|tr|bl|br|s|e)-)?(?!(?:${RADII})(?![\\w-]))[a-z0-9][\\w-]*`), why: "radii are rounded-tick, field, inset, card, pill" },
   { name: "colored style", test: /style=\{\{[^}]*\b(?:color|background|backgroundColor|borderColor|borderRadius|fontSize|fontWeight|boxShadow)\s*:/, why: "colors, radii, sizes and shadows are tokens; style is only for measures that come from data (widths, percentages)" },
 ];
 
