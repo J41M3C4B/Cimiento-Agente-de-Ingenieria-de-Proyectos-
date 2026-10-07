@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Card, Dock, Eyebrow, FactRow, Facts, Inset, Metric, RowActions, TabPanel, Tag, TextButton, Toast } from "../../components/ui";
-import type { Tone } from "../../components/ui";
+import { Alert, Button, Card, Dock, Eyebrow, FactRow, Facts, Inset, Metric, TabPanel, Tag, TextButton, Toast } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileConfirm, profileGet, profileSave, rosterOverview, toAppError } from "../../lib/tauri";
 import type { Decision, ProfileInput, ProfileIssue, ProfileTotals, ProfileView, QuarantineReport } from "../../lib/types";
 import { FacilitiesTab } from "./FacilitiesTab";
+import { BalanceCard, ExpensesCard, IncomeCard } from "./FinanceCards";
 import { ProfileEdit } from "./ProfileEdit";
 import type { Edit } from "./ProfileEdit";
 import { fromView, toInput } from "./profileForm";
@@ -23,10 +23,6 @@ const ZERO: ProfileTotals = {
   payroll_monthly_mxn: 0, payroll_annual_mxn: 0, payroll_benefits_annual_mxn: 0, payroll_cost_annual_mxn: 0, benefits_assumed: 0,
   fee_payers: 0, fees_monthly_mxn: 0, fees_annual_mxn: 0,
 };
-
-/** The colors of the income sources in the composition bar and its legend (red and amber are kept for what is wrong). */
-const SOURCE_TONES: Tone[] = ["sky", "violet", "cyan", "teal", "rose", "green"];
-const SOURCE_BG: Partial<Record<Tone, string>> = { sky: "bg-sky", violet: "bg-violet", cyan: "bg-cyan", teal: "bg-teal", rose: "bg-rose", green: "bg-green" };
 
 /**
  * Mi institución (docs/13 §10). One header tray in two halves: who the institution is (name, mission, state) and
@@ -104,7 +100,7 @@ export function ProfilePage() {
     }
   }
 
-  function removeItem(kind: "income" | "facilities", index: number) {
+  function removeItem(kind: "income" | "expenses" | "facilities", index: number) {
     if (!view) return;
     const f = fromView(view);
     f[kind].splice(index, 1);
@@ -123,9 +119,6 @@ export function ProfilePage() {
   const staffCount = staffRoster.data?.entries.length ?? 0;
   const peopleCount = peopleRoster.data?.entries.length ?? 0;
   const facilities = view?.input.facilities ?? [];
-  // every line and its yearly amount come from Rust (ADR-026); a line without `index` is computed (the roster fees)
-  const income = view?.finances.income ?? [];
-  const incomeTotal = view?.finances.income_annual_mxn ?? 0;
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
 
   // what is still missing, each one leading to where it is filled in
@@ -140,7 +133,6 @@ export function ProfilePage() {
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 
   const [showTodo, setShowTodo] = useState(false);
-  const tone = (i: number): Tone => SOURCE_TONES[i % SOURCE_TONES.length]!;
   const capacity = view?.input.capacity_total ?? 0;
 
   return (
@@ -193,7 +185,7 @@ export function ProfilePage() {
           <div className="grid min-w-0 grid-cols-2 gap-3 max-[520px]:grid-cols-1">
             <Metric icon="heart" tone="violet" label={t.kpi.people} value={money(totals.population)} sub={capacity ? t.kpi.peopleOf(money(capacity)) : undefined} fill={capacity ? (totals.population / capacity) * 100 : undefined} />
             <Metric icon="briefcase" tone="teal" label={t.kpi.staff} value={money(staffRoster.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)} sub={t.kpi.staffPaid(totals.staff_paid)} />
-            <Metric icon="banknote" tone="amber" label={t.kpi.payroll} value={peso(totals.payroll_monthly_mxn)} sub={t.kpi.perYear(peso(totals.payroll_annual_mxn))} />
+            <Metric icon="banknote" tone="amber" label={t.finance.payroll.label} value={peso(totals.payroll_cost_annual_mxn)} sub={t.finance.payroll.sub(peso(totals.payroll_annual_mxn), peso(totals.payroll_benefits_annual_mxn))} note={totals.benefits_assumed > 0 ? t.finance.payroll.assumed(totals.benefits_assumed) : undefined} />
             <Metric icon="wallet" tone="green" label={t.kpi.fees} value={peso(totals.fees_monthly_mxn)} sub={t.kpi.payers(totals.fee_payers)} />
           </div>
         ) : (
@@ -237,7 +229,7 @@ export function ProfilePage() {
           ]}
         >
           <TabPanel id="general" active={tab === "general"}>
-            <div className="grid gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div className="grid items-start gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <Card>
                 <FactRow title={t.cards.institution} action={edition({ kind: "institution" })}>
                   <Facts columns={2} items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
@@ -260,48 +252,18 @@ export function ProfilePage() {
                 </FactRow>
               </Card>
 
-              <Card className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-heading font-bold">{t.cards.income}</h2>
-                  <Button size="sm" variant="secondary" onClick={() => open({ kind: "income", index: null })}>
-                    <Icon name="plus" size={16} strokeWidth={2.4} />
-                    {t.addSource}
-                  </Button>
-                </div>
-                {income.length === 0 ? (
-                  <p className="text-ui text-ink-3">{t.incomeEmpty}</p>
-                ) : (
-                  <>
-                    <div>
-                      <div className="tabular text-hero font-normal tracking-tight">{peso(incomeTotal)}</div>
-                      <div className="text-small text-ink-3">{t.incomeSources(income.length)}</div>
-                    </div>
-                    {incomeTotal > 0 && (
-                      <div role="img" aria-label={t.cards.income} className="flex h-3 gap-1 overflow-hidden rounded-pill">
-                        {income.map((it, i) => (
-                          <span key={i} className={`h-full ${SOURCE_BG[tone(i)]}`} style={{ width: `${(it.counted ? (it.annual_mxn ?? 0) / incomeTotal : 0) * 100}%` }} />
-                        ))}
-                      </div>
-                    )}
-                    <ul className="divide-y divide-line">
-                      {income.map((it, i) => (
-                        <li key={i} className="group flex items-center gap-3 py-2">
-                          <span aria-hidden="true" className={`h-3 w-3 shrink-0 rounded-pill ${SOURCE_BG[tone(i)]}`} />
-                          <span className="min-w-0 flex-1 break-words text-ui">{it.label}</span>
-                          <span className="relative h-ctl-sm w-0 shrink-0">
-                            {it.index !== null && (
-                              <span className="absolute right-0 top-0 rounded-pill bg-card">
-                                <RowActions onEdit={() => open({ kind: "income", index: it.index! })} onRemove={() => removeItem("income", it.index!)} busy={busy} />
-                              </span>
-                            )}
-                          </span>
-                          <span className="tabular min-w-[96px] shrink-0 text-right text-ui font-bold">{it.annual_mxn !== null ? peso(it.annual_mxn) : "—"}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </Card>
+              <BalanceCard view={view} />
+            </div>
+            <div className="mt-4 grid items-start gap-4 min-[1000px]:grid-cols-2">
+              <IncomeCard view={view} busy={busy} onAdd={() => open({ kind: "income", index: null })} onEdit={(index) => open({ kind: "income", index })} onRemove={(index) => removeItem("income", index)} />
+              <ExpensesCard
+                view={view}
+                busy={busy}
+                onAdd={() => open({ kind: "expense", index: null })}
+                onEdit={(index) => open({ kind: "expense", index })}
+                onRemove={(index) => removeItem("expenses", index)}
+                onEditEstimate={() => open({ kind: "capacity" })}
+              />
             </div>
           </TabPanel>
           <TabPanel id="staff" active={tab === "staff"}>

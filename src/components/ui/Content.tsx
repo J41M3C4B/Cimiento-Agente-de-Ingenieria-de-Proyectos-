@@ -237,7 +237,7 @@ export function NextBox({ title, detail, goLabel, onGo, eyebrow }: { title: stri
 }
 
 /** One figure on an inset: its square with an icon, its label, the number, a detail and (optionally) a bar. */
-export function Metric({ icon, tone, label, value, sub, fill }: { icon: IconName; tone: Tone; label: string; value: string; sub?: string; fill?: number }) {
+export function Metric({ icon, tone, label, value, sub, fill, note }: { icon: IconName; tone: Tone; label: string; value: string; sub?: string; fill?: number; note?: string }) {
   return (
     <Inset className="flex flex-col gap-3">
       <div className="flex items-center gap-2.5">
@@ -248,6 +248,12 @@ export function Metric({ icon, tone, label, value, sub, fill }: { icon: IconName
         <div className="tabular whitespace-nowrap text-hero font-normal tracking-tight">{value}</div>
         {sub && <div className="mt-0.5 text-small text-ink-3">{sub}</div>}
       </div>
+      {note && (
+        <p className="flex items-start gap-1.5 text-small font-semibold text-amber-ink">
+          <Icon name="warn" size={14} className="mt-0.5" />
+          {note}
+        </p>
+      )}
       {fill !== undefined && (
         <div className={`bar tone-${tone} mt-auto !h-1.5`}>
           <i style={{ width: `${Math.max(0, Math.min(100, fill))}%` }} />

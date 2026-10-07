@@ -124,8 +124,8 @@ export function RowActions({ onEdit, onRemove, busy }: { onEdit: () => void; onR
   const [asking, setAsking] = useState(false);
   if (asking) {
     return (
-      <span className="inline-flex items-center gap-2">
-        <span className="text-small font-bold text-red">{es.roster.table.sure}</span>
+      <span className="inline-flex items-center gap-2 rounded-pill bg-card pl-3">
+        <span className="text-small font-bold text-red-ink">{es.roster.table.sure}</span>
         <Button size="sm" variant="danger" disabled={busy} onClick={onRemove}>
           {es.common.yes}
         </Button>
@@ -136,9 +136,21 @@ export function RowActions({ onEdit, onRemove, busy }: { onEdit: () => void; onR
     );
   }
   return (
-    <span className="inline-flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+    <span className="inline-flex gap-1 rounded-pill bg-card opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
       <IconButton icon="pencil" label={es.roster.table.edit} variant="plain" size="sm" onClick={onEdit} />
       <IconButton icon="trash" label={es.common.remove} variant="plain" size="sm" onClick={() => setAsking(true)} />
+    </span>
+  );
+}
+
+/**
+ * Where the actions of a row go when the row has no column for them: they take no room and open over the end of the
+ * row when it is pointed at (on touch screens, with no pointing, they sit in the row).
+ */
+export function RowActionsSlot({ children }: { children: ReactNode }) {
+  return (
+    <span className="relative h-ctl-sm w-0 shrink-0 [@media(hover:none)]:w-auto">
+      <span className="absolute right-0 top-0 [@media(hover:none)]:static">{children}</span>
     </span>
   );
 }
