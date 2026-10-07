@@ -1,6 +1,6 @@
 # 13 · Sistema visual
 
-**Estado:** propuesta para validar con un prototipo (ver «Validación»). Reemplaza al sistema descrito en el comentario de `src/index.css` si se aprueba.
+**Estado:** vigente (ADR-025). Aprobado tras validar el prototipo con la institución. Es el contrato visual de Cimiento: `src/index.css` guarda los tokens, `src/components/ui/` los componentes, y la prueba `src/design.test.ts` impide saltarse las reglas. Cualquier cambio de interfaz empieza aquí (ver §14).
 
 Este documento recoge la dirección visual tomada de las referencias que la institución eligió (un tablero de tareas en bandejas blancas sobre un marco gris, con color sólido y tranquilo) y la traduce a reglas que se puedan aplicar a Cimiento. Es una especificación de diseño: no cambia flujos, datos ni textos (`docs/08-estilo-redaccion.md` sigue mandando).
 
@@ -105,6 +105,29 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 - Altura de controles: 40 (botón), 44 (botón circular de ícono), 36 (etiqueta y campo compacto). Botón principal de una bandeja: 44.
 - Íconos: trazo de 1.8 px (los actuales de `icons.tsx`), 18–20 px.
 
+### 5.1 Tokens: cómo se llaman en el código
+
+Los valores de §2–§5 viven en **un solo lugar**, `src/index.css`, en tres niveles. Se usan por su nombre; nunca se escribe un valor suelto (`#fff`, `13px`, `rounded-[20px]`) en una pantalla.
+
+| Nivel | Qué es | Dónde | Ejemplos |
+|---|---|---|---|
+| 1 · Primitivos | Los ocho acentos y la letra sobre ellos; no cambian con el tema | `@theme` | `sky violet rose red amber green teal cyan`, `onc` |
+| 2 · Semánticos | Superficies, tinta y líneas; cambian con el tema claro/oscuro | `:root` y `[data-theme]` (variables), expuestos en `@theme inline` | `canvas frame card dock inset line ink ink-2 ink-3 on-ink` |
+| 3 · De componente | Medidas y formas que un componente comparte con todos los demás | `@theme` (radios, alturas, tipografía, sombras) y clases de componente | `rounded-field`, `h-field`, `text-ui`, `shadow-card`, `.btn`, `.field`, `.tag` |
+
+Nombres de las superficies: **`card`** es la bandeja blanca (nivel 2 de §2), **`dock`** es la bandeja gris de las pestañas recortadas, **`inset`** el interior (nivel 3).
+
+| Familia | Tokens (clase de Tailwind) | Valor |
+|---|---|---|
+| Tipografía | `text-caption` · `text-small` · `text-ui` · `text-body` · `text-heading` · `text-subtitle` · `text-title` · `text-hero` · `text-display` | 12.5 · 13 · 14 · 15 · 18 · 22 · 28 · 32 · 72 px |
+| Peso | `font-normal` (cifras) · `font-medium` (base) · `font-semibold` · `font-bold` (títulos, botones, etiquetas) · `font-extrabold` (avatares, pestañas) | 400 · 500 · 600 · 700 · 800 |
+| Radios | `rounded-tick` · `rounded-field` · `rounded-inset` · `rounded-card` · `rounded-frame` · `rounded-pill` | 8 · 14 · 20 · 28 · 32 · 999 px |
+| Alturas | `h-tag` · `h-ctl-sm` · `h-ctl` · `h-field` | 28 · 36 · 44 · 48 px |
+| Sombras | `shadow-card` · `shadow-frame` · `shadow-float` | ver §2 |
+| Espacio | escala de 4 px de Tailwind, solo 1 · 2 · 3 · 4 · 6 · 8 · 12 (4, 8, 12, 16, 24, 32, 48) | §5 |
+
+Los tamaños, radios, colores y sombras de Tailwind que no están en estas tablas **no existen** (se vaciaron en `@theme`): una clase como `text-sm`, `rounded-xl` o `bg-stone-100` no genera nada.
+
 ## 6. Estructura de pantalla
 
 ```
@@ -160,6 +183,34 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
   - Al guardar, un aviso breve abajo («Persona agregada») y las cifras de la ficha se actualizan al momento.
 - **Ventana (modal):** bandeja de 28 con título de 18, secciones con etiqueta en mayúsculas pequeñas y botones al pie; fondo atenuado.
 
+### 7.1 Medidas canónicas (un componente, una medida)
+
+Cada fila es **la única medida** de ese componente en toda la interfaz. Si una pantalla necesita algo distinto, se cambia aquí y en el componente, no en la pantalla.
+
+| Componente (código) | Alto | Radio | Borde / sombra | Texto | Notas |
+|---|---|---|---|---|---|
+| `Button` `md` | 44 | pill | — | `text-ui` 700 | relleno horizontal 24; variantes `primary` (ink), `secondary` (card + borde 1 px `line`), `soft` (inset), `danger` (texto rojo), `ghost`, `plain` |
+| `Button` `sm` | 36 | pill | — | `text-small` 700 | relleno 16; para filas, tablas y tarjetas |
+| `IconButton` | 44 (`sm` 36) | círculo | 1 px `line` | — | activo en `ink`; peligro en `red` sólido |
+| Campo (`TextInput`, `Select`, `TextArea`, `Search`) | 48 (`TextArea` mínimo 96) | `field` (`Search`: pill) | 1.5 px `line`; foco: borde `sky` + aro de 4 px al 45 %; error: `red` + aro al 20 % | `text-ui` 500, relleno 16, vacío en `ink-3` | etiqueta arriba en `text-ui` 700 con 8 px de separación; ayuda en `text-small` `ink-3`; error en `text-small` 700 con ícono |
+| `Tag` | 28 | pill | — | `text-small` 700, relleno 13 | `solid` (acento + `onc`), `soft` (acento al 18 % + texto mezclado), `line` (borde 1.5 px) |
+| `Avatar` | 36 (`sm` 28) | círculo | — | 12 (10.5) px 800 | color por nombre |
+| `Tile` (cuadro de ícono) | 40 (`sm` 32) | `field` | — | — | acento sólido, ícono `onc` |
+| `Card` (bandeja) | — | `card` | `shadow-card` | — | relleno 24 (20 en pequeñas) |
+| `Inset` (interior) | — | `inset` | — | — | fondo `inset`, relleno 16–20 |
+| `Folder` (carpeta con pestaña) | pestaña 46 | pestaña 18, cuerpo `card` | `drop-shadow` | título `text-body` 800 | color del proyecto en `--pc`/`--pt` |
+| `Dock` y `DockTab` | pestaña 52 | 24 | `drop-shadow` | `text-ui` 700 | pestaña activa en el color de la bandeja |
+| `Segmented` (control segmentado) | 44 (pista) / 36 (opción) | pill | — | `text-small` 700 | opción activa en `card` con `shadow-card` |
+| `Check` | 24 | `tick` | 2 px `line` | — | marcada = `ink` |
+| `Switch` | 28 × 48 | pill | — | — | activo en `green` |
+| `Choice` (píldora seleccionable) | 44 | pill | 1.5 px `line` | `text-ui` 700 | elegida = color sólido |
+| `RadioCard` | auto | `inset` | 1.5 px `line`; elegida: `ink` | `text-ui` 700 + `text-small` `ink-3` | |
+| `Alert` | auto | `inset` | — | `text-ui` | fondo del estado al 18 %, círculo sólido con ícono |
+| `Modal` | — | `card` | `shadow-float` | título `text-subtitle` 700 | anchos 640 / 768 / 1024 |
+| `Table` | filas 52 | — | línea 1 px `line` | `text-ui`; encabezado `text-caption` `ink-3` | primera columna 700 |
+| `Tooltip` | auto | pill | — | `text-small` 700 en `on-ink` sobre `ink` | |
+| `Toast` | auto | pill | `shadow-float` | `text-ui` 700 | fondo `ink` |
+
 ## 8. Movimiento
 
 - Transiciones de 160–220 ms con `ease-out` en color, sombra y posición. Nada rebota.
@@ -208,7 +259,24 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 
 ## 13. Validación
 
-1. Prototipo navegable de tres pantallas (Inicio, Mi institución, Asistente) para ver el sistema completo antes de tocar la app.
-2. Si se aprueba, se aplica por capas: tokens y fuente → marco, riel y cápsula → bandejas y componentes → pantalla por pantalla, con las 95 pruebas verdes en cada paso.
+1. Prototipo navegable de todas las pantallas (Inicio, Mis proyectos, Mi institución, Documentos, Asistente y sus ventanas), aprobado por la institución. Era la condición de la propuesta original.
+2. Aplicación por capas, con las pruebas, `tsc` y la compilación en verde en cada una: **(1)** este documento y el ADR → **(2)** tokens y componentes base → **(3)** marco, riel y cápsula → **(4)** pantalla por pantalla.
 3. Prueba corta con dos o tres personas de la institución: ¿encuentran «Continuar»?, ¿entienden qué significa cada color?
-4. Al aprobarse se registra como ADR (`adr/ADR-025-identidad-visual.md`) y este documento deja de ser propuesta.
+
+## 14. Cómo cambiar la interfaz
+
+Reglas para quien toque la interfaz (persona o herramienta). La prueba `src/design.test.ts` revisa las que se pueden revisar con texto.
+
+1. **Empieza por el documento.** Un componente nuevo o una medida nueva se escribe primero en §7.1 y, si hace falta, en §5.1.
+2. **Un token, un lugar.** Colores, tamaños de letra, radios, alturas y sombras se definen solo en `src/index.css`. En las pantallas se usan por nombre (`bg-card`, `text-ink-2`, `rounded-inset`, `text-ui`).
+3. **Las pantallas componen, no inventan.** Un campo, botón, etiqueta, avatar, bandeja, ventana o tabla sale de `src/components/ui/`. Si no existe el componente, se crea ahí (con su fila en §7.1) y se usa; nunca se copia el estilo en una pantalla.
+4. **Sin valores sueltos.** No hay colores hexadecimales, ni `text-[13px]`, `rounded-[20px]`, `shadow-[…]` ni escalas de Tailwind (`stone-`, `blue-`, `text-sm`, `rounded-xl`) fuera de `src/index.css`. Las medidas de **disposición** (`grid-cols-[200px_1fr]`, `max-w-[640px]`) sí pueden ser arbitrarias porque no son identidad.
+5. **El color nombra** (§3.4): un color, un significado. Estado = acento sólido + palabra. Un proyecto, un color.
+6. **El texto de la interfaz** va en `src/i18n/es-MX.ts` y sigue `docs/08-estilo-redaccion.md`.
+7. **Accesibilidad:** foco visible (el aro es global), objetivo táctil ≥ 36 px (44 para lo principal), contraste según §9, y siempre palabras junto al color.
+8. **Tema claro y oscuro:** todo se resuelve con los tokens semánticos; si algo se ve mal en uno de los dos temas, el defecto está en el token, no en la pantalla.
+
+## 15. Nombres que se conservan por compatibilidad
+
+- **Color de proyecto.** La base y `src-tauri` guardan `blue · violet · teal · green · amber · orange · pink · red` (`PROJECT_COLORS`). La interfaz los muestra con los acentos de §3.2 mediante una sola tabla (`src/lib/palette.ts`): `blue→sky`, `pink→rose`, `orange→cyan`, el resto con su mismo nombre. En el selector de color no se ofrecen `amber` ni `red` (están reservados para estado, §3.4), pero un proyecto que ya los tenga los sigue mostrando.
+- **`orange`.** En la paleta del prototipo se llamó así al amarillo; en el código se llama `amber`.
