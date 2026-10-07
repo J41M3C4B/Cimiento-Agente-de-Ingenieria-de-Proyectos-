@@ -283,11 +283,15 @@ export function ProfilePage() {
                     )}
                     <ul className="divide-y divide-line">
                       {income.map((it, i) => (
-                        <li key={i} className="group flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
+                        <li key={i} className="group flex items-center gap-3 py-2">
                           <span aria-hidden="true" className={`h-3 w-3 shrink-0 rounded-pill ${SOURCE_BG[tone(i)]}`} />
-                          <span className="min-w-[50%] flex-1 break-words text-ui">{it.label}</span>
-                          <span className="tabular text-ui font-bold">{it.annual_amount_mxn !== null ? peso(it.annual_amount_mxn) : "—"}</span>
-                          <RowActions onEdit={() => open({ kind: "income", index: i })} onRemove={() => removeItem("income", i)} busy={busy} />
+                          <span className="min-w-0 flex-1 break-words text-ui">{it.label}</span>
+                          <span className="relative h-ctl-sm w-0 shrink-0">
+                            <span className="absolute right-0 top-0 rounded-pill bg-card">
+                              <RowActions onEdit={() => open({ kind: "income", index: i })} onRemove={() => removeItem("income", i)} busy={busy} />
+                            </span>
+                          </span>
+                          <span className="tabular min-w-[96px] shrink-0 text-right text-ui font-bold">{it.annual_amount_mxn !== null ? peso(it.annual_amount_mxn) : "—"}</span>
                         </li>
                       ))}
                     </ul>
