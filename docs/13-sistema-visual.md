@@ -172,7 +172,7 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 |---|---|
 | **Inicio** (nueva) | Bandeja principal del proyecto en curso (encabezado `sun`, lo que falta confirmar como lista con casillas), recordatorio con el cierre de la convocatoria, bandeja «Mi institución» con pestaña y personal, y abajo resumen del proyecto + asistente + cifra de pendientes |
 | **Mis proyectos** | Cada proyecto es una bandeja con su color, avance en puntos y botón principal «Continuar»; «Nuevo proyecto» como casilla discontinua |
-| **Mi institución** | Encabezado con cifras en bandejas de color por tema (personas `violet`, personal `teal`, nómina `sun`, cuotas `leaf`); datos en bandeja con filas; ingresos con barra de composición; tablas con avatares y etiquetas |
+| **Mi institución** | Una sola bandeja de cabecera en dos mitades: a la izquierda la identidad (inicial en cuadro `violet`, nombre en 30 px, misión, etiqueta de estado y «Editar», pegadas al fondo); a la derecha un grupo de 2×2 con las cifras en interiores (personas `violet` con barra de ocupación, personal `teal`, nómina `sun`, cuotas `leaf`), cada una con su ícono en cuadro de color, etiqueta, cifra de 30 px y detalle. Debajo, pestañas recortadas; datos en bandeja con filas; ingresos con barra de composición; tablas con avatares y etiquetas. Por debajo de 1000 px la bandeja pasa a una columna y por debajo de 520 px el grupo también |
 | **Espacio de trabajo** | Chat grande al centro en su bandeja; panel derecho en otra bandeja con partes del proyecto y su estado en etiquetas; «Pasar a la revisión» como botón principal |
 | **Ventanas** | Igual que hoy, con el estilo de bandeja |
 
