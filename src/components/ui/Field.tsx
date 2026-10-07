@@ -14,8 +14,8 @@ export function FieldShell({ label, hint, error, children, className = "", hideL
         {label}
         {required && <span className="req">*</span>}
       </span>
-      {hint && !hideLabel && <span className="field-hint">{hint}</span>}
       {children}
+      {hint && !hideLabel && <span className="field-hint">{hint}</span>}
       {error && (
         <span role="alert" className="field-error">
           <Icon name="alert" size={15} />
@@ -95,6 +95,30 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     </FieldShell>
   );
 });
+
+/**
+ * A field that is not typed into: the covered value of an identifier (CURP, RFC…) in the same box as every other
+ * field, with its actions («Mostrar», «Cambiar») on the right.
+ */
+export function MaskedField({ label, hint, error, value, actions }: { label: string; hint?: string; error?: string; value: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <span className="field-label">{label}</span>
+      <div className={`field field--static ${error ? "field--invalid" : ""}`}>
+        <Icon name="lock" size={16} className="shrink-0 text-ink-3" />
+        <span className="tabular min-w-0 flex-1 truncate font-bold">{value}</span>
+        {actions && <span className="flex shrink-0 items-center gap-1">{actions}</span>}
+      </div>
+      {hint && <span className="field-hint">{hint}</span>}
+      {error && (
+        <span role="alert" className="field-error">
+          <Icon name="alert" size={15} />
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
 
 /** A box to tick. The state lives with whoever uses it. */
 export function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {

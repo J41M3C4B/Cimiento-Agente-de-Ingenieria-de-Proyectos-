@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
-import { Alert, Button, IconButton, Inset, Modal, Select, Tag, TextArea, TextInput } from "../../components/ui";
+import { Alert, Bar, Button, IconButton, Inset, Modal, Select, Tag, TextArea, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
 import type { Decision, QuarantineReport } from "../../lib/types";
@@ -134,6 +134,11 @@ export function PositionsDialog({
           {[x.area ? h.areas[x.area] : null, x.authorized_seats ? p.seats(x.people, x.authorized_seats) : p.people(x.people)].filter(Boolean).join(" · ")}
         </span>
       </div>
+      {x.active && x.authorized_seats ? (
+        <div className="hidden w-24 shrink-0 sm:block">
+          <Bar percent={Math.min(100, (x.people / x.authorized_seats) * 100)} label={p.seats(x.people, x.authorized_seats)} tone={x.people >= x.authorized_seats ? "green" : "amber"} />
+        </div>
+      ) : null}
       {x.authorized_seats !== null && x.authorized_seats > x.people && x.active && <Tag tone="amber">{p.vacancies(x.authorized_seats - x.people)}</Tag>}
       {x.active ? (
         <>

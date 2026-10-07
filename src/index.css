@@ -262,6 +262,8 @@ h1, h2, h3 {
   .field--area { height: auto; min-height: 96px; padding: 12px 16px; line-height: 1.55; resize: vertical; }
   .field--pill { border-radius: var(--radius-pill); }
   .field--select { appearance: none; padding-right: 44px; cursor: pointer; }
+  .field--static { display: flex; align-items: center; gap: 10px; padding-right: 6px; cursor: default; }
+  .field--static:hover { border-color: var(--line); }
   .field--invalid, .field--invalid:hover, .field--invalid:focus-visible { border-color: var(--color-red); }
   .field-wrap { position: relative; }
   .field-adorn { position: absolute; top: 50%; display: flex; transform: translateY(-50%); color: var(--ink-3); font-weight: 700; pointer-events: none; }
@@ -272,7 +274,7 @@ h1, h2, h3 {
   .field--prefix { padding-left: 32px; }
   .field--suffix { padding-right: 76px; }
   .field-label { display: block; margin-bottom: 8px; font-size: var(--text-ui); font-weight: 700; }
-  .field-hint { display: block; margin: -4px 0 8px; font-size: var(--text-small); color: var(--ink-3); font-weight: 500; }
+  .field-hint { display: block; margin: 8px 0 0; font-size: var(--text-small); color: var(--ink-3); font-weight: 500; }
   .field-error { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: var(--text-small); font-weight: 700; color: color-mix(in srgb, var(--color-red) 80%, var(--ink)); }
   .req { color: var(--color-red); margin-left: 3px; }
 

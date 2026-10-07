@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Icon } from "../../components/icons";
-import { AddSlot, Alert, Avatar, Bar, Button, Inset, Search, Select, Tag, THead, toneOfText } from "../../components/ui";
+import { AddSlot, Alert, Avatar, Bar, Button, Inset, Search, Select, StatusDot, Tag, THead, toneOfText } from "../../components/ui";
+import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
 import type { ProfileView } from "../../lib/types";
@@ -13,6 +14,9 @@ import type { ModalityInfo, PersonView, StaffChange, StaffOverview } from "./typ
 
 const h = es.hr;
 export const HR_KEY = ["hr"] as const;
+
+/** The situations that are not «working» show as a soft tag; working is the usual one and only gets a green dot. */
+const STATUS_TONE: Record<string, Tone> = { vacation: "sky", leave: "sky", sick_leave: "amber", left: "neutral" };
 
 /**
  * The staff of the institution (ADR-027): a record per person, filled in four steps, and the catalog of positions.
@@ -31,6 +35,8 @@ export function StaffTab({ onProfile, onNotice }: { onProfile: (p: ProfileView) 
   const people = data?.people ?? [];
   const positions = data?.positions ?? [];
   const titleOf = (id: string | null) => positions.find((p) => p.id === id)?.title ?? "—";
+  // seats the institution authorized and nobody fills yet
+  const vacancies = positions.filter((p) => p.active && p.authorized_seats !== null).reduce((n, p) => n + Math.max(0, p.authorized_seats! - p.people), 0);
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -66,6 +72,13 @@ export function StaffTab({ onProfile, onNotice }: { onProfile: (p: ProfileView) 
           className="w-full sm:w-auto sm:min-w-[220px]"
         />
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {vacancies > 0 && (
+            <button type="button" onClick={() => setPositionsOpen(true)} className="rounded-pill">
+              <Tag tone="amber" icon="warn">
+                {h.positionDialog.vacancies(vacancies)}
+              </Tag>
+            </button>
+          )}
           <Button size="sm" variant="plain" onClick={() => setPositionsOpen(true)}>
             <Icon name="briefcase" size={16} />
             {h.positions}
@@ -105,7 +118,12 @@ export function StaffTab({ onProfile, onNotice }: { onProfile: (p: ProfileView) 
                         <Avatar size="sm" name={p.full_name} />
                         <span className="min-w-0">
                           <span className="block">{p.full_name}</span>
-                          {p.heads_up > 0 && <span className="block text-small text-ink-3">{h.headsUp(p.heads_up)}</span>}
+                          {p.heads_up > 0 && (
+                            <span className="mt-0.5 flex items-center gap-1 text-small font-semibold text-amber-ink">
+                              <Icon name="warn" size={13} />
+                              {h.headsUp(p.heads_up)}
+                            </span>
+                          )}
                         </span>
                       </button>
                     </td>
@@ -113,9 +131,22 @@ export function StaffTab({ onProfile, onNotice }: { onProfile: (p: ProfileView) 
                     <td className="max-w-[220px]">
                       <span className="line-clamp-1">{modalityOf(p.modality, data?.modalities ?? [])}</span>
                     </td>
-                    <td>{h.status[p.status as keyof typeof h.status] ?? p.status}</td>
-                    <td className="min-w-[140px]">
-                      <Bar percent={p.progress} label={h.progress(p.progress)} tone={p.progress === 100 ? "green" : "ink"} />
+                    <td>
+                      {p.status === "active" ? (
+                        <StatusDot tone="green">{h.status.active}</StatusDot>
+                      ) : (
+                        <Tag tone={STATUS_TONE[p.status] ?? "neutral"} variant="soft">
+                          {h.status[p.status as keyof typeof h.status] ?? p.status}
+                        </Tag>
+                      )}
+                    </td>
+                    <td className="min-w-[160px]">
+                      <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <Bar percent={p.progress} label={h.progress(p.progress)} tone={p.progress === 100 ? "green" : "ink"} />
+                        </div>
+                        <span className="tabular w-10 shrink-0 text-right text-small font-bold">{h.progress(p.progress)}</span>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Choice, FormSection, Inset, Modal, Select, Steps, Switch, TextButton, TextInput } from "../../components/ui";
+import { Alert, Button, Choice, FormSection, Inset, MaskedField, Modal, Select, StepNav, Switch, TextButton, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
 import { hrModalityCreate, hrPersonDelete, hrPersonReveal, hrPersonSave } from "./api";
@@ -48,28 +48,35 @@ function SecretInput({
   const [failure, setFailure] = useState<string | null>(null);
   if (stored && value === null) {
     return (
-      <div className="min-w-0">
-        <span className="field-label">{label}</span>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="tabular text-ui font-bold">{shown ?? masked ?? h.secret.stored}</span>
-          {shown === null && personId && (
-            <TextButton
-              onClick={async () => {
-                try {
-                  setShown(await hrPersonReveal(personId, field));
-                } catch (e) {
-                  setFailure(toAppError(e).message);
-                }
-              }}
-            >
-              {h.secret.show}
-            </TextButton>
-          )}
-          <TextButton onClick={() => onChange("")}>{h.secret.change}</TextButton>
-        </div>
-        {shown !== null && <span className="field-hint">{h.secret.shownNote}</span>}
-        {failure && <span className="field-error">{failure}</span>}
-      </div>
+      <MaskedField
+        label={label}
+        value={shown ?? masked ?? h.secret.stored}
+        hint={shown !== null ? h.secret.shownNote : hint}
+        error={failure ?? undefined}
+        actions={
+          <>
+            {shown === null && personId && (
+              <Button
+                size="sm"
+                variant="plain"
+                onClick={async () => {
+                  try {
+                    setFailure(null);
+                    setShown(await hrPersonReveal(personId, field));
+                  } catch (e) {
+                    setFailure(toAppError(e).message);
+                  }
+                }}
+              >
+                {h.secret.show}
+              </Button>
+            )}
+            <Button size="sm" variant="plain" onClick={() => onChange("")}>
+              {h.secret.change}
+            </Button>
+          </>
+        }
+      />
     );
   }
   return (
@@ -208,10 +215,12 @@ export function PersonWizard({
   const contact = (i: number, patch: Partial<EmergencyContact>) =>
     set({ emergency_contacts: d.emergency_contacts.map((c, n) => (n === i ? { ...c, ...patch } : c)) });
   const progress = current?.progress;
-  const stepLabel = (s: Step) => {
+  // each step shows how much of it is filled; one with nothing to fill (the volunteer has no pay) does not apply
+  const stepItems = STEPS.map((s) => {
     const p = progress?.[s];
-    return p && p.total > 0 ? `${h.steps[s]} · ${p.filled}/${p.total}` : h.steps[s];
-  };
+    const na = (s === "pay" && !pays) || (p !== undefined && p.total === 0);
+    return { key: s, label: h.steps[s], filled: p?.filled, total: p?.total, na, caption: p ? h.stepCaption(p.filled, p.total) : undefined, naLabel: h.stepNotApplicable };
+  });
   const headsUp = issues.filter((i) => !i.blocking);
   const blocking = issues.filter((i) => i.blocking);
 
@@ -226,21 +235,19 @@ export function PersonWizard({
         footer={
           <>
             {current && (
-              <Button variant="plain" className="mr-auto" disabled={busy} onClick={() => setConfirmRemove(true)}>
+              <Button variant="plain" className="mr-auto !text-red-ink" disabled={busy} onClick={() => setConfirmRemove(true)}>
                 <Icon name="trash" size={16} />
                 {h.removePerson}
               </Button>
             )}
             {step > 0 && <Button onClick={() => setStep(step - 1)}>{h.back}</Button>}
+            <Button disabled={busy} onClick={() => save(false)}>
+              {busy ? es.common.saving : h.save}
+            </Button>
             {step < STEPS.length - 1 ? (
-              <>
-                <Button disabled={busy} onClick={() => save(false)}>
-                  {busy ? es.common.saving : h.save}
-                </Button>
-                <Button variant="primary" onClick={() => setStep(step + 1)}>
-                  {h.next}
-                </Button>
-              </>
+              <Button variant="primary" onClick={() => setStep(step + 1)}>
+                {h.next}
+              </Button>
             ) : (
               <Button variant="primary" disabled={busy} onClick={() => save(true)}>
                 {busy ? es.common.saving : h.saveAndClose}
@@ -249,7 +256,7 @@ export function PersonWizard({
           </>
         }
       >
-        <Steps steps={STEPS.map((s) => ({ key: s, label: stepLabel(s) }))} current={step} />
+        <StepNav label={h.stepsLabel} steps={stepItems} current={step} onSelect={setStep} />
         {!current && step === 0 && <p className="text-ui text-ink-2">{h.minimum}</p>}
         {blocking.length > 0 && (
           <Alert tone="error">
@@ -401,7 +408,9 @@ export function PersonWizard({
                     <TextInput label={h.fields.contact_phone_alt} inputMode="tel" value={c.phone_alt ?? ""} error={err(`emergency_contacts[${i}].phone_alt`)} onChange={(e) => contact(i, { phone_alt: txt(e.target.value) })} />
                   </>,
                 )}
-                <TextButton onClick={() => set({ emergency_contacts: d.emergency_contacts.filter((_, n) => n !== i) })}>{h.removeContact}</TextButton>
+                <TextButton className="self-start" onClick={() => set({ emergency_contacts: d.emergency_contacts.filter((_, n) => n !== i) })}>
+                  {h.removeContact}
+                </TextButton>
               </FormSection>
             ))}
             {d.emergency_contacts.length < 2 && (

@@ -322,6 +322,9 @@ export const es = {
     removed: "Ficha borrada.",
     steps: { personal: "Datos personales", job: "Trabajo y puesto", emergency: "Contacto de emergencia", pay: "Pago y datos fiscales" },
     stepOf: (n: number, total: number) => `Paso ${n} de ${total}`,
+    stepsLabel: "Pasos de la ficha",
+    stepCaption: (filled: number, total: number) => `${filled} de ${total}`,
+    stepNotApplicable: "No aplica",
     next: "Siguiente",
     back: "Anterior",
     save: "Guardar",
@@ -439,7 +442,7 @@ export const es = {
       restore: "Volver a usar",
       archived: "Archivados",
       people: (n: number) => (n === 1 ? "1 persona" : `${n} personas`),
-      seats: (people: number, seats: number) => `${people} de ${seats} plazas`,
+      seats: (people: number, seats: number) => `${people} de ${seats} ${seats === 1 ? "plaza" : "plazas"}`,
       vacancies: (n: number) => (n === 1 ? "1 plaza sin cubrir" : `${n} plazas sin cubrir`),
       fields: {
         title: "Nombre del puesto",
