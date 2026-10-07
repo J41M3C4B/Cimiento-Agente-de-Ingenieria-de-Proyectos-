@@ -2,7 +2,9 @@
 
 ## Principio central
 
-**Cuántos, nunca quiénes, para la IA y los documentos.** El perfil de la institución no tiene ninguna tabla ni campo para registrar individuos. Desde el ADR-020 existe un **padrón** aparte (personal y beneficiarios, una ficha por persona) que solo vive en la base cifrada de este equipo: no pasa por la IA, no se escanea y no entra en los documentos; el perfil solo recibe lo que suma (cuántas personas por puesto o grupo, nómina, cuotas).
+**Cuántos, nunca quiénes, para la IA y los documentos.** El perfil de la institución no tiene ninguna tabla ni campo para registrar individuos. Desde el ADR-020 existe un **padrón** de beneficiarios, y desde el ADR-027 un **módulo de Personal** (tablas `hr_*`), ambos con una ficha por persona que solo vive en la base cifrada de este equipo: no pasan por la IA, no se escanean y no entran en los documentos; el perfil y la IA solo reciben lo que suman (cuántas personas por puesto o grupo, plazas sin cubrir, nómina, cuotas). Los atributos personales del personal (escolaridad, antigüedad) llegan a la IA solo como rangos de grupos de **3 o más personas**.
+
+**Identificadores del personal (ADR-027):** CURP, RFC, NSS y CLABE se guardan en la base cifrada, se validan con su dígito verificador, nunca salen del servicio en claro y en pantalla se ven tapados. Mostrarlos queda en la bitácora (`hr.sensitive_viewed`, con el campo y nunca el valor). Borrar a una persona elimina todo lo suyo y queda registrado (`hr.person_deleted`). Los datos de salud del personal no se recogen.
 
 ## Niveles de datos
 

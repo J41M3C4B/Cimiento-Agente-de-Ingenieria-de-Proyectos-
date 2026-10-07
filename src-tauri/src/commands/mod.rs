@@ -3,6 +3,7 @@
 pub mod calls;
 pub mod diagnosis;
 pub mod drafting;
+pub mod hr;
 pub mod roster;
 pub mod security;
 

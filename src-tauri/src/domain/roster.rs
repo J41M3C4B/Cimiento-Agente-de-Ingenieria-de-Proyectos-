@@ -1,8 +1,9 @@
 //! The roster (ADR-020): one record per staff member and per person served, with a form the person can extend.
 //! It lives apart from the profile and never goes to the AI: the profile only receives the aggregates
-//! computed here (`derive_staff`, `derive_population`).
+//! computed here (`derive_population`). The staff moved to its own module (ADR-027); its form stays here only
+//! for the records older than the move.
 
-use super::profile::{ContractKind, DependencyLevel, InstitutionKind, PopulationGroupInput, StaffGroupInput};
+use super::profile::{DependencyLevel, InstitutionKind, PopulationGroupInput};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -270,26 +271,6 @@ fn num(d: &Data, k: &str) -> Option<i64> {
     d.get(k).and_then(|v| whole(v))
 }
 
-/// One line per distinct position (role, with or without pay, same salary, same contract and start year: the last
-/// two set the benefits of the law): the people of the roster, counted.
-pub fn derive_staff(entries: &[RosterEntry]) -> Vec<StaffGroupInput> {
-    let mut out: Vec<StaffGroupInput> = Vec::new();
-    for e in entries {
-        let role = e.data.get(key::ROLE).map(|r| r.trim()).filter(|r| !r.is_empty()).unwrap_or("Sin cargo").to_string();
-        let paid = e.data.get(key::PAID).map_or(true, |v| v != "no");
-        let salary = if paid { num(&e.data, key::SALARY) } else { None };
-        let contract = if paid { e.data.get(key::CONTRACT).and_then(|c| ContractKind::from_label(c)) } else { None };
-        let start_year = if paid { num(&e.data, key::START_YEAR) } else { None };
-        match out.iter_mut().find(|g| {
-            g.role == role && g.paid == paid && g.monthly_salary_mxn == salary && g.contract == contract && g.start_year == start_year
-        }) {
-            Some(g) => g.count += 1,
-            None => out.push(StaffGroupInput { role, count: 1, paid, monthly_salary_mxn: salary, contract, start_year, ..Default::default() }),
-        }
-    }
-    out
-}
-
 /// One line per distinct group (category, level of support, fee): the people served, counted and never named.
 pub fn derive_population(entries: &[RosterEntry]) -> Vec<PopulationGroupInput> {
     let mut out: Vec<PopulationGroupInput> = Vec::new();
@@ -360,39 +341,6 @@ mod tests {
         assert_eq!(bad(&[("full_name", "A"), ("role", "Cocina"), ("monthly_salary_mxn", "9 mil")]), RosterError::NotANumber);
         assert_eq!(bad(&[("full_name", "A"), ("role", "Cocina"), ("start_year", "19")]), RosterError::YearInvalid);
         assert_eq!(bad(&[("full_name", "A"), ("role", "Cocina"), ("email", "sin arroba")]), RosterError::EmailInvalid);
-    }
-
-    #[test]
-    fn staff_is_counted_by_position_and_the_payroll_adds_up() {
-        let staff = derive_staff(&[
-            entry(&[("role", "Cocina"), ("monthly_salary_mxn", "7000")]),
-            entry(&[("role", "Cocina"), ("monthly_salary_mxn", "7000")]),
-            entry(&[("role", "Enfermería"), ("monthly_salary_mxn", "9500")]),
-            entry(&[("role", "Voluntariado"), ("paid", "no"), ("monthly_salary_mxn", "1")]),
-        ]);
-        assert_eq!(staff.len(), 3);
-        assert_eq!((staff[0].role.as_str(), staff[0].count), ("Cocina", 2));
-        let t = ProfileInput { staff, ..Default::default() }.totals(2026);
-        assert_eq!((t.staff_paid, t.staff_volunteer, t.payroll_monthly_mxn), (3, 1, 23_500));
-    }
-
-    #[test]
-    fn contract_and_start_year_reach_the_profile_for_the_benefits_and_volunteers_carry_none() {
-        let staff = derive_staff(&[
-            entry(&[("role", "Cocina"), ("monthly_salary_mxn", "9000"), ("contract", "De planta"), ("start_year", "2018")]),
-            entry(&[("role", "Cocina"), ("monthly_salary_mxn", "9000"), ("contract", "De planta"), ("start_year", "2018")]),
-            entry(&[("role", "Cocina"), ("monthly_salary_mxn", "9000"), ("contract", "Honorarios"), ("start_year", "2018")]),
-            entry(&[("role", "Voluntariado"), ("paid", "no"), ("contract", "De planta"), ("start_year", "2020")]),
-        ]);
-        let lines: Vec<_> = staff.iter().map(|g| (g.role.as_str(), g.count, g.contract, g.start_year)).collect();
-        assert_eq!(lines, vec![
-            ("Cocina", 2, Some(ContractKind::Permanent), Some(2018)),
-            ("Cocina", 1, Some(ContractKind::Fees), Some(2018)),
-            ("Voluntariado", 1, None, None),
-        ]);
-        let t = ProfileInput { staff, ..Default::default() }.totals(2026);
-        // two cooks with benefits (8 years: 6,150 each); fees carry none
-        assert_eq!((t.payroll_benefits_annual_mxn, t.payroll_cost_annual_mxn), (12_300, 27_000 * 12 + 12_300));
     }
 
     #[test]

@@ -82,6 +82,10 @@ export interface ProfileTotals {
   payroll_benefits_annual_mxn: number;
   payroll_cost_annual_mxn: number;
   benefits_assumed: number;
+  /** Contributions to the congregation and social-service grants, in a year (not payroll; ADR-027). */
+  staff_support_annual_mxn: number;
+  /** What outside companies bill for their staff, in a year (not payroll; ADR-027). */
+  external_staff_annual_mxn: number;
   fee_payers: number;
   fees_monthly_mxn: number;
   fees_annual_mxn: number;
@@ -139,7 +143,7 @@ export interface ProfileView {
  * the app computes from the roster (`beneficiary_fees`, `payroll`) and nobody edits. */
 export interface FinanceLine {
   label: string;
-  kind: IncomeKind | "beneficiary_fees" | "expense" | "payroll";
+  kind: IncomeKind | "beneficiary_fees" | "expense" | "payroll" | "staff_support" | "external_staff";
   index: number | null;
   annual_mxn: number | null;
   counted: boolean;

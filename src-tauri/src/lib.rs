@@ -9,6 +9,7 @@ mod domain;
 mod drafting_service;
 mod error;
 mod guide_service;
+mod hr;
 mod institution_context;
 mod jobs;
 mod review_service;
@@ -16,6 +17,7 @@ mod roster_service;
 mod scanner;
 mod security_service;
 mod service;
+mod staff_service;
 mod storage;
 #[cfg(test)]
 mod test_support;
@@ -55,6 +57,16 @@ pub fn run() {
             commands::roster::roster_field_delete,
             commands::roster::roster_entry_save,
             commands::roster::roster_entry_delete,
+            commands::hr::hr_overview,
+            commands::hr::hr_person_get,
+            commands::hr::hr_person_save,
+            commands::hr::hr_person_delete,
+            commands::hr::hr_person_reveal,
+            commands::hr::hr_position_save,
+            commands::hr::hr_position_set_active,
+            commands::hr::hr_modality_create,
+            commands::hr::hr_field_save,
+            commands::hr::hr_field_delete,
             commands::calls::project_create_from_call,
             commands::calls::call_reading_get,
             commands::calls::call_reading_confirm,

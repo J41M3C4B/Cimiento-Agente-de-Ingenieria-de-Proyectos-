@@ -168,12 +168,14 @@ export function ExpensesCard({ view, busy, onAdd, onEdit, onRemove, onEditEstima
         <ul className="divide-y divide-line">
           {fin.expenses.map((l, i) => {
             const payroll = l.kind === "payroll";
+            // the lines the program computes from the staff (ADR-026, ADR-027) carry their own words
+            const computed = l.kind === "staff_support" ? [f.expenses.staffSupport, f.expenses.staffSupportCalc] : l.kind === "external_staff" ? [f.expenses.externalStaff, f.expenses.externalStaffCalc] : null;
             return (
               <MoneyRow
                 key={i}
-                label={payroll ? f.expenses.payroll : l.label}
-                detail={payroll ? f.expenses.payrollCalc : periodOf(view, "expenses", l)}
-                tag={payroll ? f.fromRoster : undefined}
+                label={payroll ? f.expenses.payroll : computed ? computed[0]! : l.label}
+                detail={payroll ? f.expenses.payrollCalc : computed ? computed[1] : periodOf(view, "expenses", l)}
+                tag={payroll || computed ? f.fromRoster : undefined}
                 amount={l.annual_mxn}
                 dim={!l.counted}
                 note={

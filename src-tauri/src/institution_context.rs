@@ -11,15 +11,18 @@
 //! as something the person said.
 
 use crate::domain::finances::{ExpenseBasis, BENEFICIARY_FEES, EXPENSE};
-use crate::domain::profile::{Condition, ContractKind, DependencyLevel, InstitutionKind, IncomeKind, Period, ProfileInput};
+use crate::domain::profile::{Condition, DependencyLevel, InstitutionKind, IncomeKind, Period, ProfileInput};
+use crate::hr::api::{Count, MIN_GROUP};
+use crate::hr::domain::aggregate::StaffSummary;
 use crate::service::ServiceError;
 use crate::storage::profile::{self as profile_store, StoredProfile};
 use rusqlite::Connection;
 
-/// The sheet of the current profile (the latest version, confirmed or draft).
+/// The sheet of the current profile (the latest version, confirmed or draft), with the staff as the staff module
+/// tells it now (ADR-027).
 pub fn profile_context(conn: &Connection) -> Result<String, ServiceError> {
     Ok(match profile_store::load_current(conn)? {
-        Some(p) => render(&p),
+        Some(p) => render(&p, &crate::hr::api::ai_summary(conn)?),
         None => "Perfil: sin datos. Todavía no hay nada capturado en «Mi institución»; de la institución solo se sabe lo que la persona diga.".into(),
     })
 }
@@ -50,11 +53,123 @@ fn dependency_text(d: DependencyLevel) -> &'static str {
     }
 }
 
-fn contract_text(c: ContractKind) -> &'static str {
-    match c {
-        ContractKind::Permanent => "base",
-        ContractKind::Temporary => "temporal",
-        ContractKind::Fees => "honorarios",
+fn relation_text(code: &str) -> &'static str {
+    match code {
+        "employee" => "con sueldo",
+        "fees" => "por honorarios o asimilados",
+        "religious" => "religiosas o religiosos de la congregación",
+        "volunteer" => "de voluntariado",
+        "trainee" => "en servicio social o prácticas",
+        _ => "de una empresa externa",
+    }
+}
+
+fn area_text(code: &str) -> &'static str {
+    match code {
+        "care" => "cuidado",
+        "health" => "salud",
+        "kitchen" => "cocina",
+        "cleaning" => "limpieza",
+        "laundry" => "lavandería",
+        "administration" => "administración",
+        "social_work" => "trabajo social",
+        "psychology" => "psicología",
+        "rehabilitation" => "rehabilitación",
+        "education" => "educación",
+        "pastoral" => "pastoral",
+        "maintenance" => "mantenimiento",
+        "security" => "vigilancia",
+        _ => "otra área",
+    }
+}
+
+fn schedule_text(code: &str) -> &'static str {
+    match code {
+        "full_time" => "tiempo completo",
+        "part_time" => "medio tiempo",
+        "hourly" => "por horas",
+        _ => "fines de semana",
+    }
+}
+
+fn shift_text(code: &str) -> &'static str {
+    match code {
+        "morning" => "matutino",
+        "afternoon" => "vespertino",
+        "night" => "nocturno",
+        "rotating" => "por turnos",
+        _ => "24 horas",
+    }
+}
+
+fn education_text(code: &str) -> &'static str {
+    match code {
+        "basic" => "hasta secundaria",
+        "high_school_or_technical" => "con preparatoria o carrera técnica",
+        _ => "con licenciatura o posgrado",
+    }
+}
+
+fn seniority_text(code: &str) -> &'static str {
+    match code {
+        "under_1" => "con menos de 1 año",
+        "1_to_4" => "de 1 a 4 años",
+        "5_to_9" => "de 5 a 9 años",
+        _ => "de 10 años o más",
+    }
+}
+
+fn people(n: i64) -> String {
+    format!("{n} {}", if n == 1 { "persona" } else { "personas" })
+}
+
+/// «4 con sueldo, 3 de voluntariado».
+fn listed(counts: &[Count], words: fn(&str) -> &'static str) -> String {
+    counts.iter().map(|c| format!("{} {}", c.count, words(c.code))).collect::<Vec<_>>().join(", ")
+}
+
+/// The staff, by position: how many, their relation, schedule and shift, the seats and what the position does.
+/// Schooling and seniority go only for groups of `MIN_GROUP` people or more.
+fn render_staff(s: &mut String, staff: &StaffSummary, missing: &mut Vec<&str>) {
+    if staff.total == 0 && staff.positions.is_empty() {
+        missing.push("el personal");
+        return;
+    }
+    for p in &staff.positions {
+        let area = p.area.as_deref().map(|a| format!(" ({})", area_text(a))).unwrap_or_default();
+        if p.people == 0 {
+            let seats = p.authorized_seats.unwrap_or(0);
+            s.push_str(&format!(
+                "Puesto sin cubrir: {}{area} — {seats} {} y ninguna cubierta.\n",
+                p.title,
+                if seats == 1 { "plaza autorizada" } else { "plazas autorizadas" }
+            ));
+        } else {
+            let mut details = vec![listed(&p.by_relation, relation_text)];
+            if !p.schedules.is_empty() {
+                details.push(format!("jornada: {}", listed(&p.schedules, schedule_text)));
+            }
+            if !p.shifts.is_empty() {
+                details.push(format!("turno: {}", listed(&p.shifts, shift_text)));
+            }
+            s.push_str(&format!("Personal: {}{area} — {} ({}).", p.title, people(p.people), details.join("; ")));
+            if let Some(seats) = p.authorized_seats {
+                s.push_str(&format!(" Plazas autorizadas: {seats}; sin cubrir: {}.", p.vacancies));
+            }
+            s.push('\n');
+        }
+        if let Some(d) = &p.duties {
+            s.push_str(&format!("Funciones del puesto {}: {d}\n", p.title));
+        }
+    }
+    if staff.total > 0 {
+        s.push_str(&format!("Total del personal: {}: {}.\n", people(staff.total), listed(&staff.by_relation, relation_text)));
+    }
+    if !staff.education.is_empty() {
+        s.push_str(&format!("Escolaridad del personal (solo grupos de {MIN_GROUP} o más personas): {}.\n", listed(&staff.education, education_text)));
+    }
+    if !staff.seniority.is_empty() {
+        s.push_str(&format!("Antigüedad en la institución (solo grupos de {MIN_GROUP} o más personas): {}.\n", listed(&staff.seniority, seniority_text)));
     }
 }
 
@@ -132,7 +247,7 @@ fn groups(i: &ProfileInput) -> Vec<Group> {
     out
 }
 
-pub fn render(p: &StoredProfile) -> String {
+pub fn render(p: &StoredProfile, staff: &StaffSummary) -> String {
     let i = &p.input;
     let t = i.totals(p.as_of_year);
     let money = i.finances(p.as_of_year);
@@ -195,6 +310,12 @@ pub fn render(p: &StoredProfile) -> String {
             _ => "Egreso: nómina del personal con aguinaldo y prima vacacional (del padrón); el monto no se comparte.\n",
         });
     }
+    if t.staff_support_annual_mxn > 0 {
+        s.push_str("Egreso: aportaciones a la congregación y apoyos de servicio social (del padrón); el monto no se comparte.\n");
+    }
+    if t.external_staff_annual_mxn > 0 {
+        s.push_str("Egreso: personal de empresas externas (del padrón); el monto no se comparte.\n");
+    }
     let listed_sum: i64 = listed.iter().filter_map(|l| l.annual_mxn).sum();
     if listed_sum > 0 {
         s.push_str(&format!(
@@ -241,30 +362,8 @@ pub fn render(p: &StoredProfile) -> String {
         }
     }
 
-    // staff: one line per kind of position; pay never goes to the AI
-    let mut jobs: Vec<(&str, bool, Option<&str>, Option<ContractKind>, i64)> = Vec::new();
-    for st in &i.staff {
-        let shift = text(&st.shift);
-        match jobs.iter_mut().find(|j| j.0 == st.role.as_str() && j.1 == st.paid && j.2 == shift && j.3 == st.contract) {
-            Some(j) => j.4 += st.count,
-            None => jobs.push((st.role.as_str(), st.paid, shift, st.contract, st.count)),
-        }
-    }
-    if jobs.is_empty() {
-        missing.push("el personal");
-    } else {
-        for (role, paid, shift, contract, count) in jobs {
-            let mut details = vec![if paid { "con sueldo".to_string() } else { "voluntariado".to_string() }];
-            if let Some(sh) = shift {
-                details.push(format!("turno: {sh}"));
-            }
-            if let Some(c) = contract {
-                details.push(format!("contrato: {}", contract_text(c)));
-            }
-            s.push_str(&format!("Personal: {role} — {count} ({}).\n", details.join("; ")));
-        }
-        s.push_str(&format!("Total del personal: {} con sueldo y {} de voluntariado.\n", t.staff_paid, t.staff_volunteer));
-    }
+    // staff: from the staff module, as positions and counts; never a person, a pay or a date (ADR-027)
+    render_staff(&mut s, staff, &mut missing);
 
     if i.facilities.is_empty() {
         missing.push("las instalaciones");
@@ -350,8 +449,34 @@ pub(crate) mod tests {
         }
     }
 
+    /// The staff of `rich()` in the staff module: 4 night caregivers with pay and 3 volunteers.
+    pub(crate) fn seed_rich_staff(c: &mut Connection) {
+        use crate::hr::domain::person::PersonData;
+        use crate::hr::domain::position::PositionInput;
+        use crate::hr::storage as hr;
+        let carer = hr::insert_position(c, &PositionInput {
+            title: "Cuidadora".into(), area: Some("care".into()), duties: Some("Atiende a los residentes de noche.".into()), authorized_seats: Some(5), ..Default::default()
+        }).unwrap();
+        let volunteer = hr::insert_position(c, &PositionInput { title: "Voluntaria".into(), ..Default::default() }).unwrap();
+        let year: i64 = hr::today(c).unwrap()[..4].parse().unwrap();
+        for i in 0..4 {
+            let d = PersonData {
+                first_names: format!("Cuidadora Secreta {i}"), position_id: Some(carer.clone()), modality: "indefinite".into(), status: "active".into(),
+                pay_amount_mxn: Some(7_777), pay_period: Some("monthly".into()), shift: Some("night".into()), schedule: Some("full_time".into()),
+                start_date: Some(format!("{}-01-01", year - 7)), education: Some("high_school".into()), curp: Some("HEGG560427MVZRRL04".into()),
+                ..Default::default()
+            };
+            hr::save_person(c, None, &d, false).unwrap();
+        }
+        for i in 0..3 {
+            let d = PersonData { first_names: format!("Voluntaria Oculta {i}"), position_id: Some(volunteer.clone()), modality: "volunteer".into(), status: "active".into(), ..Default::default() };
+            hr::save_person(c, None, &d, false).unwrap();
+        }
+    }
+
     fn saved(input: &ProfileInput, confirm: bool) -> (tempfile::TempDir, Connection) {
         let (d, mut c) = db();
+        seed_rich_staff(&mut c);
         profile_store::save(&mut c, input).unwrap();
         if confirm {
             profile_store::confirm(&mut c).unwrap();
@@ -377,9 +502,12 @@ pub(crate) mod tests {
         "Población: Adultos mayores — 11 personas; nivel de dependencia alta; edades de 66 a 95 años; 5 pagan cuota de estancia.",
         "Población: Hombres — 1 persona; nivel de dependencia total.",
         "Total de personas atendidas: 12.",
-        "Personal: Cuidadora — 4 (con sueldo; turno: noche; contrato: base).",
-        "Personal: Voluntaria — 3 (voluntariado).",
-        "Total del personal: 4 con sueldo y 3 de voluntariado.",
+        "Personal: Cuidadora (cuidado) — 4 personas (4 con sueldo; jornada: 4 tiempo completo; turno: 4 nocturno). Plazas autorizadas: 5; sin cubrir: 1.",
+        "Funciones del puesto Cuidadora: Atiende a los residentes de noche.",
+        "Personal: Voluntaria — 3 personas (3 de voluntariado).",
+        "Total del personal: 7 personas: 4 con sueldo, 3 de voluntariado.",
+        "Escolaridad del personal (solo grupos de 3 o más personas): 4 con preparatoria o carrera técnica.",
+        "Antigüedad en la institución (solo grupos de 3 o más personas): 4 de 5 a 9 años.",
         "Instalación: Baño ×3 (estado: malo; accesible: no; nota: Piso resbaloso, sin barras.).",
         "Instalación: Cocina ×1 (estado: bueno).",
         "Notas de la institución: Perfil ficticio para pruebas.",
@@ -413,8 +541,8 @@ pub(crate) mod tests {
             assert!(!numbers.contains(&hidden.abs().to_string()), "«{hidden}» leaked:\n{ctx}");
         }
         assert!(!ctx.contains("Cuotas aprox."), "a fee estimate left out of the sums is not shown either:\n{ctx}");
-        // pay, the fee a person pays, contact data, RFC and the representative
-        for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante"] {
+        // pay, the fee a person pays, contact data, RFC and the representative; names and identifiers of the staff
+        for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante", "Secreta", "Oculta", "HEGG"] {
             assert!(!ctx.contains(secret), "«{secret}» leaked:\n{ctx}");
         }
         // the age of a group of one person would be that person's age
@@ -425,7 +553,8 @@ pub(crate) mod tests {
     #[test]
     fn a_section_with_nothing_captured_says_so_instead_of_staying_silent() {
         let input = ProfileInput { institution: InstitutionInput { name: "Casa Vacía".into(), ..Default::default() }, ..Default::default() };
-        let (_d, c) = saved(&input, false);
+        let (_d, mut c) = db();
+        profile_store::save(&mut c, &input).unwrap();
         let ctx = profile_context(&c).unwrap();
         assert!(ctx.contains("BORRADOR"), "{ctx}");
         assert!(ctx.contains("Institución: Casa Vacía (institución de asistencia)."), "{ctx}");
@@ -467,7 +596,7 @@ pub(crate) mod tests {
         let (_d, c) = saved(&rich(), true);
         let ctx = profile_context(&c).unwrap();
         // every number of the sheet is a fact of the profile or a sum made by code
-        let allowed = ["25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80"];
+        let allowed = ["25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9"];
         for n in crate::domain::figures::digit_numbers(&ctx) {
             assert!(allowed.contains(&n.as_str()), "unexpected number {n} in the sheet:\n{ctx}");
         }
@@ -483,7 +612,7 @@ pub(crate) mod tests {
         crate::service::save_profile(&mut c, input, None).unwrap();
 
         let stored = profile_store::load_current(&c).unwrap().unwrap();
-        let ctx = render(&stored);
+        let ctx = render(&stored, &crate::hr::api::ai_summary(&c).unwrap());
         assert!(ctx.contains("Personal: "), "{ctx}");
         assert!(ctx.contains("Población: "), "{ctx}");
         assert!(ctx.contains("Total de personas atendidas: "), "{ctx}");

@@ -115,24 +115,6 @@ impl ContractKind {
             _ => return None,
         })
     }
-    /// Reads the contract from what the roster selector says (its options can be renamed): «De planta», «Base»,
-    /// «Por tiempo definido», «Eventual», «Honorarios»… Anything else is unknown.
-    pub fn from_label(s: &str) -> Option<Self> {
-        let s = s.trim().to_lowercase();
-        if let Some(k) = Self::from_db(&s) {
-            return Some(k);
-        }
-        let has = |w: &[&str]| w.iter().any(|w| s.contains(w));
-        if has(&["honorario", "asimilado", "factura"]) {
-            Some(ContractKind::Fees)
-        } else if has(&["tiempo definido", "temporal", "eventual", "por obra", "determinado"]) {
-            Some(ContractKind::Temporary)
-        } else if has(&["planta", "base", "indefinido", "permanente"]) {
-            Some(ContractKind::Permanent)
-        } else {
-            None
-        }
-    }
 }
 
 /// Whether an amount is written per month or per year. The code turns it into a year.
@@ -235,6 +217,10 @@ pub struct StaffGroupInput {
     pub start_year: Option<i64>,
     #[serde(default)]
     pub notes: Option<String>,
+    /// The kind of relation of the staff module (`employee`, `fees`, `religious`, `volunteer`, `trainee`,
+    /// `external`; ADR-027): it says where the money of the line counts. `None` in data older than the module.
+    #[serde(default)]
+    pub relation: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -312,6 +298,10 @@ pub struct ProfileTotals {
     pub payroll_cost_annual_mxn: i64,
     /// Paid people whose benefits rest on an assumption (no contract or no start year in the roster).
     pub benefits_assumed: i64,
+    /// Contributions to the congregation and grants of social service, in a year (not payroll).
+    pub staff_support_annual_mxn: i64,
+    /// What the outside companies bill for their staff, in a year (not payroll).
+    pub external_staff_annual_mxn: i64,
     /// People who pay a stay fee, and what they bring in.
     pub fee_payers: i64,
     pub fees_monthly_mxn: i64,
@@ -384,10 +374,21 @@ impl ProfileInput {
             payroll_benefits_annual_mxn,
             payroll_cost_annual_mxn: payroll_monthly_mxn * 12 + payroll_benefits_annual_mxn,
             benefits_assumed,
+            staff_support_annual_mxn: self.unpaid_staff_annual(&["religious", "trainee"]),
+            external_staff_annual_mxn: self.unpaid_staff_annual(&["external"]),
             fee_payers: self.population.iter().map(|g| g.paying_count.unwrap_or(0)).sum(),
             fees_monthly_mxn,
             fees_annual_mxn: fees_monthly_mxn * 12,
         }
+    }
+
+    /// What the lines of staff outside the payroll with one of these relations cost in a year.
+    fn unpaid_staff_annual(&self, relations: &[&str]) -> i64 {
+        self.staff
+            .iter()
+            .filter(|s| !s.paid && s.relation.as_deref().is_some_and(|r| relations.contains(&r)))
+            .map(|s| s.count * s.monthly_salary_mxn.unwrap_or(0) * 12)
+            .sum()
     }
 
     /// Counted income in a year: the roster fees, and the written lines (a fee estimate only while the roster has no
@@ -628,6 +629,8 @@ mod tests {
                 payroll_benefits_annual_mxn: 0,
                 payroll_cost_annual_mxn: 0,
                 benefits_assumed: 0,
+                staff_support_annual_mxn: 0,
+                external_staff_annual_mxn: 0,
                 fee_payers: 0,
                 fees_monthly_mxn: 0,
                 fees_annual_mxn: 0,
@@ -742,11 +745,21 @@ mod tests {
     }
 
     #[test]
-    fn the_contract_is_read_from_the_words_of_the_roster() {
-        for (label, kind) in [("De planta", Some(ContractKind::Permanent)), ("Base", Some(ContractKind::Permanent)), ("Por tiempo definido", Some(ContractKind::Temporary)),
-                              ("Eventual", Some(ContractKind::Temporary)), ("Honorarios", Some(ContractKind::Fees)), ("Asimilados a salarios", Some(ContractKind::Fees)), ("Otro", None)] {
-            assert_eq!(ContractKind::from_label(label), kind, "{label}");
-        }
+    fn contributions_grants_and_outside_staff_are_not_payroll() {
+        let mut p = base();
+        p.staff = vec![
+            StaffGroupInput { role: "Pastoral".into(), count: 2, paid: false, monthly_salary_mxn: Some(1_000), relation: Some("religious".into()), ..Default::default() },
+            StaffGroupInput { role: "Psicología".into(), count: 1, paid: false, monthly_salary_mxn: Some(2_000), relation: Some("trainee".into()), ..Default::default() },
+            StaffGroupInput { role: "Vigilancia".into(), count: 2, paid: false, monthly_salary_mxn: Some(8_000), relation: Some("external".into()), ..Default::default() },
+            StaffGroupInput { role: "Acompañamiento".into(), count: 4, paid: false, monthly_salary_mxn: Some(500), relation: Some("volunteer".into()), ..Default::default() },
+        ];
+        let t = p.totals(2026);
+        assert_eq!((t.payroll_cost_annual_mxn, t.staff_support_annual_mxn, t.external_staff_annual_mxn), (0, 48_000, 192_000));
+        p.expenses = vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(1_000), period: Period::Annual }];
+        let f = p.finances(2026);
+        let kinds: Vec<_> = f.expenses.iter().map(|l| (l.kind, l.annual_mxn, l.counted)).collect();
+        assert_eq!(kinds, vec![("staff_support", Some(48_000), true), ("external_staff", Some(192_000), true), ("expense", Some(1_000), true)]);
+        assert_eq!(f.expenses_annual_mxn, Some(241_000));
     }
 
     #[test]

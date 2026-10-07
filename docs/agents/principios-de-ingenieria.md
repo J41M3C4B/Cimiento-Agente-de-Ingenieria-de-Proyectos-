@@ -39,6 +39,7 @@ src-tauri/src/
   documents/         # Lectura PDF/Excel/Word, plantillas, exportación
   ai/                # Trait AiProvider, prompts, registro de uso
   audit/             # Bitácora
+  hr/                # Módulo de Personal (ADR-027): aparte, tablas hr_*, solo agregados hacia fuera
 docs/                # Especificaciones (fuente de verdad)
 fixtures/            # Datos ficticios
 schemas/             # Esquema canónico de convocatorias (JSON Schema)

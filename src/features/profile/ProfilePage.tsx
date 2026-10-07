@@ -12,6 +12,8 @@ import { ProfileEdit } from "./ProfileEdit";
 import type { Edit } from "./ProfileEdit";
 import { fromView, toInput } from "./profileForm";
 import { RosterTab } from "./RosterTab";
+import { hrOverview } from "../hr/api";
+import { HR_KEY, StaffTab } from "../hr/StaffTab";
 
 const t = es.profile;
 const money = (n: number) => n.toLocaleString("es-MX");
@@ -21,6 +23,7 @@ type Tab = "general" | "staff" | "population" | "facilities";
 const ZERO: ProfileTotals = {
   population: 0, staff_paid: 0, staff_volunteer: 0, income_annual_mxn: 0,
   payroll_monthly_mxn: 0, payroll_annual_mxn: 0, payroll_benefits_annual_mxn: 0, payroll_cost_annual_mxn: 0, benefits_assumed: 0,
+  staff_support_annual_mxn: 0, external_staff_annual_mxn: 0,
   fee_payers: 0, fees_monthly_mxn: 0, fees_annual_mxn: 0,
 };
 
@@ -32,7 +35,8 @@ const ZERO: ProfileTotals = {
 export function ProfilePage() {
   const qc = useQueryClient();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
-  const staffRoster = useQuery({ queryKey: ["roster", "staff"], queryFn: () => rosterOverview("staff") });
+  // the staff lives in its own module (ADR-027); the people served, in the roster (ADR-020)
+  const staffModule = useQuery({ queryKey: HR_KEY, queryFn: hrOverview });
   const peopleRoster = useQuery({ queryKey: ["roster", "beneficiary"], queryFn: () => rosterOverview("beneficiary") });
 
   const [tab, setTab] = useState<Tab>("general");
@@ -93,6 +97,7 @@ export function ProfilePage() {
     try {
       qc.setQueryData(["profile"], await devLoadFixture(name));
       await qc.invalidateQueries({ queryKey: ["roster"] });
+      await qc.invalidateQueries({ queryKey: HR_KEY });
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
     } finally {
@@ -115,8 +120,8 @@ export function ProfilePage() {
   const notify = (text: string) => setToast({ tone: "ok", text });
   const onRosterProfile = (p: ProfileView) => qc.setQueryData(["profile"], p);
 
-  const totals = staffRoster.data?.totals ?? view?.totals ?? ZERO;
-  const staffCount = staffRoster.data?.entries.length ?? 0;
+  const totals = staffModule.data?.totals ?? view?.totals ?? ZERO;
+  const staffCount = staffModule.data?.people.filter((p) => p.status !== "left").length ?? 0;
   const peopleCount = peopleRoster.data?.entries.length ?? 0;
   const facilities = view?.input.facilities ?? [];
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
@@ -125,7 +130,7 @@ export function ProfilePage() {
   const todo: { text: string; go: () => void }[] = [];
   if (view) {
     if (!inst?.contact_phone && !inst?.contact_email) todo.push({ text: t.todo.contact, go: () => open({ kind: "contact" }) });
-    if (staffRoster.isSuccess && staffCount === 0) todo.push({ text: t.todo.staff, go: () => setTab("staff") });
+    if (staffModule.isSuccess && staffCount === 0) todo.push({ text: t.todo.staff, go: () => setTab("staff") });
     if (peopleRoster.isSuccess && peopleCount === 0) todo.push({ text: t.todo.population, go: () => setTab("population") });
     if (facilities.length === 0) todo.push({ text: t.todo.facilities, go: () => setTab("facilities") });
   }
@@ -184,7 +189,7 @@ export function ProfilePage() {
         {view ? (
           <div className="grid min-w-0 grid-cols-2 gap-3 max-[520px]:grid-cols-1">
             <Metric icon="heart" tone="violet" label={t.kpi.people} value={money(totals.population)} sub={capacity ? t.kpi.peopleOf(money(capacity)) : undefined} fill={capacity ? (totals.population / capacity) * 100 : undefined} />
-            <Metric icon="briefcase" tone="teal" label={t.kpi.staff} value={money(staffRoster.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)} sub={t.kpi.staffPaid(totals.staff_paid)} />
+            <Metric icon="briefcase" tone="teal" label={t.kpi.staff} value={money(staffModule.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)} sub={t.kpi.staffPaid(totals.staff_paid)} />
             <Metric icon="banknote" tone="amber" label={t.finance.payroll.label} value={peso(totals.payroll_cost_annual_mxn)} sub={t.finance.payroll.sub(peso(totals.payroll_annual_mxn), peso(totals.payroll_benefits_annual_mxn))} note={totals.benefits_assumed > 0 ? t.finance.payroll.assumed(totals.benefits_assumed) : undefined} />
             <Metric icon="wallet" tone="green" label={t.kpi.fees} value={peso(totals.fees_monthly_mxn)} sub={t.kpi.payers(totals.fee_payers)} />
           </div>
@@ -268,7 +273,7 @@ export function ProfilePage() {
           </TabPanel>
           <TabPanel id="staff" active={tab === "staff"}>
             <Card>
-              <RosterTab entity="staff" onProfile={onRosterProfile} onNotice={notify} />
+              <StaffTab onProfile={onRosterProfile} onNotice={notify} />
             </Card>
           </TabPanel>
           <TabPanel id="population" active={tab === "population"}>
