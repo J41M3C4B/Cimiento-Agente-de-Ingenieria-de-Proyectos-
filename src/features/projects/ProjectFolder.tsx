@@ -89,10 +89,10 @@ export function ProjectFolder({
         <div className="flex items-center gap-1">
           {onDelete && <IconButton icon="trash" label={t.delete} variant="plain" size="sm" disabled={busy} onClick={onDelete} />}
           {canPick && (
-            <div ref={menu} className="relative">
+            <div ref={menu}>
               <IconButton icon="sliders" label={t.colorLabel} variant="plain" size="sm" aria-expanded={picking} onClick={() => setPicking((v) => !v)} />
               {picking && (
-                <Card small className="absolute bottom-full right-0 z-20 mb-2 w-[min(20rem,calc(100vw-4rem))] space-y-3 !shadow-float">
+                <Card small className="absolute bottom-16 right-4 z-20 w-[min(20rem,calc(100%-2rem))] space-y-3 !shadow-float">
                   {onColor && (
                     <div role="group" aria-label={t.colorLabel} className="space-y-2">
                       <Eyebrow>{t.colorLabel}</Eyebrow>

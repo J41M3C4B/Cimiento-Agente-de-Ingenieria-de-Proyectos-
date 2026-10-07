@@ -409,6 +409,8 @@ h1, h2, h3 {
   .dots > i { width: 10px; height: 10px; border-radius: 50%; background: color-mix(in srgb, var(--c, var(--ink)) 28%, var(--card)); }
   .dots > i.on { background: var(--c, var(--ink)); }
   .dots > i.now { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c, var(--ink)) 30%, transparent); }
+  .step-bar { display: block; height: 8px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--c, var(--ink)) 24%, var(--card)); }
+  .step-bar.on { background: var(--c, var(--ink)); }
   .segments { display: flex; gap: 6px; }
   .segments > i { flex: 1; height: 8px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--c, var(--ink)) 24%, var(--card)); }
   .segments > i.on { background: var(--c, var(--ink)); }
