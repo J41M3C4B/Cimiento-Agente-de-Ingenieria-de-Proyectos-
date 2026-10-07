@@ -51,27 +51,26 @@ Texto de cuerpo: `ink` sobre bandeja (≥ 15:1). `ink-3` solo para etiquetas de 
 
 ### 3.2 Acentos sólidos
 
-Ocho colores **vivos, idénticos en modo claro y oscuro**. Se comprobó que oscurecerlos en claro para que cupiera la letra blanca los apagaba (el amarillo se volvía cobre), así que no cambian con el tema. Lo que se decide por color, no por tema, es **la letra que lleva encima**:
+Ocho colores **vivos, idénticos en modo claro y oscuro, y todos con letra blanca**. Una sola regla de texto para todo el sistema (etiquetas, avatares, íconos de color, pestañas de carpeta, píldoras seleccionadas, avisos); sin excepciones por color ni por tema.
 
-- **Letra oscura** (`#121216`) sobre los claros: `sun`, `amber`, `leaf`, `teal` (todos ≥ 7.8:1).
-- **Letra blanca** sobre los profundos: `sky`, `violet`, `rose`, `red` (todos ≥ 4.5:1).
+Para que la letra blanca cumpla 4.5:1, cada color se eligió como el **más vivo posible** que todavía lo permite (mismo tono, la luminosidad más alta que pasa la prueba). Un amarillo vivo no admite letra blanca, así que **no hay amarillo** entre los acentos con texto: lo que antes era amarillo pasó a naranja bermellón, que sí lo admite sin volverse cobre.
 
-Así cada color se ve igual en los dos modos y su letra siempre contrasta. Sobre la bandeja, los colores claros (`sun`, `amber`, `leaf`, `teal`) rinden menos en modo claro como relleno de línea fina; por eso las barras de avance usan además un tinte del mismo color para lo que falta.
+| Token | Valor | Contraste con blanco | Significa en Cimiento |
+|---|---|---|---|
+| `sky` | `#2E6BFA` | 4.6:1 | Enlaces y selección; color de proyecto |
+| `violet` | `#7756FB` | 4.7:1 | Personas que atendemos; color de proyecto |
+| `rose` | `#E50666` | 4.6:1 | Color de proyecto |
+| `red` | `#EA060E` | 4.6:1 | Error, borrar, bloquear |
+| `orange` | `#D14205` | 4.7:1 | Falta algo, atención; fecha de entrega; nómina |
+| `green` | `#03863C` | 4.7:1 | Listo, confirmado, correcto |
+| `teal` | `#03817D` | 4.8:1 | Personal |
+| `cyan` | `#04819A` | 4.6:1 | Fuentes de ingreso; color de proyecto |
 
-| Token | Valor | Letra | Contraste | Significa en Cimiento |
-|---|---|---|---|---|
-| `sun` | `#FFC933` | oscura | 12.2:1 | Cifras de nómina; fecha de entrega |
-| `sky` | `#3A6BF2` | blanca | 4.6:1 | Enlaces y selección; color de proyecto |
-| `leaf` | `#2FBF71` | oscura | 7.8:1 | Listo, confirmado, correcto |
-| `amber` | `#FF9A3D` | oscura | 8.9:1 | Falta algo, atención |
-| `rose` | `#D8307A` | blanca | 4.5:1 | Color de proyecto |
-| `violet` | `#7459F2` | blanca | 4.7:1 | Personas que atendemos |
-| `teal` | `#1FC2B3` | oscura | 8.4:1 | Personal |
-| `red` | `#D93A3A` | blanca | 4.5:1 | Error, borrar, bloquear |
+Sobre superficies oscuras los acentos mantienen ≥ 3:1 como relleno; para texto no se usan sueltos sobre fondo oscuro, siempre dentro de una forma de color con letra blanca.
 
 ### 3.3 Etiquetas sólidas y tintes
 
-Las etiquetas de estado y de categoría son **sólidas**, del mismo color vivo que el resto de la interfaz; un fondo pastel con texto oscuro se ve apagado junto a los avatares, íconos y bandejas de color. La letra de encima es la de la tabla de 3.2: una sola regla para etiquetas, avatares, íconos de color, pestañas de carpeta, píldoras seleccionadas y avisos.
+Las etiquetas de estado y de categoría son **sólidas**, del mismo color vivo que el resto de la interfaz; un fondo pastel con texto oscuro se ve apagado junto a los avatares, íconos y bandejas de color. La letra de encima siempre es blanca (3.2): una sola regla para etiquetas, avatares, íconos de color, pestañas de carpeta, píldoras seleccionadas y avisos.
 
 El **tinte** (acento al 18 % sobre la bandeja, texto en el acento mezclado al 58 % con tinta) queda solo para datos informativos de bajo énfasis, como «Gastos de inversión». Si algo es estado, es sólido.
 
@@ -79,7 +78,7 @@ El **tinte** (acento al 18 % sobre la bandeja, texto en el acento mezclado al 58
 
 - **El color nombra.** Un color pertenece a un significado y no se reutiliza para otro. La tabla de 3.2 es la lista completa.
 - **Un proyecto, un color.** Cada proyecto conserva el color que su dueña le puso (ya existe en la base, `project.color`) y **todo lo suyo va en ese color**: la pestaña de la carpeta, la etiqueta del paso, las barras de avance, el recuadro «Lo siguiente» y los puntos de avance de la cápsula superior. No se mezclan colores dentro de una carpeta: mezclarlos pesa, cuesta leer de qué proyecto se trata y rompe la organización. Los **pasos no tienen color propio**: se distinguen por su nombre y por cuántos están llenos.
-- **Las personas** (personal, beneficiarias) se muestran con iniciales sobre un color sólido de la serie `sky, violet, teal, sun, rose, leaf, amber`, siempre el mismo para el mismo nombre. Solo en este equipo; no sale en documentos ni a la IA (`docs/03-gobernanza-datos.md`).
+- **Las personas** (personal, beneficiarias) se muestran con iniciales sobre un color sólido de la serie `sky, violet, teal, cyan, rose, green, orange`, siempre el mismo para el mismo nombre. Solo en este equipo; no sale en documentos ni a la IA (`docs/03-gobernanza-datos.md`).
 - **Estados siempre con texto:** «Listo», «Por confirmar», «Mal estado». Etiqueta sólida, no solo punto.
 - **Un solo color grande por carpeta.** El resto de la pantalla es blanco y neutro. Varias carpetas de colores distintos conviven porque cada una es de un solo color.
 - **Rojo solo para lo destructivo o lo que falló.**
@@ -166,7 +165,7 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 
 ## 9. Accesibilidad y uso real
 
-- Contraste: texto normal ≥ 4.5:1, texto grande y componentes ≥ 3:1. El texto sobre `sun` y `amber` es `ink`; sobre los demás, blanco.
+- Contraste: texto normal ≥ 4.5:1, texto grande y componentes ≥ 3:1. El texto sobre `cyan` y `orange` es `ink`; sobre los demás, blanco.
 - Nunca solo color: cada estado lleva palabra.
 - Objetivo de toque ≥ 40 px; foco visible con aro de 3 px `sky` al 40 %.
 - Densidad: se prefiere menos bandejas con más aire. Si una bandeja necesita más de siete filas, se pagina o se abre en ventana.
@@ -176,9 +175,9 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 
 | Pantalla | Estructura |
 |---|---|
-| **Inicio** (nueva) | Responde solo dos preguntas: «¿qué hago ahora?» y «¿se me viene un plazo?». Un saludo corto con «Empezar un proyecto nuevo» como botón principal a la derecha; la bandeja principal del proyecto en curso (pestaña de carpeta con el título, en el color del proyecto, y cápsula con el cierre; en el cuerpo la etiqueta con el paso, también del color del proyecto, y a la derecha quien convoca; los seis pasos con su nombre, todos del color del proyecto, **un único bloque destacado «Lo siguiente»** cuya flecha negra circular es el único «Continuar» (al pasar el cursor o enfocarla muestra el letrero «Continuar» a su izquierda; el bloque entero también es pulsable), dos filas de «Después, en este paso», una línea de lo ya terminado y un enlace de ayuda al asistente); «Fechas clave» con el calendario del cierre; una tarjeta pequeña de la institución (estado de la ficha y una razón para tenerla al día, sin listas ni botones de alta); y «Otros proyectos» con una tarjeta resumida por proyecto (ver «Tarjeta de proyecto» en 7). Sin chat, sin pestañas y sin casillas: el avance lo decide el asistente, no la persona |
+| **Inicio** (nueva) | Responde solo dos preguntas: «¿qué hago ahora?» y «¿se me viene un plazo?». Un saludo corto con «Empezar un proyecto nuevo» como botón principal a la derecha; la bandeja principal del proyecto en curso (pestaña de carpeta con el título, en el color del proyecto, y cápsula con el cierre; en el cuerpo la etiqueta con el paso, también del color del proyecto, y a la derecha quien convoca; los seis pasos con su nombre, todos del color del proyecto, **un único bloque destacado «Lo siguiente»** que contiene **el único botón de continuar de la bandeja**: un círculo negro con una flecha que, al pasar el cursor o enfocarlo, se abre en una píldora con la palabra «Continuar» dentro del mismo botón (nunca un letrero aparte, que se leería como un segundo botón); el bloque entero también es pulsable, dos filas de «Después, en este paso», una línea de lo ya terminado y un enlace de ayuda al asistente); «Fechas clave» con el calendario del cierre; una tarjeta pequeña de la institución (estado de la ficha y una razón para tenerla al día, sin listas ni botones de alta); y «Otros proyectos» con una tarjeta resumida por proyecto (ver «Tarjeta de proyecto» en 7). Sin chat, sin pestañas y sin casillas: el avance lo decide el asistente, no la persona |
 | **Mis proyectos** | Todos los proyectos con la misma tarjeta resumida que Inicio (la del proyecto más urgente incluida), ordenados por fecha de cierre; «Empezar un proyecto nuevo» como botón principal en el encabezado |
-| **Mi institución** | Una sola bandeja de cabecera en dos mitades: a la izquierda la identidad, sin ícono de perfil, en tres alturas: «Mi institución» como etiqueta pequeña arriba, el nombre (32 px) y la misión centrados verticalmente con mucho aire entre ellos, y la etiqueta de estado con «Editar» pegadas al fondo; a la derecha un grupo de 2×2 con las cifras en interiores (personas `violet` con barra de ocupación, personal `teal`, nómina `sun`, cuotas `leaf`), cada una con su ícono en cuadro de color, etiqueta, cifra de 30 px y detalle. Debajo, pestañas recortadas; datos en bandeja con filas; ingresos con barra de composición; tablas con avatares y etiquetas. Por debajo de 1000 px la bandeja pasa a una columna y por debajo de 520 px el grupo también |
+| **Mi institución** | Una sola bandeja de cabecera en dos mitades: a la izquierda la identidad, sin ícono de perfil, en tres alturas: «Mi institución» como etiqueta pequeña arriba, el nombre (32 px) y la misión centrados verticalmente con mucho aire entre ellos, y la etiqueta de estado con «Editar» pegadas al fondo; a la derecha un grupo de 2×2 con las cifras en interiores (personas `violet` con barra de ocupación, personal `teal`, nómina `orange`, cuotas `green`), cada una con su ícono en cuadro de color, etiqueta, cifra de 30 px y detalle. Debajo, pestañas recortadas; datos en bandeja con filas; ingresos con barra de composición; tablas con avatares y etiquetas. Por debajo de 1000 px la bandeja pasa a una columna y por debajo de 520 px el grupo también |
 | **Espacio de trabajo** | Chat grande al centro en su bandeja; panel derecho en otra bandeja con partes del proyecto y su estado en etiquetas; «Pasar a la revisión» como botón principal |
 | **Ventanas** | Igual que hoy, con el estilo de bandeja |
 
