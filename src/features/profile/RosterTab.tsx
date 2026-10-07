@@ -369,11 +369,11 @@ export function RosterTab({ entity, onProfile, onNotice }: { entity: Entity; onP
                 {rows.map((e) => (
                   <tr key={e.id} className="group">
                     {columns.map((f, i) => (
-                      <td key={f.key} className={`max-w-[240px] ${f.kind === "money" || f.kind === "number" ? "tabular" : ""} ${e.data[f.key] ? "" : "text-ink-3"}`}>
+                      <td key={f.key} className={`${i === 0 ? "min-w-[200px]" : "max-w-[240px]"} ${f.kind === "money" || f.kind === "number" ? "tabular" : ""} ${e.data[f.key] ? "" : "text-ink-3"}`}>
                         {i === 0 ? (
                           <button type="button" onClick={() => open(e)} className="flex min-w-0 items-center gap-3 text-left">
                             {f.key === "full_name" && <Avatar size="sm" name={e.data[f.key]} />}
-                            <span className="line-clamp-1">{show(f, e.data[f.key])}</span>
+                            <span className="min-w-0">{show(f, e.data[f.key])}</span>
                           </button>
                         ) : f === tagged && e.data[f.key] ? (
                           <Tag tone={tagTone(f, e.data[f.key]!)}>{show(f, e.data[f.key])}</Tag>
