@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip } from "../../components/ui";
+import { Alert, Button, Tag } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { needAdd, needSelect, needsGet, needsPropose, toAppError } from "../../lib/tauri";
 import type { AiStatus, ConversationView, Decision, NeedRow, NeedsView } from "../../lib/types";
@@ -137,11 +137,11 @@ export function ObjectivesStage({
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-[15px] font-semibold">{n.title}</h3>
                     {proposedByAi > 1 && n.id === firstAi && (
-                      <Chip tone="green" icon="check">
+                      <Tag tone="green" icon="check">
                         {t.recommended}
-                      </Chip>
+                      </Tag>
                     )}
-                    {n.origin === "user" && <Chip>{t.yours}</Chip>}
+                    {n.origin === "user" && <Tag>{t.yours}</Tag>}
                   </div>
                   {n.description && <p className="leading-relaxed text-stone-800">{n.description}</p>}
                 </div>

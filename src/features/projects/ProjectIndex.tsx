@@ -1,5 +1,5 @@
 import { Icon } from "../../components/icons";
-import { Chip } from "../../components/ui";
+import { Tag } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { formatMxn } from "../../lib/format";
 import type { DraftingView } from "../../lib/types";
@@ -78,9 +78,9 @@ export function ProjectIndex({ view, preparing, onOpen }: { view: DraftingView |
                   <span className="block text-[14px] font-semibold">{r.title}</span>
                   <span className="mt-0.5 block truncate text-[13px] text-stone-600">{r.preview}</span>
                 </span>
-                <Chip tone={r.chip[1]} icon={r.chip[1] === "green" ? "check" : undefined}>
+                <Tag tone={r.chip[1]} icon={r.chip[1] === "green" ? "check" : undefined}>
                   {r.chip[0]}
-                </Chip>
+                </Tag>
                 <Icon name="next" size={16} className="shrink-0 text-stone-500" />
               </button>
             </li>

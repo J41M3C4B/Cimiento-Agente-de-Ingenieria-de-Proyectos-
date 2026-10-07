@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip, Disclosure, IconTile, Modal, TextArea } from "../../components/ui";
+import { Alert, Button, Tag, Disclosure, Tile, Modal, TextArea } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { diagnosisSummaryConfirm, diagnosisSummaryEdit, diagnosisSummaryGenerate, toAppError } from "../../lib/tauri";
 import type { AiStatus, ConversationView, Decision, QuarantineReport, SummaryEdit, SummaryJson } from "../../lib/types";
@@ -128,7 +128,7 @@ export function DiagnosisPanel({
         {!summary ? (
           <>
             <div className="flex items-start gap-3">
-              <IconTile icon="check" tone="green" />
+              <Tile icon="check" tone="green" />
               <p className="text-[14px]">{t.allDone}</p>
             </div>
             <Button variant="primary" className="w-full" onClick={makeSummary} disabled={working}>
@@ -138,12 +138,12 @@ export function DiagnosisPanel({
         ) : (
           <>
             <div className="flex items-center gap-3">
-              <IconTile icon="file" tone={confirmed ? "green" : "amber"} />
+              <Tile icon="file" tone={confirmed ? "green" : "amber"} />
               <div className="min-w-0">
                 <p className="text-[14px] font-semibold">{t.summaryCard}</p>
-                <Chip tone={confirmed ? "green" : "amber"} icon={confirmed ? "check" : undefined}>
+                <Tag tone={confirmed ? "green" : "amber"} icon={confirmed ? "check" : undefined}>
                   {confirmed ? t.statusConfirmed : t.statusPending}
-                </Chip>
+                </Tag>
               </div>
             </div>
             <div className="grid gap-2">

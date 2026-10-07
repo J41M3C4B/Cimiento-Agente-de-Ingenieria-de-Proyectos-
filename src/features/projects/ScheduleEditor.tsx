@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip, Modal, RowActions, Select, TextInput } from "../../components/ui";
+import { Alert, Button, Tag, Modal, RowActions, Select, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { scheduleConfirm, scheduleDeleteActivity, scheduleSaveActivity, toAppError } from "../../lib/tauri";
 import type { ActivityView, Decision, DraftingView, QuarantineReport } from "../../lib/types";
@@ -118,7 +118,7 @@ export function ScheduleEditor({ view, onView, disabled }: { view: DraftingView;
                   {a.title}
                   {a.origin === "ai_assumption" && (
                     <span className="ml-2 align-middle">
-                      <Chip tone="blue">{t.proposed}</Chip>
+                      <Tag tone="sky" variant="soft">{t.proposed}</Tag>
                     </span>
                   )}
                 </p>

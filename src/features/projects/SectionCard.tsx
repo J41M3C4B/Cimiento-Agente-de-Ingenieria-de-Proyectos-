@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip } from "../../components/ui";
+import { Alert, Button, Tag } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { sectionConfirm, sectionDraft, sectionSave, toAppError } from "../../lib/tauri";
 import type { Decision, DraftingView, QuarantineReport, SectionView } from "../../lib/types";
@@ -92,9 +92,9 @@ export function SectionCard({
           <span className="block text-[14px] font-semibold">{section.title}</span>
           <span className="block text-[12.5px] text-stone-600">{section.required ? t.required : t.optional}</span>
         </span>
-        <Chip tone={statusTone[section.status]} icon={section.status === "confirmed" ? "check" : undefined}>
+        <Tag tone={statusTone[section.status]} icon={section.status === "confirmed" ? "check" : undefined}>
           {t.status[section.status]}
-        </Chip>
+        </Tag>
         <Icon name="down" size={16} className={`shrink-0 text-stone-600 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 

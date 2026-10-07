@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Button, FactRow, Facts, Figures, IconTile, RowActions, Sheet, Tabs, Tag, TextButton } from "../../components/ui";
+import { Button, FactRow, Facts, Figures, Tile, RowActions, Card, Segmented, Tag, TextButton } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileConfirm, profileGet, profileSave, rosterOverview, toAppError } from "../../lib/tauri";
@@ -147,7 +147,7 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-[1360px] px-6 py-6">
-      <Sheet>
+      <Card flush>
         <header className="px-12 pb-6 pt-8">
           <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
             <div className="min-w-0 flex-1">
@@ -225,7 +225,7 @@ export function ProfilePage() {
               <h2 className="text-[18px] font-semibold">{t.onboarding.title}</h2>
               <p className="mt-1 text-stone-600">{t.onboarding.text}</p>
             </div>
-            <Button variant="primary" size="lg" onClick={() => open({ kind: "institution" })}>
+            <Button variant="primary" onClick={() => open({ kind: "institution" })}>
               <Icon name="plus" size={16} strokeWidth={2.4} />
               {t.onboarding.action}
             </Button>
@@ -246,7 +246,7 @@ export function ProfilePage() {
             </div>
 
             <div className="border-b border-stone-200 px-12 py-4">
-              <Tabs
+              <Segmented
                 label={t.sections.basics}
                 value={tab}
                 onChange={setTab}
@@ -325,7 +325,7 @@ export function ProfilePage() {
             </div>
           </>
         )}
-      </Sheet>
+      </Card>
 
       {import.meta.env.DEV && (
         <p className="mt-4 flex items-center justify-center gap-3 text-[12px] text-stone-500">
@@ -353,7 +353,7 @@ export function ProfilePage() {
 
       {toast && (
         <div role="status" className="fixed bottom-6 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2.5 rounded-xl bg-stone-900 px-4 py-2.5 text-[14px] font-medium text-white shadow-lift">
-          <IconTile icon={toast.tone === "ok" ? "check" : "alert"} tone="neutral" small />
+          <Tile icon={toast.tone === "ok" ? "check" : "alert"} tone="neutral" small />
           {toast.text}
         </div>
       )}

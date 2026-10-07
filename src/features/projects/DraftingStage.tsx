@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
-import { Alert, Button, Chip, Modal } from "../../components/ui";
+import { Alert, Button, Tag, Modal } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { draftingGet, draftingPrepare, draftingSetAsks, sectionsConfirmAll, sectionsDraftAll, toAppError } from "../../lib/tauri";
 import type { AiStatus, ConversationView, DraftMode, DraftingView } from "../../lib/types";
@@ -206,7 +206,7 @@ export function DraftingStage({
   const next = (
     <div className="space-y-3">
       <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{t.index.nextStep}</p>
-      {v && missing === 0 ? <Chip tone="green" icon="check">{t.allConfirmed}</Chip> : <p className="text-[13px] text-stone-700">{t.progress(missing)}</p>}
+      {v && missing === 0 ? <Tag tone="green" icon="check">{t.allConfirmed}</Tag> : <p className="text-[13px] text-stone-700">{t.progress(missing)}</p>}
       <Button variant="primary" className="w-full" onClick={onContinue} disabled={working || asking || !v || missing > 0}>
         {t.toReview}
         <Icon name="next" size={15} />

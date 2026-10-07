@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip, Disclosure, IconTile, Modal, Tip } from "../../components/ui";
+import { Alert, Button, Tag, Disclosure, Tile, Modal, Tip } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { callReadingGet } from "../../lib/tauri";
 import type { CallSummary, ReadingDetail, ReadingRow, SummaryItem } from "../../lib/types";
@@ -39,7 +39,7 @@ export function Line({ item }: { item: SummaryItem }) {
       <p className="leading-relaxed">
         {item.requirement && t.requirement[item.requirement] && (
           <span className="mr-2 align-middle">
-            <Chip tone={item.requirement === "obligatorio" ? "blue" : "neutral"}>{t.requirement[item.requirement]}</Chip>
+            <Tag tone={item.requirement === "obligatorio" ? "sky" : "neutral"} variant="soft">{t.requirement[item.requirement]}</Tag>
           </span>
         )}
         {item.text}
@@ -233,7 +233,7 @@ export function useReading(readingId: string | null) {
   });
 }
 
-export const statusTone = (s: ReadingRow["status"]) => (s === "ready" ? "green" : s === "failed" ? "red" : s === "partial" || s === "waiting" ? "amber" : "blue");
+export const statusTone = (s: ReadingRow["status"]) => (s === "ready" ? "green" : s === "failed" ? "red" : s === "partial" || s === "waiting" ? "amber" : "sky");
 
 /**
  * The call of a project, after its first step: one line with its name and who calls, and the whole understanding
@@ -252,12 +252,12 @@ export function CallPanel({ readingId }: { readingId: string | null }) {
   return (
     <>
       <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-white px-5 py-3 shadow-card">
-        <IconTile icon="file" />
+        <Tile icon="file" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold">{r.name}</p>
           <p className="text-[12.5px] text-stone-600">{[t.callTitle, t.byFunder(r.funder, r.year)].filter(Boolean).join(" · ")}</p>
         </div>
-        {r.confirmed_at && <Chip tone="green" icon="check">{t.confirmedShort}</Chip>}
+        {r.confirmed_at && <Tag tone="green" icon="check">{t.confirmedShort}</Tag>}
         {canView && (
           <Button size="sm" onClick={() => setOpen(true)}>
             {t.viewSummary}

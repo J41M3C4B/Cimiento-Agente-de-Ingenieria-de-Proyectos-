@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip, Modal, RowActions, Select, TextInput, THead } from "../../components/ui";
+import { Alert, Button, Tag, Modal, RowActions, Select, TextInput, THead } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { formatMxn, toNumber } from "../../lib/format";
 import { budgetConfirm, budgetDeleteItem, budgetSaveItem, toAppError } from "../../lib/tauri";
@@ -157,7 +157,7 @@ export function BudgetEditor({ view, onView, disabled }: { view: DraftingView; o
                       {i.description}
                       {i.origin === "ai_assumption" && (
                         <span className="ml-2 align-middle">
-                          <Chip tone="blue">{t.proposed}</Chip>
+                          <Tag tone="sky" variant="soft">{t.proposed}</Tag>
                         </span>
                       )}
                     </p>

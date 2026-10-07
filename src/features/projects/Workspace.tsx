@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Tabs } from "../../components/ui";
+import { Segmented } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { CallIndex } from "../calls/CallIndex";
 
@@ -39,7 +39,7 @@ export function Workspace({
         >
           {project && (
             <div className="shrink-0 px-6 pb-1 pt-5">
-              <Tabs
+              <Segmented
                 label={es.workspace.panelTabs}
                 value={showing}
                 onChange={setTab}

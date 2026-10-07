@@ -6,7 +6,7 @@ import type { Condition, FacilityInput } from "../../lib/types";
 
 const t = es.profile;
 
-const conditionTone: Record<Condition, TagTone> = { good: "green", fair: "amber", poor: "orange", critical: "red" };
+const conditionTone: Record<Condition, TagTone> = { good: "green", fair: "amber", poor: "red", critical: "red" };
 
 /** The spaces of the institution and how they are today: a table, with a button to add one. */
 export function FacilitiesTab({
@@ -59,7 +59,7 @@ export function FacilitiesTab({
                   </td>
                   <td className="px-3 py-3 tabular-nums">{f.count}</td>
                   <td className="px-3 py-3">{f.condition ? <Tag tone={conditionTone[f.condition]}>{t.condition[f.condition]}</Tag> : <span className="text-stone-400">—</span>}</td>
-                  <td className="px-3 py-3">{f.accessible === null ? <span className="text-stone-400">—</span> : <Tag tone={f.accessible ? "green" : "orange"}>{f.accessible ? es.common.yes : es.common.no}</Tag>}</td>
+                  <td className="px-3 py-3">{f.accessible === null ? <span className="text-stone-400">—</span> : <Tag tone={f.accessible ? "green" : "amber"}>{f.accessible ? es.common.yes : es.common.no}</Tag>}</td>
                   <td className={`max-w-[280px] px-3 py-3 ${f.notes ? "text-stone-600" : "text-stone-400"}`}>
                     <span className="line-clamp-1">{f.notes || "—"}</span>
                   </td>

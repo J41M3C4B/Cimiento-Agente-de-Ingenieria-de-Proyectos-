@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip, IconTile, Modal } from "../../components/ui";
+import { Alert, Button, Tag, Tile, Modal } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { callReadingConfirm, callReadingRetry, toAppError } from "../../lib/tauri";
 import { CallCardView } from "./CallCardView";
@@ -59,19 +59,19 @@ export function CallConfirm({ readingId, onContinue, busy: parentBusy = false }:
             <h3 className="text-[16px] font-semibold leading-snug">{r.name}</h3>
             {(r.funder || r.year) && <p className="text-[13px] text-stone-700">{t.byFunder(r.funder, r.year)}</p>}
           </div>
-          <Chip tone={statusTone(r.status)} icon={r.status === "ready" ? "check" : undefined}>
+          <Tag tone={statusTone(r.status)} icon={r.status === "ready" ? "check" : undefined}>
             {t.status[r.status]}
-          </Chip>
+          </Tag>
         </div>
         <ul className="divide-y divide-stone-200 border-t border-stone-200">
           {r.files.map((f) => (
             <li key={f.document_id} className="flex flex-wrap items-center gap-3 px-6 py-3.5">
-              <IconTile icon="file" small />
+              <Tile icon="file" small />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium">{f.name}</p>
                 <p className="text-[12.5px] text-stone-600">{t.pagesCount(f.pages)}</p>
               </div>
-              <Chip tone={f.role === "main" ? "blue" : "neutral"}>{t.roleOf(f.role)}</Chip>
+              <Tag tone={f.role === "main" ? "sky" : "neutral"} variant="soft">{t.roleOf(f.role)}</Tag>
             </li>
           ))}
         </ul>
@@ -109,7 +109,7 @@ export function CallConfirm({ readingId, onContinue, busy: parentBusy = false }:
               <p className="font-semibold">{t.askConfirm}</p>
               <p className="text-[13px] text-stone-700">{t.stageHelp}</p>
             </div>
-            <Button variant="primary" size="lg" onClick={() => confirm.mutate()} disabled={confirm.isPending || parentBusy}>
+            <Button variant="primary" onClick={() => confirm.mutate()} disabled={confirm.isPending || parentBusy}>
               {confirm.isPending ? t.confirming : t.confirm}
             </Button>
           </>
@@ -117,7 +117,7 @@ export function CallConfirm({ readingId, onContinue, busy: parentBusy = false }:
         {canView && r.confirmed_at && (
           <>
             <Alert tone="ok">{t.confirmedYes}</Alert>
-            <Button variant="primary" size="lg" onClick={onContinue} disabled={parentBusy}>
+            <Button variant="primary" onClick={onContinue} disabled={parentBusy}>
               {t.toDiagnosis}
               <Icon name="next" size={16} />
             </Button>

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Icon } from "../../components/icons";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
-import { Alert, Button, Chip, Steps, TextInput } from "../../components/ui";
+import { Alert, Button, Tag, Steps, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { projectCreateFromCall, projectSetDonorKind, toAppError } from "../../lib/tauri";
 import type { Decision, DonorKind, FileRole, ProjectRow, QuarantineReport } from "../../lib/types";
@@ -260,7 +260,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
                 <p className="font-semibold">{t.filesReady(items.length)}</p>
                 <p className="truncate text-[13px] text-stone-700">{items[0]?.file.name}</p>
               </div>
-              <Chip tone="blue">{es.calls.roleOf("main")}</Chip>
+              <Tag tone="sky" variant="soft">{es.calls.roleOf("main")}</Tag>
             </div>
 
             <TextInput label={t.callName} hint={t.callNameHint} value={name} onChange={(e) => setName(e.target.value)} />
@@ -304,7 +304,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
             <Button variant="ghost" onClick={() => setStep(0)}>
               {t.wizardBack}
             </Button>
-            <Button type="submit" variant="primary" size="lg" disabled={create.isPending || !ready}>
+            <Button type="submit" variant="primary" disabled={create.isPending || !ready}>
               {create.isPending ? t.starting : t.start}
             </Button>
           </div>
