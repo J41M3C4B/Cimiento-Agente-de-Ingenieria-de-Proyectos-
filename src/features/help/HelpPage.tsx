@@ -1,4 +1,4 @@
-import { Card, Disclosure } from "../../components/ui";
+import { Avatar, Card, Disclosure } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 
 const t = es.help;
@@ -18,9 +18,7 @@ export function HelpPage() {
           <ol className="mt-4 space-y-3">
             {t.steps.map(([name, text], i) => (
               <li key={name} className="flex gap-4">
-                <span className="avatar tone-pc" aria-hidden="true">
-                  {i + 1}
-                </span>
+                <Avatar name={String(i + 1)} tone="ink" />
                 <div className="min-w-0">
                   <p className="text-ui font-bold">{name}</p>
                   <p className="text-ui text-ink-2">{text}</p>
