@@ -119,6 +119,7 @@ Nombres de las superficies: **`card`** es la bandeja blanca (nivel 2 de §2), **
 
 | Familia | Tokens (clase de Tailwind) | Valor |
 |---|---|---|
+| Texto de estado | `text-sky-ink` · `text-red-ink` · `text-amber-ink` · `text-green-ink` | el acento al 45 % mezclado con `ink`; ≥ 5:1 sobre la bandeja en claro y oscuro. Para palabras sueltas de estado (un error bajo un campo, «Por revisar»); lo demás usa etiquetas sólidas |
 | Tipografía | `text-caption` · `text-small` · `text-ui` · `text-body` · `text-heading` · `text-subtitle` · `text-title` · `text-hero` · `text-display` | 12.5 · 13 · 14 · 15 · 18 · 22 · 28 · 32 · 72 px |
 | Peso | `font-normal` (cifras) · `font-medium` (base) · `font-semibold` · `font-bold` (títulos, botones, etiquetas) · `font-extrabold` (avatares, pestañas) | 400 · 500 · 600 · 700 · 800 |
 | Radios | `rounded-tick` · `rounded-field` · `rounded-inset` · `rounded-card` · `rounded-frame` · `rounded-pill` | 8 · 14 · 20 · 28 · 32 · 999 px |

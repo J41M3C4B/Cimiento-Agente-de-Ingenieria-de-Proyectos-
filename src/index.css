@@ -146,6 +146,11 @@
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-on-ink: var(--on-ink);
+  /* texto de un estado sobre una bandeja: el acento mezclado con la tinta (≥ 5:1 en claro y oscuro) */
+  --color-sky-ink: color-mix(in srgb, var(--color-sky) 45%, var(--ink));
+  --color-red-ink: color-mix(in srgb, var(--color-red) 45%, var(--ink));
+  --color-amber-ink: color-mix(in srgb, var(--color-amber) 45%, var(--ink));
+  --color-green-ink: color-mix(in srgb, var(--color-green) 45%, var(--ink));
   --shadow-card: var(--shadow-card-v);
   --shadow-frame: var(--shadow-frame-v);
   --shadow-float: var(--shadow-float-v);
