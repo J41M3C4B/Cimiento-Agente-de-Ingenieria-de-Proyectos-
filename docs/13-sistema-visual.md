@@ -14,6 +14,8 @@ Tres ideas sostienen todo lo demás:
 2. **Bandejas sobre un marco.** Todo vive dentro de un marco redondeado claro; dentro, cada tema es una bandeja blanca, grande, con mucho aire. Una pantalla es un tablero de bandejas, no una página larga.
 3. **Una cosa a la vez.** Cada bandeja responde una pregunta. Lo que se puede hacer ahora es lo más grande y lo más oscuro de la pantalla.
 
+Corolario para Inicio y para cualquier pantalla de entrada: **mostrar menos**. Lo que se hace con el asistente se hace en su pantalla, no se duplica en miniatura; lo que es mantenimiento (la ficha de la institución) se resume en una línea y un enlace; y cada dato aparece una sola vez.
+
 ## 2. Superficies
 
 Tres niveles, de atrás hacia adelante. La profundidad la da el cambio de tono y una sombra muy suave, no los bordes.
@@ -181,7 +183,7 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 
 | Pantalla | Estructura |
 |---|---|
-| **Inicio** (nueva) | Bandeja principal del proyecto en curso (encabezado `sun`, lo que falta confirmar como lista con casillas), recordatorio con el cierre de la convocatoria, bandeja «Mi institución» con pestaña y personal, y abajo resumen del proyecto + asistente + cifra de pendientes |
+| **Inicio** (nueva) | Responde solo dos preguntas: «¿qué hago ahora?» y «¿se me viene un plazo?». Un saludo corto; la bandeja principal del proyecto en curso (encabezado `sun` con el paso y «Continuar», nombre del proyecto, los seis pasos con su nombre y color, **un único bloque destacado «Lo siguiente»** que lleva al asistente, dos filas de «Después, en este paso», una línea de lo ya terminado y un enlace de ayuda al asistente); «Fechas clave» con el calendario del cierre; una tarjeta pequeña de la institución (estado de la ficha y una razón para tenerla al día, sin listas ni botones de alta); y «Sus proyectos» con los demás proyectos y «Empezar un proyecto nuevo». Sin chat, sin pestañas y sin casillas: el avance lo decide el asistente, no la persona |
 | **Mis proyectos** | Cada proyecto es una bandeja con su color, avance en puntos y botón principal «Continuar»; «Nuevo proyecto» como casilla discontinua |
 | **Mi institución** | Una sola bandeja de cabecera en dos mitades: a la izquierda la identidad, sin ícono de perfil, en tres alturas: «Mi institución» como etiqueta pequeña arriba, el nombre (32 px) y la misión centrados verticalmente con mucho aire entre ellos, y la etiqueta de estado con «Editar» pegadas al fondo; a la derecha un grupo de 2×2 con las cifras en interiores (personas `violet` con barra de ocupación, personal `teal`, nómina `sun`, cuotas `leaf`), cada una con su ícono en cuadro de color, etiqueta, cifra de 30 px y detalle. Debajo, pestañas recortadas; datos en bandeja con filas; ingresos con barra de composición; tablas con avatares y etiquetas. Por debajo de 1000 px la bandeja pasa a una columna y por debajo de 520 px el grupo también |
 | **Espacio de trabajo** | Chat grande al centro en su bandeja; panel derecho en otra bandeja con partes del proyecto y su estado en etiquetas; «Pasar a la revisión» como botón principal |
