@@ -64,9 +64,11 @@ Ocho colores, saturados pero tranquilos (ni neón ni pastel). Cada uno trae el c
 
 En modo oscuro los mismos tonos suben un 6 % de luminosidad y se mantienen los textos de encima.
 
-### 3.3 Tintes
+### 3.3 Etiquetas sólidas y tintes
 
-Para fondos suaves de etiquetas y estados: el acento al **16 %** sobre la bandeja (`color-mix(in srgb, <acento> 16%, <bandeja>)`), con el texto en el acento oscurecido un 35 % para llegar a 4.5:1.
+Las etiquetas de estado y de categoría son **sólidas**, del mismo color vivo que el resto de la interfaz; un fondo pastel con texto oscuro se ve apagado junto a los avatares, íconos y bandejas de color. El texto de encima sigue la tabla de 3.2: `ink` sobre `leaf`, `teal`, `amber`, `sun`, `rose` y `red` (todas ≥ 4.8:1), y blanco sobre `sky` y `violet`, que para eso se oscurecen un 14 % en la etiqueta (4.8:1). En modo oscuro los acentos son más claros y llevan `ink` oscuro.
+
+El **tinte** (acento al 18 % sobre la bandeja, texto en el acento mezclado al 58 % con tinta) queda solo para datos informativos de bajo énfasis, como las etiquetas de contexto «Convocatoria NMP 2026» o «Gastos de inversión». Si algo es estado, es sólido.
 
 ### 3.4 Reglas de uso
 
@@ -138,7 +140,7 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 - **Botón principal:** fondo `ink`, texto blanco, 44 px, radio 999. Uno por bandeja como máximo. Secundario: blanco con borde de 1 px; terciario: texto.
 - **Botón circular de ícono:** 44 px, blanco, borde 1 px `line`; activo en `ink`; peligro en `red` sólido.
 - **Cápsula:** píldora blanca de 52 px de alto con estado, fecha y avance.
-- **Etiqueta (tag):** tinte del acento al 16 %, texto del acento oscuro, radio 999, 28 px de alto, 13 px, peso 700. Con punto o ícono si hay espacio.
+- **Etiqueta (tag):** fondo sólido del acento, texto según 3.3, radio 999, 28 px de alto, 13 px, peso 700. Variantes: `soft` (tinte) para contexto y `line` (borde de 1.5 px, sin relleno) para datos neutros como «Sin redactar». Siempre con palabras.
 - **Casilla:** 22 px, radio 7; marcada = `ink` con palomita blanca; el texto hecho se tacha y baja a `ink-3`.
 - **Avatar de iniciales:** círculo de 36 px (28 en filas densas) de color sólido; pila de avatares solapados 10 px con anillo de 2 px del color de la bandeja.
 - **Tarjeta de persona:** interior (nivel 3) con avatar, nombre, dato secundario y estado a la derecha.
@@ -149,6 +151,15 @@ Mínimo 14 px para todo lo que se lee o se pulsa; 12.5 solo para etiquetas. Peso
 - **Barra de pasos:** seis puntos o píldoras con el color de su paso; lo hecho lleno, lo actual con anillo, lo que sigue vacío con el color al 25 %.
 - **Barra de composición:** segmentos continuos de 8 px de alto con los colores de las fuentes (ingresos, avance).
 - **Tabla:** sin cabecera rellena; filas de 52 px con línea fina; la primera columna en peso 700; etiquetas de color para la categoría.
+- **Formulario (dentro de una ventana):**
+  - Secciones con etiqueta en mayúsculas pequeñas y una línea fina; los campos van en dos columnas (una en pantallas angostas) y los largos ocupan las dos.
+  - Campo: 48 px de alto, radio 14, borde de 1.5 px `line`; al enfocarlo, borde `sky` y aro de 4 px al 45 %. Etiqueta arriba en peso 700; el asterisco rojo marca lo obligatorio.
+  - Selector: mismo campo con flecha a la derecha y «Seleccionar» en `ink-3` mientras está vacío. Dinero: «$» fijo a la izquierda y la unidad («al año») a la derecha; solo acepta dígitos.
+  - Interruptor: 48 × 28, verde cuando está activo.
+  - Opciones cortas (estado, sí/no): **píldoras seleccionables** con el color del estado; la elegida se rellena de sólido. Opciones con explicación (tipo de institución): **tarjetas** con círculo de selección; la elegida lleva borde `ink` y fondo de interior.
+  - Error: el campo se marca en `red`, el mensaje va debajo con ícono, en palabras de la persona («Escriba el nombre de la persona.»), y el foco pasa al primer campo con error. El mensaje se quita al escribir.
+  - Pie con «Cancelar», «Guardar y agregar otra» (solo al agregar) y «Guardar» o «Guardar cambios» como botón principal. `Esc` o tocar fuera cierran; el foco vuelve al botón que abrió la ventana.
+  - Al guardar, un aviso breve abajo («Persona agregada») y las cifras de la ficha se actualizan al momento.
 - **Ventana (modal):** bandeja de 28 con título de 18, secciones con etiqueta en mayúsculas pequeñas y botones al pie; fondo atenuado.
 
 ## 8. Movimiento
