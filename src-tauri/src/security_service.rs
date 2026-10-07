@@ -135,6 +135,8 @@ const SCANNED: &[(&str, &[&str])] = &[
     ("call_reading", &["name", "funder"]),
     ("institution", &["mission"]),
     ("institution_profile", &["notes"]),
+    ("income_source", &["label"]),
+    ("expense_item", &["label"]),
 ];
 
 #[derive(Debug, Clone, Serialize)]

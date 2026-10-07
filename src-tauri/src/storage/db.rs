@@ -58,7 +58,7 @@ mod tests {
         let versions: i64 = conn
             .query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(versions, 13);
+        assert_eq!(versions, 14);
     }
 
     #[test]

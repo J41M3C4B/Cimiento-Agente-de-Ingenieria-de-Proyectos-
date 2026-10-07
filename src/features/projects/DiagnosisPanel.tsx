@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip, Disclosure, IconTile, Modal, TextArea } from "../../components/ui";
+import { Alert, Button, Disclosure, Eyebrow, Inset, Modal, Tag, TextArea, Tile } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { diagnosisSummaryConfirm, diagnosisSummaryEdit, diagnosisSummaryGenerate, toAppError } from "../../lib/tauri";
 import type { AiStatus, ConversationView, Decision, QuarantineReport, SummaryEdit, SummaryJson } from "../../lib/types";
@@ -121,15 +121,15 @@ export function DiagnosisPanel({
   // what to do next, in the panel: nothing yet while they talk, then the summary and the way on
   const next =
     view.phase !== "closed" && !(view.legacy && summary) ? (
-      <p className="text-[13px] text-stone-600">{t.nextHint}</p>
+      <p className="text-small text-ink-3">{t.nextHint}</p>
     ) : (
       <div className="space-y-3">
-        <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{t.nextStep}</p>
+        <Eyebrow>{t.nextStep}</Eyebrow>
         {!summary ? (
           <>
             <div className="flex items-start gap-3">
-              <IconTile icon="check" tone="green" />
-              <p className="text-[14px]">{t.allDone}</p>
+              <Tile icon="check" tone="green" />
+              <p className="text-ui">{t.allDone}</p>
             </div>
             <Button variant="primary" className="w-full" onClick={makeSummary} disabled={working}>
               {summarizing ? t.making : t.makeSummary}
@@ -138,12 +138,12 @@ export function DiagnosisPanel({
         ) : (
           <>
             <div className="flex items-center gap-3">
-              <IconTile icon="file" tone={confirmed ? "green" : "amber"} />
+              <Tile icon="file" tone={confirmed ? "green" : "amber"} />
               <div className="min-w-0">
-                <p className="text-[14px] font-semibold">{t.summaryCard}</p>
-                <Chip tone={confirmed ? "green" : "amber"} icon={confirmed ? "check" : undefined}>
+                <p className="mb-1 text-ui font-bold">{t.summaryCard}</p>
+                <Tag tone={confirmed ? "green" : "amber"} icon={confirmed ? "check" : undefined}>
                   {confirmed ? t.statusConfirmed : t.statusPending}
-                </Chip>
+                </Tag>
               </div>
             </div>
             <div className="grid gap-2">
@@ -166,7 +166,7 @@ export function DiagnosisPanel({
     <>
       <Workspace panelOpen={panelOpen && view.project.kind === "call"} readingId={view.project.call_reading_id} footer={next}>
         {(noticeText || error) && (
-          <div className="mx-auto w-full max-w-[720px] space-y-2 px-6 pt-4">
+          <div className="mb-3 shrink-0 space-y-2">
             {noticeText && <Alert tone="warn">{noticeText}</Alert>}
             {error && <Alert tone="warn">{error}</Alert>}
           </div>
@@ -237,10 +237,10 @@ export function DiagnosisPanel({
 
 function List({ items }: { items: string[] }) {
   return (
-    <ul className="space-y-1.5">
+    <ul className="space-y-2">
       {items.map((x, i) => (
         <li key={i} className="flex gap-2.5">
-          <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-500" />
+          <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-pill bg-ink-3" />
           <span>{x}</span>
         </li>
       ))}
@@ -253,17 +253,17 @@ function SummaryParts({ summary, confirmed, fromAi, unsupported }: { summary: Su
   const f = t.fields;
   return (
     <div className="space-y-3">
-      <p className="text-[13px] text-stone-700">{confirmed ? t.confirmed : fromAi ? t.suggested : t.edited}</p>
+      <p className="text-small text-ink-2">{confirmed ? t.confirmed : fromAi ? t.suggested : t.edited}</p>
       {unsupported.length > 0 && !confirmed && <Alert tone="warn">{t.figuresWarning(unsupported.join(", "))}</Alert>}
-      <div className="rounded-2xl bg-white px-5 py-4 shadow-card">
-        <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-blue-900">{f.need}</h3>
-        <p className="mt-1 text-[16px] font-semibold leading-snug">{summary.reframed_need}</p>
-      </div>
+      <Inset>
+        <Eyebrow>{f.need}</Eyebrow>
+        <p className="mt-1 text-body font-bold leading-snug">{summary.reframed_need}</p>
+      </Inset>
       <Disclosure title={f.problem} defaultOpen>
         <p>{summary.problem_statement}</p>
       </Disclosure>
       <Disclosure title={f.affected}>
-        <p className="font-semibold">{[summary.affected.group, summary.affected.count !== null ? String(summary.affected.count) : ""].filter(Boolean).join(": ")}</p>
+        <p className="font-bold">{[summary.affected.group, summary.affected.count !== null ? String(summary.affected.count) : ""].filter(Boolean).join(": ")}</p>
         <p>{summary.affected.description}</p>
       </Disclosure>
       {summary.current_consequences.length > 0 && (
@@ -280,16 +280,16 @@ function SummaryParts({ summary, confirmed, fromAi, unsupported }: { summary: Su
         <Disclosure title={f.alternatives} count={summary.alternatives.length}>
           <ul className="space-y-3">
             {summary.alternatives.map((a, i) => (
-              <li key={i} className="rounded-xl bg-white p-3.5 shadow-card">
-                <p className="font-semibold">{a.title}</p>
+              <li key={i} className="rounded-field bg-card p-3">
+                <p className="font-bold">{a.title}</p>
                 {a.pros.length > 0 && (
-                  <p className="mt-1 text-[13.5px]">
-                    <strong className="text-green-800">{f.pros}:</strong> {a.pros.join("; ")}
+                  <p className="mt-1 text-small">
+                    <strong className="text-green-ink">{f.pros}:</strong> {a.pros.join("; ")}
                   </p>
                 )}
                 {a.cons.length > 0 && (
-                  <p className="text-[13.5px]">
-                    <strong className="text-amber-800">{f.cons}:</strong> {a.cons.join("; ")}
+                  <p className="text-small">
+                    <strong className="text-amber-ink">{f.cons}:</strong> {a.cons.join("; ")}
                   </p>
                 )}
               </li>

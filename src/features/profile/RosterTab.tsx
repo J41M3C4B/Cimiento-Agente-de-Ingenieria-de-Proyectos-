@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Avatar, Button, Modal, RowActions, Select, Tag, TextArea, TextInput, THead, seriesTone, toneOfText } from "../../components/ui";
+import { AddSlot, Alert, Avatar, Button, IconButton, Inset, Modal, RowActions, Search, Select, Switch, Tag, TextArea, TextInput, THead, seriesTone, toneOfText, FormSection } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { rosterEntryDelete, rosterEntrySave, rosterFieldDelete, rosterFieldSave, rosterOverview, toAppError } from "../../lib/tauri";
 import type { Entity, FieldKind, ProfileTotals, ProfileView, RosterEntry, RosterField, RosterOverview } from "../../lib/types";
@@ -39,29 +39,22 @@ function show(f: RosterField, value: string | undefined): string {
   return value;
 }
 
-/** One field of the form, drawn by its kind. */
+/** One field of the form, drawn by its kind. A long text takes both columns. */
 function FieldControl({ f, value, error, first, onChange }: { f: RosterField; value: string; error?: string; first?: boolean; onChange: (v: string) => void }) {
-  const label = f.required ? `${f.title} *` : f.title;
   if (f.kind === "yesno") {
-    const on = value !== "no";
-    return (
-      <label className="flex min-h-[40px] cursor-pointer items-center gap-3 self-end text-[14px] font-medium">
-        <input type="checkbox" className="peer sr-only" checked={on} onChange={(e) => onChange(e.target.checked ? "yes" : "no")} />
-        <span className="relative h-6 w-10 shrink-0 rounded-full bg-stone-400 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-blue-800 peer-checked:after:translate-x-4 peer-focus-visible:ring-[3px] peer-focus-visible:ring-blue-100" />
-        {f.title}
-      </label>
-    );
+    return <Switch label={f.title} className="self-end" checked={value !== "no"} onChange={(e) => onChange(e.target.checked ? "yes" : "no")} />;
   }
   if (f.kind === "select" || f.kind === "year") {
     const base: [string, string][] = f.kind === "year" ? YEARS : f.options.map((o) => [o.value, o.label]);
     const options: [string, string][] = [["", r.form.select], ...base];
     if (value && !base.some(([v]) => v === value)) options.push([value, value]); // a value an option once had
-    return <Select label={label} error={error} options={options} value={value} onChange={(e) => onChange(e.target.value)} autoFocus={first} />;
+    return <Select label={f.title} required={f.required} error={error} options={options} value={value} onChange={(e) => onChange(e.target.value)} autoFocus={first} />;
   }
   const numeric = f.kind === "number" || f.kind === "money";
   return (
     <TextInput
-      label={label}
+      label={f.title}
+      required={f.required}
       error={error}
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -69,7 +62,7 @@ function FieldControl({ f, value, error, first, onChange }: { f: RosterField; va
       inputMode={numeric ? "numeric" : f.kind === "phone" ? "tel" : f.kind === "email" ? "email" : undefined}
       type={f.kind === "email" ? "email" : undefined}
       autoFocus={first}
-      className={f.kind === "text" ? "col-span-2" : ""}
+      className={f.kind === "text" ? "sm:col-span-2" : ""}
     />
   );
 }
@@ -97,11 +90,16 @@ function PersonModal({
     }
   }
 
+  // when a save is refused, the focus goes to the first field with an error
+  const body = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) body.current?.querySelector<HTMLElement>(".field--invalid")?.focus();
+  }, [errors]);
+
   return (
     <Modal
       title={title}
       onClose={onClose}
-      size="lg"
       footer={
         <>
           <Button onClick={onClose}>{r.form.cancel}</Button>
@@ -116,16 +114,15 @@ function PersonModal({
         </>
       }
     >
-      <div onKeyDown={onKey} className="space-y-6">
+      <div ref={body} onKeyDown={onKey} className="space-y-6">
         {groups.map(([heading, list], gi) => (
-          <fieldset key={heading}>
-            <legend className="mb-3 w-full border-b border-stone-200 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-600">{heading}</legend>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
+          <FormSection key={heading} title={heading}>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
               {list.map((f, fi) => (
                 <FieldControl key={f.key} f={f} first={gi === 0 && fi === 0} value={value(f)} error={errors[f.key]} onChange={(v) => onChange(f.key, v)} />
               ))}
             </div>
-          </fieldset>
+          </FormSection>
         ))}
         {notice && <Alert tone="error">{notice}</Alert>}
       </div>
@@ -183,29 +180,25 @@ function FieldsDialog({ entity, fields, onFields, onClose }: { entity: Entity; f
       {error && <Alert tone="error">{error}</Alert>}
       {!editing ? (
         <>
-          <p className="text-stone-700">{r.fields.intro}</p>
-          <ul className="divide-y divide-stone-200 rounded-lg border border-stone-200">
-            {fields.map((f) => (
-              <li key={f.key} className="group flex items-center gap-3 px-4 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{f.title}</p>
-                  <p className="text-[12.5px] text-stone-600">
-                    {r.fields.kinds[f.kind]}
-                    {f.kind === "select" && ` · ${f.options.length}`}
-                    {f.builtin && ` · ${r.fields.builtin}`}
-                  </p>
-                </div>
-                <Button size="sm" variant="plain" aria-label={r.fields.edit} title={r.fields.edit} onClick={() => setEditing({ key: f.key, title: f.title, kind: f.kind, options: f.options.map((o) => o.label).join("\n") })} className="!px-2">
-                  <Icon name="pencil" size={16} />
-                </Button>
-                {!f.builtin && (
-                  <Button size="sm" variant="plain" aria-label={es.common.remove} title={es.common.remove} disabled={busy} onClick={() => run(() => rosterFieldDelete(entity, f.key))} className="!px-2 hover:!text-red-800">
-                    <Icon name="trash" size={16} />
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
+          <p className="text-ink-2">{r.fields.intro}</p>
+          <Inset className="!px-4 !py-1">
+            <ul className="divide-y divide-line">
+              {fields.map((f) => (
+                <li key={f.key} className="flex items-center gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <b className="block truncate font-bold">{f.title}</b>
+                    <span className="block text-small text-ink-3">
+                      {r.fields.kinds[f.kind]}
+                      {f.kind === "select" && ` · ${f.options.length}`}
+                      {f.builtin && ` · ${r.fields.builtin}`}
+                    </span>
+                  </div>
+                  <IconButton icon="pencil" label={r.fields.edit} variant="plain" size="sm" onClick={() => setEditing({ key: f.key, title: f.title, kind: f.kind, options: f.options.map((o) => o.label).join("\n") })} />
+                  {!f.builtin && <IconButton icon="trash" label={es.common.remove} variant="plain" size="sm" disabled={busy} onClick={() => run(() => rosterFieldDelete(entity, f.key))} />}
+                </li>
+              ))}
+            </ul>
+          </Inset>
         </>
       ) : (
         <>
@@ -220,7 +213,7 @@ function FieldsDialog({ entity, fields, onFields, onClose }: { entity: Entity; f
           )}
           {editing.kind === "select" &&
             (current?.locked_options ? (
-              <p className="rounded-lg bg-stone-50 px-4 py-3 text-stone-700">{r.fields.lockedOptions}</p>
+              <Inset className="text-ui text-ink-2">{r.fields.lockedOptions}</Inset>
             ) : (
               <TextArea label={r.fields.options} hint={r.fields.optionsHelp} value={editing.options} onChange={(e) => setEditing({ ...editing, options: e.target.value })} />
             ))}
@@ -234,7 +227,7 @@ function FieldsDialog({ entity, fields, onFields, onClose }: { entity: Entity; f
  * One tab of the roster: the people registered, in a table with search and a filter, and a button to add one in a
  * window. The records stay in this computer; the profile only receives what they add up to (ADR-020).
  */
-export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p: ProfileView) => void }) {
+export function RosterTab({ entity, onProfile, onNotice }: { entity: Entity; onProfile: (p: ProfileView) => void; onNotice?: (text: string) => void }) {
   const text = entity === "staff" ? r.staff : r.beneficiary;
   const qc = useQueryClient();
   const overview = useQuery({ queryKey: ["roster", entity], queryFn: () => rosterOverview(entity) });
@@ -295,6 +288,7 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
     try {
       const data = Object.fromEntries(fields.map((f) => [f.key, val(f)]).filter(([, v]) => v !== ""));
       apply(await rosterEntrySave(entity, panel.id, data));
+      onNotice?.(panel.id ? es.common.saved : r.form.added);
       // «guardar y agregar otra»: the window stays, empty, for the next one
       if (another && !panel.id) {
         setPanel({ id: null, values: {} });
@@ -326,23 +320,19 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
     const i = f.options.findIndex((o) => o.value === v);
     return i >= 0 ? seriesTone(i) : toneOfText(v);
   };
-
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <label className="relative block w-full max-w-[260px]">
-          <span className="sr-only">{text.search}</span>
-          <Icon name="search" size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-600" />
-          <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(0);
-            }}
-            placeholder={text.search}
-            className="min-h-[36px] w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-[14px] placeholder:text-stone-500 hover:border-stone-400 focus-visible:border-blue-800 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-blue-100"
-          />
-        </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <Search
+          label={text.search}
+          placeholder={text.search}
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(0);
+          }}
+          className="w-full sm:max-w-[280px] sm:flex-1"
+        />
         {filterField && (
           <Select
             label={filterField.title}
@@ -353,79 +343,81 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
               setPage(0);
             }}
             options={[["", `${filterField.title}: ${r.table.all}`], ...filterField.options.map((o) => [o.value, o.label] as [string, string])]}
-            className="min-w-[200px] [&_select]:min-h-[36px]"
+            className="w-full sm:w-auto sm:min-w-[220px]"
           />
         )}
-        <div className="ml-auto flex gap-2">
-          <Button size="sm" onClick={() => setConfiguring(true)}>
-            <Icon name="sliders" size={15} />
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="plain" onClick={() => setConfiguring(true)}>
+            <Icon name="sliders" size={16} />
             {r.form.configure}
           </Button>
-          <Button size="sm" variant="primary" disabled={!overview.isSuccess} onClick={() => open()}>
-            <Icon name="plus" size={15} strokeWidth={2.4} />
+          <Button variant="primary" onClick={() => open()}>
+            <Icon name="plus" size={18} />
             {text.add}
           </Button>
         </div>
       </div>
 
-      {entries.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-stone-300 px-6 py-12 text-center">
-          <p className="mx-auto max-w-sm text-stone-700">{text.empty}</p>
-          <Button className="mt-4" variant="primary" disabled={!overview.isSuccess} onClick={() => open()}>
-            <Icon name="plus" size={16} strokeWidth={2.4} />
-            {text.add}
-          </Button>
-        </div>
+      {!overview.isSuccess ? null : entries.length === 0 ? (
+        <Inset className="flex flex-col items-center gap-4 !px-6 !py-12 text-center">
+          <p className="max-w-sm text-body text-ink-2">{text.empty}</p>
+          <div className="w-full max-w-sm">
+            <AddSlot onClick={() => open()}>{text.add}</AddSlot>
+          </div>
+        </Inset>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-left text-[14px]">
-            <THead columns={[...columns.map((f) => ({ key: f.key, title: f.title })), { key: "actions", title: "" }]} />
-            <tbody>
-              {rows.map((e) => (
-                <tr key={e.id} className="group border-t border-stone-200 hover:bg-stone-50">
-                  {columns.map((f, i) => (
-                    <td key={f.key} className={`max-w-[240px] px-3 py-2.5 ${f.kind === "money" || f.kind === "number" ? "tabular-nums" : ""}`}>
-                      {i === 0 ? (
-                        <button type="button" onClick={() => open(e)} className="flex items-center gap-2.5 text-left font-medium hover:text-blue-800">
-                          <Avatar name={e.data[f.key]} />
+        <>
+          <div className="overflow-x-auto">
+            <table className="table min-w-[640px]">
+              <THead columns={[...columns.map((f) => ({ key: f.key, title: f.title })), { key: "actions", title: "" }]} />
+              <tbody>
+                {rows.map((e) => (
+                  <tr key={e.id} className="group">
+                    {columns.map((f, i) => (
+                      <td key={f.key} className={`${i === 0 ? "min-w-[200px]" : "max-w-[240px]"} ${f.kind === "money" || f.kind === "number" ? "tabular" : ""} ${e.data[f.key] ? "" : "text-ink-3"}`}>
+                        {i === 0 ? (
+                          <button type="button" onClick={() => open(e)} className="flex min-w-0 items-center gap-3 text-left">
+                            {f.key === "full_name" && <Avatar size="sm" name={e.data[f.key]} />}
+                            <span className="min-w-0">{show(f, e.data[f.key])}</span>
+                          </button>
+                        ) : f === tagged && e.data[f.key] ? (
+                          <Tag tone={tagTone(f, e.data[f.key]!)}>{show(f, e.data[f.key])}</Tag>
+                        ) : (
                           <span className="line-clamp-1">{show(f, e.data[f.key])}</span>
-                        </button>
-                      ) : f === tagged && e.data[f.key] ? (
-                        <Tag tone={tagTone(f, e.data[f.key]!)}>{show(f, e.data[f.key])}</Tag>
-                      ) : (
-                        <span className="line-clamp-1">{show(f, e.data[f.key])}</span>
-                      )}
+                        )}
+                      </td>
+                    ))}
+                    <td className="w-24 !pr-0 text-right">
+                      <RowActions onEdit={() => open(e)} onRemove={() => remove(e.id)} busy={busy} />
                     </td>
-                  ))}
-                  <td className="w-28 px-1 py-1.5 text-right">
-                    <RowActions onEdit={() => open(e)} onRemove={() => remove(e.id)} busy={busy} />
-                  </td>
-                </tr>
-              ))}
-              {shown.length === 0 && (
-                <tr className="border-t border-stone-200">
-                  <td colSpan={columns.length + 1} className="px-3 py-6 text-stone-700">
-                    {r.table.noResults}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <div className="flex items-center justify-between gap-3 border-t border-stone-200 px-1 py-3 text-[13px] text-stone-700">
+                  </tr>
+                ))}
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={columns.length + 1} className="text-ink-2">
+                      {r.table.noResults}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 text-small text-ink-3">
             <span>{r.table.count(shown.length)}</span>
             {pages > 1 && (
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-3">
                 <Button size="sm" disabled={current === 0} onClick={() => setPage(current - 1)}>
                   {r.table.previous}
                 </Button>
-                <span className="tabular-nums">{r.table.page(current + 1, pages)}</span>
+                <span className="tabular">{r.table.page(current + 1, pages)}</span>
                 <Button size="sm" disabled={current >= pages - 1} onClick={() => setPage(current + 1)}>
                   {r.table.next}
                 </Button>
               </span>
             )}
           </div>
-        </div>
+          <AddSlot onClick={() => open()}>{text.add}</AddSlot>
+        </>
       )}
       {notice && !panel && <Alert tone="error">{notice}</Alert>}
 
@@ -440,7 +432,10 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
           notice={notice}
           busy={busy}
           editing={panel.id !== null}
-          onChange={(key, v) => setPanel((p) => p && { ...p, values: { ...p.values, [key]: v } })}
+          onChange={(key, v) => {
+            setPanel((p) => p && { ...p, values: { ...p.values, [key]: v } });
+            setErrors(({ [key]: _gone, ...rest }) => rest);
+          }}
           onSave={save}
           onClose={() => setPanel(null)}
         />

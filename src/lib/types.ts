@@ -41,9 +41,19 @@ export interface FacilityInput {
   accessible: boolean | null;
   notes: string | null;
 }
+/** Whether an amount is written per month or per year; Rust turns it into a year (ADR-026). */
+export type Period = "monthly" | "annual";
+export type IncomeKind = "fee_estimate" | "recurring_donor" | "occasional_donation" | "project_grant" | "other";
 export interface IncomeSourceInput {
   label: string;
-  annual_amount_mxn: number | null;
+  kind: IncomeKind;
+  amount_mxn: number | null;
+  period: Period;
+}
+export interface ExpenseItemInput {
+  label: string;
+  amount_mxn: number | null;
+  period: Period;
 }
 export interface ProfileInput {
   institution: InstitutionInput;
@@ -54,6 +64,7 @@ export interface ProfileInput {
   staff: StaffGroupInput[];
   facilities: FacilityInput[];
   income: IncomeSourceInput[];
+  expenses: ExpenseItemInput[];
 }
 
 export interface ProfileIssue {
@@ -68,6 +79,9 @@ export interface ProfileTotals {
   income_annual_mxn: number;
   payroll_monthly_mxn: number;
   payroll_annual_mxn: number;
+  payroll_benefits_annual_mxn: number;
+  payroll_cost_annual_mxn: number;
+  benefits_assumed: number;
   fee_payers: number;
   fees_monthly_mxn: number;
   fees_annual_mxn: number;
@@ -117,7 +131,31 @@ export interface ProfileView {
   is_draft: boolean;
   input: ProfileInput;
   totals: ProfileTotals;
+  finances: Finances;
   issues: ProfileIssue[];
+}
+
+/** One line of money, as Rust computed it. `index` points into `input.income` / `input.expenses`; `null` is a line
+ * the app computes from the roster (`beneficiary_fees`, `payroll`) and nobody edits. */
+export interface FinanceLine {
+  label: string;
+  kind: IncomeKind | "beneficiary_fees" | "expense" | "payroll";
+  index: number | null;
+  annual_mxn: number | null;
+  counted: boolean;
+}
+export type ExpenseBasis = "list" | "estimate" | "unknown";
+export interface Finances {
+  income: FinanceLine[];
+  income_by_kind: { kind: FinanceLine["kind"]; annual_mxn: number }[];
+  income_fixed_annual_mxn: number;
+  income_variable_annual_mxn: number;
+  income_annual_mxn: number;
+  income_known: boolean;
+  expenses: FinanceLine[];
+  expenses_basis: ExpenseBasis;
+  expenses_annual_mxn: number | null;
+  balance_annual_mxn: number | null;
 }
 
 export type Decision = "redact" | "not_personal";

@@ -22,7 +22,17 @@ pub struct StoredProfile {
     /// `None` while it is a draft.
     pub confirmed_at: Option<String>,
     pub input: ProfileInput,
+    /// The year the sums are made in (it sets how long each person has worked, for the benefits).
+    pub as_of_year: i64,
 }
+
+/// The current year, from the clock of the database.
+pub fn current_year(conn: &Connection) -> Result<i64, StorageError> {
+    Ok(conn.query_row("SELECT CAST(strftime('%Y','now') AS INTEGER)", [], |r| r.get(0))?)
+}
+
+/// The lists that hang from a version of the profile.
+const PROFILE_LISTS: [&str; 5] = ["population_group", "staff_group", "facility", "income_source", "expense_item"];
 
 fn text(o: &Option<String>) -> Option<&str> {
     o.as_deref().map(str::trim).filter(|s| !s.is_empty())
@@ -108,9 +118,20 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
         })?
         .collect::<Result<Vec<_>, _>>()?;
     let income = conn
-        .prepare("SELECT label, annual_amount_mxn FROM income_source WHERE profile_id = ?1 ORDER BY rowid")?
+        .prepare("SELECT label, kind, amount_mxn, period FROM income_source WHERE profile_id = ?1 ORDER BY rowid")?
         .query_map([&profile_id], |r| {
-            Ok(IncomeSourceInput { label: r.get(0)?, annual_amount_mxn: r.get(1)? })
+            Ok(IncomeSourceInput {
+                label: r.get(0)?,
+                kind: IncomeKind::from_db(&r.get::<_, String>(1)?),
+                amount_mxn: r.get(2)?,
+                period: Period::from_db(&r.get::<_, String>(3)?),
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    let expenses = conn
+        .prepare("SELECT label, amount_mxn, period FROM expense_item WHERE profile_id = ?1 ORDER BY rowid")?
+        .query_map([&profile_id], |r| {
+            Ok(ExpenseItemInput { label: r.get(0)?, amount_mxn: r.get(1)?, period: Period::from_db(&r.get::<_, String>(2)?) })
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -119,7 +140,8 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
         profile_id,
         version,
         confirmed_at,
-        input: ProfileInput { institution, capacity_total, annual_budget_mxn, notes, population, staff, facilities, income },
+        input: ProfileInput { institution, capacity_total, annual_budget_mxn, notes, population, staff, facilities, income, expenses },
+        as_of_year: current_year(conn)?,
     }))
 }
 
@@ -167,7 +189,7 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
                 "UPDATE institution_profile SET capacity_total=?2, annual_budget_mxn=?3, notes=?4 WHERE id=?1",
                 params![pid, input.capacity_total, input.annual_budget_mxn, text(&input.notes)],
             )?;
-            for t in ["population_group", "staff_group", "facility", "income_source"] {
+            for t in PROFILE_LISTS {
                 tx.execute(&format!("DELETE FROM {t} WHERE profile_id=?1"), [&pid])?;
             }
             pid
@@ -209,8 +231,14 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
     }
     for i in &input.income {
         tx.execute(
-            "INSERT INTO income_source (id,profile_id,label,annual_amount_mxn,origin) VALUES (?1,?2,?3,?4,'user')",
-            params![id("inc"), profile_id, i.label.trim(), i.annual_amount_mxn],
+            "INSERT INTO income_source (id,profile_id,label,kind,amount_mxn,period,origin) VALUES (?1,?2,?3,?4,?5,?6,'user')",
+            params![id("inc"), profile_id, i.label.trim(), i.kind.as_db(), i.amount_mxn, i.period.as_db()],
+        )?;
+    }
+    for e in &input.expenses {
+        tx.execute(
+            "INSERT INTO expense_item (id,profile_id,label,amount_mxn,period,origin) VALUES (?1,?2,?3,?4,?5,'user')",
+            params![id("exp"), profile_id, e.label.trim(), e.amount_mxn, e.period.as_db()],
         )?;
     }
     tx.commit()?;
@@ -232,7 +260,7 @@ pub fn confirm(conn: &mut Connection) -> Result<StoredProfile, StorageError> {
         "UPDATE institution_profile SET confirmed_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?1",
         [&pid],
     )?;
-    for t in ["population_group", "staff_group", "facility", "income_source"] {
+    for t in PROFILE_LISTS {
         tx.execute(
             &format!("UPDATE {t} SET confirmed_at=strftime('%Y-%m-%dT%H:%M:%SZ','now'), confirmed_by='manager' WHERE profile_id=?1"),
             [&pid],
@@ -292,7 +320,8 @@ mod tests {
             facilities: vec![FacilityInput {
                 kind: "Baño".into(), count: 2, condition: Some(Condition::Poor), accessible: Some(false), notes: None,
             }],
-            income: vec![IncomeSourceInput { label: "Cuotas".into(), annual_amount_mxn: Some(600_000) }],
+            income: vec![IncomeSourceInput { label: "Cuotas".into(), kind: IncomeKind::FeeEstimate, amount_mxn: Some(50_000), period: Period::Monthly }],
+            expenses: vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(30_000), period: Period::Monthly }],
             ..Default::default()
         }
     }
@@ -307,6 +336,26 @@ mod tests {
         assert_eq!(saved.input.population[0].count, 18);
         assert_eq!(saved.input.facilities[0].accessible, Some(false));
         assert_eq!(saved.input.institution.kind, InstitutionKind::ElderlyHome);
+        let inc = &saved.input.income[0];
+        assert_eq!((inc.kind, inc.amount_mxn, inc.period), (IncomeKind::FeeEstimate, Some(50_000), Period::Monthly));
+        let exp = &saved.input.expenses[0];
+        assert_eq!((exp.label.as_str(), exp.amount_mxn, exp.period), ("Alimentos", Some(30_000), Period::Monthly));
+        assert!((2026..2200).contains(&saved.as_of_year));
+    }
+
+    #[test]
+    fn expenses_are_frozen_with_the_version_and_editing_starts_a_new_list() {
+        let (_d, mut c) = conn();
+        save(&mut c, &sample()).unwrap();
+        confirm(&mut c).unwrap();
+        let open: i64 = c.query_row("SELECT count(*) FROM expense_item WHERE confirmed_at IS NULL", [], |r| r.get(0)).unwrap();
+        assert_eq!(open, 0);
+        let mut p = sample();
+        p.expenses.push(ExpenseItemInput { label: "Luz".into(), amount_mxn: Some(4_000), period: Period::Monthly });
+        let v2 = save(&mut c, &p).unwrap();
+        assert_eq!((v2.version, v2.input.expenses.len()), (2, 2));
+        let all: i64 = c.query_row("SELECT count(*) FROM expense_item", [], |r| r.get(0)).unwrap();
+        assert_eq!(all, 3, "version 1 keeps its own list");
     }
 
     #[test]

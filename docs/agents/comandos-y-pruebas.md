@@ -16,6 +16,7 @@ cargo test card                                        # la ficha de la convocat
 #   $env:CIMIENTO_CANON_FILE="D:\...\x.canonico.json"; cargo test print_card_of_a_real_call -- --ignored --nocapture
 cargo test jobs                                        # un proceso de IA por proyecto a la vez (ADR-023)
 cargo test institution_context                         # la ficha de «Mi institución» que lee la IA: qué lleva, qué nunca (ADR-023)
+cargo test finances                                    # ingresos por tipo, egresos, nómina con prestaciones y balance (ADR-026)
 cargo test drafting_service                            # redacción, presupuesto y cronograma (ADR-018), con modelo simulado
 cargo test guide_service                               # revisión y guía en Word (ADR-018): escribe archivos en carpetas temporales
 cargo test security_service                            # PIN, escaneo de la base, respaldo y restauración (ADR-019)

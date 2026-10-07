@@ -1,6 +1,7 @@
 //! Use cases: validate -> scan -> quarantine -> save -> audit. Commands call these.
 
 use crate::audit::{self, AuditKind};
+use crate::domain::finances::Finances;
 use crate::domain::profile::{ProfileInput, ProfileIssue, ProfileTotals};
 use crate::scanner::guard::{guard_fields, Decision, GuardError, GuardOutcome, QuarantineReport};
 use crate::scanner::{RegexScanner, SensitiveScanner};
@@ -71,6 +72,8 @@ pub struct ProfileView {
     pub is_draft: bool,
     pub input: ProfileInput,
     pub totals: ProfileTotals,
+    /// Income by kind, expenses and the balance, made by code (ADR-026).
+    pub finances: Finances,
     /// Only heads-ups ("algo no cuadra"); blocking problems stop the save.
     pub issues: Vec<ProfileIssue>,
 }
@@ -82,8 +85,9 @@ impl From<StoredProfile> for ProfileView {
             version: p.version,
             is_draft: p.confirmed_at.is_none(),
             confirmed_at: p.confirmed_at,
-            totals: p.input.totals(),
-            issues: p.input.validate(),
+            totals: p.input.totals(p.as_of_year),
+            finances: p.input.finances(p.as_of_year),
+            issues: p.input.validate(p.as_of_year),
             input: p.input,
         }
     }
@@ -127,7 +131,7 @@ pub fn save_profile(
     let (staff, population) = crate::roster_service::derive(conn)?;
     input.staff = staff;
     input.population = population;
-    let issues = input.validate();
+    let issues = input.validate(store::current_year(conn)?);
     if issues.iter().any(|i| i.blocking) {
         return Ok(SaveProfileOutcome::Invalid { issues: issues.into_iter().filter(|i| i.blocking).collect() });
     }
@@ -161,7 +165,7 @@ pub fn save_profile(
 
 pub fn confirm_profile(conn: &mut Connection) -> Result<ProfileView, ServiceError> {
     if let Some(current) = store::load_current(conn)? {
-        let blocking: Vec<_> = current.input.validate().into_iter().filter(|i| i.blocking).collect();
+        let blocking: Vec<_> = current.input.validate(current.as_of_year).into_iter().filter(|i| i.blocking).collect();
         if !blocking.is_empty() {
             return Err(ServiceError::ProfileInvalid(blocking));
         }

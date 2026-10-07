@@ -1,7 +1,9 @@
 import { z } from "zod";
 import type {
   Condition,
+  IncomeKind,
   InstitutionKind,
+  Period,
   ProfileInput,
   ProfileView,
 } from "../../lib/types";
@@ -13,6 +15,18 @@ const wholeNumber = z.string().refine((v) => v.trim() === "" || /^\d+$/.test(v.t
   message: "not_a_number",
 });
 
+/**
+ * An amount as people write it: «1800000», «1,800,000», «$1 800 000». The same reading as `parse_pesos` in Rust
+ * (separators only between groups of three digits); `null` when it is not an amount.
+ */
+export function parsePesos(v: string): number | null {
+  const s = v.trim().replace(/^\$\s*/, "");
+  if (!/^(\d+|\d{1,3}([,. ]\d{3})+)$/.test(s)) return null;
+  return Number(s.replace(/[,. ]/g, ""));
+}
+
+const pesos = z.string().refine((v) => v.trim() === "" || parsePesos(v) !== null, { message: "not_a_number" });
+
 export const formSchema = z.object({
   name: z.string(),
   kind: z.enum(["elderly_home", "children_home", "other"]),
@@ -22,7 +36,7 @@ export const formSchema = z.object({
   contact_email: z.string(),
   legal_rep_name: z.string(),
   capacity_total: wholeNumber,
-  annual_budget_mxn: wholeNumber,
+  annual_budget_mxn: pesos,
   notes: z.string(),
   facilities: z.array(
     z.object({
@@ -33,7 +47,8 @@ export const formSchema = z.object({
       notes: z.string(),
     }),
   ),
-  income: z.array(z.object({ label: z.string(), annual_amount_mxn: wholeNumber })),
+  income: z.array(z.object({ label: z.string(), kind: z.string(), amount_mxn: pesos, period: z.enum(["monthly", "annual"]) })),
+  expenses: z.array(z.object({ label: z.string(), amount_mxn: pesos, period: z.enum(["monthly", "annual"]) })),
 });
 
 export type FormValues = z.infer<typeof formSchema>;
@@ -51,6 +66,7 @@ export const emptyForm = (): FormValues => ({
   notes: "",
   facilities: [],
   income: [],
+  expenses: [],
 });
 
 const str = (v: string | null | undefined) => v ?? "";
@@ -58,6 +74,7 @@ const numStr = (v: number | null | undefined) => (v === null || v === undefined 
 const textOrNull = (v: string) => (v.trim() === "" ? null : v.trim());
 const numOrNull = (v: string) => (v.trim() === "" ? null : Number(v.trim()));
 const numOrZero = (v: string) => (v.trim() === "" ? 0 : Number(v.trim()));
+const pesosOrNull = (v: string) => (v.trim() === "" ? null : parsePesos(v));
 
 export function fromView(view: ProfileView | null): FormValues {
   if (!view) return emptyForm();
@@ -82,8 +99,11 @@ export function fromView(view: ProfileView | null): FormValues {
     })),
     income: p.income.map((i) => ({
       label: i.label,
-      annual_amount_mxn: numStr(i.annual_amount_mxn),
+      kind: i.kind,
+      amount_mxn: numStr(i.amount_mxn),
+      period: i.period,
     })),
+    expenses: p.expenses.map((e) => ({ label: e.label, amount_mxn: numStr(e.amount_mxn), period: e.period })),
   };
 }
 
@@ -99,7 +119,7 @@ export function toInput(v: FormValues): ProfileInput {
       legal_rep_name: textOrNull(v.legal_rep_name),
     },
     capacity_total: numOrNull(v.capacity_total),
-    annual_budget_mxn: numOrNull(v.annual_budget_mxn),
+    annual_budget_mxn: pesosOrNull(v.annual_budget_mxn),
     notes: textOrNull(v.notes),
     // staff and people served come from the roster (ADR-020): the profile adds them up by itself
     population: [],
@@ -113,7 +133,10 @@ export function toInput(v: FormValues): ProfileInput {
     })),
     income: v.income.map((i) => ({
       label: i.label,
-      annual_amount_mxn: numOrNull(i.annual_amount_mxn),
+      kind: i.kind as IncomeKind,
+      amount_mxn: pesosOrNull(i.amount_mxn),
+      period: i.period as Period,
     })),
+    expenses: v.expenses.map((e) => ({ label: e.label, amount_mxn: pesosOrNull(e.amount_mxn), period: e.period as Period })),
   };
 }

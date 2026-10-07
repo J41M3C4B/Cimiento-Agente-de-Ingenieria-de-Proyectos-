@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
-import { Icon } from "../../components/icons";
-import { Alert, Button, Chip, Modal, RowActions, Select, TextInput, THead } from "../../components/ui";
+import { AddSlot, Alert, Button, Inset, Modal, RowActions, Select, Switch, Tag, TextInput, THead } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { formatMxn, toNumber } from "../../lib/format";
 import { budgetConfirm, budgetDeleteItem, budgetSaveItem, toAppError } from "../../lib/tauri";
@@ -126,55 +125,49 @@ export function BudgetEditor({ view, onView, disabled }: { view: DraftingView; o
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <p className="max-w-2xl text-stone-700">{t.budgetIntro}</p>
-        <Button size="sm" variant={items.length === 0 ? "primary" : "secondary"} onClick={() => open(null)} disabled={working}>
-          <Icon name="plus" size={15} strokeWidth={2.4} />
-          {t.addItem}
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <p className="max-w-2xl text-ui text-ink-2">{t.budgetIntro}</p>
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-stone-300 px-6 py-10 text-center text-stone-700">{t.emptyBudget}</div>
+        <Inset className="py-8 text-center text-ui text-ink-2">{t.emptyBudget}</Inset>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] border-collapse text-left text-[14px]">
+          <table className="table min-w-[720px]">
             <THead
               columns={[
                 { key: "item", title: t.budgetColumns.item },
                 { key: "qty", title: t.budgetColumns.quantity },
                 { key: "cost", title: t.cost },
-                { key: "total", title: t.budgetColumns.total },
+                { key: "total", title: t.budgetColumns.total, align: "right" },
                 { key: "actions", title: "" },
               ]}
             />
             <tbody>
               {items.map((i) => (
-                <tr key={i.id} className="group border-t border-stone-200 align-middle hover:bg-stone-50">
-                  <td className="px-3 py-2.5">
-                    <p className="font-medium">
+                <tr key={i.id} className="group">
+                  <td>
+                    <p className="flex flex-wrap items-center gap-2">
                       {i.description}
                       {i.origin === "ai_assumption" && (
-                        <span className="ml-2 align-middle">
-                          <Chip tone="blue">{t.proposed}</Chip>
-                        </span>
+                        <Tag tone="sky" variant="soft">
+                          {t.proposed}
+                        </Tag>
                       )}
                     </p>
-                    <p className="text-[12.5px] text-stone-600">
+                    <p className="text-small font-medium text-ink-3">
                       {i.category} · {t.funders[i.funded_by]}
                       {i.administrative ? ` · ${t.item.administrative}` : ""}
                     </p>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">
+                  <td className="tabular whitespace-nowrap">
                     {i.quantity}
                     {i.unit ? ` ${i.unit}` : ""}
                   </td>
-                  <td className="px-3 py-2">
+                  <td>
                     <PriceBox key={`${i.id}-${i.unit_price_mxn}`} item={i} disabled={working} onSave={(price) => savePrice(i, price)} />
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 font-medium tabular-nums">{i.unit_price_mxn > 0 ? formatMxn(i.line.total) : "—"}</td>
-                  <td className="w-28 px-1 py-1.5 text-right">
+                  <td className="tabular whitespace-nowrap text-right font-bold">{i.unit_price_mxn > 0 ? formatMxn(i.line.total) : "—"}</td>
+                  <td className="w-32 text-right">
                     <RowActions onEdit={() => open(i)} onRemove={() => guarded(async () => onView(await budgetDeleteItem(project, i.id)))} busy={working} />
                   </td>
                 </tr>
@@ -184,10 +177,12 @@ export function BudgetEditor({ view, onView, disabled }: { view: DraftingView; o
         </div>
       )}
 
-      {error && <Alert tone="warn">{error}</Alert>}
+      <AddSlot onClick={() => !working && open(null)}>{t.addItem}</AddSlot>
+
+      {error && <Alert tone="error">{error}</Alert>}
 
       {items.length > 0 && (
-        <dl className="grid overflow-hidden rounded-xl border border-stone-200 sm:grid-cols-3 lg:grid-cols-6 lg:divide-x lg:divide-stone-200">
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {(
             [
               [t.totals.total, formatMxn(totals.total)],
@@ -197,11 +192,11 @@ export function BudgetEditor({ view, onView, disabled }: { view: DraftingView; o
               [t.totals.other, formatMxn(totals.other)],
               [t.totals.counterpart, `${totals.counterpart_percent} %`],
             ] as [string, string][]
-          ).map(([label, value]) => (
-            <div key={label} className="px-4 py-3">
-              <dt className="text-[12px] text-stone-600">{label}</dt>
-              <dd className="mt-0.5 text-[16px] font-semibold tabular-nums">{value}</dd>
-            </div>
+          ).map(([label, value], n) => (
+            <Inset key={label} className="!py-3">
+              <dt className="text-caption font-semibold text-ink-3">{label}</dt>
+              <dd className={`tabular mt-1 text-heading font-bold ${n === 0 ? "" : "text-ink-2"}`}>{value}</dd>
+            </Inset>
           ))}
         </dl>
       )}
@@ -214,7 +209,7 @@ export function BudgetEditor({ view, onView, disabled }: { view: DraftingView; o
             <Button variant="primary" disabled={working || missing > 0} onClick={() => guarded(async () => onView(await budgetConfirm(project)))}>
               {t.confirmBudget}
             </Button>
-            {missing > 0 && <p className="text-[13px] font-medium text-amber-800">{t.missingCosts(missing)}</p>}
+            {missing > 0 && <p className="text-small font-bold text-amber-ink">{t.missingCosts(missing)}</p>}
           </div>
         ))}
 
@@ -244,7 +239,7 @@ export function BudgetEditor({ view, onView, disabled }: { view: DraftingView; o
         >
           <form
             id="budget-item"
-            className="space-y-4"
+            className="space-y-6"
             onSubmit={(e) => {
               e.preventDefault();
               if (canSave) void save(asInput(editing === "new" ? null : editing, form));
@@ -257,15 +252,9 @@ export function BudgetEditor({ view, onView, disabled }: { view: DraftingView; o
               <TextInput label={t.item.unit} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
               <TextInput label={t.item.price} hint={t.item.priceHint} inputMode="decimal" prefix="$" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
             </div>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="h-4 w-4 accent-blue-800" checked={form.vatIncluded} onChange={(e) => setForm({ ...form, vatIncluded: e.target.checked })} />
-              <span>{t.item.vatIncluded}</span>
-            </label>
+            <Switch label={t.item.vatIncluded} checked={form.vatIncluded} onChange={(e) => setForm({ ...form, vatIncluded: e.target.checked })} />
             <Select label={t.item.funder} options={funderOptions} value={form.funder} onChange={(e) => setForm({ ...form, funder: e.target.value as Funder })} />
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="h-4 w-4 accent-blue-800" checked={form.administrative} onChange={(e) => setForm({ ...form, administrative: e.target.checked })} />
-              <span>{t.item.administrative}</span>
-            </label>
+            <Switch label={t.item.administrative} checked={form.administrative} onChange={(e) => setForm({ ...form, administrative: e.target.checked })} />
           </form>
         </Modal>
       )}

@@ -29,6 +29,8 @@ Objetivo: proyecto que compila, base cifrada y las pruebas técnicas de riesgo r
 - [x] Pantallas de perfil: institución, población, personal, instalaciones, ingresos. Versionado al confirmar.
 - [x] Botón de borrado de emergencia (para documentos).
 - [x] Cargar `fixtures/institucion-asilo.json` y `fixtures/institucion-casa-hogar.json` desde un comando de desarrollo.
+- [x] **Revisión de «Mi institución», bloque 1: datos generales (2026-10-07, ADR-026).** Guardado revisado (montos con comas, tope de cifras, avisos de RFC, teléfono y correo). Ficha de la IA: «Gasto anual aproximado» en lugar de «Presupuesto anual», ingresos por tipo y egresos; nómina y cuotas del padrón nunca como cifra, y balance en palabras. Ingresos por tipo con cuotas calculadas del padrón, egresos en lista o con aproximado exprés, nómina con aguinaldo y prima vacacional (LFT 2023), balance. Migración 0014.
+- [ ] Diseño de la pantalla para el bloque 1 (sesión de diseño): ingresos por tipo y periodo, lista de egresos con modo exprés, tarjeta de balance, nómina con prestaciones.
 
 - [x] Prueba manual en la app: cargar un ejemplo, pegar una CURP ficticia en las notas, ver la cuarentena y tapar; agregar un documento de texto y borrarlo con el botón de emergencia.
 

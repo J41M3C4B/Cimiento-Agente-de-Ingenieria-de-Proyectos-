@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip, Disclosure, IconTile, Modal, Tip } from "../../components/ui";
+import { Alert, Bar, Button, Card, Disclosure, Facts, Inset, Modal, Tag, Tile, Tip } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { callReadingGet } from "../../lib/tauri";
 import type { CallSummary, ReadingDetail, ReadingRow, SummaryItem } from "../../lib/types";
@@ -23,9 +24,9 @@ export function Cite({ file, page }: { file: string | null; page: number | null 
         <button
           type="button"
           aria-label={text}
-          className="inline-flex min-h-[20px] items-center gap-1 rounded-md bg-stone-100 px-1.5 text-[11px] font-semibold text-stone-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+          className="inline-flex min-h-6 items-center gap-1 rounded-tick bg-inset px-2 text-caption font-bold text-ink-3 transition-colors hover:bg-sky/20 hover:text-ink"
         >
-          <Icon name="file" size={11} />
+          <Icon name="file" size={12} />
           {page ? `p. ${page}` : ""}
         </button>
       </Tip>
@@ -35,17 +36,19 @@ export function Cite({ file, page }: { file: string | null; page: number | null 
 
 export function Line({ item }: { item: SummaryItem }) {
   return (
-    <li className="py-2.5 first:pt-0 last:pb-0">
-      <p className="leading-relaxed">
+    <li className="py-3 first:pt-0 last:pb-0">
+      <p className="text-ui leading-relaxed">
         {item.requirement && t.requirement[item.requirement] && (
           <span className="mr-2 align-middle">
-            <Chip tone={item.requirement === "obligatorio" ? "blue" : "neutral"}>{t.requirement[item.requirement]}</Chip>
+            <Tag tone={item.requirement === "obligatorio" ? "sky" : "neutral"} variant={item.requirement === "obligatorio" ? "soft" : "line"}>
+              {t.requirement[item.requirement]}
+            </Tag>
           </span>
         )}
         {item.text}
         <Cite file={item.file} page={item.page} />
       </p>
-      {item.applies_to && <p className="mt-0.5 text-[13px] text-stone-600">{t.appliesTo(item.applies_to)}</p>}
+      {item.applies_to && <p className="mt-1 text-small text-ink-3">{t.appliesTo(item.applies_to)}</p>}
     </li>
   );
 }
@@ -58,17 +61,19 @@ function KeyFacts({ summary }: { summary: CallSummary }) {
   ];
   if (tiles.length === 0) return null;
   return (
-    <div className="grid grid-cols-2 gap-2.5">
-      {tiles.map((x, i) => (
-        <div key={i} className="rounded-xl bg-stone-50 px-4 py-3">
-          <p className="text-[12px] text-stone-600">{x.label}</p>
-          <p className="mt-0.5 text-[15px] font-semibold leading-snug">
+    <Inset>
+      <Facts
+        columns={2}
+        items={tiles.map((x, i): [string, ReactNode] => [
+          // the same label may come twice (two closing dates): the index keeps them apart
+          i > 0 && tiles.slice(0, i).some((y) => y.label === x.label) ? `${x.label} (${i + 1})` : x.label,
+          <>
             {x.value}
             <Cite file={x.file} page={x.page} />
-          </p>
-        </div>
-      ))}
-    </div>
+          </>,
+        ])}
+      />
+    </Inset>
   );
 }
 
@@ -81,39 +86,33 @@ export function CallSummaryView({ summary }: { summary: CallSummary }) {
   ];
   const dates = summary.dates.filter((d) => d.kind !== "cierre");
   const modalities = summary.amounts.filter((a) => a.kind === "modality");
+  const known = facts.filter(([, v]) => v) as [string, string][];
   return (
-    <div className="space-y-3">
-      {summary.title && <h3 className="text-[16px] font-semibold leading-snug">{summary.title}</h3>}
+    <div className="space-y-4">
+      {summary.title && <h3 className="text-heading font-bold leading-snug">{summary.title}</h3>}
       {summary.document_kind && (
-        <p className="text-[13px] text-stone-700">
+        <p className="text-small text-ink-2">
           {t.documentKind}: {t.documentKinds[summary.document_kind.class] ?? summary.document_kind.words}
         </p>
       )}
       {summary.document_kind && ["aviso", "guia", "formato", "anexo", "otro"].includes(summary.document_kind.class) && <Alert tone="warn">{t.notACall}</Alert>}
       <KeyFacts summary={summary} />
-      {facts.some(([, v]) => v) && (
-        <dl className="space-y-2 rounded-xl bg-stone-50 px-4 py-3">
-          {facts
-            .filter(([, v]) => v)
-            .map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-[12px] text-stone-600">{label}</dt>
-                <dd className="font-medium">{value}</dd>
-              </div>
-            ))}
-        </dl>
+      {known.length > 0 && (
+        <Inset>
+          <Facts columns={1} items={known} />
+        </Inset>
       )}
 
       {summary.conflicts.length > 0 && (
         <Disclosure title={t.conflictsTitle} count={summary.conflicts.length} tone="warn" defaultOpen>
-          <p className="mb-2 text-[13px] text-stone-700">{t.conflictsHelp}</p>
-          <ul className="space-y-3">
+          <p className="mb-3 text-small text-ink-2">{t.conflictsHelp}</p>
+          <ul className="space-y-4">
             {summary.conflicts.map((c, i) => (
               <li key={i}>
-                <p className="font-semibold">{c.note || c.field}</p>
+                <p className="text-ui font-bold">{c.note || c.field}</p>
                 <ul className="mt-1 space-y-1">
                   {c.versions.map((v, j) => (
-                    <li key={j}>
+                    <li key={j} className="text-ui">
                       «{v.text}»
                       <Cite file={v.file} page={v.page} />
                     </li>
@@ -127,10 +126,10 @@ export function CallSummaryView({ summary }: { summary: CallSummary }) {
 
       {dates.length > 0 && (
         <Disclosure title={t.datesTitle} count={dates.length}>
-          <ul className="divide-y divide-stone-200">
+          <ul className="divide-y divide-line">
             {dates.map((d, i) => (
-              <li key={i} className="py-2.5 first:pt-0 last:pb-0">
-                <strong>{d.label}</strong>
+              <li key={i} className="py-3 text-ui first:pt-0 last:pb-0">
+                <strong className="font-bold">{d.label}</strong>
                 {d.label && " — "}
                 {d.when}
                 <Cite file={d.file} page={d.page} />
@@ -142,10 +141,10 @@ export function CallSummaryView({ summary }: { summary: CallSummary }) {
 
       {modalities.length > 0 && (
         <Disclosure title={t.amountsTitle} count={modalities.length}>
-          <ul className="divide-y divide-stone-200">
+          <ul className="divide-y divide-line">
             {modalities.map((a, i) => (
-              <li key={i} className="py-2.5 first:pt-0 last:pb-0">
-                <strong>{a.label ?? t.amountKinds[a.kind]}</strong>
+              <li key={i} className="py-3 text-ui first:pt-0 last:pb-0">
+                <strong className="font-bold">{a.label ?? t.amountKinds[a.kind]}</strong>
                 {a.value && ` — ${a.value}`}
                 <Cite file={a.file} page={a.page} />
               </li>
@@ -156,7 +155,7 @@ export function CallSummaryView({ summary }: { summary: CallSummary }) {
 
       {summary.groups.map((g) => (
         <Disclosure key={g.key} title={t.groups[g.key] ?? g.key} count={g.items.length}>
-          <ul className="divide-y divide-stone-200">
+          <ul className="divide-y divide-line">
             {g.items.map((item, i) => (
               <Line key={i} item={item} />
             ))}
@@ -166,8 +165,8 @@ export function CallSummaryView({ summary }: { summary: CallSummary }) {
 
       {summary.missing.length > 0 && (
         <Disclosure title={t.missingTitle} count={summary.missing.length}>
-          <p className="mb-2 text-[13px] text-stone-700">{t.missingHelp}</p>
-          <ul className="list-disc space-y-1 pl-5">
+          <p className="mb-3 text-small text-ink-2">{t.missingHelp}</p>
+          <ul className="list-disc space-y-1 pl-6 text-ui">
             {summary.missing.map((m) => (
               <li key={m}>{t.missing[m] ?? m}</li>
             ))}
@@ -177,7 +176,7 @@ export function CallSummaryView({ summary }: { summary: CallSummary }) {
 
       {summary.doubts.length > 0 && (
         <Disclosure title={t.doubtsTitle} count={summary.doubts.length}>
-          <ul className="list-disc space-y-1 pl-5">
+          <ul className="list-disc space-y-1 pl-6 text-ui">
             {summary.doubts.map((d, i) => (
               <li key={i}>{d}</li>
             ))}
@@ -192,7 +191,7 @@ export function Differences({ detail }: { detail: ReadingDetail }) {
   if (detail.differences.length === 0) return null;
   return (
     <Alert tone="info">
-      <h4 className="text-[14px] font-semibold">{t.differencesTitle}</h4>
+      <h4 className="text-ui font-bold">{t.differencesTitle}</h4>
       <ul className="mt-2 list-disc space-y-1 pl-6">
         {detail.differences.map((d) => (
           <li key={d.field}>{d.field === "funder" ? t.differenceFunder(d.said, d.read) : t.differenceYear(d.said, d.read)}</li>
@@ -204,19 +203,24 @@ export function Differences({ detail }: { detail: ReadingDetail }) {
 
 /** The whole understanding of a call: the differences with what the person wrote, the parts and how complete it was. */
 export function Understood({ detail, title = true }: { detail: ReadingDetail; title?: boolean }) {
+  const q = detail.quality;
+  const read = q && q.blocks_total > 0 ? (q.blocks_read / q.blocks_total) * 100 : 0;
   return (
     <div className="space-y-4">
       {title && (
         <div>
-          <h3 className="text-[16px] font-semibold">{t.summaryTitle}</h3>
-          <p className="mt-1 text-[13px] text-stone-700">{t.summaryHelp}</p>
+          <h3 className="text-heading font-bold">{t.summaryTitle}</h3>
+          <p className="mt-1 max-w-[64ch] text-ui text-ink-2">{t.summaryHelp}</p>
         </div>
       )}
       <Differences detail={detail} />
-      {detail.summary ? <CallSummaryView summary={detail.summary} /> : <p>{t.notReadyYet}</p>}
-      {detail.quality && (
+      {detail.summary ? <CallSummaryView summary={detail.summary} /> : <p className="text-ui text-ink-2">{t.notReadyYet}</p>}
+      {q && (
         <Disclosure title={t.qualityTitle}>
-          <p>{t.quality(detail.quality.blocks_read, detail.quality.blocks_total, detail.quality.quotes_verified_percent, detail.quality.pages_with_quotes, detail.quality.pages)}</p>
+          <div className="space-y-3">
+            <Bar percent={read} tone={q.blocks_read >= q.blocks_total ? "green" : "amber"} label={t.qualityTitle} />
+            <p className="text-ui">{t.quality(q.blocks_read, q.blocks_total, q.quotes_verified_percent, q.pages_with_quotes, q.pages)}</p>
+          </div>
         </Disclosure>
       )}
     </div>
@@ -233,7 +237,7 @@ export function useReading(readingId: string | null) {
   });
 }
 
-export const statusTone = (s: ReadingRow["status"]) => (s === "ready" ? "green" : s === "failed" ? "red" : s === "partial" || s === "waiting" ? "amber" : "blue");
+export const statusTone = (s: ReadingRow["status"]) => (s === "ready" ? "green" : s === "failed" ? "red" : s === "partial" || s === "waiting" ? "amber" : "sky");
 
 /**
  * The call of a project, after its first step: one line with its name and who calls, and the whole understanding
@@ -245,25 +249,31 @@ export function CallPanel({ readingId }: { readingId: string | null }) {
 
   if (readingId === null) return <Alert tone="warn">{t.callMissing}</Alert>;
   const d = detail.data;
-  if (!d) return <p>{es.common.loading}</p>;
+  if (!d) return <p className="text-ui text-ink-3">{es.common.loading}</p>;
   const r = d.reading;
   const canView = r.status === "ready" || r.status === "partial";
 
   return (
     <>
-      <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-white px-5 py-3 shadow-card">
-        <IconTile icon="file" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold">{r.name}</p>
-          <p className="text-[12.5px] text-stone-600">{[t.callTitle, t.byFunder(r.funder, r.year)].filter(Boolean).join(" · ")}</p>
+      <Card as="section" small className="flex flex-wrap items-center gap-3">
+        <Tile icon="file" />
+        <div className="min-w-0 flex-1 basis-48">
+          <b className="block truncate text-ui font-bold">{r.name}</b>
+          <small className="block truncate text-small font-medium text-ink-3">{[t.callTitle, t.byFunder(r.funder, r.year)].filter(Boolean).join(" · ")}</small>
         </div>
-        {r.confirmed_at && <Chip tone="green" icon="check">{t.confirmedShort}</Chip>}
+        {r.confirmed_at ? (
+          <Tag tone="green" icon="check">
+            {t.confirmedShort}
+          </Tag>
+        ) : (
+          r.status !== "ready" && <Tag tone={statusTone(r.status)}>{t.status[r.status]}</Tag>
+        )}
         {canView && (
           <Button size="sm" onClick={() => setOpen(true)}>
             {t.viewSummary}
           </Button>
         )}
-      </section>
+      </Card>
       {open && (
         <Modal title={r.name} size="lg" dismissable onClose={() => setOpen(false)}>
           <Understood detail={d} />

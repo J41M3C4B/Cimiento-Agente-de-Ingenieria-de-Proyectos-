@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, TextInput } from "../../components/ui";
+import { Alert, Button, Card, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { pinVerify, toAppError } from "../../lib/tauri";
 
@@ -27,25 +27,34 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas p-6 text-[15px] text-stone-900">
-      <form
-        className="w-full max-w-md space-y-5 rounded-3xl bg-white p-9 shadow-float"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (pin) void enter();
-        }}
-      >
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-800">
-          <Icon name="lock" size={26} />
-        </span>
-        <h1 className="text-[22px] font-semibold">{t.title}</h1>
-        <p>{t.help}</p>
-        <TextInput label={t.label} type="password" inputMode="numeric" autoComplete="off" maxLength={8} autoFocus value={pin} onChange={(e) => setPin(e.target.value)} />
-        {message && <Alert tone="warn">{message}</Alert>}
-        <Button type="submit" variant="primary" disabled={busy || !pin}>
-          {t.enter}
-        </Button>
-      </form>
+    <div className="flex min-h-screen items-center justify-center bg-canvas p-4 text-body text-ink">
+      <Card className="w-full max-w-md">
+        <form
+          className="space-y-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (pin) void enter();
+          }}
+        >
+          <div>
+            <span className="grid h-ctl w-ctl place-items-center rounded-field bg-ink text-on-ink" title={es.app.name}>
+              <Icon name="logo" size={22} />
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="flex items-center gap-2 text-subtitle font-bold leading-tight tracking-tight">
+              <Icon name="lock" size={22} className="shrink-0 text-ink-2" />
+              {t.title}
+            </h1>
+            <p className="text-ui text-ink-2">{t.help}</p>
+          </div>
+          <TextInput label={t.label} type="password" inputMode="numeric" autoComplete="off" maxLength={8} autoFocus value={pin} onChange={(e) => setPin(e.target.value)} />
+          {message && <Alert tone="warn">{message}</Alert>}
+          <Button type="submit" variant="primary" className="w-full" disabled={busy || !pin}>
+            {t.enter}
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

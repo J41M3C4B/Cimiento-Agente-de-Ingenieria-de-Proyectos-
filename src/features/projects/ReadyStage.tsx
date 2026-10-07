@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { Icon } from "../../components/icons";
-import { Alert, Button } from "../../components/ui";
+import { Alert, Button, Eyebrow, FileTile, Inset, Tag } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { guideExport, toAppError } from "../../lib/tauri";
 import type { ConversationView } from "../../lib/types";
@@ -10,22 +10,34 @@ import { Workspace } from "./Workspace";
 
 const t = es.ready;
 
-/** What the guide brings, in the panel. */
-function GuideContents() {
+/** What the guide brings, in the panel; once it is made, the file itself on top. */
+function GuideContents({ file }: { file: { file_name: string } | undefined }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="space-y-1 px-6 pb-4 pt-6">
-        <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{t.tab}</p>
-        <h2 className="text-[15px] font-semibold leading-snug">{t.includesTitle}</h2>
-      </header>
-      <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 pb-6">
-        {t.includes.map((x) => (
-          <li key={x} className="flex gap-2.5 rounded-xl bg-white px-4 py-3 shadow-card">
-            <span aria-hidden className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-700" />
-            <span>{x}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        {file && (
+          <Inset className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <FileTile ext="docx" />
+              <Tag tone="green" icon="check">
+                {t.made}
+              </Tag>
+            </div>
+            <b className="block break-words font-bold">{file.file_name}</b>
+          </Inset>
+        )}
+        <h2 className="text-ui font-bold">{t.includesTitle}</h2>
+        <ul className="space-y-2">
+          {t.includes.map((x) => (
+            <li key={x} className="flex items-start gap-3 text-ui">
+              <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-pill bg-green text-onc">
+                <Icon name="check" size={13} strokeWidth={3} />
+              </span>
+              <span>{x}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -54,11 +66,11 @@ export function ReadyStage({
     <div className="space-y-6">
       <Said>{t.start}</Said>
       {make.isPending && <Thinking phrases={[t.generating]} />}
-      {make.isError && <Alert tone="warn">{toAppError(make.error).message}</Alert>}
+      {make.isError && <Alert tone="error">{toAppError(make.error).message}</Alert>}
       {make.data && (
         <Said>
           {t.done(make.data.file_name)}
-          <span className="mt-1 block break-all text-[13px] text-stone-600">
+          <span className="mt-1 block break-all text-small text-ink-3">
             {t.where}: {make.data.path}
           </span>
         </Said>
@@ -68,21 +80,21 @@ export function ReadyStage({
 
   const next = (
     <div className="space-y-3">
-      <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-stone-600">{t.nextStep}</p>
+      <Eyebrow>{t.nextStep}</Eyebrow>
       <Button variant="primary" className="w-full" onClick={() => make.mutate()} disabled={working}>
-        <Icon name="download" size={17} />
+        <Icon name="download" size={18} />
         {make.isPending ? t.generating : make.data ? t.again : t.generate}
       </Button>
       <Button variant="ghost" size="sm" className="w-full" onClick={onBack} disabled={working}>
-        <Icon name="back" size={15} />
+        <Icon name="back" size={16} />
         {es.review.back}
       </Button>
-      <p className="text-[12.5px] text-stone-600">{t.changeNote}</p>
+      <p className="text-small text-ink-3">{t.changeNote}</p>
     </div>
   );
 
   return (
-    <Workspace panelOpen={panelOpen} readingId={view.project.call_reading_id} project={<GuideContents />} projectLabel={t.tab} footer={next}>
+    <Workspace panelOpen={panelOpen} readingId={view.project.call_reading_id} project={<GuideContents file={make.data} />} projectLabel={t.tab} footer={next}>
       <ConversationChat view={view} onView={onView} disabled={working} tail={tail} later={{ placeholder: t.placeholder, hint: t.hint }} />
     </Workspace>
   );

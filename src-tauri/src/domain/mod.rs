@@ -4,6 +4,7 @@ pub mod budget;
 pub mod checklist;
 pub mod conversation;
 pub mod figures;
+pub mod finances;
 pub mod priority;
 pub mod profile;
 pub mod requirements;

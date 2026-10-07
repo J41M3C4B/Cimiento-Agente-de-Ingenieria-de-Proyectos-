@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Chip } from "../../components/ui";
+import { Alert, Button, Eyebrow, Inset, Tag, TextArea } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { sectionConfirm, sectionDraft, sectionSave, toAppError } from "../../lib/tauri";
 import type { Decision, DraftingView, QuarantineReport, SectionView } from "../../lib/types";
@@ -78,73 +78,70 @@ export function SectionCard({
 
   if (!isText) {
     return (
-      <li className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 px-4 py-3">
-        <p className="font-medium">{section.title}</p>
-        <p className="text-[13px] text-stone-600">{t.dataSection}</p>
+      <li>
+        <Inset className="flex items-center justify-between gap-3 !py-3">
+          <p className="text-ui font-bold">{section.title}</p>
+          <p className="text-small text-ink-3">{t.dataSection}</p>
+        </Inset>
       </li>
     );
   }
 
   return (
-    <li className="rounded-xl border border-stone-200 bg-white">
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-        <span className="min-w-0 flex-1">
-          <span className="block text-[14px] font-semibold">{section.title}</span>
-          <span className="block text-[12.5px] text-stone-600">{section.required ? t.required : t.optional}</span>
-        </span>
-        <Chip tone={statusTone[section.status]} icon={section.status === "confirmed" ? "check" : undefined}>
-          {t.status[section.status]}
-        </Chip>
-        <Icon name="down" size={16} className={`shrink-0 text-stone-600 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-      </button>
+    <li>
+      <Inset>
+        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-ctl w-full items-center gap-3 text-left">
+          <span className="min-w-0 flex-1">
+            <span className="block text-ui font-bold">{section.title}</span>
+            <span className="block text-small text-ink-3">{section.required ? t.required : t.optional}</span>
+          </span>
+          <Tag tone={statusTone[section.status]} variant={section.status === "empty" ? "line" : "solid"} icon={section.status === "confirmed" ? "check" : undefined}>
+            {t.status[section.status]}
+          </Tag>
+          <Icon name="down" size={18} className={`shrink-0 text-ink-2 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        </button>
 
-      {open && (
-        <div className="space-y-3 border-t border-stone-200 px-4 py-4">
-          <div className="rounded-lg bg-blue-50 px-4 py-3">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-blue-900">{t.inPlainWords}</p>
-            <p className="mt-0.5 leading-relaxed">{section.plain ?? section.guidance}</p>
-          </div>
-          {section.plain && section.guidance !== section.plain && (
-            <details className="text-[13px] text-stone-700">
-              <summary className="cursor-pointer font-semibold text-stone-800">{t.callSays}</summary>
-              <p className="mt-1.5 border-l-2 border-stone-300 pl-3 italic leading-relaxed">{section.guidance}</p>
-            </details>
-          )}
-          {section.unsupported_figures.length > 0 && section.status !== "confirmed" && <Alert tone="warn">{t.unsupported(section.unsupported_figures.join(", "))}</Alert>}
-          {section.open_points.length > 0 && (
+        {open && (
+          <div className="mt-3 space-y-4 border-t border-line pt-4">
             <Alert tone="info">
-              <p className="font-semibold">{t.openPoints}</p>
-              <ul className="list-disc pl-6">
-                {section.open_points.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
+              <Eyebrow className="!text-ink-2">{t.inPlainWords}</Eyebrow>
+              <p className="mt-1">{section.plain ?? section.guidance}</p>
             </Alert>
-          )}
-          <textarea
-            aria-label={section.title}
-            rows={8}
-            value={text}
-            placeholder={t.textPlaceholder}
-            onChange={(e) => setText(e.target.value)}
-            className="w-full rounded-lg border border-stone-300 bg-white px-4 py-3 text-[15px] leading-relaxed text-stone-900 hover:border-stone-400 focus-visible:border-blue-800 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-blue-100"
-          />
-          {notice && <Alert tone="warn">{notice}</Alert>}
-          {error && <Alert tone="warn">{error}</Alert>}
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={draft} disabled={working}>
-              <Icon name="sparkles" size={16} />
-              {busy ? t.drafting : t.draft}
-            </Button>
-            <Button onClick={() => save()} disabled={working || !text.trim() || !changed}>
-              {t.save}
-            </Button>
-            <Button variant="primary" onClick={confirm} disabled={working || !section.content.trim() || changed || section.status === "confirmed"}>
-              {t.confirmSection}
-            </Button>
+            {section.plain && section.guidance !== section.plain && (
+              <details className="text-small text-ink-2">
+                <summary className="cursor-pointer font-bold text-ink">{t.callSays}</summary>
+                <p className="mt-2 border-l-2 border-line pl-3 italic">{section.guidance}</p>
+              </details>
+            )}
+            {section.unsupported_figures.length > 0 && section.status !== "confirmed" && <Alert tone="warn">{t.unsupported(section.unsupported_figures.join(", "))}</Alert>}
+            {section.open_points.length > 0 && (
+              <Alert tone="info">
+                <p className="font-bold">{t.openPoints}</p>
+                <ul className="list-disc pl-6">
+                  {section.open_points.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              </Alert>
+            )}
+            <TextArea label={section.title} hideLabel rows={8} value={text} placeholder={t.textPlaceholder} onChange={(e) => setText(e.target.value)} />
+            {notice && <Alert tone="warn">{notice}</Alert>}
+            {error && <Alert tone="error">{error}</Alert>}
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={draft} disabled={working}>
+                <Icon name="sparkles" size={16} />
+                {busy ? t.drafting : t.draft}
+              </Button>
+              <Button size="sm" onClick={() => save()} disabled={working || !text.trim() || !changed}>
+                {t.save}
+              </Button>
+              <Button size="sm" variant="primary" onClick={confirm} disabled={working || !section.content.trim() || changed || section.status === "confirmed"}>
+                {t.confirmSection}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Inset>
 
       {report && <QuarantineDialog report={report} busy={busy} onRedact={() => save("redact")} onNotPersonal={() => save("not_personal")} onCancel={() => setReport(null)} />}
     </li>

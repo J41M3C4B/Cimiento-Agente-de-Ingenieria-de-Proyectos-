@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Icon } from "../../components/icons";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
-import { Alert, Button, Chip, Steps, TextInput } from "../../components/ui";
+import { Alert, Button, Card, FileTile, Inset, RadioCard, Select, Steps, Switch, Tag, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { projectCreateFromCall, projectSetDonorKind, toAppError } from "../../lib/tauri";
 import type { Decision, DonorKind, FileRole, ProjectRow, QuarantineReport } from "../../lib/types";
@@ -119,119 +119,87 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
   }
 
   const inputLabel = hasExtras ? t.callFilesMore : t.callFiles;
+  const ext = (f: File) => f.name.split(".").pop() ?? "";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <button type="button" onClick={step === 0 ? onCancel : () => setStep(0)} className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-stone-700 hover:text-blue-800">
+    <div className="mx-auto w-full max-w-[768px] space-y-6">
+      <Button variant="ghost" size="sm" onClick={step === 0 ? onCancel : () => setStep(0)}>
         <Icon name="back" size={16} />
         {step === 0 ? t.backToProjects : t.backToFiles}
-      </button>
+      </Button>
 
-      <header className="space-y-5">
-        <div className="space-y-1.5">
-          <h1 className="text-[24px] font-semibold leading-tight tracking-tight">{t.newTitle}</h1>
-          <p className="text-stone-700">{t.stepLabel(step + 1, 2, step === 0 ? t.step1 : t.step2)}</p>
+      <header className="space-y-4">
+        <div className="space-y-1">
+          <h1 className="text-title font-bold tracking-tight">{t.newTitle}</h1>
+          <p className="text-ui text-ink-3">{t.stepLabel(step + 1, 2, step === 0 ? t.step1 : t.step2)}</p>
         </div>
         <div className="max-w-sm">
-          <Steps steps={[{ key: "files", label: t.filesStep }, { key: "data", label: t.dataStep }]} current={step} />
+          <Steps tone="ink" steps={[{ key: "files", label: t.filesStep }, { key: "data", label: t.dataStep }]} current={step} />
         </div>
       </header>
 
       {step === 0 && (
-        <>
-          <section className="space-y-5 rounded-2xl bg-white p-7 shadow-card">
-            <div className="space-y-1">
-              <h2 className="text-[18px] font-semibold">{t.step1Title}</h2>
-              <p className="text-stone-700">{t.step1Help}</p>
-            </div>
+        <Card className="space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-heading font-bold">{t.step1Title}</h2>
+            <p className="text-ui text-ink-2">{t.step1Help}</p>
+          </div>
 
-            <div>
-              <input
-                id="call-files"
-                ref={input}
-                type="file"
-                multiple={hasExtras}
-                accept=".pdf,.docx,.xlsx,.xlsm"
-                aria-label={inputLabel}
-                onChange={(e) => choose(Array.from(e.target.files ?? []))}
-                className="peer sr-only"
-              />
-              <label
-                htmlFor="call-files"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragging(true);
-                }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragging(false);
-                  choose(Array.from(e.dataTransfer.files));
-                }}
-                className={`flex cursor-pointer flex-col items-center gap-2.5 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors peer-focus-visible:ring-4 peer-focus-visible:ring-blue-100 ${
-                  dragging ? "border-blue-800 bg-blue-50" : "border-stone-500 bg-stone-50 hover:border-blue-800 hover:bg-blue-50"
-                }`}
-              >
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-800">
-                  <Icon name="upload" size={26} />
-                </span>
-                <span className="text-[15px] font-semibold">{hasExtras ? t.dropTitleMany : t.dropTitle}</span>
-                <span className="text-stone-700">
-                  {t.dropOr} <span className="font-semibold text-blue-800">{t.dropPick}</span>
-                </span>
-              </label>
-            </div>
+          <label
+            className={`dropzone ${dragging ? "dropzone--over" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              choose(Array.from(e.dataTransfer.files));
+            }}
+          >
+            <input ref={input} id="call-files" type="file" multiple={hasExtras} accept=".pdf,.docx,.xlsx,.xlsm" aria-label={inputLabel} onChange={(e) => choose(Array.from(e.target.files ?? []))} />
+            <span className="grid h-ctl w-ctl place-items-center rounded-pill bg-inset text-ink-2">
+              <Icon name="upload" size={20} />
+            </span>
+            <b className="font-bold">{hasExtras ? t.dropTitleMany : t.dropTitle}</b>
+            <span className="text-small text-ink-3">
+              {t.dropOr} <span className="font-bold text-ink underline underline-offset-4">{t.dropPick}</span>
+            </span>
+          </label>
 
-            <label className="flex cursor-pointer items-center gap-3 font-semibold">
-              <input type="checkbox" role="switch" className="peer sr-only" checked={hasExtras} onChange={(e) => toggleExtras(e.target.checked)} />
-              <span
-                aria-hidden="true"
-                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors peer-focus-visible:ring-4 peer-focus-visible:ring-blue-100 ${hasExtras ? "bg-blue-800" : "bg-stone-400"}`}
-              >
-                <span className={`absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow transition-all ${hasExtras ? "left-[23px]" : "left-[3px]"}`} />
-              </span>
-              {t.hasExtras}
-            </label>
-            {hasExtras && <p className="text-[14px] text-stone-700">{t.extrasHelp}</p>}
+          <Switch label={t.hasExtras} role="switch" checked={hasExtras} onChange={(e) => toggleExtras(e.target.checked)} />
+          {hasExtras && <p className="text-ui text-ink-2">{t.extrasHelp}</p>}
 
-            {items.length > 0 && (
-              <ul className="space-y-2.5">
-                {items.map((it, i) => (
-                  <li key={`${it.file.name}-${i}`} className="flex flex-wrap items-center gap-3.5 rounded-lg border border-stone-200 bg-white p-3.5">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-800">
-                      <Icon name="file" />
-                    </span>
+          {items.length > 0 && (
+            <ul className="space-y-2">
+              {items.map((it, i) => (
+                <li key={`${it.file.name}-${i}`}>
+                  <Inset className="flex flex-wrap items-center gap-3 !py-3">
+                    <FileTile ext={ext(it.file)} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{it.file.name}</p>
-                      <p className="text-[13px] text-stone-700">{size(it.file)}</p>
+                      <p className="truncate font-bold">{it.file.name}</p>
+                      <p className="text-small text-ink-3">{size(it.file)}</p>
                     </div>
                     {hasExtras && (
-                      <div className="relative w-56">
-                        <select
-                          aria-label={t.roleLabel(it.file.name)}
-                          value={it.role}
-                          onChange={(e) => setItems(withRole(items, i, e.target.value as FileRole))}
-                          className="min-h-11 w-full appearance-none rounded-lg border-[1.5px] border-stone-400 bg-white pl-4 pr-10 text-[14px] focus-visible:border-blue-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
-                        >
-                          <option value="main">{es.calls.roleOf("main")}</option>
-                          {EXTRA_ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {es.calls.roleOf(r)}
-                            </option>
-                          ))}
-                        </select>
-                        <Icon name="down" size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-700" />
-                      </div>
+                      <Select
+                        label={t.roleLabel(it.file.name)}
+                        hideLabel
+                        className="w-full sm:w-56"
+                        value={it.role}
+                        onChange={(e) => setItems(withRole(items, i, e.target.value as FileRole))}
+                        options={[["main", es.calls.roleOf("main")], ...EXTRA_ROLES.map((r): [string, string] => [r, es.calls.roleOf(r)])]}
+                      />
                     )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {hasExtras && items.length > 0 && mains !== 1 && <Alert tone="warn">{t.pickOneMain}</Alert>}
-            {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
-          </section>
+                  </Inset>
+                </li>
+              ))}
+            </ul>
+          )}
+          {hasExtras && items.length > 0 && mains !== 1 && <Alert tone="warn">{t.pickOneMain}</Alert>}
+          {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-6 py-4 shadow-float">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
             <Button variant="ghost" onClick={onCancel}>
               {es.common.cancel}
             </Button>
@@ -240,74 +208,65 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
               <Icon name="next" size={16} />
             </Button>
           </div>
-        </>
+        </Card>
       )}
 
       {step === 1 && (
         <form
-          className="space-y-6"
           onSubmit={(e) => {
             e.preventDefault();
             if (ready) create.mutate(undefined);
           }}
         >
-          <section className="space-y-5 rounded-2xl bg-white p-7 shadow-card">
-            <div className="flex flex-wrap items-center gap-3.5 rounded-lg bg-stone-50 p-3.5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-800">
-                <Icon name="file" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold">{t.filesReady(items.length)}</p>
-                <p className="truncate text-[13px] text-stone-700">{items[0]?.file.name}</p>
+          <Card className="space-y-6">
+            <Inset className="flex flex-wrap items-center gap-3 !py-3">
+              <FileTile ext={ext(items[0]!.file)} />
+              <div className="min-w-[9rem] flex-1">
+                <p className="font-bold">{t.filesReady(items.length)}</p>
+                <p className="truncate text-small text-ink-3">{items[0]?.file.name}</p>
               </div>
-              <Chip tone="blue">{es.calls.roleOf("main")}</Chip>
-            </div>
+              <Tag tone="sky" variant="soft">
+                {es.calls.roleOf("main")}
+              </Tag>
+            </Inset>
 
-            <TextInput label={t.callName} hint={t.callNameHint} value={name} onChange={(e) => setName(e.target.value)} />
-            <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
-              <TextInput label={t.funder} hint={t.funderHint} value={funder} onChange={(e) => setFunder(e.target.value)} />
+            <TextInput label={t.callName} hint={t.callNameHint} required value={name} onChange={(e) => setName(e.target.value)} />
+            <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
+              <TextInput label={t.funder} hint={t.funderHint} required value={funder} onChange={(e) => setFunder(e.target.value)} />
               <TextInput
                 label={t.year}
                 hint={t.yearHint}
+                required
                 inputMode="numeric"
                 maxLength={4}
                 value={year}
                 error={year !== "" && !yearOk ? t.yearInvalid : undefined}
                 onChange={(e) => setYear(e.target.value)}
-                className="sm:w-44"
+                className="sm:w-60"
               />
             </div>
             <fieldset>
-              <legend className="mb-1.5 text-[13px] font-medium text-stone-700">{t.kindFieldLabel}</legend>
+              <legend className="field-label">{t.kindFieldLabel}</legend>
               <div className="grid gap-2 sm:grid-cols-3">
                 {(Object.keys(t.kinds) as DonorKind[]).map((k) => (
-                  <label
-                    key={k}
-                    className="flex cursor-pointer flex-col gap-0.5 rounded-lg border border-stone-300 px-3.5 py-3 transition-colors hover:border-stone-400 has-[:checked]:border-blue-800 has-[:checked]:bg-blue-50 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-blue-100"
-                  >
-                    <span className="flex items-center gap-2.5 text-[14px] font-semibold">
-                      <input type="radio" name="donor-kind" className="h-4 w-4 shrink-0 accent-blue-800" checked={donorKind === k} onChange={() => setDonorKind(k)} />
-                      {t.kinds[k]}
-                    </span>
-                    <span className="pl-[26px] text-[12.5px] text-stone-600">{t.kindHelp[k]}</span>
-                  </label>
+                  <RadioCard key={k} name="donor-kind" title={t.kinds[k]} note={t.kindHelp[k]} checked={donorKind === k} onChange={() => setDonorKind(k)} />
                 ))}
               </div>
             </fieldset>
             {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
             <Alert tone="info">
-              <p className="text-stone-700">{t.startNote}</p>
+              <p className="text-ink-2">{t.startNote}</p>
             </Alert>
-          </section>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-6 py-4 shadow-float">
-            <Button variant="ghost" onClick={() => setStep(0)}>
-              {t.wizardBack}
-            </Button>
-            <Button type="submit" variant="primary" size="lg" disabled={create.isPending || !ready}>
-              {create.isPending ? t.starting : t.start}
-            </Button>
-          </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
+              <Button variant="ghost" onClick={() => setStep(0)}>
+                {t.wizardBack}
+              </Button>
+              <Button type="submit" variant="primary" disabled={create.isPending || !ready}>
+                {create.isPending ? t.starting : t.start}
+              </Button>
+            </div>
+          </Card>
         </form>
       )}
 
