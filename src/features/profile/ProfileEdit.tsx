@@ -38,7 +38,7 @@ export function ProfileEdit({
 }) {
   const start = view ? fromView(view) : emptyForm();
   // a new item goes at the end of its list, and that is the one the window edits
-  if (edit.kind === "income" && edit.index === null) start.income = [...start.income, { label: "", annual_amount_mxn: "" }];
+  if (edit.kind === "income" && edit.index === null) start.income = [...start.income, { label: "", kind: "other", amount_mxn: "", period: "annual" }];
   if (edit.kind === "facility" && edit.index === null) start.facilities = [...start.facilities, { kind: "", count: "1", condition: "", accessible: "", notes: "" }];
   const i = edit.kind === "income" ? (edit.index ?? start.income.length - 1) : edit.kind === "facility" ? (edit.index ?? start.facilities.length - 1) : 0;
 
@@ -98,7 +98,7 @@ export function ProfileEdit({
         {edit.kind === "income" && (
           <>
             <TextInput label={t.fields.incomeLabel} autoFocus placeholder={t.modal.incomePlaceholder} {...register(`income.${i}.label`)} />
-            <TextInput label={t.fields.amount} prefix="$" suffix="al año" inputMode="numeric" error={err(fe.income?.[i]?.annual_amount_mxn)} {...register(`income.${i}.annual_amount_mxn`)} />
+            <TextInput label={t.fields.amount} prefix="$" suffix="al año" error={err(fe.income?.[i]?.amount_mxn)} {...register(`income.${i}.amount_mxn`)} />
           </>
         )}
         {edit.kind === "facility" && (

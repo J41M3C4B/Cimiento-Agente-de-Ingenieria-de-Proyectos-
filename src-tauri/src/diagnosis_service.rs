@@ -345,7 +345,7 @@ pub fn needs_view(conn: &Connection, project_id: &str) -> Result<NeedsView, Serv
     let affected = store::get_summary(conn, project_id)?
         .and_then(|s| s.summary["affected"]["count"].as_u64())
         .map(|c| c as u32);
-    let population = profile_store::load_current(conn)?.map(|p| p.input.totals().population.max(0) as u32);
+    let population = profile_store::load_current(conn)?.map(|p| p.input.totals(p.as_of_year).population.max(0) as u32);
     let beneficiaries_suggestion = match (affected, population) {
         (Some(a), Some(p)) => priority::suggest_beneficiaries_score(a, p),
         _ => None,

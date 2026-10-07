@@ -4,10 +4,14 @@
 //! guessing. Hence three rules: (1) it carries every datum the person captured that is allowed to reach the AI;
 //! (2) a section with nothing captured says so («no capturado»), because «no sé» is not «cero»; (3) the sums are
 //! made here, by code. Never in it: names, contact data, RFC, pay or the amount any person pays (ADR-020), nor an
-//! age range of a group of one person. It carries no incidental numbers either (versions, dates): the figure
-//! check treats every number of this text as something the person said.
+//! age range of a group of one person. Neither the payroll nor the fees of the roster go as a figure, not even
+//! added up: with one paid person the total is that person's pay. That is also why the balance goes as words
+//! (whether the income covers the expenses), never as a figure the payroll could be worked out from (ADR-026).
+//! It carries no incidental numbers either (versions, dates): the figure check treats every number of this text
+//! as something the person said.
 
-use crate::domain::profile::{Condition, ContractKind, DependencyLevel, InstitutionKind, ProfileInput};
+use crate::domain::finances::{ExpenseBasis, BENEFICIARY_FEES, EXPENSE};
+use crate::domain::profile::{Condition, ContractKind, DependencyLevel, InstitutionKind, IncomeKind, Period, ProfileInput};
 use crate::service::ServiceError;
 use crate::storage::profile::{self as profile_store, StoredProfile};
 use rusqlite::Connection;
@@ -67,6 +71,25 @@ fn mxn(n: i64) -> String {
     format!("{}${out}", if n < 0 { "-" } else { "" })
 }
 
+fn income_kind_text(k: IncomeKind) -> &'static str {
+    match k {
+        IncomeKind::FeeEstimate => "cuotas de los beneficiarios (aproximado escrito a mano)",
+        IncomeKind::RecurringDonor => "donante fijo",
+        IncomeKind::OccasionalDonation => "donativo ocasional",
+        IncomeKind::ProjectGrant => "donativo ganado con un proyecto",
+        IncomeKind::Other => "otro ingreso",
+    }
+}
+
+/// `$5,000 al mes ($60,000 al año)` or `$680,000 al año`; the yearly figure is made here.
+fn amount_text(amount: Option<i64>, period: Period) -> String {
+    match (amount, period) {
+        (None, _) => "monto no capturado".into(),
+        (Some(a), Period::Monthly) => format!("{} pesos al mes ({} al año)", mxn(a), mxn(a * 12)),
+        (Some(a), Period::Annual) => format!("{} pesos al año", mxn(a)),
+    }
+}
+
 fn text(o: &Option<String>) -> Option<&str> {
     o.as_deref().map(str::trim).filter(|s| !s.is_empty())
 }
@@ -111,7 +134,8 @@ fn groups(i: &ProfileInput) -> Vec<Group> {
 
 pub fn render(p: &StoredProfile) -> String {
     let i = &p.input;
-    let t = i.totals();
+    let t = i.totals(p.as_of_year);
+    let money = i.finances(p.as_of_year);
     let mut s = String::new();
     let mut missing: Vec<&str> = Vec::new();
 
@@ -129,23 +153,67 @@ pub fn render(p: &StoredProfile) -> String {
         Some(c) => s.push_str(&format!("Capacidad total: {c} personas.\n")),
         None => missing.push("capacidad total"),
     }
-    match i.annual_budget_mxn {
-        Some(b) => s.push_str(&format!("Presupuesto anual: {} pesos.\n", mxn(b))),
-        None => missing.push("presupuesto anual"),
+
+    // income: what the person wrote, by kind; the roster fees only as how many pay
+    let roster_fees = money.income.iter().any(|l| l.kind == BENEFICIARY_FEES);
+    if roster_fees {
+        s.push_str(&format!(
+            "Ingreso — cuotas de los beneficiarios (del padrón): las pagan {} {}; el monto no se comparte.\n",
+            t.fee_payers,
+            if t.fee_payers == 1 { "persona" } else { "personas" }
+        ));
+    }
+    let written: Vec<_> = money.income.iter().filter(|l| l.counted && l.index.is_some()).collect();
+    for l in &written {
+        let inc = &i.income[l.index.unwrap_or_default()];
+        s.push_str(&format!("Ingreso — {}: {} — {}.\n", income_kind_text(inc.kind), inc.label, amount_text(inc.amount_mxn, inc.period)));
+    }
+    let written_sum: i64 = written.iter().filter_map(|l| l.annual_mxn).sum();
+    if written_sum > 0 {
+        s.push_str(&format!(
+            "Suma de los ingresos escritos a mano: {} pesos al año{}.\n",
+            mxn(written_sum),
+            if roster_fees { " (sin las cuotas del padrón)" } else { "" }
+        ));
+    }
+    if !roster_fees && written.is_empty() {
+        missing.push("de dónde vienen sus ingresos");
     }
 
-    if i.income.is_empty() {
-        missing.push("de dónde vienen sus ingresos");
-    } else {
-        for inc in &i.income {
-            match inc.annual_amount_mxn {
-                Some(a) => s.push_str(&format!("Ingreso: {} — {} pesos al año.\n", inc.label, mxn(a))),
-                None => s.push_str(&format!("Ingreso: {} — monto no capturado.\n", inc.label)),
-            }
-        }
-        if t.income_annual_mxn > 0 {
-            s.push_str(&format!("Suma de los ingresos capturados: {} pesos al año.\n", mxn(t.income_annual_mxn)));
-        }
+    // expenses: the approximate figure, the list, and the payroll only as words
+    if let Some(b) = i.annual_budget_mxn {
+        s.push_str(&format!("Gasto anual aproximado (cifra a ojo de la persona, todo incluido): {} pesos.\n", mxn(b)));
+    }
+    let listed: Vec<_> = money.expenses.iter().filter(|l| l.kind == EXPENSE).collect();
+    for l in &listed {
+        let e = &i.expenses[l.index.unwrap_or_default()];
+        s.push_str(&format!("Egreso: {} — {}.\n", e.label, amount_text(e.amount_mxn, e.period)));
+    }
+    if t.payroll_cost_annual_mxn > 0 {
+        s.push_str(match money.expenses_basis {
+            ExpenseBasis::Estimate => "La nómina del personal (con aguinaldo y prima vacacional) va dentro del gasto aproximado; el monto no se comparte.\n",
+            _ => "Egreso: nómina del personal con aguinaldo y prima vacacional (del padrón); el monto no se comparte.\n",
+        });
+    }
+    let listed_sum: i64 = listed.iter().filter_map(|l| l.annual_mxn).sum();
+    if listed_sum > 0 {
+        s.push_str(&format!(
+            "Suma de los egresos escritos a mano: {} pesos al año{}.\n",
+            mxn(listed_sum),
+            if t.payroll_cost_annual_mxn > 0 { " (sin la nómina)" } else { "" }
+        ));
+    }
+    if money.expenses_basis == ExpenseBasis::Unknown {
+        missing.push("cuánto gasta al año");
+    }
+    if let Some(b) = money.balance_annual_mxn {
+        let against = if money.expenses_basis == ExpenseBasis::List { "la lista de egresos" } else { "el gasto anual aproximado" };
+        let verdict = match b {
+            b if b < 0 => "NO alcanzan a cubrir los egresos: hay déficit",
+            0 => "alcanzan justo para cubrir los egresos",
+            _ => "alcanzan a cubrir los egresos y sobra algo",
+        };
+        s.push_str(&format!("Balance del año, calculado con lo capturado y {against}: los ingresos {verdict}.\n"));
     }
 
     // people served: only how many, never who
@@ -262,7 +330,7 @@ pub(crate) mod tests {
                 PopulationGroupInput { label: "Hombres".into(), count: 1, age_min: Some(93), age_max: Some(93), dependency_level: Some(DependencyLevel::Total), ..Default::default() },
             ],
             staff: vec![
-                StaffGroupInput { role: "Cuidadora".into(), count: 4, paid: true, monthly_salary_mxn: Some(7_777), shift: Some("noche".into()), contract: Some(ContractKind::Permanent), ..Default::default() },
+                StaffGroupInput { role: "Cuidadora".into(), count: 4, paid: true, monthly_salary_mxn: Some(7_777), shift: Some("noche".into()), contract: Some(ContractKind::Permanent), start_year: Some(2019), ..Default::default() },
                 StaffGroupInput { role: "Voluntaria".into(), count: 3, paid: false, ..Default::default() },
             ],
             facilities: vec![
@@ -270,8 +338,14 @@ pub(crate) mod tests {
                 FacilityInput { kind: "Cocina".into(), count: 1, condition: Some(Condition::Good), accessible: None, notes: None },
             ],
             income: vec![
-                IncomeSourceInput { label: "Cuotas de recuperación".into(), annual_amount_mxn: Some(720_000) },
-                IncomeSourceInput { label: "Donativos".into(), annual_amount_mxn: Some(680_000) },
+                IncomeSourceInput { label: "Padrinos".into(), kind: IncomeKind::RecurringDonor, amount_mxn: Some(10_000), period: Period::Monthly },
+                IncomeSourceInput { label: "Donativos".into(), kind: IncomeKind::OccasionalDonation, amount_mxn: Some(680_000), period: Period::Annual },
+                // the roster has the real fees: this one would count them twice and is left out
+                IncomeSourceInput { label: "Cuotas aprox.".into(), kind: IncomeKind::FeeEstimate, amount_mxn: Some(450_000), period: Period::Annual },
+            ],
+            expenses: vec![
+                ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(15_000), period: Period::Monthly },
+                ExpenseItemInput { label: "Luz y agua".into(), amount_mxn: Some(36_000), period: Period::Annual },
             ],
         }
     }
@@ -290,9 +364,16 @@ pub(crate) mod tests {
         "Asilo Ficticio (asilo)",
         "A qué se dedica: Un hogar digno para adultos mayores.",
         "Capacidad total: 25 personas.",
-        "Presupuesto anual: $1,800,000 pesos.",
-        "Ingreso: Cuotas de recuperación — $720,000 pesos al año.",
-        "Suma de los ingresos capturados: $1,400,000 pesos al año.",
+        "Gasto anual aproximado (cifra a ojo de la persona, todo incluido): $1,800,000 pesos.",
+        "Ingreso — cuotas de los beneficiarios (del padrón): las pagan 5 personas; el monto no se comparte.",
+        "Ingreso — donante fijo: Padrinos — $10,000 pesos al mes ($120,000 al año).",
+        "Ingreso — donativo ocasional: Donativos — $680,000 pesos al año.",
+        "Suma de los ingresos escritos a mano: $800,000 pesos al año (sin las cuotas del padrón).",
+        "Egreso: Alimentos — $15,000 pesos al mes ($180,000 al año).",
+        "Egreso: Luz y agua — $36,000 pesos al año.",
+        "Egreso: nómina del personal con aguinaldo y prima vacacional (del padrón); el monto no se comparte.",
+        "Suma de los egresos escritos a mano: $216,000 pesos al año (sin la nómina).",
+        "Balance del año, calculado con lo capturado y la lista de egresos: los ingresos alcanzan a cubrir los egresos y sobra algo.",
         "Población: Adultos mayores — 11 personas; nivel de dependencia alta; edades de 66 a 95 años; 5 pagan cuota de estancia.",
         "Población: Hombres — 1 persona; nivel de dependencia total.",
         "Total de personas atendidas: 12.",
@@ -322,6 +403,16 @@ pub(crate) mod tests {
     fn what_must_not_reach_the_ai_does_not() {
         let (_d, c) = saved(&rich(), true);
         let ctx = profile_context(&c).unwrap();
+        // not even added up: payroll, its benefits, its cost, and the fees of the roster; nor the exact balance
+        let stored = profile_store::load_current(&c).unwrap().unwrap();
+        let t = stored.input.totals(stored.as_of_year);
+        let f = stored.input.finances(stored.as_of_year);
+        let numbers = crate::domain::figures::digit_numbers(&ctx);
+        for hidden in [t.payroll_monthly_mxn, t.payroll_annual_mxn, t.payroll_benefits_annual_mxn, t.payroll_cost_annual_mxn,
+                       t.fees_monthly_mxn, t.fees_annual_mxn, f.income_annual_mxn, f.expenses_annual_mxn.unwrap(), f.balance_annual_mxn.unwrap()] {
+            assert!(!numbers.contains(&hidden.abs().to_string()), "«{hidden}» leaked:\n{ctx}");
+        }
+        assert!(!ctx.contains("Cuotas aprox."), "a fee estimate left out of the sums is not shown either:\n{ctx}");
         // pay, the fee a person pays, contact data, RFC and the representative
         for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante"] {
             assert!(!ctx.contains(secret), "«{secret}» leaked:\n{ctx}");
@@ -338,11 +429,30 @@ pub(crate) mod tests {
         let ctx = profile_context(&c).unwrap();
         assert!(ctx.contains("BORRADOR"), "{ctx}");
         assert!(ctx.contains("Institución: Casa Vacía (institución de asistencia)."), "{ctx}");
-        for gap in ["a qué se dedica", "capacidad total", "presupuesto anual", "de dónde vienen sus ingresos", "a quiénes atiende", "el personal", "las instalaciones"] {
+        for gap in ["a qué se dedica", "capacidad total", "cuánto gasta al año", "de dónde vienen sus ingresos", "a quiénes atiende", "el personal", "las instalaciones"] {
             assert!(ctx.contains(gap), "the gap «{gap}» is not named:\n{ctx}");
         }
         assert!(ctx.contains("no que sea cero"), "{ctx}");
         assert!(!ctx.contains("Total de personas atendidas"), "no invented zero totals:\n{ctx}");
+    }
+
+    #[test]
+    fn with_only_the_approximate_expense_the_payroll_goes_inside_it_and_a_deficit_is_said_in_words() {
+        let mut p = rich();
+        p.expenses.clear();
+        p.annual_budget_mxn = Some(900_000); // income is the roster fees plus 800,000 written: more than this
+        let (_d, c) = saved(&p, true);
+        let ctx = profile_context(&c).unwrap();
+        assert!(ctx.contains("La nómina del personal (con aguinaldo y prima vacacional) va dentro del gasto aproximado; el monto no se comparte."), "{ctx}");
+        assert!(ctx.contains("Balance del año, calculado con lo capturado y el gasto anual aproximado: los ingresos alcanzan a cubrir los egresos y sobra algo."), "{ctx}");
+        assert!(!ctx.contains("Egreso:"), "{ctx}");
+
+        let mut p = rich();
+        p.expenses.clear();
+        p.annual_budget_mxn = Some(5_000_000);
+        let (_d, c) = saved(&p, true);
+        let ctx = profile_context(&c).unwrap();
+        assert!(ctx.contains("los ingresos NO alcanzan a cubrir los egresos: hay déficit."), "{ctx}");
     }
 
     #[test]
@@ -357,7 +467,7 @@ pub(crate) mod tests {
         let (_d, c) = saved(&rich(), true);
         let ctx = profile_context(&c).unwrap();
         // every number of the sheet is a fact of the profile or a sum made by code
-        let allowed = ["25", "1800000", "720000", "680000", "1400000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80"];
+        let allowed = ["25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80"];
         for n in crate::domain::figures::digit_numbers(&ctx) {
             assert!(allowed.contains(&n.as_str()), "unexpected number {n} in the sheet:\n{ctx}");
         }
@@ -378,7 +488,12 @@ pub(crate) mod tests {
         assert!(ctx.contains("Población: "), "{ctx}");
         assert!(ctx.contains("Total de personas atendidas: "), "{ctx}");
         assert!(ctx.contains("Piso resbaloso, sin barras de apoyo"), "the notes of the facilities reach the AI:\n{ctx}");
-        assert!(ctx.contains("Presupuesto anual: $1,800,000 pesos."), "{ctx}");
+        assert!(ctx.contains("Gasto anual aproximado (cifra a ojo de la persona, todo incluido): $1,800,000 pesos."), "{ctx}");
+        assert!(ctx.contains("Ingreso — cuotas de los beneficiarios (del padrón)"), "{ctx}");
+        let t = stored.input.totals(stored.as_of_year);
+        for hidden in [t.payroll_monthly_mxn, t.payroll_annual_mxn, t.payroll_cost_annual_mxn, t.fees_monthly_mxn, t.fees_annual_mxn] {
+            assert!(!crate::domain::figures::digit_numbers(&ctx).contains(&hidden.to_string()), "a sum of pay or fees ({hidden}) leaked:\n{ctx}");
+        }
         assert!(!ctx.contains("Esperanza Robles") && !ctx.contains("Vázquez"), "no name:\n{ctx}");
         for st in &stored.input.staff {
             if let Some(pay) = st.monthly_salary_mxn {

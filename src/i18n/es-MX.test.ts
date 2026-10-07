@@ -47,8 +47,9 @@ describe("UI texts", () => {
 
   it("every issue code the app can send has a friendly text", () => {
     for (const code of [
-      "name_missing", "label_missing", "negative_number", "age_range",
-      "population_over_capacity", "income_differs_from_budget", "not_a_number",
+      "name_missing", "label_missing", "negative_number", "age_range", "paying_over_count", "year_invalid",
+      "amount_too_large", "population_over_capacity", "fee_estimate_ignored", "payroll_over_estimate",
+      "expense_looks_like_payroll", "rfc_format", "phone_format", "email_format", "not_a_number",
     ]) {
       expect(es.issues[code], code).toBeTruthy();
     }

@@ -89,11 +89,27 @@ CREATE TABLE facility (
   origin TEXT NOT NULL, source_ref TEXT, confirmed_at TEXT, confirmed_by TEXT
 );
 
+-- Ingresos escritos a mano (ADR-026). Las cuotas de los beneficiarios del padrón NO se guardan aquí: se calculan.
 CREATE TABLE income_source (
   id TEXT PRIMARY KEY,
   profile_id TEXT NOT NULL REFERENCES institution_profile(id) ON DELETE CASCADE,
-  label TEXT NOT NULL,             -- "Cuotas", "Donativos JAP 2025", "Eventos"
-  annual_amount_mxn INTEGER,
+  label TEXT NOT NULL,             -- "Padrinos", "Fundación X 2025", "Eventos"
+  amount_mxn INTEGER,              -- como lo escribió la persona, según `period` (antes annual_amount_mxn)
+  period TEXT NOT NULL DEFAULT 'annual' CHECK (period IN ('monthly','annual')),
+  kind TEXT NOT NULL DEFAULT 'other'
+    CHECK (kind IN ('fee_estimate','recurring_donor','occasional_donation','project_grant','other')),
+  origin TEXT NOT NULL, source_ref TEXT, confirmed_at TEXT, confirmed_by TEXT
+);
+
+-- Egresos por concepto (ADR-026). La nómina no se escribe aquí: se calcula del padrón con prestaciones.
+-- `institution_profile.annual_budget_mxn` es el «gasto anual aproximado» (modo exprés): cuenta mientras esta
+-- lista esté vacía.
+CREATE TABLE expense_item (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES institution_profile(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,             -- "Alimentos", "Luz y agua", "Medicinas"
+  amount_mxn INTEGER CHECK (amount_mxn IS NULL OR amount_mxn >= 0),
+  period TEXT NOT NULL DEFAULT 'annual' CHECK (period IN ('monthly','annual')),
   origin TEXT NOT NULL, source_ref TEXT, confirmed_at TEXT, confirmed_by TEXT
 );
 

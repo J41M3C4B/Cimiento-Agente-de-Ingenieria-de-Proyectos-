@@ -2,7 +2,7 @@
 //! It lives apart from the profile and never goes to the AI: the profile only receives the aggregates
 //! computed here (`derive_staff`, `derive_population`).
 
-use super::profile::{DependencyLevel, InstitutionKind, PopulationGroupInput, StaffGroupInput};
+use super::profile::{ContractKind, DependencyLevel, InstitutionKind, PopulationGroupInput, StaffGroupInput};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -103,6 +103,8 @@ pub mod key {
     pub const AGE: &str = "age";
     pub const DEPENDENCY: &str = "dependency";
     pub const FEE: &str = "monthly_fee_mxn";
+    pub const CONTRACT: &str = "contract";
+    pub const START_YEAR: &str = "start_year";
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -177,7 +179,7 @@ pub fn default_fields(entity: Entity, institution: InstitutionKind) -> Vec<Roste
                 true,
                 false,
             ),
-            f("contract", "Tipo de contrato", Select, labels(&["De planta", "Por tiempo definido", "Honorarios"]), false, false),
+            f(key::CONTRACT, "Tipo de contrato", Select, labels(&["De planta", "Por tiempo definido", "Honorarios"]), false, false),
             f(
                 "shift",
                 "Horario",
@@ -188,7 +190,7 @@ pub fn default_fields(entity: Entity, institution: InstitutionKind) -> Vec<Roste
             ),
             f(key::SALARY, "Sueldo mensual", Money, vec![], false, false),
             f(key::PAID, "¿Recibe sueldo?", YesNo, vec![], false, false),
-            f("start_year", "Año en que entró", Year, vec![], false, false),
+            f(key::START_YEAR, "Año en que entró", Year, vec![], false, false),
             f("phone", "Teléfono", Phone, vec![], false, false),
             f("email", "Correo electrónico", Email, vec![], false, false),
         ],
@@ -232,8 +234,14 @@ pub fn clean_entry(fields: &[RosterField], data: &Data) -> Result<Data, RosterEr
             continue;
         }
         match f.kind {
-            FieldKind::Number | FieldKind::Money => {
+            FieldKind::Number => {
                 whole(&v).ok_or(RosterError::NotANumber)?;
+            }
+            FieldKind::Money => {
+                // «9,500» and «$9 500» are what people write: kept as plain digits
+                let n = super::finances::parse_pesos(&v).ok_or(RosterError::NotANumber)?;
+                out.insert(f.key.clone(), n.to_string());
+                continue;
             }
             FieldKind::Year => {
                 let y = whole(&v).ok_or(RosterError::NotANumber)?;
@@ -262,16 +270,21 @@ fn num(d: &Data, k: &str) -> Option<i64> {
     d.get(k).and_then(|v| whole(v))
 }
 
-/// One line per distinct position (role, with or without pay, same salary): the people of the roster, counted.
+/// One line per distinct position (role, with or without pay, same salary, same contract and start year: the last
+/// two set the benefits of the law): the people of the roster, counted.
 pub fn derive_staff(entries: &[RosterEntry]) -> Vec<StaffGroupInput> {
     let mut out: Vec<StaffGroupInput> = Vec::new();
     for e in entries {
         let role = e.data.get(key::ROLE).map(|r| r.trim()).filter(|r| !r.is_empty()).unwrap_or("Sin cargo").to_string();
         let paid = e.data.get(key::PAID).map_or(true, |v| v != "no");
         let salary = if paid { num(&e.data, key::SALARY) } else { None };
-        match out.iter_mut().find(|g| g.role == role && g.paid == paid && g.monthly_salary_mxn == salary) {
+        let contract = if paid { e.data.get(key::CONTRACT).and_then(|c| ContractKind::from_label(c)) } else { None };
+        let start_year = if paid { num(&e.data, key::START_YEAR) } else { None };
+        match out.iter_mut().find(|g| {
+            g.role == role && g.paid == paid && g.monthly_salary_mxn == salary && g.contract == contract && g.start_year == start_year
+        }) {
             Some(g) => g.count += 1,
-            None => out.push(StaffGroupInput { role, count: 1, paid, monthly_salary_mxn: salary, ..Default::default() }),
+            None => out.push(StaffGroupInput { role, count: 1, paid, monthly_salary_mxn: salary, contract, start_year, ..Default::default() }),
         }
     }
     out
@@ -359,8 +372,34 @@ mod tests {
         ]);
         assert_eq!(staff.len(), 3);
         assert_eq!((staff[0].role.as_str(), staff[0].count), ("Cocina", 2));
-        let t = ProfileInput { staff, ..Default::default() }.totals();
+        let t = ProfileInput { staff, ..Default::default() }.totals(2026);
         assert_eq!((t.staff_paid, t.staff_volunteer, t.payroll_monthly_mxn), (3, 1, 23_500));
+    }
+
+    #[test]
+    fn contract_and_start_year_reach_the_profile_for_the_benefits_and_volunteers_carry_none() {
+        let staff = derive_staff(&[
+            entry(&[("role", "Cocina"), ("monthly_salary_mxn", "9000"), ("contract", "De planta"), ("start_year", "2018")]),
+            entry(&[("role", "Cocina"), ("monthly_salary_mxn", "9000"), ("contract", "De planta"), ("start_year", "2018")]),
+            entry(&[("role", "Cocina"), ("monthly_salary_mxn", "9000"), ("contract", "Honorarios"), ("start_year", "2018")]),
+            entry(&[("role", "Voluntariado"), ("paid", "no"), ("contract", "De planta"), ("start_year", "2020")]),
+        ]);
+        let lines: Vec<_> = staff.iter().map(|g| (g.role.as_str(), g.count, g.contract, g.start_year)).collect();
+        assert_eq!(lines, vec![
+            ("Cocina", 2, Some(ContractKind::Permanent), Some(2018)),
+            ("Cocina", 1, Some(ContractKind::Fees), Some(2018)),
+            ("Voluntariado", 1, None, None),
+        ]);
+        let t = ProfileInput { staff, ..Default::default() }.totals(2026);
+        // two cooks with benefits (8 years: 6,150 each); fees carry none
+        assert_eq!((t.payroll_benefits_annual_mxn, t.payroll_cost_annual_mxn), (12_300, 27_000 * 12 + 12_300));
+    }
+
+    #[test]
+    fn money_is_kept_as_plain_digits_however_it_was_written() {
+        let fields = default_fields(Entity::Staff, InstitutionKind::Other);
+        let ok = clean_entry(&fields, &entry(&[("full_name", "A"), ("role", "Cocina"), ("monthly_salary_mxn", "$9,500")]).data).unwrap();
+        assert_eq!(ok.get("monthly_salary_mxn").map(String::as_str), Some("9500"));
     }
 
     #[test]
@@ -371,7 +410,7 @@ mod tests {
             entry(&[("category", "Niñas"), ("age", "9")]),
             entry(&[("category", "Niños"), ("dependency", "high")]),
         ]);
-        let t = ProfileInput { population: people.clone(), ..Default::default() }.totals();
+        let t = ProfileInput { population: people.clone(), ..Default::default() }.totals(2026);
         assert_eq!((t.population, t.fee_payers, t.fees_monthly_mxn, t.fees_annual_mxn), (4, 2, 3_000, 36_000));
         let paying = people.iter().find(|g| g.monthly_fee_mxn == Some(1500)).unwrap();
         assert_eq!((paying.age_min, paying.age_max), (Some(7), Some(10)));

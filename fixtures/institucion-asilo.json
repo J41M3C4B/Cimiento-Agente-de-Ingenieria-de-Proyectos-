@@ -12,14 +12,81 @@
   "annual_budget_mxn": 1800000,
   "notes": "Perfil ficticio para desarrollo y pruebas.",
   "facilities": [
-    { "kind": "Dormitorio", "count": 8, "condition": "fair", "accessible": true, "notes": null },
-    { "kind": "Baño", "count": 3, "condition": "poor", "accessible": false, "notes": "Piso resbaloso, sin barras de apoyo ni regaderas con asiento." },
-    { "kind": "Cocina", "count": 1, "condition": "good", "accessible": null, "notes": null },
-    { "kind": "Enfermería", "count": 1, "condition": "fair", "accessible": true, "notes": null }
+    {
+      "kind": "Dormitorio",
+      "count": 8,
+      "condition": "fair",
+      "accessible": true,
+      "notes": null
+    },
+    {
+      "kind": "Baño",
+      "count": 3,
+      "condition": "poor",
+      "accessible": false,
+      "notes": "Piso resbaloso, sin barras de apoyo ni regaderas con asiento."
+    },
+    {
+      "kind": "Cocina",
+      "count": 1,
+      "condition": "good",
+      "accessible": null,
+      "notes": null
+    },
+    {
+      "kind": "Enfermería",
+      "count": 1,
+      "condition": "fair",
+      "accessible": true,
+      "notes": null
+    }
   ],
   "income": [
-    { "label": "Cuotas de recuperación", "annual_amount_mxn": 720000 },
-    { "label": "Donativos de particulares", "annual_amount_mxn": 680000 },
-    { "label": "Eventos y colectas", "annual_amount_mxn": 400000 }
+    {
+      "label": "Padrinos que dan cada mes",
+      "kind": "recurring_donor",
+      "amount_mxn": 25000,
+      "period": "monthly"
+    },
+    {
+      "label": "Donativos de particulares",
+      "kind": "occasional_donation",
+      "amount_mxn": 380000,
+      "period": "annual"
+    },
+    {
+      "label": "Fundación Ejemplo, convocatoria 2025",
+      "kind": "project_grant",
+      "amount_mxn": 250000,
+      "period": "annual"
+    },
+    {
+      "label": "Eventos y colectas",
+      "kind": "other",
+      "amount_mxn": 400000,
+      "period": "annual"
+    }
+  ],
+  "expenses": [
+    {
+      "label": "Alimentos",
+      "amount_mxn": 45000,
+      "period": "monthly"
+    },
+    {
+      "label": "Medicinas y material de curación",
+      "amount_mxn": 18000,
+      "period": "monthly"
+    },
+    {
+      "label": "Luz, agua y gas",
+      "amount_mxn": 9500,
+      "period": "monthly"
+    },
+    {
+      "label": "Mantenimiento del edificio",
+      "amount_mxn": 120000,
+      "period": "annual"
+    }
   ]
 }

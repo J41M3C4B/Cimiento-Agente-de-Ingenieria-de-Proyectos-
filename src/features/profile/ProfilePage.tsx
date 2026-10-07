@@ -20,7 +20,8 @@ type Tab = "general" | "staff" | "population" | "facilities";
 
 const ZERO: ProfileTotals = {
   population: 0, staff_paid: 0, staff_volunteer: 0, income_annual_mxn: 0,
-  payroll_monthly_mxn: 0, payroll_annual_mxn: 0, fee_payers: 0, fees_monthly_mxn: 0, fees_annual_mxn: 0,
+  payroll_monthly_mxn: 0, payroll_annual_mxn: 0, payroll_benefits_annual_mxn: 0, payroll_cost_annual_mxn: 0, benefits_assumed: 0,
+  fee_payers: 0, fees_monthly_mxn: 0, fees_annual_mxn: 0,
 };
 
 /** The colors of the income sources in the composition bar and its legend (red and amber are kept for what is wrong). */
@@ -122,8 +123,9 @@ export function ProfilePage() {
   const staffCount = staffRoster.data?.entries.length ?? 0;
   const peopleCount = peopleRoster.data?.entries.length ?? 0;
   const facilities = view?.input.facilities ?? [];
-  const income = view?.input.income ?? [];
-  const incomeTotal = income.reduce((n, it) => n + (it.annual_amount_mxn ?? 0), 0);
+  // every line and its yearly amount come from Rust (ADR-026); a line without `index` is computed (the roster fees)
+  const income = view?.finances.income ?? [];
+  const incomeTotal = view?.finances.income_annual_mxn ?? 0;
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
 
   // what is still missing, each one leading to where it is filled in
@@ -277,7 +279,7 @@ export function ProfilePage() {
                     {incomeTotal > 0 && (
                       <div role="img" aria-label={t.cards.income} className="flex h-3 gap-1 overflow-hidden rounded-pill">
                         {income.map((it, i) => (
-                          <span key={i} className={`h-full ${SOURCE_BG[tone(i)]}`} style={{ width: `${((it.annual_amount_mxn ?? 0) / incomeTotal) * 100}%` }} />
+                          <span key={i} className={`h-full ${SOURCE_BG[tone(i)]}`} style={{ width: `${(it.counted ? (it.annual_mxn ?? 0) / incomeTotal : 0) * 100}%` }} />
                         ))}
                       </div>
                     )}
@@ -287,11 +289,13 @@ export function ProfilePage() {
                           <span aria-hidden="true" className={`h-3 w-3 shrink-0 rounded-pill ${SOURCE_BG[tone(i)]}`} />
                           <span className="min-w-0 flex-1 break-words text-ui">{it.label}</span>
                           <span className="relative h-ctl-sm w-0 shrink-0">
-                            <span className="absolute right-0 top-0 rounded-pill bg-card">
-                              <RowActions onEdit={() => open({ kind: "income", index: i })} onRemove={() => removeItem("income", i)} busy={busy} />
-                            </span>
+                            {it.index !== null && (
+                              <span className="absolute right-0 top-0 rounded-pill bg-card">
+                                <RowActions onEdit={() => open({ kind: "income", index: it.index! })} onRemove={() => removeItem("income", it.index!)} busy={busy} />
+                              </span>
+                            )}
                           </span>
-                          <span className="tabular min-w-[96px] shrink-0 text-right text-ui font-bold">{it.annual_amount_mxn !== null ? peso(it.annual_amount_mxn) : "—"}</span>
+                          <span className="tabular min-w-[96px] shrink-0 text-right text-ui font-bold">{it.annual_mxn !== null ? peso(it.annual_mxn) : "—"}</span>
                         </li>
                       ))}
                     </ul>

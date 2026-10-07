@@ -1,6 +1,7 @@
 //! Institution profile: only aggregated data (how many, never who). Staff are one anonymous line per position
 //! (role, pay, contract; never a name), and people served are grouped, never one by one.
 
+use super::finances;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -114,6 +115,79 @@ impl ContractKind {
             _ => return None,
         })
     }
+    /// Reads the contract from what the roster selector says (its options can be renamed): «De planta», «Base»,
+    /// «Por tiempo definido», «Eventual», «Honorarios»… Anything else is unknown.
+    pub fn from_label(s: &str) -> Option<Self> {
+        let s = s.trim().to_lowercase();
+        if let Some(k) = Self::from_db(&s) {
+            return Some(k);
+        }
+        let has = |w: &[&str]| w.iter().any(|w| s.contains(w));
+        if has(&["honorario", "asimilado", "factura"]) {
+            Some(ContractKind::Fees)
+        } else if has(&["tiempo definido", "temporal", "eventual", "por obra", "determinado"]) {
+            Some(ContractKind::Temporary)
+        } else if has(&["planta", "base", "indefinido", "permanente"]) {
+            Some(ContractKind::Permanent)
+        } else {
+            None
+        }
+    }
+}
+
+/// Whether an amount is written per month or per year. The code turns it into a year.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Period {
+    Monthly,
+    #[default]
+    Annual,
+}
+
+impl Period {
+    pub fn as_db(self) -> &'static str {
+        match self {
+            Period::Monthly => "monthly",
+            Period::Annual => "annual",
+        }
+    }
+    pub fn from_db(s: &str) -> Self {
+        if s == "monthly" { Period::Monthly } else { Period::Annual }
+    }
+}
+
+/// Where an income written by the person comes from. The stay fees of the roster are not one of these: the app
+/// computes them (`finances`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum IncomeKind {
+    /// What the people served pay, written by hand while the roster has no fees.
+    FeeEstimate,
+    /// People or companies that give the same amount every month or year.
+    RecurringDonor,
+    /// People or companies that give when they want.
+    OccasionalDonation,
+    /// Money won with a project (a call, a foundation).
+    ProjectGrant,
+    #[default]
+    Other,
+}
+
+impl IncomeKind {
+    pub const ALL: [IncomeKind; 5] =
+        [IncomeKind::FeeEstimate, IncomeKind::RecurringDonor, IncomeKind::OccasionalDonation, IncomeKind::ProjectGrant, IncomeKind::Other];
+    pub fn as_db(self) -> &'static str {
+        match self {
+            IncomeKind::FeeEstimate => "fee_estimate",
+            IncomeKind::RecurringDonor => "recurring_donor",
+            IncomeKind::OccasionalDonation => "occasional_donation",
+            IncomeKind::ProjectGrant => "project_grant",
+            IncomeKind::Other => "other",
+        }
+    }
+    pub fn from_db(s: &str) -> Self {
+        IncomeKind::ALL.into_iter().find(|k| k.as_db() == s).unwrap_or_default()
+    }
 }
 
 /// Institutional data. Contact fields are institutional, never sent to the AI,
@@ -175,13 +249,30 @@ pub struct FacilityInput {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct IncomeSourceInput {
     pub label: String,
-    pub annual_amount_mxn: Option<i64>,
+    #[serde(default)]
+    pub kind: IncomeKind,
+    /// As the person wrote it, per `period`.
+    pub amount_mxn: Option<i64>,
+    #[serde(default)]
+    pub period: Period,
+}
+
+/// One concept of what the institution spends (food, utilities…). The payroll is not written here: the app
+/// computes it from the roster.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ExpenseItemInput {
+    pub label: String,
+    pub amount_mxn: Option<i64>,
+    #[serde(default)]
+    pub period: Period,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProfileInput {
     pub institution: InstitutionInput,
     pub capacity_total: Option<i64>,
+    /// «Gasto anual aproximado»: what the institution spends in a year, all included, as one approximate figure.
+    /// It is the quick way to start; once the list of expenses has a line, the list is the total (ADR-026).
     pub annual_budget_mxn: Option<i64>,
     pub notes: Option<String>,
     #[serde(default)]
@@ -192,6 +283,8 @@ pub struct ProfileInput {
     pub facilities: Vec<FacilityInput>,
     #[serde(default)]
     pub income: Vec<IncomeSourceInput>,
+    #[serde(default)]
+    pub expenses: Vec<ExpenseItemInput>,
 }
 
 /// Something the person should look at. The UI turns `code` into friendly text.
@@ -211,30 +304,102 @@ pub struct ProfileTotals {
     pub income_annual_mxn: i64,
     /// Sum of the monthly pay of the people who receive a salary.
     pub payroll_monthly_mxn: i64,
+    /// The pay of twelve months, without benefits.
     pub payroll_annual_mxn: i64,
+    /// Aguinaldo and vacation premium of the jobs that carry them (not fees).
+    pub payroll_benefits_annual_mxn: i64,
+    /// What the payroll costs in a year: pay plus benefits.
+    pub payroll_cost_annual_mxn: i64,
+    /// Paid people whose benefits rest on an assumption (no contract or no start year in the roster).
+    pub benefits_assumed: i64,
     /// People who pay a stay fee, and what they bring in.
     pub fee_payers: i64,
     pub fees_monthly_mxn: i64,
     pub fees_annual_mxn: i64,
 }
 
+fn normalized(s: &str) -> String {
+    s.to_lowercase().replace(['á', 'à'], "a").replace('é', "e").replace('í', "i").replace('ó', "o").replace(['ú', 'ü'], "u")
+}
+
+/// A Mexican RFC: three letters (moral person) or four (physical), six digits of the date and a three-character
+/// key. Spaces and dashes are ignored.
+fn rfc_looks_right(s: &str) -> bool {
+    let c: Vec<char> = s.to_uppercase().chars().filter(|c| !c.is_whitespace() && *c != '-').collect();
+    if !(12..=13).contains(&c.len()) {
+        return false;
+    }
+    let letters = c.len() - 9;
+    c[..letters].iter().all(|c| c.is_ascii_uppercase() || *c == 'Ñ' || *c == '&')
+        && c[letters..letters + 6].iter().all(|c| c.is_ascii_digit())
+        && c[letters + 6..].iter().all(|c| c.is_ascii_alphanumeric())
+}
+
+/// Ten digits (a Mexican number), or up to thirteen with the country code or an extension.
+fn phone_looks_right(s: &str) -> bool {
+    (10..=13).contains(&s.chars().filter(char::is_ascii_digit).count())
+}
+
+fn email_looks_right(s: &str) -> bool {
+    let s = s.trim();
+    match s.split_once('@') {
+        Some((user, domain)) => {
+            !user.is_empty()
+                && !domain.contains('@')
+                && domain.contains('.')
+                && !domain.starts_with('.')
+                && !domain.ends_with('.')
+                && !s.contains(char::is_whitespace)
+        }
+        None => false,
+    }
+}
+
 impl ProfileInput {
-    pub fn totals(&self) -> ProfileTotals {
+    /// The sums of the profile in `year` (the year sets how long each person has worked, for the vacation premium).
+    pub fn totals(&self, year: i64) -> ProfileTotals {
         let payroll_monthly_mxn: i64 =
             self.staff.iter().filter(|s| s.paid).map(|s| s.count * s.monthly_salary_mxn.unwrap_or(0)).sum();
+        let mut payroll_benefits_annual_mxn = 0;
+        let mut benefits_assumed = 0;
+        for s in self.staff.iter().filter(|s| s.paid && s.monthly_salary_mxn.unwrap_or(0) > 0) {
+            if !finances::has_benefits(s.contract) {
+                continue;
+            }
+            let years = s.start_year.map_or(1, |y| year - y);
+            payroll_benefits_annual_mxn += s.count * finances::annual_benefits(s.monthly_salary_mxn.unwrap_or(0), years);
+            if s.contract.is_none() || s.start_year.is_none() {
+                benefits_assumed += s.count;
+            }
+        }
         let fees_monthly_mxn: i64 =
             self.population.iter().map(|g| g.paying_count.unwrap_or(0) * g.monthly_fee_mxn.unwrap_or(0)).sum();
         ProfileTotals {
             population: self.population.iter().map(|g| g.count).sum(),
             staff_paid: self.staff.iter().filter(|s| s.paid).map(|s| s.count).sum(),
             staff_volunteer: self.staff.iter().filter(|s| !s.paid).map(|s| s.count).sum(),
-            income_annual_mxn: self.income.iter().filter_map(|i| i.annual_amount_mxn).sum(),
+            income_annual_mxn: self.income_annual(fees_monthly_mxn * 12),
             payroll_monthly_mxn,
             payroll_annual_mxn: payroll_monthly_mxn * 12,
+            payroll_benefits_annual_mxn,
+            payroll_cost_annual_mxn: payroll_monthly_mxn * 12 + payroll_benefits_annual_mxn,
+            benefits_assumed,
             fee_payers: self.population.iter().map(|g| g.paying_count.unwrap_or(0)).sum(),
             fees_monthly_mxn,
             fees_annual_mxn: fees_monthly_mxn * 12,
         }
+    }
+
+    /// Counted income in a year: the roster fees, and the written lines (a fee estimate only while the roster has no
+    /// fees). The same rule as `finances`, which also gives the detail.
+    fn income_annual(&self, roster_fees_annual: i64) -> i64 {
+        let written: i64 = self
+            .income
+            .iter()
+            .filter(|i| !(roster_fees_annual > 0 && i.kind == IncomeKind::FeeEstimate))
+            .filter_map(|i| i.amount_mxn.map(|a| finances::annual(a, i.period)))
+            .sum();
+        roster_fees_annual + written
     }
 
     /// People served counted by group (the same group may come in several lines when its fees differ).
@@ -249,9 +414,11 @@ impl ProfileInput {
         out
     }
 
-    pub fn validate(&self) -> Vec<ProfileIssue> {
+    /// Problems that stop the save (`blocking`) and heads-ups, in `year` (see `totals`).
+    pub fn validate(&self, year: i64) -> Vec<ProfileIssue> {
         let mut v = Vec::new();
         let mut add = |code, field: String, blocking| v.push(ProfileIssue { code, field, blocking });
+        let too_large = |n: Option<i64>| n.map_or(false, |x| x > finances::MAX_MXN);
 
         if self.institution.name.trim().is_empty() {
             add("name_missing", "institution.name".into(), true);
@@ -262,6 +429,9 @@ impl ProfileInput {
         }
         if neg(self.annual_budget_mxn) {
             add("negative_number", "annual_budget_mxn".into(), true);
+        }
+        if too_large(self.annual_budget_mxn) {
+            add("amount_too_large", "annual_budget_mxn".into(), true);
         }
         for (i, g) in self.population.iter().enumerate() {
             let p = format!("population[{i}]");
@@ -315,21 +485,74 @@ impl ProfileInput {
             if inc.label.trim().is_empty() {
                 add("label_missing", format!("income[{i}].label"), true);
             }
-            if neg(inc.annual_amount_mxn) {
-                add("negative_number", format!("income[{i}].annual_amount_mxn"), true);
+            if neg(inc.amount_mxn) {
+                add("negative_number", format!("income[{i}].amount_mxn"), true);
+            }
+            if too_large(inc.amount_mxn) {
+                add("amount_too_large", format!("income[{i}].amount_mxn"), true);
             }
         }
+        for (i, e) in self.expenses.iter().enumerate() {
+            if e.label.trim().is_empty() {
+                add("label_missing", format!("expenses[{i}].label"), true);
+            }
+            if neg(e.amount_mxn) {
+                add("negative_number", format!("expenses[{i}].amount_mxn"), true);
+            }
+            if too_large(e.amount_mxn) {
+                add("amount_too_large", format!("expenses[{i}].amount_mxn"), true);
+            }
+        }
+        for (i, s) in self.staff.iter().enumerate() {
+            if too_large(s.monthly_salary_mxn) {
+                add("amount_too_large", format!("staff[{i}].monthly_salary_mxn"), true);
+            }
+        }
+        for (i, g) in self.population.iter().enumerate() {
+            if too_large(g.monthly_fee_mxn) {
+                add("amount_too_large", format!("population[{i}].monthly_fee_mxn"), true);
+            }
+        }
+        if v.iter().any(|i| i.blocking) {
+            // the sums below would rest on numbers that are about to be corrected
+            return v;
+        }
+        let mut add = |code, field: String, blocking| v.push(ProfileIssue { code, field, blocking });
         // Heads-ups
-        let t = self.totals();
+        let t = self.totals(year);
         if let Some(cap) = self.capacity_total {
             if t.population > cap {
                 add("population_over_capacity", "population".into(), false);
             }
         }
-        if let Some(budget) = self.annual_budget_mxn {
-            if t.income_annual_mxn > 0 && t.income_annual_mxn != budget {
-                add("income_differs_from_budget", "income".into(), false);
+        if t.fees_annual_mxn > 0 {
+            if let Some(i) = self.income.iter().position(|i| i.kind == IncomeKind::FeeEstimate) {
+                add("fee_estimate_ignored", format!("income[{i}]"), false);
             }
+        }
+        if self.expenses.is_empty() {
+            if let Some(estimate) = self.annual_budget_mxn {
+                if t.payroll_cost_annual_mxn > estimate {
+                    add("payroll_over_estimate", "annual_budget_mxn".into(), false);
+                }
+            }
+        }
+        if t.payroll_cost_annual_mxn > 0 {
+            let payroll_words = ["nomina", "sueldo", "salario", "aguinaldo"];
+            if let Some(i) = self.expenses.iter().position(|e| payroll_words.iter().any(|w| normalized(&e.label).contains(w))) {
+                add("expense_looks_like_payroll", format!("expenses[{i}].label"), false);
+            }
+        }
+        let filled = |o: &Option<String>| o.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+        let inst = &self.institution;
+        if filled(&inst.legal_rfc).is_some_and(|r| !rfc_looks_right(&r)) {
+            add("rfc_format", "institution.legal_rfc".into(), false);
+        }
+        if filled(&inst.contact_phone).is_some_and(|p| !phone_looks_right(&p)) {
+            add("phone_format", "institution.contact_phone".into(), false);
+        }
+        if filled(&inst.contact_email).is_some_and(|e| !email_looks_right(&e)) {
+            add("email_format", "institution.contact_email".into(), false);
         }
         v
     }
@@ -359,6 +582,9 @@ impl ProfileInput {
         for (i, inc) in self.income.iter_mut().enumerate() {
             f(&format!("income[{i}].label"), &mut inc.label);
         }
+        for (i, e) in self.expenses.iter_mut().enumerate() {
+            f(&format!("expenses[{i}].label"), &mut e.label);
+        }
     }
 }
 
@@ -380,8 +606,8 @@ mod tests {
                 StaffGroupInput { role: "Voluntariado".into(), count: 5, paid: false, ..Default::default() },
             ],
             income: vec![
-                IncomeSourceInput { label: "Cuotas".into(), annual_amount_mxn: Some(600_000) },
-                IncomeSourceInput { label: "Donativos".into(), annual_amount_mxn: Some(400_000) },
+                IncomeSourceInput { label: "Cuotas".into(), kind: IncomeKind::FeeEstimate, amount_mxn: Some(600_000), period: Period::Annual },
+                IncomeSourceInput { label: "Donativos".into(), kind: IncomeKind::OccasionalDonation, amount_mxn: Some(400_000), period: Period::Annual },
             ],
             ..Default::default()
         }
@@ -389,7 +615,7 @@ mod tests {
 
     #[test]
     fn totals_are_computed_in_code() {
-        let t = base().totals();
+        let t = base().totals(2026);
         assert_eq!(
             t,
             ProfileTotals {
@@ -399,6 +625,9 @@ mod tests {
                 income_annual_mxn: 1_000_000,
                 payroll_monthly_mxn: 0,
                 payroll_annual_mxn: 0,
+                payroll_benefits_annual_mxn: 0,
+                payroll_cost_annual_mxn: 0,
+                benefits_assumed: 0,
                 fee_payers: 0,
                 fees_monthly_mxn: 0,
                 fees_annual_mxn: 0,
@@ -413,7 +642,7 @@ mod tests {
         p.staff[1].monthly_salary_mxn = Some(5_000); // volunteers: never part of the payroll
         p.population[0].paying_count = Some(10);
         p.population[0].monthly_fee_mxn = Some(2_500);
-        let t = p.totals();
+        let t = p.totals(2026);
         assert_eq!(t.payroll_monthly_mxn, 27_000);
         assert_eq!(t.payroll_annual_mxn, 324_000);
         assert_eq!((t.fee_payers, t.fees_monthly_mxn, t.fees_annual_mxn), (10, 25_000, 300_000));
@@ -425,7 +654,7 @@ mod tests {
         p.population[0].paying_count = Some(19); // the group has 18
         p.staff[0].monthly_salary_mxn = Some(-1);
         p.staff[0].start_year = Some(20);
-        let codes: Vec<_> = p.validate().into_iter().filter(|i| i.blocking).map(|i| (i.code, i.field)).collect();
+        let codes: Vec<_> = p.validate(2026).into_iter().filter(|i| i.blocking).map(|i| (i.code, i.field)).collect();
         assert!(codes.contains(&("paying_over_count", "population[0].paying_count".into())));
         assert!(codes.contains(&("negative_number", "staff[0].monthly_salary_mxn".into())));
         assert!(codes.contains(&("year_invalid", "staff[0].start_year".into())));
@@ -433,7 +662,7 @@ mod tests {
 
     #[test]
     fn valid_profile_has_no_issues() {
-        assert!(base().validate().is_empty());
+        assert!(base().validate(2026).is_empty());
     }
 
     #[test]
@@ -444,7 +673,7 @@ mod tests {
         p.population[1].age_min = Some(80);
         p.population[1].age_max = Some(60);
         p.staff[0].role.clear();
-        let codes: Vec<_> = p.validate().into_iter().filter(|i| i.blocking).map(|i| (i.code, i.field)).collect();
+        let codes: Vec<_> = p.validate(2026).into_iter().filter(|i| i.blocking).map(|i| (i.code, i.field)).collect();
         assert!(codes.contains(&("name_missing", "institution.name".into())));
         assert!(codes.contains(&("negative_number", "population[0].count".into())));
         assert!(codes.contains(&("age_range", "population[1].age_min".into())));
@@ -455,11 +684,69 @@ mod tests {
     fn heads_up_when_numbers_do_not_add_up() {
         let mut p = base();
         p.capacity_total = Some(20); // 22 people, 20 beds
-        p.income[1].annual_amount_mxn = Some(300_000);
-        let issues = p.validate();
+        p.staff[0].monthly_salary_mxn = Some(30_000); // 3 x 30,000 x 12 = 1,080,000 + benefits: over the estimate
+        let issues = p.validate(2026);
         assert!(issues.iter().all(|i| !i.blocking));
         let codes: Vec<_> = issues.iter().map(|i| i.code).collect();
-        assert_eq!(codes, vec!["population_over_capacity", "income_differs_from_budget"]);
+        assert_eq!(codes, vec!["population_over_capacity", "payroll_over_estimate"]);
+        // income that differs from what is spent is not «something wrong»: it is the balance
+        p.income[1].amount_mxn = Some(1);
+        p.staff[0].monthly_salary_mxn = None;
+        p.capacity_total = None;
+        assert!(p.validate(2026).is_empty());
+    }
+
+    #[test]
+    fn heads_up_for_fees_counted_twice_and_payroll_written_as_an_expense() {
+        let mut p = base();
+        p.population[0].paying_count = Some(10);
+        p.population[0].monthly_fee_mxn = Some(2_000);
+        p.staff[0].monthly_salary_mxn = Some(9_000);
+        p.annual_budget_mxn = None;
+        p.expenses = vec![
+            ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(10_000), period: Period::Monthly },
+            ExpenseItemInput { label: "Nómina y aguinaldos".into(), amount_mxn: Some(300_000), period: Period::Annual },
+        ];
+        let issues = p.validate(2026);
+        let found: Vec<_> = issues.iter().map(|i| (i.code, i.field.as_str(), i.blocking)).collect();
+        assert_eq!(found, vec![("fee_estimate_ignored", "income[0]", false), ("expense_looks_like_payroll", "expenses[1].label", false)]);
+    }
+
+    #[test]
+    fn amounts_out_of_reason_and_expenses_without_name_are_blocked() {
+        let mut p = base();
+        p.income[0].amount_mxn = Some(finances::MAX_MXN + 1);
+        p.expenses = vec![ExpenseItemInput { label: " ".into(), amount_mxn: Some(-5), period: Period::Annual }];
+        let codes: Vec<_> = p.validate(2026).into_iter().filter(|i| i.blocking).map(|i| (i.code, i.field)).collect();
+        assert!(codes.contains(&("amount_too_large", "income[0].amount_mxn".into())));
+        assert!(codes.contains(&("label_missing", "expenses[0].label".into())));
+        assert!(codes.contains(&("negative_number", "expenses[0].amount_mxn".into())));
+    }
+
+    #[test]
+    fn contact_and_rfc_that_do_not_look_right_are_a_heads_up_never_a_block() {
+        let mut p = base();
+        for (rfc, phone, email) in [("AHE200101AB1", "55 5555 0101", "contacto@asilo.org"), ("ROHL800101AB1", "+52 1 55 5555 0101", "a@b.mx"), ("ahe-200101-ab1", "(55) 5555-0101 ext 12", " x@y.com ")] {
+            p.institution.legal_rfc = Some(rfc.into());
+            p.institution.contact_phone = Some(phone.into());
+            p.institution.contact_email = Some(email.into());
+            assert!(p.validate(2026).is_empty(), "{rfc} {phone} {email}: {:?}", p.validate(2026));
+        }
+        p.institution.legal_rfc = Some("AHE2001".into());
+        p.institution.contact_phone = Some("5555".into());
+        p.institution.contact_email = Some("contacto.asilo.org".into());
+        let issues = p.validate(2026);
+        assert!(issues.iter().all(|i| !i.blocking));
+        let codes: Vec<_> = issues.iter().map(|i| i.code).collect();
+        assert_eq!(codes, vec!["rfc_format", "phone_format", "email_format"]);
+    }
+
+    #[test]
+    fn the_contract_is_read_from_the_words_of_the_roster() {
+        for (label, kind) in [("De planta", Some(ContractKind::Permanent)), ("Base", Some(ContractKind::Permanent)), ("Por tiempo definido", Some(ContractKind::Temporary)),
+                              ("Eventual", Some(ContractKind::Temporary)), ("Honorarios", Some(ContractKind::Fees)), ("Asimilados a salarios", Some(ContractKind::Fees)), ("Otro", None)] {
+            assert_eq!(ContractKind::from_label(label), kind, "{label}");
+        }
     }
 
     #[test]

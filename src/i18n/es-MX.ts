@@ -303,8 +303,16 @@ export const es = {
     year_invalid: "Escriba un año de cuatro cifras, por ejemplo 2019.",
     population_over_capacity:
       "Algo no cuadra: son más personas de las que caben según la capacidad que puso.",
-    income_differs_from_budget:
-      "Algo no cuadra: la suma de los ingresos no coincide con el gasto anual que puso.",
+    amount_too_large: "Esta cantidad es demasiado grande. Revise que no le sobren ceros.",
+    payroll_over_estimate:
+      "Algo no cuadra: solo la nómina del personal ya cuesta más que el gasto anual aproximado que puso.",
+    fee_estimate_ignored:
+      "Las cuotas ya salen del padrón de beneficiarios. La cuota aproximada que escribió no se suma, para no contarla dos veces.",
+    expense_looks_like_payroll:
+      "La nómina ya la calcula el programa con los sueldos del padrón. Si este gasto es la nómina, quítelo para no contarla dos veces.",
+    rfc_format: "Revise el RFC: normalmente tiene 12 letras y números (13 si es de una persona).",
+    phone_format: "Revise el teléfono: normalmente tiene 10 números.",
+    email_format: "Revise el correo: debe verse como nombre@dominio.org.",
   } as Record<string, string>,
   quarantine: {
     title: "Ojo: encontramos datos de personas",

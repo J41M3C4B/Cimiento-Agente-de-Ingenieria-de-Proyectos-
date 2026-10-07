@@ -16,6 +16,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (11, include_str!("../../migrations/0011_project_donor_kind.sql")),
     (12, include_str!("../../migrations/0012_drafting_plan.sql")),
     (13, include_str!("../../migrations/0013_call_brief.sql")),
+    (14, include_str!("../../migrations/0014_income_kinds_and_expenses.sql")),
 ];
 
 pub fn run(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -108,5 +109,36 @@ mod tests {
         assert_eq!((funder, year, role.as_str()), (None, None, "main"));
         // a project cannot be of a kind nobody knows
         assert!(conn.execute("UPDATE project SET kind='other' WHERE id='old'", []).is_err());
+    }
+
+    /// Income written before ADR-026 keeps its amount as a yearly one; what said «cuota» becomes a fee estimate.
+    #[test]
+    fn old_income_lines_become_yearly_amounts_with_a_kind() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);").unwrap();
+        for (version, sql) in &MIGRATIONS[..13] {
+            conn.execute_batch(sql).unwrap();
+            conn.execute("INSERT INTO schema_migrations VALUES (?1, 'then')", [version]).unwrap();
+        }
+        conn.execute_batch(
+            "INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','Asilo','other','t','t');
+             INSERT INTO institution_profile (id,institution_id,version,created_at) VALUES ('p','i',1,'t');
+             INSERT INTO income_source (id,profile_id,label,annual_amount_mxn,origin) VALUES ('a','p','Cuotas de recuperación',720000,'user');
+             INSERT INTO income_source (id,profile_id,label,annual_amount_mxn,origin) VALUES ('b','p','Donativos',680000,'user');",
+        )
+        .unwrap();
+
+        run(&mut conn).unwrap();
+
+        let rows: Vec<(String, i64, String)> = conn
+            .prepare("SELECT kind, amount_mxn, period FROM income_source ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(rows, vec![("fee_estimate".into(), 720_000, "annual".into()), ("other".into(), 680_000, "annual".into())]);
+        assert!(conn.execute("UPDATE income_source SET kind='gift' WHERE id='a'", []).is_err());
+        assert!(conn.execute("INSERT INTO expense_item (id,profile_id,label,amount_mxn,period,origin) VALUES ('e','p','Luz',-1,'annual','user')", []).is_err());
     }
 }

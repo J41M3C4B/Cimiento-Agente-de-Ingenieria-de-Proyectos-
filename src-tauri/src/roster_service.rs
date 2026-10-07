@@ -34,9 +34,14 @@ pub fn derive(conn: &Connection) -> Result<(Vec<StaffGroupInput>, Vec<Population
     Ok((staff, population))
 }
 
+/// The totals with what the roster says now, and the rest of the profile (its income) when there is one.
 fn totals(conn: &Connection) -> Result<ProfileTotals, ServiceError> {
     let (staff, population) = derive(conn)?;
-    Ok(ProfileInput { staff, population, ..Default::default() }.totals())
+    let (input, year) = match profile_store::load_current(conn)? {
+        Some(p) => (p.input, p.as_of_year),
+        None => (ProfileInput::default(), profile_store::current_year(conn)?),
+    };
+    Ok(ProfileInput { staff, population, ..input }.totals(year))
 }
 
 pub fn overview(conn: &Connection, entity: Entity) -> Result<Overview, ServiceError> {
