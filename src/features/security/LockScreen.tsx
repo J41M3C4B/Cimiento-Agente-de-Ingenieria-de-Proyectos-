@@ -36,11 +36,10 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
             if (pin) void enter();
           }}
         >
-          <div className="flex items-center gap-3">
+          <div>
             <span className="grid h-ctl w-ctl place-items-center rounded-field bg-ink text-on-ink" title={es.app.name}>
               <Icon name="logo" size={22} />
             </span>
-            <span className="text-heading font-extrabold tracking-tight">{es.app.name}</span>
           </div>
           <div className="space-y-1.5">
             <h1 className="flex items-center gap-2 text-subtitle font-bold leading-tight tracking-tight">
