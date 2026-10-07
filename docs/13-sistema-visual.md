@@ -171,11 +171,11 @@ Los tamaños, radios, colores y sombras de Tailwind que no están en estas tabla
 - **Tabla:** sin cabecera rellena; filas de 52 px con línea fina; la primera columna en peso 700; etiquetas de color para la categoría.
 - **Formulario (dentro de una ventana):**
   - Secciones con etiqueta en mayúsculas pequeñas y una línea fina; los campos van en dos columnas (una en pantallas angostas) y los largos ocupan las dos.
-  - Campo: 48 px de alto, radio 14, borde de 1.5 px `line`; al enfocarlo, borde `sky` y aro de 4 px al 45 %. Etiqueta arriba en peso 700; el asterisco rojo marca lo obligatorio.
+  - Campo: 48 px de alto, radio 14, borde de 1.5 px `line`; al enfocarlo, el borde pasa a `ink`, sin aro ni sombra exterior. Etiqueta arriba en peso 700; el asterisco rojo marca lo obligatorio.
   - Selector: mismo campo con flecha a la derecha y «Seleccionar» en `ink-3` mientras está vacío. Dinero: «$» fijo a la izquierda y la unidad («al año») a la derecha; solo acepta dígitos.
   - Interruptor: 48 × 28, verde cuando está activo.
   - Opciones cortas (estado, sí/no): **píldoras seleccionables** con el color del estado; la elegida se rellena de sólido. Opciones con explicación (tipo de institución): **tarjetas** con círculo de selección; la elegida lleva borde `ink` y fondo de interior.
-  - Error: el campo se marca en `red`, el mensaje va debajo con ícono, en palabras de la persona («Escriba el nombre de la persona.»), y el foco pasa al primer campo con error. El mensaje se quita al escribir.
+  - Error: el campo se marca con borde `red`, el mensaje va debajo con ícono, en palabras de la persona («Escriba el nombre de la persona.»), y el foco pasa al primer campo con error. El mensaje se quita al escribir.
   - Pie con «Cancelar», «Guardar y agregar otra» (solo al agregar) y «Guardar» o «Guardar cambios» como botón principal. `Esc` o tocar fuera cierran; el foco vuelve al botón que abrió la ventana.
   - Al guardar, un aviso breve abajo («Persona agregada») y las cifras de la ficha se actualizan al momento.
 - **Ventana (modal):** bandeja de 28 con título de 18, secciones con etiqueta en mayúsculas pequeñas y botones al pie; fondo atenuado.
@@ -189,7 +189,7 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 | `Button` `md` | 44 | pill | — | `text-ui` 700 | relleno horizontal 24; variantes `primary` (ink), `secondary` (card + borde 1 px `line`), `soft` (inset), `danger` (texto rojo), `ghost`, `plain` |
 | `Button` `sm` | 36 | pill | — | `text-small` 700 | relleno 16; para filas, tablas y tarjetas |
 | `IconButton` | 44 (`sm` 36) | círculo | 1 px `line` | — | activo en `ink`; peligro en `red` sólido |
-| Campo (`TextInput`, `Select`, `TextArea`, `Search`) | 48 (`TextArea` mínimo 96) | `field` (`Search`: pill) | 1.5 px `line`; foco: borde `sky` + aro de 4 px al 45 %; error: `red` + aro al 20 % | `text-ui` 500, relleno 16, vacío en `ink-3` | etiqueta arriba en `text-ui` 700 con 8 px de separación; ayuda en `text-small` `ink-3`; error en `text-small` 700 con ícono |
+| Campo (`TextInput`, `Select`, `TextArea`, `Search`) | 48 (`TextArea` mínimo 96) | `field` (`Search`: pill) | 1.5 px `line`; foco: borde `ink` (sin aro ni sombra); error: borde `red` | `text-ui` 500, relleno 16, vacío en `ink-3` | etiqueta arriba en `text-ui` 700 con 8 px de separación; ayuda en `text-small` `ink-3`; error en `text-small` 700 con ícono |
 | `Tag` | 28 | pill | — | `text-small` 700, relleno 13 | `solid` (acento + `onc`), `soft` (acento al 18 % + texto mezclado), `line` (borde 1.5 px) |
 | `Avatar` | 36 (`sm` 28) | círculo | — | 12 (10.5) px 800 | color por nombre |
 | `Tile` (cuadro de ícono) | 40 (`sm` 32) | `field` | — | — | acento sólido, ícono `onc` |
@@ -221,7 +221,7 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 
 - Contraste: texto normal ≥ 4.5:1, texto grande y componentes ≥ 3:1. El texto sobre `cyan` y `amber` es `ink`; sobre los demás, blanco.
 - Nunca solo color: cada estado lleva palabra.
-- Objetivo de toque ≥ 40 px; foco visible con aro de 3 px `sky` al 40 %.
+- Objetivo de toque ≥ 40 px; foco visible: en campos, el borde pasa a `ink`; en botones y demás controles, un contorno limpio de 2 px `ink` con 2 px de separación (nunca resplandores).
 - Densidad: se prefiere menos bandejas con más aire. Si una bandeja necesita más de siete filas, se pagina o se abre en ventana.
 - Modo claro y oscuro con los mismos tokens; el claro es el principal.
 
@@ -272,7 +272,7 @@ Reglas para quien toque la interfaz (persona o herramienta). La prueba `src/desi
 4. **Sin valores sueltos.** No hay colores hexadecimales, ni `text-[13px]`, `rounded-[20px]`, `shadow-[…]` ni escalas de Tailwind (`stone-`, `blue-`, `text-sm`, `rounded-xl`) fuera de `src/index.css`. Las medidas de **disposición** (`grid-cols-[200px_1fr]`, `max-w-[640px]`) sí pueden ser arbitrarias porque no son identidad.
 5. **El color nombra** (§3.4): un color, un significado. Estado = acento sólido + palabra. Un proyecto, un color.
 6. **El texto de la interfaz** va en `src/i18n/es-MX.ts` y sigue `docs/08-estilo-redaccion.md`.
-7. **Accesibilidad:** foco visible (el aro es global), objetivo táctil ≥ 36 px (44 para lo principal), contraste según §9, y siempre palabras junto al color.
+7. **Accesibilidad:** foco visible (el contorno es global), objetivo táctil ≥ 36 px (44 para lo principal), contraste según §9, y siempre palabras junto al color.
 8. **Tema claro y oscuro:** todo se resuelve con los tokens semánticos; si algo se ve mal en uno de los dos temas, el defecto está en el token, no en la pantalla.
 
 ## 15. Nombres que se conservan por compatibilidad

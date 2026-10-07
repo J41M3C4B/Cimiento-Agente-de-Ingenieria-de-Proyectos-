@@ -88,7 +88,6 @@
   --on-ink: #ffffff;
   --scrim: rgb(10 10 14 / 0.5);
   --drop: rgb(20 20 30 / 0.1);
-  --ring: color-mix(in srgb, var(--color-sky) 45%, transparent);
   --shadow-card-v: 0 1px 1px rgb(20 20 30 / 0.03), 0 10px 30px -12px rgb(20 20 30 / 0.12);
   --shadow-float-v: 0 24px 60px -16px rgb(20 20 30 / 0.3);
 }
@@ -162,9 +161,11 @@ h1, h2, h3 {
 }
 
 /* el aro de foco es el mismo en todo el programa */
-:focus-visible {
-  outline: 3px solid var(--ring);
-  outline-offset: 2px;
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
 }
 
 /* movimiento (docs/13 §8) */
@@ -256,12 +257,12 @@ h1, h2, h3 {
   }
   .field::placeholder { color: var(--ink-3); }
   .field:hover { border-color: color-mix(in srgb, var(--ink-3) 55%, var(--line)); }
-  .field:focus-visible { outline: none; border-color: var(--color-sky); box-shadow: 0 0 0 4px var(--ring); }
+  .field:focus-visible { outline: none; border-color: var(--ink); }
   .field:disabled { background: var(--inset); color: var(--ink-3); cursor: not-allowed; }
   .field--area { height: auto; min-height: 96px; padding: 12px 16px; line-height: 1.55; resize: vertical; }
   .field--pill { border-radius: var(--radius-pill); }
   .field--select { appearance: none; padding-right: 44px; cursor: pointer; }
-  .field--invalid, .field--invalid:hover { border-color: var(--color-red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-red) 20%, transparent); }
+  .field--invalid, .field--invalid:hover, .field--invalid:focus-visible { border-color: var(--color-red); }
   .field-wrap { position: relative; }
   .field-adorn { position: absolute; top: 50%; display: flex; transform: translateY(-50%); color: var(--ink-3); font-weight: 700; pointer-events: none; }
   .field-adorn--l { left: 16px; }
@@ -360,7 +361,7 @@ h1, h2, h3 {
   .switch-track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--color-white); box-shadow: 0 1px 3px rgb(0 0 0 / 0.3); transition: transform 0.16s; }
   .switch input:checked + .switch-track { background: var(--color-green); }
   .switch input:checked + .switch-track::after { transform: translateX(20px); }
-  .switch input:focus-visible + .switch-track { outline: 3px solid var(--ring); outline-offset: 2px; }
+  .switch input:focus-visible + .switch-track { outline: 2px solid var(--ink); outline-offset: 2px; }
   .choice { position: relative; display: inline-flex; }
   .choice input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; }
   .choice-face {
@@ -371,7 +372,7 @@ h1, h2, h3 {
   .choice:hover .choice-face { border-color: color-mix(in srgb, var(--ink-3) 50%, var(--line)); }
   .choice input:checked + .choice-face { background: var(--c, var(--ink)); color: var(--tt, var(--on-ink)); border-color: transparent; }
   .choice input:checked + .choice-face::before { background: currentColor; opacity: 0.5; }
-  .choice input:focus-visible + .choice-face { outline: 3px solid var(--ring); outline-offset: 2px; }
+  .choice input:focus-visible + .choice-face { outline: 2px solid var(--ink); outline-offset: 2px; }
   .radio-card { position: relative; display: block; }
   .radio-card input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; }
   .radio-card-face { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--radius-inset); border: 1.5px solid var(--line); transition: border-color 0.14s, background-color 0.14s; }
@@ -379,7 +380,7 @@ h1, h2, h3 {
   .radio-card-dot { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); }
   .radio-card input:checked + .radio-card-face { border-color: var(--ink); background: var(--inset); }
   .radio-card input:checked + .radio-card-face .radio-card-dot { border-color: var(--ink); background: radial-gradient(var(--ink) 42%, transparent 46%); }
-  .radio-card input:focus-visible + .radio-card-face { outline: 3px solid var(--ring); outline-offset: 2px; }
+  .radio-card input:focus-visible + .radio-card-face { outline: 2px solid var(--ink); outline-offset: 2px; }
 
   /* Alert: aviso con el color de su estado */
   .alert { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: var(--radius-inset); background: color-mix(in srgb, var(--c, var(--color-sky)) 18%, var(--card)); font-size: var(--text-ui); }
@@ -431,7 +432,7 @@ h1, h2, h3 {
   .dropzone { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px 16px; text-align: center; border: 1.5px dashed color-mix(in srgb, var(--ink-3) 55%, transparent); border-radius: var(--radius-inset); cursor: pointer; transition: background-color 0.14s, border-color 0.14s; }
   .dropzone:hover, .dropzone--over { background: var(--inset); border-color: var(--ink-2); }
   .dropzone input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-  .dropzone:has(input:focus-visible) { outline: 3px solid var(--ring); outline-offset: 2px; }
+  .dropzone:has(input:focus-visible) { outline: none; border-color: var(--ink); border-style: solid; }
   .dropzone--filled { flex-direction: row; gap: 14px; padding: 14px 16px; text-align: left; border-style: solid; border-color: var(--line); }
 
   /* ListRow: one line of a list: leading mark, title and detail, trailing state and actions (shown on hover) */
@@ -460,7 +461,9 @@ h1, h2, h3 {
   .bubble { padding: 12px 16px; border-radius: 18px 18px 18px 6px; background: var(--inset); line-height: 1.55; }
   .bubble--me { border-radius: 18px 18px 6px 18px; background: var(--ink); color: var(--on-ink); }
   .composer { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 18px; border-radius: var(--radius-pill); background: var(--inset); }
-  .composer textarea, .composer input { flex: 1; min-width: 0; height: 36px; border: 0; background: none; color: var(--ink); font: inherit; outline-offset: 6px; resize: none; }
+  .composer textarea, .composer input { flex: 1; min-width: 0; height: 36px; border: 0; background: none; color: var(--ink); font: inherit; resize: none; }
+  .composer input:focus-visible, .composer textarea:focus-visible { outline: none; }
+  .composer:focus-within { box-shadow: inset 0 0 0 1.5px var(--ink); }
   .composer textarea::placeholder, .composer input::placeholder { color: var(--ink-3); }
 
   /* Calendar: the date as a big number on an inset */
