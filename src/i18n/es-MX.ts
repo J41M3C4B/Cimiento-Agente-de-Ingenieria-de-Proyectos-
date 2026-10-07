@@ -11,6 +11,7 @@ export const es = {
       "¡Hola! Vamos a armar su proyecto paso a paso. Usted solo responda; nosotros nos encargamos del formato y las cuentas.",
   },
   nav: {
+    home: "Inicio",
     projects: "Mis proyectos",
     profile: "Mi institución",
     documents: "Documentos",
@@ -19,6 +20,10 @@ export const es = {
     help: "Ayuda",
     lock: "Bloquear",
     settings: "Configuración",
+    themeDark: "Cambiar a modo oscuro",
+    themeLight: "Cambiar a modo claro",
+    openProject: "Abrir el proyecto",
+    mainSections: "Secciones",
   },
   common: {
     save: "Guardar",

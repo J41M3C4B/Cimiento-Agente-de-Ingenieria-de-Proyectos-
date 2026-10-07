@@ -11,11 +11,9 @@ import { ProjectPage } from "./ProjectPage";
 
 const t = es.projects;
 
-export function ProjectsPage() {
+export function ProjectsPage({ openId, onOpen, creating, onCreating }: { openId: string | null; onOpen: (id: string | null) => void; creating: boolean; onCreating: (v: boolean) => void }) {
   const qc = useQueryClient();
   const projects = useQuery({ queryKey: ["projects"], queryFn: projectList });
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
   const [toDelete, setToDelete] = useState<ProjectRow | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
@@ -62,7 +60,7 @@ export function ProjectsPage() {
         <ProjectPage
           projectId={openId}
           onBack={() => {
-            setOpenId(null);
+            onOpen(null);
             void qc.invalidateQueries({ queryKey: ["projects"] });
           }}
         />
@@ -74,10 +72,10 @@ export function ProjectsPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <NewProjectForm
-          onCancel={() => setCreating(false)}
+          onCancel={() => onCreating(false)}
           onCreated={(p) => {
-            setCreating(false);
-            setOpenId(p.id);
+            onCreating(false);
+            onOpen(p.id);
           }}
         />
       </div>
@@ -91,7 +89,7 @@ export function ProjectsPage() {
           <h1 className="text-[34px] font-medium leading-tight">{t.title}</h1>
           <p className="text-stone-600">{t.intro}</p>
         </div>
-        <Button variant="primary" onClick={() => setCreating(true)}>
+        <Button variant="primary" onClick={() => onCreating(true)}>
           <Icon name="plus" />
           {t.newProject}
         </Button>
@@ -106,7 +104,7 @@ export function ProjectsPage() {
           </span>
           <p className="text-[15px] font-semibold">{t.empty}</p>
           <p className="max-w-md text-stone-700">{t.emptyHelp}</p>
-          <Button variant="primary" onClick={() => setCreating(true)}>
+          <Button variant="primary" onClick={() => onCreating(true)}>
             <Icon name="plus" />
             {t.newProject}
           </Button>
@@ -119,7 +117,7 @@ export function ProjectsPage() {
             key={p.id}
             project={p}
             busy={remove.isPending}
-            onOpen={() => setOpenId(p.id)}
+            onOpen={() => onOpen(p.id)}
             onDelete={() => setToDelete(p)}
             onColor={(color) => paint.mutate({ id: p.id, color })}
             onKind={(kind) => classify.mutate({ id: p.id, kind })}

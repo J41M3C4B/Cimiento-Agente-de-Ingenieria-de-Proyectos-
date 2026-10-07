@@ -134,3 +134,14 @@ export function THead({ columns }: { columns: { key: string; title: string; alig
     </thead>
   );
 }
+
+/** The progress of a flow as small dots in one color: what is done is full, where the person is has a ring. */
+export function StepDots({ total, at, done, tone = "pc", className = "" }: { total: number; at: number; done?: boolean; tone?: Tone; className?: string }) {
+  return (
+    <span className={`dots tone-${tone} ${className}`} aria-hidden="true">
+      {Array.from({ length: total }, (_, i) => (
+        <i key={i} className={done || i < at ? "on" : i === at ? "on now" : ""} />
+      ))}
+    </span>
+  );
+}
