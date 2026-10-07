@@ -74,6 +74,56 @@ export function Segmented<T extends string>({
   );
 }
 
+/**
+ * The steps of a long form as buttons the person can jump between. Each one shows how much of it is filled in
+ * (a bar and «9 de 12»), or that it does not apply; a step that is complete turns green with a check.
+ */
+export function StepNav({
+  steps,
+  current,
+  onSelect,
+  label,
+}: {
+  steps: { key: string; label: string; filled?: number; total?: number; na?: boolean; caption?: string; naLabel?: string }[];
+  current: number;
+  onSelect: (index: number) => void;
+  label: string;
+}) {
+  const here = steps[current];
+  return (
+    <div className="space-y-2">
+    <ol aria-label={label} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+      {steps.map((s, i) => {
+        const now = i === current;
+        const known = s.filled !== undefined && s.total !== undefined && s.total > 0 && !s.na;
+        const done = known && s.filled === s.total;
+        const percent = known ? (s.filled! / s.total!) * 100 : 0;
+        return (
+          <li key={s.key} className="min-w-0">
+            <button type="button" aria-current={now ? "step" : undefined} onClick={() => onSelect(i)} className="flex w-full min-w-0 flex-col gap-1.5 rounded-field text-left">
+              <span className={`bar ${done ? "tone-green" : "tone-ink"} ${now ? "" : "opacity-70"}`}>
+                <i style={{ width: `${percent}%` }} />
+              </span>
+              <span className={`flex items-center gap-1 truncate text-small max-sm:sr-only ${now ? "font-extrabold text-ink" : "font-bold text-ink-2"}`}>
+                {done && <Icon name="check" size={13} strokeWidth={3} className="shrink-0" />}
+                <span className="truncate">{s.label}</span>
+              </span>
+              <span className="truncate text-caption text-ink-3 max-sm:sr-only">{s.na ? s.naLabel : known ? s.caption : "\u00a0"}</span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+    {here && (
+      <p className="text-small font-extrabold sm:hidden">
+        {here.label}
+        <span className="font-medium text-ink-3">{here.na ? ` · ${here.naLabel}` : here.caption ? ` · ${here.caption}` : ""}</span>
+      </p>
+    )}
+    </div>
+  );
+}
+
 /** Steps of a flow: six bars of one color; what is done and where the person is are full, what comes next is a tint. */
 export function Steps({ steps, current, tone = "pc", compact }: { steps: { key: string; label: string }[]; current: number; tone?: Tone; compact?: boolean }) {
   return (

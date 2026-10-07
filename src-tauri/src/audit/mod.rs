@@ -19,6 +19,12 @@ pub enum AuditKind {
     BackupCreated,
     /// A call was read (counts only: files, pages, calls, status).
     CallRead,
+    /// A covered identifier of a staff record was shown (which field; never the value).
+    HrSensitiveViewed,
+    /// A staff record was deleted with everything it had.
+    HrPersonDeleted,
+    /// The staff of the old roster moved into the staff module (counts only).
+    HrImported,
 }
 
 impl AuditKind {
@@ -35,6 +41,9 @@ impl AuditKind {
             AuditKind::StageChanged => "stage.changed",
             AuditKind::BackupCreated => "backup.created",
             AuditKind::CallRead => "call.read",
+            AuditKind::HrSensitiveViewed => "hr.sensitive_viewed",
+            AuditKind::HrPersonDeleted => "hr.person_deleted",
+            AuditKind::HrImported => "hr.imported",
         }
     }
 }

@@ -45,6 +45,7 @@ pub fn profile_db() -> (tempfile::TempDir, SharedDb) {
 pub fn rich_profile_db() -> (tempfile::TempDir, SharedDb) {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
+    crate::institution_context::tests::seed_rich_staff(&mut conn);
     profile::save(&mut conn, &crate::institution_context::tests::rich()).unwrap();
     profile::confirm(&mut conn).unwrap();
     (dir, Arc::new(Mutex::new(conn)))

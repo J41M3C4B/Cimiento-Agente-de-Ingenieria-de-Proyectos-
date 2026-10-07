@@ -62,6 +62,10 @@ pub enum ServiceError {
     Priority(String),
     #[error("internal error: {0}")]
     Internal(String),
+    #[error("staff module: {0}")]
+    Hr(#[from] crate::hr::HrError),
+    #[error("the staff is kept in its own module now")]
+    StaffMoved,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -110,11 +114,11 @@ pub enum AddDocumentOutcome {
     RejectedRoster,
 }
 
-fn scanner_for(conn: &Connection) -> Result<RegexScanner, StorageError> {
+pub(crate) fn scanner_for(conn: &Connection) -> Result<RegexScanner, StorageError> {
     Ok(RegexScanner::new(store::scanner_config(conn)?))
 }
 
-fn counts_json(counts: &BTreeMap<&'static str, usize>, decision: &str) -> serde_json::Value {
+pub(crate) fn counts_json(counts: &BTreeMap<&'static str, usize>, decision: &str) -> serde_json::Value {
     json!({ "findings": counts, "decision": decision })
 }
 

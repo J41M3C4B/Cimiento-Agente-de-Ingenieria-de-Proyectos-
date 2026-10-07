@@ -91,7 +91,7 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
         })?
         .collect::<Result<Vec<_>, _>>()?;
     let staff = conn
-        .prepare("SELECT role, count, shift, paid, monthly_salary_mxn, contract, start_year, notes FROM staff_group WHERE profile_id = ?1 ORDER BY rowid")?
+        .prepare("SELECT role, count, shift, paid, monthly_salary_mxn, contract, start_year, notes, relation FROM staff_group WHERE profile_id = ?1 ORDER BY rowid")?
         .query_map([&profile_id], |r| {
             Ok(StaffGroupInput {
                 role: r.get(0)?,
@@ -102,6 +102,7 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
                 contract: r.get::<_, Option<String>>(5)?.and_then(|s| ContractKind::from_db(&s)),
                 start_year: r.get(6)?,
                 notes: r.get(7)?,
+                relation: r.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -216,10 +217,10 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
     }
     for s in &input.staff {
         tx.execute(
-            "INSERT INTO staff_group (id,profile_id,role,count,shift,paid,monthly_salary_mxn,contract,start_year,notes,origin)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,'user')",
+            "INSERT INTO staff_group (id,profile_id,role,count,shift,paid,monthly_salary_mxn,contract,start_year,notes,relation,origin)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,'computed')",
             params![id("staff"), profile_id, s.role.trim(), s.count, text(&s.shift), s.paid as i64,
-                    s.monthly_salary_mxn, s.contract.map(|c| c.as_db()), s.start_year, text(&s.notes)],
+                    s.monthly_salary_mxn, s.contract.map(|c| c.as_db()), s.start_year, text(&s.notes), text(&s.relation)],
         )?;
     }
     for f in &input.facilities {

@@ -69,6 +69,14 @@ impl From<ServiceError> for UiError {
                 UiError::new("nothing_to_confirm", "No hay cambios pendientes por confirmar.")
             }
             ServiceError::NotFound => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Hr(crate::hr::HrError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Hr(crate::hr::HrError::DuplicateTitle) => UiError::new("duplicate_position", "Ya existe un puesto con ese nombre."),
+            ServiceError::Hr(crate::hr::HrError::PositionInUse) => {
+                UiError::new("position_in_use", "Hay personas en este puesto. Cámbielas de puesto antes de archivarlo.")
+            }
+            ServiceError::Hr(crate::hr::HrError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
+            ServiceError::Hr(crate::hr::HrError::UnknownModality) => UiError::new("unknown_modality", "Elija a cuál modalidad se parece."),
+            ServiceError::StaffMoved => UiError::new("staff_moved", "El personal ahora se lleva en su propia sección. Vuelva a abrir la pantalla."),
             ServiceError::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
             ServiceError::AlreadyRunning => UiError::new("already_running", "Ya lo estamos haciendo. En cuanto termine, se muestra aquí."),
             ServiceError::Priority(_) => UiError::new("priority", "Cada calificación debe ir del 1 al 5."),

@@ -1,6 +1,6 @@
 # ADR-020 · Padrón de personal y de beneficiarios (fichas individuales que no salen de este equipo)
 
-**Estado:** Aceptada (2026-10-04), a petición de la persona dueña del proyecto. Implementada: `domain/roster.rs`, `storage/roster.rs`, `roster_service.rs`, `commands/roster.rs`, migración `0009_roster.sql` y las pestañas Personal y Beneficiarios de «Mi institución».
+**Estado:** Aceptada (2026-10-04). **La parte de personal la reemplaza el ADR-027** (módulo de Personal); los beneficiarios siguen aquí, a petición de la persona dueña del proyecto. Implementada: `domain/roster.rs`, `storage/roster.rs`, `roster_service.rs`, `commands/roster.rs`, migración `0009_roster.sql` y las pestañas Personal y Beneficiarios de «Mi institución».
 
 ## Contexto
 La regla «cuántos, nunca quiénes» (`docs/agents/principios-de-ingenieria.md`, `03-gobernanza-datos.md`) impedía registrar personas una por una. Para sacar la nómina y lo que aportan las cuotas, y para que la institución digitalice su operación, se pidió llevar un padrón con una ficha por persona (nombre completo, correo, teléfono, cargo, contrato, horario, sueldo; y lo equivalente para quien se atiende), con un formulario único y campos que la persona pueda agregar.

@@ -17,6 +17,8 @@ cargo test card                                        # la ficha de la convocat
 cargo test jobs                                        # un proceso de IA por proyecto a la vez (ADR-023)
 cargo test institution_context                         # la ficha de «Mi institución» que lee la IA: qué lleva, qué nunca (ADR-023)
 cargo test finances                                    # ingresos por tipo, egresos, nómina con prestaciones y balance (ADR-026)
+cargo test hr::                                        # módulo de Personal (ADR-027): modalidades, CURP/RFC/NSS/CLABE, avance, agregados y su frontera
+cargo test staff_service                               # el personal con la base real: lo que llega al perfil y a la IA, identificadores tapados, puestos con escáner
 cargo test drafting_service                            # redacción, presupuesto y cronograma (ADR-018), con modelo simulado
 cargo test guide_service                               # revisión y guía en Word (ADR-018): escribe archivos en carpetas temporales
 cargo test security_service                            # PIN, escaneo de la base, respaldo y restauración (ADR-019)

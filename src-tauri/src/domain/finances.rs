@@ -37,27 +37,8 @@ pub fn annual(amount: i64, period: Period) -> i64 {
     }
 }
 
-/// Paid vacation days for a year of service (Ley Federal del Trabajo, art. 76, reformed in 2023): 12 the first
-/// year, two more each year up to 20 in the fifth, then two more every five years. `years` below 1 counts as 1.
-pub fn vacation_days(years: i64) -> i64 {
-    let n = years.max(1);
-    if n <= 5 {
-        12 + 2 * (n - 1)
-    } else {
-        20 + 2 * ((n - 5 + 4) / 5)
-    }
-}
-
-/// Christmas bonus by law: at least 15 days of pay.
-pub const AGUINALDO_DAYS: i64 = 15;
-
-/// What the benefits of one person with a monthly pay add in a year: the aguinaldo (15 days) and the vacation
-/// premium (25 % of the vacation days). A day of pay is the month divided by 30; rounded to whole pesos.
-pub fn annual_benefits(monthly_salary: i64, years_of_service: i64) -> i64 {
-    let aguinaldo = (monthly_salary * AGUINALDO_DAYS + 15) / 30;
-    let premium = (monthly_salary * vacation_days(years_of_service) + 60) / 120;
-    aguinaldo + premium
-}
+/// The pay rules of the law live in the staff module (ADR-027).
+pub use crate::hr::api::annual_benefits;
 
 /// Whether a contract carries the benefits of the law. Fees (honorarios) do not; an unknown contract is taken as
 /// a job with benefits, which is the safe side for a budget.
@@ -119,6 +100,8 @@ pub struct Finances {
 
 pub const BENEFICIARY_FEES: &str = "beneficiary_fees";
 pub const PAYROLL: &str = "payroll";
+pub const STAFF_SUPPORT: &str = "staff_support";
+pub const EXTERNAL_STAFF: &str = "external_staff";
 pub const EXPENSE: &str = "expense";
 
 impl ProfileInput {
@@ -178,6 +161,14 @@ impl ProfileInput {
                 counted: basis == ExpenseBasis::List,
             });
         }
+        for (kind, label, amount) in [
+            (STAFF_SUPPORT, "Aportaciones a la congregación y apoyos de servicio social (del padrón)", t.staff_support_annual_mxn),
+            (EXTERNAL_STAFF, "Personal de empresas externas (del padrón)", t.external_staff_annual_mxn),
+        ] {
+            if amount > 0 {
+                expenses.push(FinanceLine { label: label.into(), kind, index: None, annual_mxn: Some(amount), counted: basis == ExpenseBasis::List });
+            }
+        }
         for (i, e) in self.expenses.iter().enumerate() {
             expenses.push(FinanceLine {
                 label: e.label.clone(),
@@ -228,17 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn vacation_days_follow_the_2023_law() {
-        let days: Vec<i64> = [0, 1, 2, 3, 4, 5, 6, 10, 11, 15, 16, 20, 21, 30].iter().map(|&y| vacation_days(y)).collect();
-        assert_eq!(days, vec![12, 12, 14, 16, 18, 20, 22, 22, 24, 24, 26, 26, 28, 30]);
-    }
-
-    #[test]
-    fn benefits_are_aguinaldo_and_vacation_premium() {
-        // 9,000 a month: a day is 300; aguinaldo 15 days = 4,500; first year 12 days, premium 25 % = 900
-        assert_eq!(annual_benefits(9_000, 1), 5_400);
-        // eighth year: 22 days, premium 1,650
-        assert_eq!(annual_benefits(9_000, 8), 6_150);
+    fn only_fees_carry_no_benefits() {
         assert!(has_benefits(Some(ContractKind::Permanent)) && has_benefits(Some(ContractKind::Temporary)) && has_benefits(None));
         assert!(!has_benefits(Some(ContractKind::Fees)));
     }

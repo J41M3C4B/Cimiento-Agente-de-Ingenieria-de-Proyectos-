@@ -101,6 +101,19 @@ CREATE TABLE income_source (
   origin TEXT NOT NULL, source_ref TEXT, confirmed_at TEXT, confirmed_by TEXT
 );
 
+-- Módulo de Personal (ADR-027, migración 0015). Tablas propias, aparte del perfil; solo salen agregados (hr::api).
+-- hr_modality      modalidades propias de la institución: code, title, behaves_as (una modalidad del código)
+-- hr_position      puestos: title (único), area, duties, default_modality, default_schedule, reference_pay_mxn,
+--                  authorized_seats, reports_to, active
+-- hr_person        datos personales, domicilio, contacto, banco (clabe), fiscales (curp, rfc, nss, tax_regime, tax_zip),
+--                  extra (datos propios en JSON), account_id (para los perfiles de acceso)
+-- hr_job           trabajo de la persona: position_id, modality, start_date (+ start_date_approx), end_date, schedule,
+--                  shift, work_days, weekly_hours, status (active|vacation|sick_leave|leave|left), left_date, left_reason,
+--                  pay_amount_mxn, pay_period (weekly|biweekly|monthly), pay_method; current = 1 para el vigente
+-- hr_emergency_contact  hasta 2 por persona
+-- hr_custom_field  datos propios del formulario
+-- staff_group.relation  tipo de relación de cada línea anónima (dónde cuenta su dinero)
+
 -- Egresos por concepto (ADR-026). La nómina no se escribe aquí: se calcula del padrón con prestaciones.
 -- `institution_profile.annual_budget_mxn` es el «gasto anual aproximado» (modo exprés): cuenta mientras esta
 -- lista esté vacía.

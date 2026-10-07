@@ -1,6 +1,7 @@
 //! Numbered migrations. Once applied, a migration is never edited.
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension, Transaction};
+use std::collections::BTreeMap;
 
 const MIGRATIONS: &[(i64, &str)] = &[
     (1, include_str!("../../migrations/0001_initial.sql")),
@@ -17,7 +18,59 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (12, include_str!("../../migrations/0012_drafting_plan.sql")),
     (13, include_str!("../../migrations/0013_call_brief.sql")),
     (14, include_str!("../../migrations/0014_income_kinds_and_expenses.sql")),
+    (15, include_str!("../../migrations/0015_hr_staff.sql")),
 ];
+
+/// Code that runs right after the SQL of a version, inside the same transaction (moves of data that need rules).
+fn after(version: i64, tx: &Transaction) -> rusqlite::Result<()> {
+    if version == 15 {
+        move_roster_staff(tx)?;
+    }
+    Ok(())
+}
+
+fn hr_failure(e: crate::hr::HrError) -> rusqlite::Error {
+    match e {
+        crate::hr::HrError::Db(e) => e,
+        other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
+    }
+}
+
+/// The staff of the old roster (ADR-020) moves into the staff module (ADR-027); the roster keeps the people served.
+fn move_roster_staff(tx: &Transaction) -> rusqlite::Result<()> {
+    let rows: Vec<BTreeMap<String, String>> = tx
+        .prepare("SELECT data FROM roster_entry WHERE entity = 'staff' ORDER BY rowid")?
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?
+        .iter()
+        .map(|d| serde_json::from_str(d).unwrap_or_default())
+        .collect();
+    if rows.is_empty() {
+        // nothing to move: the catalog of positions is written the first time it is used, with the institution's kind
+        tx.execute("DELETE FROM roster_field WHERE entity = 'staff'", [])?;
+        return Ok(());
+    }
+    let own: Vec<crate::hr::legacy::LegacyField> = tx
+        .prepare("SELECT key, title, kind, options FROM roster_field WHERE entity = 'staff' AND builtin = 0 ORDER BY position")?
+        .query_map([], |r| {
+            let options: Vec<serde_json::Value> = serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default();
+            Ok(crate::hr::legacy::LegacyField {
+                key: r.get(0)?,
+                title: r.get(1)?,
+                kind: r.get(2)?,
+                options: options.iter().filter_map(|o| o["label"].as_str().map(String::from)).collect(),
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    let kind: Option<String> = tx.query_row("SELECT kind FROM institution LIMIT 1", [], |r| r.get(0)).optional()?;
+    let flavor = crate::roster_service::flavor_of(kind.as_deref());
+    let moved = crate::hr::legacy::import(tx, flavor, &rows, &own).map_err(hr_failure)?;
+    tx.execute("DELETE FROM roster_entry WHERE entity = 'staff'", [])?;
+    tx.execute("DELETE FROM roster_field WHERE entity = 'staff'", [])?;
+    crate::audit::record(tx, crate::audit::AuditKind::HrImported, Some("hr_person"), None, serde_json::json!({ "people": moved }))
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    Ok(())
+}
 
 pub fn run(conn: &mut Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
@@ -37,6 +90,7 @@ pub fn run(conn: &mut Connection) -> rusqlite::Result<()> {
         }
         let tx = conn.transaction()?;
         tx.execute_batch(sql)?;
+        after(*version, &tx)?;
         tx.execute(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (?1, strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
             [version],
@@ -109,6 +163,61 @@ mod tests {
         assert_eq!((funder, year, role.as_str()), (None, None, "main"));
         // a project cannot be of a kind nobody knows
         assert!(conn.execute("UPDATE project SET kind='other' WHERE id='old'", []).is_err());
+    }
+
+    /// The staff of the old roster moves into the staff module (ADR-027): role -> position, contract -> modality,
+    /// year -> approximate date, the institution's own fields with their values; the people served stay.
+    #[test]
+    fn the_staff_of_the_old_roster_moves_into_the_staff_module() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON; CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);").unwrap();
+        for (version, sql) in &MIGRATIONS[..14] {
+            conn.execute_batch(sql).unwrap();
+            conn.execute("INSERT INTO schema_migrations VALUES (?1, 'then')", [version]).unwrap();
+        }
+        conn.execute_batch(
+            r#"INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','Asilo','elderly_home','t','t');
+             INSERT INTO roster_field (entity,key,title,kind,options,builtin,locked_options,required,position)
+               VALUES ('staff','full_name','Nombre completo','text','[]',1,0,1,1),
+                      ('staff','own_talla','Talla','select','[{"value":"M","label":"M"}]',0,0,0,9),
+                      ('beneficiary','full_name','Nombre completo','text','[]',1,0,1,1);
+             INSERT INTO roster_entry (id,entity,data,created_at,updated_at) VALUES
+               ('a','staff','{"full_name":"Carmen Olivia Salazar Rojas","role":"Enfermería","contract":"Por tiempo definido","shift":"Nocturno","monthly_salary_mxn":"9500","paid":"yes","start_year":"2019","phone":"55 5555 0122","own_talla":"M"}','t','t'),
+               ('b','staff','{"full_name":"Lupita Voluntaria","role":"Acompañamiento","paid":"no","shift":"Sábados"}','t','t'),
+               ('c','beneficiary','{"full_name":"Persona atendida"}','t','t');"#,
+        )
+        .unwrap();
+
+        run(&mut conn).unwrap();
+
+        let people: Vec<(String, Option<String>, Option<String>, String, Option<String>, i64, Option<String>, Option<i64>, String, String)> = conn
+            .prepare(
+                "SELECT p.first_names, p.last_name_1, p.last_name_2, j.modality, j.start_date, j.start_date_approx, j.shift, j.pay_amount_mxn, pos.title, p.extra
+                 FROM hr_person p JOIN hr_job j ON j.person_id = p.id JOIN hr_position pos ON pos.id = j.position_id ORDER BY p.rowid",
+            )
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(people.len(), 2);
+        let carmen = &people[0];
+        assert_eq!((carmen.0.as_str(), carmen.1.as_deref(), carmen.2.as_deref()), ("Carmen Olivia", Some("Salazar"), Some("Rojas")));
+        assert_eq!((carmen.3.as_str(), carmen.4.as_deref(), carmen.5, carmen.6.as_deref(), carmen.7), ("fixed_term", Some("2019-01-01"), 1, Some("night"), Some(9_500)));
+        assert_eq!(carmen.8, "Enfermería");
+        assert!(carmen.9.contains("\"own_talla\":\"M\""), "{}", carmen.9);
+        let lupita = &people[1];
+        assert_eq!((lupita.3.as_str(), lupita.7, lupita.8.as_str()), ("volunteer", None, "Acompañamiento"));
+        assert!(lupita.9.contains("Sábados"), "a schedule the catalog does not know is kept: {}", lupita.9);
+
+        let left: (i64, i64) = conn
+            .query_row("SELECT (SELECT count(*) FROM roster_entry WHERE entity='staff'), (SELECT count(*) FROM roster_entry WHERE entity='beneficiary')", [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+        assert_eq!(left, (0, 1), "the people served stay in the roster");
+        let positions: i64 = conn.query_row("SELECT count(*) FROM hr_position WHERE title='Medicina'", [], |r| r.get(0)).unwrap();
+        assert_eq!(positions, 1, "the catalog starts with the positions of an elderly home");
+        let event: String = conn.query_row("SELECT details_json FROM audit_log WHERE event='hr.imported'", [], |r| r.get(0)).unwrap();
+        assert_eq!(event, "{\"people\":2}");
     }
 
     /// Income written before ADR-026 keeps its amount as a yearly one; what said «cuota» becomes a fee estimate.

@@ -31,7 +31,7 @@ const view = (i: ProfileInput): ProfileView => ({
   totals: {
     population: 14, staff_paid: 1, staff_volunteer: 0, income_annual_mxn: 1000,
     payroll_monthly_mxn: 8500, payroll_annual_mxn: 102000, payroll_benefits_annual_mxn: 5100, payroll_cost_annual_mxn: 107100,
-    benefits_assumed: 0, fee_payers: 4, fees_monthly_mxn: 6000, fees_annual_mxn: 72000,
+    benefits_assumed: 0, staff_support_annual_mxn: 0, external_staff_annual_mxn: 0, fee_payers: 4, fees_monthly_mxn: 6000, fees_annual_mxn: 72000,
   },
   finances: {
     income: [], income_by_kind: [], income_fixed_annual_mxn: 0, income_variable_annual_mxn: 0, income_annual_mxn: 0,
