@@ -83,7 +83,6 @@
   --canvas: #e4e5e8;
   --frame: #f2f2f4;
   --card: #ffffff;
-  --dock: #e8e8ec;
   --inset: #f5f5f8;
   --line: #e6e6ea;
   --ink: #121216;
@@ -102,7 +101,6 @@
     --canvas: #0c0d10;
     --frame: #16171b;
     --card: #1f2025;
-    --dock: #1b1c21;
     --inset: #292a30;
     --line: #30323a;
     --ink: #f3f3f5;
@@ -120,7 +118,6 @@
   --canvas: #0c0d10;
   --frame: #16171b;
   --card: #1f2025;
-  --dock: #1b1c21;
   --inset: #292a30;
   --line: #30323a;
   --ink: #f3f3f5;
@@ -139,7 +136,6 @@
   --color-canvas: var(--canvas);
   --color-frame: var(--frame);
   --color-card: var(--card);
-  --color-dock: var(--dock);
   --color-inset: var(--inset);
   --color-line: var(--line);
   --color-ink: var(--ink);
@@ -343,21 +339,18 @@ h1, h2, h3 {
     border-radius: var(--radius-pill); background: var(--card); color: var(--ink); font-size: var(--text-small); font-weight: 700; white-space: nowrap;
   }
 
-  /* Dock: bandeja gris con pestañas recortadas */
-  .dock { display: flex; flex-direction: column; min-width: 0; }
-  .dock-tabs { display: flex; align-items: flex-end; }
+  /* Dock: pestañas de una página; van directamente sobre el marco (sin bandeja gris detrás) y el contenido también */
+  .dock { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .dock-tabs { display: flex; align-items: center; gap: 4px; }
   .dock-tab {
-    position: relative; display: flex; align-items: center; gap: 10px; padding: 16px 30px 14px; white-space: nowrap;
-    border-radius: 24px 24px 0 0; color: var(--ink-3); font-size: var(--text-ui); font-weight: 700; cursor: pointer; transition: color 0.16s;
+    display: flex; align-items: center; gap: 10px; flex: none; height: var(--spacing-ctl); padding: 0 22px; white-space: nowrap;
+    border-radius: var(--radius-pill); color: var(--ink-2); font-size: var(--text-ui); font-weight: 700; cursor: pointer;
+    transition: color 0.16s, background-color 0.16s, box-shadow 0.16s;
   }
-  .dock-tab:hover { color: var(--ink); }
-  .dock-tab[aria-selected="true"] { background: var(--dock); color: var(--ink); }
-  .dock-tab[aria-selected="true"]::after { content: ""; position: absolute; right: -24px; bottom: 0; width: 24px; height: 24px; background: radial-gradient(circle at 100% 0, transparent 23.5px, var(--dock) 24px); }
-  .dock-tab[aria-selected="true"]:not(:first-child)::before { content: ""; position: absolute; left: -24px; bottom: 0; width: 24px; height: 24px; background: radial-gradient(circle at 0 0, transparent 23.5px, var(--dock) 24px); }
+  .dock-tab:hover { color: var(--ink); background: color-mix(in srgb, var(--card) 60%, transparent); }
+  .dock-tab[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow-card-v); }
   .dock-count { padding: 0 7px; border-radius: var(--radius-tick); background: var(--ink); color: var(--on-ink); font-size: 12px; line-height: 20px; }
-  .dock-tab[aria-selected="false"] .dock-count { background: var(--dock); color: var(--ink-2); }
-  .dock-body { background: var(--dock); border-radius: 0 var(--radius-card) var(--radius-card) var(--radius-card); padding: 16px; }
-  .dock--detached .dock-body { border-radius: var(--radius-card); }
+  .dock-tab[aria-selected="false"] .dock-count { background: var(--card); color: var(--ink-2); }
 
   /* Segmented: pista suave con la opción elegida levantada */
   .seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-radius: var(--radius-pill); background: var(--inset); max-width: 100%; }

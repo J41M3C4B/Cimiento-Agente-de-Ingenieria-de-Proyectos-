@@ -5,7 +5,7 @@ import type { Tone } from "./Tag";
 type TabItem<T extends string> = { id: T; label: string; count?: number; alert?: boolean };
 
 /**
- * Cut-out tabs over a gray tray (docs/13 §6): the chosen tab lifts in the color of the tray. The panel is the
+ * The tabs of a page (docs/13 §6): pills straight on the frame, the chosen one lifted on white; the panels below sit on the frame too, with no tray behind. The panel is the
  * `children` (use `TabPanel`); each tab names it with `aria-controls`.
  */
 export function Dock<T extends string>({
@@ -21,10 +21,9 @@ export function Dock<T extends string>({
   label: string;
   children: ReactNode;
 }) {
-  const first = items[0]?.id === value;
   return (
-    <div className={`dock ${first ? "" : "dock--detached"}`}>
-      <div role="tablist" aria-label={label} className="dock-tabs max-w-full overflow-x-auto pr-6">
+    <div className="dock">
+      <div role="tablist" aria-label={label} className="dock-tabs max-w-full overflow-x-auto pb-1">
         {items.map((t) => (
           <button key={t.id} type="button" role="tab" id={`tab-${t.id}`} aria-selected={t.id === value} aria-controls={`panel-${t.id}`} onClick={() => onChange(t.id)} className="dock-tab">
             {t.label}
@@ -33,7 +32,7 @@ export function Dock<T extends string>({
           </button>
         ))}
       </div>
-      <div className="dock-body">{children}</div>
+      <div>{children}</div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { AddSlot, Inset, RowActions, Tag, THead } from "../../components/ui";
+import { Icon } from "../../components/icons";
+import { AddSlot, Button, Inset, RowActions, Tag, THead } from "../../components/ui";
 import type { TagTone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { Condition, FacilityInput } from "../../lib/types";
@@ -19,7 +20,13 @@ export function FacilitiesTab({
 }) {
   return (
     <div className="space-y-4">
-      <p className="text-ui text-ink-3">{t.sections.facilitiesHelp}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="min-w-[240px] flex-1 text-ui text-ink-3">{t.sections.facilitiesHelp}</p>
+        <Button variant="primary" onClick={onAdd}>
+          <Icon name="plus" size={18} />
+          {t.facilitiesTab.add}
+        </Button>
+      </div>
 
       {facilities.length === 0 ? (
         <Inset className="flex flex-col items-center gap-4 !px-6 !py-12 text-center">

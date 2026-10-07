@@ -346,10 +346,16 @@ export function RosterTab({ entity, onProfile, onNotice }: { entity: Entity; onP
             className="w-full sm:w-auto sm:min-w-[220px]"
           />
         )}
-        <Button size="sm" variant="plain" className="ml-auto" onClick={() => setConfiguring(true)}>
-          <Icon name="sliders" size={16} />
-          {r.form.configure}
-        </Button>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="plain" onClick={() => setConfiguring(true)}>
+            <Icon name="sliders" size={16} />
+            {r.form.configure}
+          </Button>
+          <Button variant="primary" onClick={() => open()}>
+            <Icon name="plus" size={18} />
+            {text.add}
+          </Button>
+        </div>
       </div>
 
       {!overview.isSuccess ? null : entries.length === 0 ? (

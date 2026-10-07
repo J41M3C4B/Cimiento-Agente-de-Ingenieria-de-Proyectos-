@@ -20,7 +20,7 @@ const walk = (dir: string): string[] =>
 // the catalog and the tokens are where the values live; tests and texts are not interface code
 const screens = walk(SRC).filter((f) => /\.(tsx?)$/.test(f) && !/\.test\.tsx?$/.test(f) && !f.includes(`${join("components", "ui")}`) && !f.includes("i18n") && !f.includes("design.test"));
 
-const COLORS = "ink|ink-2|ink-3|on-ink|onc|sky-ink|red-ink|amber-ink|green-ink|sky|violet|rose|red|amber|green|teal|cyan|card|dock|inset|line|canvas|frame|current|transparent|inherit";
+const COLORS = "ink|ink-2|ink-3|on-ink|onc|sky-ink|red-ink|amber-ink|green-ink|sky|violet|rose|red|amber|green|teal|cyan|card|inset|line|canvas|frame|current|transparent|inherit";
 const SIZES = "caption|small|ui|body|heading|subtitle|title|hero|display";
 const ALIGN = "left|center|right|justify|start|end|wrap|nowrap|balance|pretty|ellipsis|clip";
 const RADII = "tick|field|inset|card|frame|pill|none";
