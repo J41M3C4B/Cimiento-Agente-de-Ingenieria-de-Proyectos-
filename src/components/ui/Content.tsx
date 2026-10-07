@@ -268,9 +268,9 @@ export function PersonCard({ avatar, name, detail, state }: { avatar: ReactNode;
 }
 
 /** The dashed slot that adds something («+ Agregar persona»); it takes the place of loose «Agregar» buttons. */
-export function AddSlot({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+export function AddSlot({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className="add-slot w-full">
+    <button type="button" onClick={onClick} disabled={disabled} className="add-slot w-full">
       <Icon name="plus" size={18} />
       {children}
     </button>

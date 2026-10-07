@@ -221,7 +221,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
           <Card className="space-y-6">
             <Inset className="flex flex-wrap items-center gap-3 !py-3">
               <FileTile ext={ext(items[0]!.file)} />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-[9rem] flex-1">
                 <p className="font-bold">{t.filesReady(items.length)}</p>
                 <p className="truncate text-small text-ink-3">{items[0]?.file.name}</p>
               </div>

@@ -136,7 +136,7 @@ export function RowActions({ onEdit, onRemove, busy }: { onEdit: () => void; onR
     );
   }
   return (
-    <span className="inline-flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+    <span className="inline-flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
       <IconButton icon="pencil" label={es.roster.table.edit} variant="plain" size="sm" onClick={onEdit} />
       <IconButton icon="trash" label={es.common.remove} variant="plain" size="sm" onClick={() => setAsking(true)} />
     </span>

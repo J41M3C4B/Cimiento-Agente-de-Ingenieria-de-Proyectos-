@@ -434,6 +434,7 @@ h1, h2, h3 {
   /* Casilla para agregar: borde discontinuo */
   .add-slot { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 58px; border: 1.5px dashed color-mix(in srgb, var(--ink-3) 55%, transparent); border-radius: var(--radius-inset); color: var(--ink-2); font-weight: 700; cursor: pointer; transition: background-color 0.16s, color 0.16s; }
   .add-slot:hover { background: var(--inset); color: var(--ink); }
+  .add-slot:disabled { opacity: 0.5; cursor: not-allowed; background: none; }
 
 
   /* Eyebrow: the small label over a block */
@@ -455,6 +456,7 @@ h1, h2, h3 {
   .list-row:hover, .list-row:focus-within { background: var(--inset); }
   .list-row-actions { display: flex; align-items: center; gap: 2px; flex: none; opacity: 0; transition: opacity 0.14s; }
   .list-row:hover .list-row-actions, .list-row:focus-within .list-row-actions { opacity: 1; }
+  @media (hover: none) { .list-row-actions { opacity: 1; } }
 
   /* Subfolder: a group inside a tray, with its own small tab and border, hung from the trunk line of its parent */
   .subfolders { --sub: color-mix(in srgb, var(--ink-3) 24%, var(--card)); display: flex; flex-direction: column; margin: 2px 0 0 12px; padding-left: 26px; border-left: 2px solid var(--sub); }
