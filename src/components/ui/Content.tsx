@@ -117,6 +117,8 @@ export function DropZone({
   accept,
   changeHint,
   error,
+  multiple,
+  ariaLabel,
 }: {
   label: string;
   hint?: string;
@@ -125,6 +127,8 @@ export function DropZone({
   accept?: string;
   changeHint?: string;
   error?: string;
+  multiple?: boolean;
+  ariaLabel?: string;
 }) {
   const [over, setOver] = useState(false);
   const pick = (e: ChangeEvent<HTMLInputElement>) => {
@@ -147,7 +151,7 @@ export function DropZone({
           if (f) onFile(f);
         }}
       >
-        <input type="file" accept={accept} onChange={pick} />
+        <input type="file" accept={accept} multiple={multiple} aria-label={ariaLabel} onChange={pick} />
         {file ? (
           <>
             <FileTile ext={file.ext} />

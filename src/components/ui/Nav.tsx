@@ -86,7 +86,7 @@ export function Steps({ steps, current, tone = "pc", compact }: { steps: { key: 
           <li key={s.key} aria-current={now ? "step" : undefined} className="flex min-w-0 flex-col gap-2" title={s.label}>
             <i className={`step-bar ${done || now ? "on" : ""}`} />
             {!compact && (
-              <span className={`truncate text-caption ${now ? "font-extrabold text-ink" : done ? "font-semibold text-ink-2" : "font-semibold text-ink-3"}`}>
+              <span className={`truncate text-caption ${now ? "font-extrabold text-ink" : done ? "font-semibold text-ink-2 max-sm:hidden" : "font-semibold text-ink-3 max-sm:hidden"}`}>
                 {done && <Icon name="check" size={12} strokeWidth={3} className="mr-1 inline" />}
                 {s.label}
               </span>
