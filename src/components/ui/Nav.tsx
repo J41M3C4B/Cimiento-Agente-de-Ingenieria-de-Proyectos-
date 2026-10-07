@@ -104,8 +104,10 @@ export function StepNav({
               <span className={`bar ${done ? "tone-green" : "tone-ink"} ${now ? "" : "opacity-70"}`}>
                 <i style={{ width: `${percent}%` }} />
               </span>
-              <span className={`flex items-center gap-1 truncate text-small max-sm:sr-only ${now ? "font-extrabold text-ink" : "font-bold text-ink-2"}`}>
-                {done && <Icon name="check" size={13} strokeWidth={3} className="shrink-0" />}
+              <span className={`flex items-center gap-2 truncate text-small max-sm:sr-only ${now ? "font-extrabold text-ink" : "font-bold text-ink-2"}`}>
+                <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-pill text-caption font-extrabold ${done ? "bg-green text-onc" : now ? "bg-ink text-on-ink" : "bg-inset text-ink-2"}`}>
+                  {done ? <Icon name="check" size={12} strokeWidth={3} /> : s.na ? "–" : i + 1}
+                </span>
                 <span className="truncate">{s.label}</span>
               </span>
               <span className="truncate text-caption text-ink-3 max-sm:sr-only">{s.na ? s.naLabel : known ? s.caption : "\u00a0"}</span>

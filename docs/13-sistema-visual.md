@@ -194,7 +194,7 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 | `Avatar` | 36 (`sm` 28) | círculo | — | 12 (10.5) px 800 | color por nombre |
 | `Tile` (cuadro de ícono) | 40 (`sm` 32) | `field` | — | — | acento sólido, ícono `onc` |
 | `PageHeader` | — | — | — | título `text-title` 700; línea `text-ui` `ink-2` | en todas las páginas igual: título + una línea + acción principal a la derecha |
-| `FormSection` | — | — | línea 1 px `line` | `Eyebrow` | agrupa campos en una ventana |
+| `FormSection` | — | — | línea 1 px `line` | `Eyebrow` | agrupa campos en una ventana; puede llevar un `Tile` pequeño con un ícono antes del título |
 | `Card` (bandeja) | — | `card` | `shadow-card` | — | relleno 24 (20 en pequeñas) |
 | `Inset` (interior) | — | `inset` | — | — | fondo `inset`, relleno 16–20 |
 | `Folder` (carpeta con pestaña) | pestaña 46 | pestaña 18, cuerpo `card` | `drop-shadow` | título `text-body` 800 | color del proyecto en `--pc`/`--pt` |
@@ -207,7 +207,7 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 | `Choice` (píldora seleccionable) | 44 | pill | 1.5 px `line` | `text-ui` 700 | elegida = color sólido |
 | `RadioCard` | auto | `inset` | 1.5 px `line`; elegida: `ink` | `text-ui` 700 + `text-small` `ink-3` | |
 | `Alert` | auto | `inset` | — | `text-ui` | fondo del estado al 18 %, círculo sólido con ícono |
-| `Modal` | — | `card` | `shadow-float` | título `text-subtitle` 700 | anchos 640 / 768 / 1024 |
+| `Modal` | — | `card` | `shadow-float` | título `text-subtitle` 700 | anchos 640 / 768 / 896 (`wide`, para fichas largas) / 1024; `fixed` fija la altura para que un flujo de pasos no crezca y se encoja |
 | `Table` | filas 52 | — | línea 1 px `line` | `text-ui`; encabezado `text-caption` `ink-3` | primera columna 700 |
 | `Tooltip` | auto | pill | — | `text-small` 700 en `on-ink` sobre `ink` | |
 | `Toast` | auto | pill | `shadow-float` | `text-ui` 700 | fondo `ink` |

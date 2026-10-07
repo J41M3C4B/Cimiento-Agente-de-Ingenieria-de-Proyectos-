@@ -1,6 +1,8 @@
 import type { ElementType, ReactNode } from "react";
 import { es } from "../../i18n/es-MX";
+import type { IconName } from "../icons";
 import { Eyebrow } from "./Content";
+import { Tile } from "./Tag";
 import type { Tone } from "./Tag";
 
 /** A tray: the white block where one thing is done (docs/13 §2). */
@@ -127,10 +129,11 @@ export function PageHeader({ title, intro, action }: { title: string; intro?: st
 }
 
 /** A group of fields in a window: a small heading in capitals with a hairline, then the fields (docs/13 §7, «Formulario»). */
-export function FormSection({ title, children }: { title: string; children: ReactNode }) {
+export function FormSection({ title, icon, children }: { title: string; icon?: IconName; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-3">
+    <section aria-label={title} className="flex flex-col gap-4">
       <div aria-hidden="true" className="flex items-center gap-3">
+        {icon && <Tile icon={icon} tone="neutral" small />}
         <Eyebrow>{title}</Eyebrow>
         <span className="h-px flex-1 bg-line" />
       </div>
