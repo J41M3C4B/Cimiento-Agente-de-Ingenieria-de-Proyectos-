@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
-import { Alert, Button, Modal, Section, TextInput } from "../../components/ui";
+import { useState } from "react";
+import { Alert, Button, DropZone, Modal, Section, StatusDot, TextInput } from "../../components/ui";
+import { extOf, fileSize } from "../documents/documentsModel";
 import { es } from "../../i18n/es-MX";
 import { backupCreate, backupRestore, pinClear, pinSet, pinStatus, securityScan, toAppError } from "../../lib/tauri";
 
@@ -43,9 +44,11 @@ function PinSection() {
 
   return (
     <Section title={t.pinTitle} help={t.pinHelp}>
-      <p className="font-semibold">{on ? t.pinOn : t.pinOff}</p>
+      <p className="text-ui font-bold">
+        <StatusDot tone={on ? "green" : "amber"}>{on ? t.pinOn : t.pinOff}</StatusDot>
+      </p>
       <form
-        className="space-y-3"
+        className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
           if (canSave) save.mutate();
@@ -88,7 +91,7 @@ function BackupSection() {
   return (
     <Section title={t.backupTitle} help={t.backupHelp}>
       <form
-        className="space-y-3"
+        className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
           if (password !== "" && password === again) create.mutate();
@@ -100,7 +103,7 @@ function BackupSection() {
         {create.data && (
           <Alert tone="ok">
             <p>{t.backupDone(create.data.file_name)}</p>
-            <p className="mt-1 break-all text-[14px] text-stone-700">{create.data.path}</p>
+            <p className="mt-1 break-all text-small text-ink-2">{create.data.path}</p>
           </Alert>
         )}
         <Button type="submit" variant="primary" disabled={create.isPending || password === "" || password !== again}>
@@ -113,7 +116,8 @@ function BackupSection() {
 
 function RestoreSection() {
   const qc = useQueryClient();
-  const input = useRef<HTMLInputElement>(null);
+  // a new key empties the chosen file once it was restored
+  const [picked, setPicked] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState("");
   const [asking, setAsking] = useState(false);
@@ -123,7 +127,7 @@ function RestoreSection() {
       setAsking(false);
       setFile(null);
       setPassword("");
-      if (input.current) input.current.value = "";
+      setPicked((n) => n + 1);
       // everything on the screen came from the data that was just replaced
       await qc.invalidateQueries();
     },
@@ -132,10 +136,14 @@ function RestoreSection() {
 
   return (
     <Section title={t.restoreTitle} help={t.restoreHelp}>
-      <label className="block">
-        <span className="mb-1 block font-semibold">{t.restoreFile}</span>
-        <input ref={input} type="file" accept=".cimiento" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full rounded-lg border-[1.5px] border-stone-400 bg-white p-3 text-[14px] file:mr-3 file:rounded-full file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:font-semibold file:text-blue-800" />
-      </label>
+      <DropZone
+        key={picked}
+        label={t.restoreFile}
+        accept=".cimiento"
+        file={file ? { name: file.name, size: fileSize(file.size), ext: extOf(file.name) || "cimiento" } : null}
+        changeHint={es.documents.form.change}
+        onFile={setFile}
+      />
       <TextInput label={t.restorePassword} type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
       {restore.isError && <Alert tone="warn">{toAppError(restore.error).message}</Alert>}
       {restore.isSuccess && <Alert tone="ok">{t.restoreDone}</Alert>}
@@ -143,14 +151,19 @@ function RestoreSection() {
         {restore.isPending ? t.restoring : t.restore}
       </Button>
       {asking && (
-        <Modal title={t.restoreAsk} onClose={() => setAsking(false)}>
-          <p className="text-[15px]">{t.restoreWarn}</p>
-          <div className="flex flex-wrap gap-3">
-            <Button variant="danger" onClick={() => restore.mutate()} disabled={restore.isPending}>
-              {t.restoreYes}
-            </Button>
-            <Button onClick={() => setAsking(false)}>{es.common.cancel}</Button>
-          </div>
+        <Modal
+          title={t.restoreAsk}
+          onClose={() => setAsking(false)}
+          footer={
+            <>
+              <Button onClick={() => setAsking(false)}>{es.common.cancel}</Button>
+              <Button variant="danger" onClick={() => restore.mutate()} disabled={restore.isPending}>
+                {t.restoreYes}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-body">{t.restoreWarn}</p>
         </Modal>
       )}
     </Section>
@@ -169,7 +182,7 @@ function ScanSection() {
       {r && r.findings === 0 && <Alert tone="ok">{t.scanClean(r.texts)}</Alert>}
       {r && r.findings > 0 && (
         <Alert tone="warn">
-          <p className="font-semibold">{t.scanFound(r.findings)}</p>
+          <p className="font-bold">{t.scanFound(r.findings)}</p>
           <ul className="mt-2 list-disc pl-6">
             {r.tables
               .filter((x) => x.findings > 0)
@@ -187,13 +200,19 @@ export function SecurityPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1.5">
-        <h1 className="text-[24px] font-semibold leading-tight tracking-tight">{t.title}</h1>
-        <p className="text-stone-700">{t.intro}</p>
+        <h1 className="text-title font-bold leading-tight tracking-tight">{t.title}</h1>
+        <p className="text-ui text-ink-2">{t.intro}</p>
       </header>
-      <PinSection />
-      <BackupSection />
-      <RestoreSection />
-      <ScanSection />
+      <div className="grid items-start gap-4 min-[1000px]:grid-cols-2">
+        <div className="space-y-4">
+          <PinSection />
+          <BackupSection />
+        </div>
+        <div className="space-y-4">
+          <RestoreSection />
+          <ScanSection />
+        </div>
+      </div>
     </div>
   );
 }

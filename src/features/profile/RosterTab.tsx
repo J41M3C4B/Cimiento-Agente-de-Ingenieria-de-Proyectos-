@@ -228,7 +228,7 @@ function FieldsDialog({ entity, fields, onFields, onClose }: { entity: Entity; f
  * One tab of the roster: the people registered, in a table with search and a filter, and a button to add one in a
  * window. The records stay in this computer; the profile only receives what they add up to (ADR-020).
  */
-export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p: ProfileView) => void }) {
+export function RosterTab({ entity, onProfile, onNotice }: { entity: Entity; onProfile: (p: ProfileView) => void; onNotice?: (text: string) => void }) {
   const text = entity === "staff" ? r.staff : r.beneficiary;
   const qc = useQueryClient();
   const overview = useQuery({ queryKey: ["roster", entity], queryFn: () => rosterOverview(entity) });
@@ -289,6 +289,7 @@ export function RosterTab({ entity, onProfile }: { entity: Entity; onProfile: (p
     try {
       const data = Object.fromEntries(fields.map((f) => [f.key, val(f)]).filter(([, v]) => v !== ""));
       apply(await rosterEntrySave(entity, panel.id, data));
+      onNotice?.(panel.id ? es.common.saved : r.form.added);
       // «guardar y agregar otra»: the window stays, empty, for the next one
       if (another && !panel.id) {
         setPanel({ id: null, values: {} });

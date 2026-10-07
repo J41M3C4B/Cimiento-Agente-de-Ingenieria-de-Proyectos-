@@ -252,6 +252,7 @@ export const es = {
       cancel: "Cancelar",
       configure: "Configurar campos",
       requiredMissing: "Este dato es necesario.",
+      added: "Persona agregada",
       required: "obligatorio",
     },
     table: {

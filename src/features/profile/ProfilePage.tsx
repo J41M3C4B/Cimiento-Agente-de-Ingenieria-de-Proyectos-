@@ -115,6 +115,7 @@ export function ProfilePage() {
     setEdit(e);
   };
 
+  const notify = (text: string) => setToast({ tone: "ok", text });
   const onRosterProfile = (p: ProfileView) => qc.setQueryData(["profile"], p);
 
   const totals = staffRoster.data?.totals ?? view?.totals ?? ZERO;
@@ -297,12 +298,12 @@ export function ProfilePage() {
           </TabPanel>
           <TabPanel id="staff" active={tab === "staff"}>
             <Card>
-              <RosterTab entity="staff" onProfile={onRosterProfile} />
+              <RosterTab entity="staff" onProfile={onRosterProfile} onNotice={notify} />
             </Card>
           </TabPanel>
           <TabPanel id="population" active={tab === "population"}>
             <Card>
-              <RosterTab entity="beneficiary" onProfile={onRosterProfile} />
+              <RosterTab entity="beneficiary" onProfile={onRosterProfile} onNotice={notify} />
             </Card>
           </TabPanel>
           <TabPanel id="facilities" active={tab === "facilities"}>
