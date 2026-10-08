@@ -21,3 +21,10 @@
 | Ficha de la convocatoria (lo que ve la persona) | `call_card` / `CallCard` |
 | Lectura / esquema canónico de la convocatoria (solo IA) | `canonical` / `CallSummary` |
 | Respaldo | `backup` |
+| Núcleo (Inicio + Mi institución) | `core` |
+| Módulo | `module` |
+| Personal | `hr` |
+| Beneficiarios | `care` |
+| Instalaciones | `facilities` |
+| Finanzas | `finance` |
+| Ingreso / Egreso | `income` / `expense` |

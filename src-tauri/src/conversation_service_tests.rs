@@ -27,7 +27,7 @@ async fn the_opening_is_asked_once_with_the_profile_and_the_confirmed_call_as_co
     assert_eq!((call.name.as_str(), call.funder.as_deref(), call.year), ("Apoyos 2027", Some("Fundación Ficticia"), Some(2027)));
     let req = &p.requests()[0];
     let ctx = req.context.join("\n");
-    assert!(ctx.contains("Baño ×3"), "what the profile already says is sent");
+    assert!(ctx.contains("Espacio: Baños, planta baja: 3 (3 mal)."), "what the profile already says is sent: {ctx}");
     assert!(ctx.contains("Quién convoca: Fundación Ficticia") && ctx.contains("Proyectos de alimentación y nutrición."), "what the call funds is sent: {ctx}");
     assert!(!ctx.contains("contact"), "no contact data");
     assert_eq!((req.task, req.user.contains("Paso: apertura")), (AiTask::ConversationTurn, true));

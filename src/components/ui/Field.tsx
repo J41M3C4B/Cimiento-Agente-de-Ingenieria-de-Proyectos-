@@ -1,7 +1,8 @@
-import { forwardRef } from "react";
+import { forwardRef, useId } from "react";
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { Icon } from "../icons";
 import type { IconName } from "../icons";
+import { IconButton } from "./Button";
 import type { Tone } from "./Tag";
 
 type FieldProps = { label: string; hint?: string; error?: string; children: ReactNode; className?: string; hideLabel?: boolean; required?: boolean };
@@ -172,3 +173,53 @@ export const RadioCard = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLIn
     </label>
   );
 });
+
+/**
+ * A whole number with its «−» and «+»: how many are in a state, how many there are. It can also be typed. The tile
+ * carries the color of what is counted, so the four states of something tell themselves apart at a glance.
+ */
+export function Stepper({
+  label,
+  hint,
+  value,
+  onChange,
+  tone = "ink",
+  canAdd = true,
+  less,
+  more,
+}: {
+  label: string;
+  hint?: string;
+  value: number;
+  onChange: (n: number) => void;
+  tone?: Tone;
+  /** false when there is nothing left to add (the total is reached) */
+  canAdd?: boolean;
+  less: string;
+  more: string;
+}) {
+  const id = useId();
+  return (
+    <div className={`tone-${tone} flex min-w-0 flex-col gap-2 rounded-inset bg-inset p-3`}>
+      <div className="flex min-w-0 items-center gap-2">
+        <span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-pill bg-[var(--c)]" />
+        <label htmlFor={id} className="min-w-0 text-ui font-bold">
+          {label}
+        </label>
+      </div>
+      {hint && <span className="text-caption text-ink-3">{hint}</span>}
+      <div className="mt-auto flex items-center gap-1">
+        <IconButton icon="minus" label={`${less}: ${label}`} size="sm" variant="plain" disabled={value <= 0} onClick={() => onChange(Math.max(0, value - 1))} />
+        <input
+          id={id}
+          inputMode="numeric"
+          placeholder="0"
+          value={value === 0 ? "" : String(value)}
+          onChange={(e) => onChange(Math.max(0, Number(e.target.value.replace(/\D/g, "")) || 0))}
+          className="field tabular !h-ctl-sm min-w-0 flex-1 !px-1 text-center font-bold"
+        />
+        <IconButton icon="plus" label={`${more}: ${label}`} size="sm" variant="plain" disabled={!canAdd} onClick={() => onChange(value + 1)} />
+      </div>
+    </div>
+  );
+}

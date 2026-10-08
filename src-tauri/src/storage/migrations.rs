@@ -19,12 +19,22 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (13, include_str!("../../migrations/0013_call_brief.sql")),
     (14, include_str!("../../migrations/0014_income_kinds_and_expenses.sql")),
     (15, include_str!("../../migrations/0015_hr_staff.sql")),
+    (16, include_str!("../../migrations/0016_access.sql")),
+    (17, include_str!("../../migrations/0017_care.sql")),
+    (18, include_str!("../../migrations/0018_facilities.sql")),
+    (19, include_str!("../../migrations/0019_onboarding.sql")),
 ];
 
 /// Code that runs right after the SQL of a version, inside the same transaction (moves of data that need rules).
 fn after(version: i64, tx: &Transaction) -> rusqlite::Result<()> {
     if version == 15 {
         move_roster_staff(tx)?;
+    }
+    if version == 17 {
+        move_roster_people(tx)?;
+    }
+    if version == 18 {
+        move_profile_facilities(tx)?;
     }
     Ok(())
 }
@@ -34,6 +44,82 @@ fn hr_failure(e: crate::hr::HrError) -> rusqlite::Error {
         crate::hr::HrError::Db(e) => e,
         other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
     }
+}
+
+fn care_failure(e: crate::care::CareError) -> rusqlite::Error {
+    match e {
+        crate::care::CareError::Db(e) => e,
+        other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
+    }
+}
+
+/// The people served of the old roster (ADR-020) move into their module (ADR-029), keeping their ids (a deletion
+/// that was waiting still finds them) and their hiding. Then the roster, empty, goes away.
+fn move_roster_people(tx: &Transaction) -> rusqlite::Result<()> {
+    let rows: Vec<crate::care::legacy::LegacyRow> = tx
+        .prepare("SELECT id, data, hidden FROM roster_entry WHERE entity = 'beneficiary' ORDER BY created_at, rowid")?
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?)))?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(|(id, data, hidden)| crate::care::legacy::LegacyRow { id, data: serde_json::from_str(&data).unwrap_or_default(), hidden: hidden != 0 })
+        .collect();
+    let own: Vec<crate::care::legacy::LegacyField> = tx
+        .prepare("SELECT key, title, kind, options FROM roster_field WHERE entity = 'beneficiary' AND builtin = 0 ORDER BY position")?
+        .query_map([], |r| {
+            let options: Vec<serde_json::Value> = serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default();
+            Ok(crate::care::legacy::LegacyField {
+                key: r.get(0)?,
+                title: r.get(1)?,
+                kind: r.get(2)?,
+                options: options.iter().filter_map(|o| o["label"].as_str().map(String::from)).collect(),
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    let hidden_fields: Vec<String> = tx.prepare("SELECT key FROM roster_field WHERE entity = 'beneficiary' AND hidden = 1")?.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    let year: i64 = tx.query_row("SELECT CAST(strftime('%Y','now') AS INTEGER)", [], |r| r.get(0))?;
+    let moved = crate::care::legacy::import(tx, year, &rows, &own).map_err(care_failure)?;
+    for key in hidden_fields {
+        tx.execute("UPDATE care_custom_field SET hidden = 1 WHERE key = ?1", [key])?;
+    }
+    if moved > 0 {
+        crate::audit::record(tx, crate::audit::AuditKind::CareImported, Some("care_person"), None, serde_json::json!({ "people": moved }))
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    }
+    tx.execute_batch("DROP TABLE roster_entry; DROP TABLE roster_field;")?;
+    Ok(())
+}
+
+/// The spaces of the latest profile version move into the facilities module (ADR-030), with their origin and source.
+/// The old table goes away with the copies of the earlier versions: the module keeps the facilities now.
+fn move_profile_facilities(tx: &Transaction) -> rusqlite::Result<()> {
+    let latest: Option<String> = tx.query_row("SELECT id FROM institution_profile ORDER BY version DESC LIMIT 1", [], |r| r.get(0)).optional()?;
+    let rows: Vec<crate::facilities::legacy::LegacyFacility> = match latest {
+        Some(pid) => tx
+            .prepare("SELECT kind, count, condition, accessible, notes, origin, source_ref FROM facility WHERE profile_id = ?1 ORDER BY rowid")?
+            .query_map([pid], |r| {
+                Ok(crate::facilities::legacy::LegacyFacility {
+                    kind: r.get(0)?,
+                    count: r.get(1)?,
+                    condition: r.get(2)?,
+                    accessible: r.get::<_, Option<i64>>(3)?.map(|a| a != 0),
+                    notes: r.get(4)?,
+                    origin: r.get(5)?,
+                    source_ref: r.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?,
+        None => Vec::new(),
+    };
+    let moved = crate::facilities::legacy::import(tx, &rows).map_err(|e| match e {
+        crate::facilities::FacilitiesError::Db(e) => e,
+        other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
+    })?;
+    if moved > 0 {
+        crate::audit::record(tx, crate::audit::AuditKind::FacilitiesImported, Some("fac_space"), None, serde_json::json!({ "groups": moved }))
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    }
+    tx.execute_batch("DROP TABLE facility;")?;
+    Ok(())
 }
 
 /// The staff of the old roster (ADR-020) moves into the staff module (ADR-027); the roster keeps the people served.
@@ -63,12 +149,15 @@ fn move_roster_staff(tx: &Transaction) -> rusqlite::Result<()> {
         })?
         .collect::<Result<Vec<_>, _>>()?;
     let kind: Option<String> = tx.query_row("SELECT kind FROM institution LIMIT 1", [], |r| r.get(0)).optional()?;
-    let flavor = crate::roster_service::flavor_of(kind.as_deref());
+    let flavor = crate::profile_sync::flavor_of(kind.as_deref());
     let moved = crate::hr::legacy::import(tx, flavor, &rows, &own).map_err(hr_failure)?;
     tx.execute("DELETE FROM roster_entry WHERE entity = 'staff'", [])?;
     tx.execute("DELETE FROM roster_field WHERE entity = 'staff'", [])?;
-    crate::audit::record(tx, crate::audit::AuditKind::HrImported, Some("hr_person"), None, serde_json::json!({ "people": moved }))
-        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    // written by hand: at this version the audit log has no author yet (ADR-028 adds it in 0016)
+    tx.execute(
+        "INSERT INTO audit_log (at, event, entity, entity_id, details_json) VALUES (strftime('%Y-%m-%dT%H:%M:%SZ','now'), 'hr.imported', 'hr_person', NULL, ?1)",
+        [serde_json::json!({ "people": moved }).to_string()],
+    )?;
     Ok(())
 }
 
@@ -210,14 +299,113 @@ mod tests {
         assert_eq!((lupita.3.as_str(), lupita.7, lupita.8.as_str()), ("volunteer", None, "Acompañamiento"));
         assert!(lupita.9.contains("Sábados"), "a schedule the catalog does not know is kept: {}", lupita.9);
 
-        let left: (i64, i64) = conn
-            .query_row("SELECT (SELECT count(*) FROM roster_entry WHERE entity='staff'), (SELECT count(*) FROM roster_entry WHERE entity='beneficiary')", [], |r| Ok((r.get(0)?, r.get(1)?)))
-            .unwrap();
-        assert_eq!(left, (0, 1), "the people served stay in the roster");
+        let served: i64 = conn.query_row("SELECT count(*) FROM care_person", [], |r| r.get(0)).unwrap();
+        assert_eq!(served, 1, "the people served went to their own module (ADR-029)");
         let positions: i64 = conn.query_row("SELECT count(*) FROM hr_position WHERE title='Medicina'", [], |r| r.get(0)).unwrap();
         assert_eq!(positions, 1, "the catalog starts with the positions of an elderly home");
         let event: String = conn.query_row("SELECT details_json FROM audit_log WHERE event='hr.imported'", [], |r| r.get(0)).unwrap();
         assert_eq!(event, "{\"people\":2}");
+    }
+
+    /// The people served of the old roster move into their module (ADR-029) with their ids, so a deletion that was
+    /// waiting still finds them; then the roster goes away.
+    #[test]
+    fn the_people_served_of_the_old_roster_move_into_their_module() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON; CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);").unwrap();
+        for (version, sql) in &MIGRATIONS[..16] {
+            conn.execute_batch(sql).unwrap();
+            conn.execute("INSERT INTO schema_migrations VALUES (?1, 'then')", [version]).unwrap();
+        }
+        conn.execute_batch(
+            r#"INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','Asilo','elderly_home','t','t');
+             INSERT INTO roster_field (entity,key,title,kind,options,builtin,locked_options,required,position,hidden)
+               VALUES ('beneficiary','own_dieta','Dieta','text','[]',0,0,0,9,1);
+             INSERT INTO roster_entry (id,entity,data,created_at,updated_at,hidden) VALUES
+               ('ben_old_1','beneficiary','{"full_name":"María de la Luz Pérez García","category":"Mujeres adultas mayores","age":"84","dependency":"high","monthly_fee_mxn":"3500","entry_year":"2019","phone":"55 5555 0131","own_dieta":"blanda"}','t','t',0),
+               ('ben_old_2','beneficiary','{"full_name":"José Ramírez","category":"Hombres adultos mayores","age":"90"}','t','t',1);
+             INSERT INTO app_user (id,username,display_name,role,password_hash,created_at,updated_at) VALUES ('u','rosa','Rosa','manager','x','t','t');
+             INSERT INTO access_request (id,kind,target_id,target_label,requested_by,requested_at) VALUES ('r','beneficiary','ben_old_2','José Ramírez','u','t');"#,
+        )
+        .unwrap();
+
+        run(&mut conn).unwrap();
+
+        let rows: Vec<(String, String, Option<String>, Option<String>, Option<String>, i64, Option<String>, Option<i64>, i64, String)> = conn
+            .prepare("SELECT id, first_names, last_name_1, last_name_2, sex, birth_date_approx, entry_date, monthly_fee_mxn, hidden, extra FROM care_person ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(rows.len(), 2);
+        let luz = &rows[0];
+        assert_eq!((luz.0.as_str(), luz.1.as_str(), luz.2.as_deref(), luz.3.as_deref(), luz.4.as_deref()), ("ben_old_1", "María de la Luz", Some("Pérez"), Some("García"), Some("female")));
+        assert_eq!((luz.5, luz.6.as_deref(), luz.7, luz.8), (1, Some("2019-01-01"), Some(3_500), 0));
+        assert!(luz.9.contains("blanda"), "{}", luz.9);
+        assert_eq!((rows[1].0.as_str(), rows[1].4.as_deref(), rows[1].8), ("ben_old_2", Some("male"), 1), "the hidden one stays hidden");
+        let phone: String = conn.query_row("SELECT phone FROM care_contact WHERE person_id='ben_old_1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(phone, "55 5555 0131");
+        let hidden_field: i64 = conn.query_row("SELECT hidden FROM care_custom_field WHERE key='own_dieta'", [], |r| r.get(0)).unwrap();
+        assert_eq!(hidden_field, 1);
+        let roster: i64 = conn.query_row("SELECT count(*) FROM sqlite_master WHERE name IN ('roster_entry','roster_field')", [], |r| r.get(0)).unwrap();
+        assert_eq!(roster, 0, "the roster is gone");
+        let target: String = conn.query_row("SELECT target_id FROM access_request WHERE id='r'", [], |r| r.get(0)).unwrap();
+        let found: i64 = conn.query_row("SELECT count(*) FROM care_person WHERE id=?1", [target], |r| r.get(0)).unwrap();
+        assert_eq!(found, 1, "the waiting request still finds its person");
+    }
+
+    /// The spaces of the latest profile version move into the facilities module (ADR-030): the written kind becomes a
+    /// code, the one old state goes to every space of the group, origin and source stay; the old table goes away.
+    #[test]
+    fn the_spaces_of_the_profile_move_into_the_facilities_module() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON; CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);").unwrap();
+        for (version, sql) in &MIGRATIONS[..17] {
+            conn.execute_batch(sql).unwrap();
+            conn.execute("INSERT INTO schema_migrations VALUES (?1, 'then')", [version]).unwrap();
+        }
+        conn.execute_batch(
+            r#"INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','Asilo','elderly_home','t','t');
+             INSERT INTO institution_profile (id,institution_id,version,created_at,confirmed_at) VALUES ('p1','i',1,'t','t');
+             INSERT INTO institution_profile (id,institution_id,version,created_at) VALUES ('p2','i',2,'t');
+             INSERT INTO facility (id,profile_id,kind,count,condition,accessible,notes,origin) VALUES ('old','p1','Cocina',1,'good',NULL,NULL,'user');
+             INSERT INTO facility (id,profile_id,kind,count,condition,accessible,notes,origin) VALUES
+               ('a','p2','Baño',3,'poor',0,'Piso resbaloso.','user'),
+               ('b','p2','Sala de usos múltiples',1,NULL,1,NULL,'user'),
+               ('c','p2','Taller de costura',2,'critical',NULL,NULL,'document');"#,
+        )
+        .unwrap();
+
+        run(&mut conn).unwrap();
+
+        let rows: Vec<(String, Option<String>, i64, i64, i64, i64, Option<i64>, Option<String>, String)> = conn
+            .prepare("SELECT kind, label, count, good, poor, unusable, accessible, notes, origin FROM fac_space ORDER BY rowid")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(rows, vec![
+            ("bathroom".into(), None, 3, 0, 3, 0, Some(0), Some("Piso resbaloso.".into()), "user".into()),
+            ("living".into(), Some("Sala de usos múltiples".into()), 1, 0, 0, 0, Some(1), None, "user".into()),
+            ("other".into(), Some("Taller de costura".into()), 2, 0, 0, 2, None, None, "document".into()),
+        ], "only the latest version moves; a state nobody said stays unchecked");
+        let site: String = conn.query_row("SELECT name FROM fac_site", [], |r| r.get(0)).unwrap();
+        assert_eq!(site, "Inmueble principal");
+        let gone: i64 = conn.query_row("SELECT count(*) FROM sqlite_master WHERE name = 'facility'", [], |r| r.get(0)).unwrap();
+        assert_eq!(gone, 0);
+        let event: String = conn.query_row("SELECT details_json FROM audit_log WHERE event='facilities.imported'", [], |r| r.get(0)).unwrap();
+        assert_eq!(event, "{\"groups\":3}");
+    }
+
+    /// Without spaces there is no site to make and nothing to log.
+    #[test]
+    fn a_profile_without_spaces_moves_nothing() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        run(&mut conn).unwrap();
+        let sites: i64 = conn.query_row("SELECT count(*) FROM fac_site", [], |r| r.get(0)).unwrap();
+        assert_eq!(sites, 0);
     }
 
     /// Income written before ADR-026 keeps its amount as a yearly one; what said «cuota» becomes a fee estimate.

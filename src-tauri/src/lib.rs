@@ -1,24 +1,33 @@
+mod access_service;
 mod ai;
 mod audit;
 mod call_service;
+mod care;
+mod care_service;
 mod commands;
+mod common;
 mod conversation_service;
 mod diagnosis_service;
 mod documents;
 mod domain;
+mod facilities;
+mod facilities_service;
 mod drafting_service;
 mod error;
 mod guide_service;
 mod hr;
 mod institution_context;
+mod onboarding_service;
 mod jobs;
 mod review_service;
-mod roster_service;
+mod profile_sync;
 mod scanner;
 mod security_service;
 mod service;
 mod staff_service;
 mod storage;
+#[cfg(test)]
+mod architecture_tests;
 #[cfg(test)]
 mod test_support;
 
@@ -32,19 +41,43 @@ pub struct Db(pub Arc<Mutex<rusqlite::Connection>>);
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
+            #[allow(unused_mut)]
+            let mut dir = app.path().app_data_dir()?;
+            // development only: another folder, to try the first start from zero without touching the examples
+            #[cfg(debug_assertions)]
+            if let Some(other) = std::env::var_os("CIMIENTO_DATA_DIR").filter(|d| !d.is_empty()) {
+                dir = other.into();
+            }
             std::fs::create_dir_all(&dir)?;
             let key = storage::get_or_create_db_key()?;
             let conn = storage::open_encrypted(&dir.join("cimiento.db"), &key)?;
             // a reading that was running when the program was closed waits to be resumed
             let _ = storage::calls::mark_interrupted(&conn);
-            app.manage(Db(Arc::new(Mutex::new(conn))));
+            let db = Arc::new(Mutex::new(conn));
+            // who is using the app (ADR-028): nobody until they enter
+            app.manage(access_service::Session::new(db.clone()));
+            app.manage(Db(db));
             app.manage(security_service::Attempts::default());
             app.manage(jobs::Jobs::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::access::access_status,
+            commands::access::access_setup_admin,
+            commands::access::access_login,
+            commands::access::access_recover,
+            commands::access::access_unlock,
+            commands::access::access_lock,
+            commands::access::access_logout,
+            commands::access::access_change_password,
+            commands::access::admin_overview,
+            commands::access::admin_user_create,
+            commands::access::admin_user_update,
+            commands::access::admin_user_reset_password,
+            commands::access::admin_request_resolve,
+            commands::access::admin_audit,
+            commands::access::admin_recovery_code_new,
             commands::profile_get,
             commands::profile_save,
             commands::profile_confirm,
@@ -52,11 +85,27 @@ pub fn run() {
             commands::documents_list,
             commands::document_emergency_delete,
             commands::dev_load_fixture,
-            commands::roster::roster_overview,
-            commands::roster::roster_field_save,
-            commands::roster::roster_field_delete,
-            commands::roster::roster_entry_save,
-            commands::roster::roster_entry_delete,
+            commands::care::care_overview,
+            commands::care::care_person_get,
+            commands::care::care_person_save,
+            commands::care::care_person_delete,
+            commands::care::care_person_reveal,
+            commands::care::care_group_save,
+            commands::care::care_field_save,
+            commands::care::care_field_delete,
+            commands::care::care_waitlist_save,
+            commands::care::care_waitlist_admit,
+            commands::care::care_waitlist_delete,
+            commands::onboarding::onboarding_status,
+            commands::onboarding::onboarding_save,
+            commands::onboarding::onboarding_finish,
+            commands::onboarding::onboarding_welcome_done,
+            commands::facilities::facilities_overview,
+            commands::facilities::facilities_site_save,
+            commands::facilities::facilities_space_save,
+            commands::facilities::facilities_space_delete,
+            commands::facilities::facilities_equipment_save,
+            commands::facilities::facilities_equipment_delete,
             commands::hr::hr_overview,
             commands::hr::hr_person_get,
             commands::hr::hr_person_save,
@@ -117,10 +166,6 @@ pub fn run() {
             commands::drafting::schedule_confirm,
             commands::drafting::review_get,
             commands::drafting::guide_export,
-            commands::security::pin_status,
-            commands::security::pin_set,
-            commands::security::pin_clear,
-            commands::security::pin_verify,
             commands::security::security_scan,
             commands::security::backup_create,
             commands::security::backup_restore,

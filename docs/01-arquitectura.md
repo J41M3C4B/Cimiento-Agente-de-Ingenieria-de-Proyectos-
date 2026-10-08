@@ -55,6 +55,33 @@ trait AiProvider { async fn complete(&self, req: AiRequest) -> Result<AiResponse
 trait AuditSink { fn record(&self, event: AuditEvent); }
 ```
 
+## Núcleo y módulos (ADR-032)
+
+La app es un **monolito modular**: un solo programa y una sola base, partidos en capas. Cada capa solo mira hacia abajo, y una prueba lo revisa (`architecture_tests.rs`, con una lista de deuda que solo se achica).
+
+```
+commands/          capa delgada: permiso → llamada → mensaje amigable
+──────────────────────────────────────────────────────────────────────────
+modules/projects/  Proyectos: consume lo que el núcleo sabe (solo core::api)
+──────────────────────────────────────────────────────────────────────────
+core/              Núcleo: institución, primer inicio, acceso y seguridad,
+                   documentos, tableros que cruzan módulos, ficha de la IA
+──────────────────────────────────────────────────────────────────────────
+modules/hr|care|   Módulos: Personal, Beneficiarios, Instalaciones, Finanzas.
+facilities|finance No se ven entre sí ni ven al núcleo; hablan por su api.rs
+──────────────────────────────────────────────────────────────────────────
+ai/ audit/ common/ documents/ scanner/ storage/     Base, sin reglas de negocio
+```
+
+- **Un módulo por dentro:**
+  - `mod.rs`: error propio y prueba de frontera.
+  - `domain/`, `storage.rs` (tablas con prefijo propio) y `service.rs` (sus pantallas).
+  - `api.rs`: agregados para el núcleo.
+  - `legacy.rs`: traslados de datos anteriores, opcional.
+- **El núcleo** le pasa a cada módulo el tipo de institución y lee de él solo su `api`. También pasa los textos por el escáner y actualiza lo que se deriva (las líneas anónimas del perfil y el balance).
+- **La IA** lee la institución solo por la ficha del núcleo.
+- **Los permisos** se revisan solo en `commands/`.
+
 ## Flujo de un archivo subido
 
 ```
@@ -80,32 +107,33 @@ domain arma la tarea
   → registrar tokens y costo estimado en ai_usage
 ```
 
-## Estructura de carpetas objetivo
+## Estructura de carpetas
+
+Estado al que lleva el ADR-032 (se aplica por bloques; ver `09-roadmap.md`).
 
 ```
 cimiento/
-├── README.md
 ├── docs/                 # especificaciones; docs/agents/ = guía operativa para agentes de desarrollo
 ├── schemas/              # esquema canónico de convocatorias
 ├── fixtures/
 ├── src/
-│   ├── app/              # rutas y layout
-│   ├── features/         # una carpeta por etapa: profile, diagnosis, calls, drafting, questionnaires
-│   ├── components/       # componentes compartidos
+│   ├── core/             # Inicio, Mi institución, primer inicio, acceso, documentos, ajustes
+│   ├── modules/          # hr, care, facilities, finance, projects (con convocatorias)
+│   ├── components/       # componentes compartidos (ui/ = catálogo del sistema visual)
 │   ├── lib/tauri.ts      # wrappers tipados de invoke()
 │   └── i18n/es-MX.ts     # TODOS los textos visibles
 └── src-tauri/
-    ├── migrations/
+    ├── migrations/       # una sola lista numerada para toda la base
     └── src/
-        ├── main.rs
-        ├── commands/
-        ├── domain/
-        ├── storage/
-        ├── scanner/
-        ├── documents/
-        ├── ai/
-        │   └── prompts/  # prompts versionados como archivos
-        └── audit/
+        ├── lib.rs · main.rs · error.rs
+        ├── commands/     # un archivo por área
+        ├── core/         # núcleo; core::api es lo que Proyectos puede pedir
+        ├── modules/
+        │   ├── hr/  care/  facilities/  finance/
+        │   └── projects/
+        ├── ai/           # prompts/ = prompts versionados como archivos
+        ├── audit/  common/  documents/  scanner/
+        └── storage/      # base cifrada, migraciones, llaves, respaldo
 ```
 
 ## Rutas de datos en la máquina

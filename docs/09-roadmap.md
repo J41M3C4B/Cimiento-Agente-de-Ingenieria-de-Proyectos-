@@ -32,8 +32,17 @@ Objetivo: proyecto que compila, base cifrada y las pruebas técnicas de riesgo r
 - [x] **Revisión de «Mi institución», bloque 1: datos generales (2026-10-07, ADR-026).** Guardado revisado (montos con comas, tope de cifras, avisos de RFC, teléfono y correo). Ficha de la IA: «Gasto anual aproximado» en lugar de «Presupuesto anual», ingresos por tipo y egresos; nómina y cuotas del padrón nunca como cifra, y balance en palabras. Ingresos por tipo con cuotas calculadas del padrón, egresos en lista o con aproximado exprés, nómina con aguinaldo y prima vacacional (LFT 2023), balance. Migración 0014.
 - [x] Diseño de la pantalla para el bloque 1 (sesión de diseño): ingresos por tipo y periodo, lista de egresos con modo exprés, tarjeta de balance, nómina con prestaciones.
 - [x] **«Mi institución», bloque 2: Personal como base de RH (2026-10-07, ADR-027).** Módulo aparte (`hr/`, tablas `hr_*`, migración 0015 con traslado del padrón), modalidades con reglas y modalidades propias, catálogo de puestos con plazas autorizadas, formulario en 4 pasos con avance, CURP/RFC/NSS/CLABE validados y tapados, baja distinta de borrado, aportaciones y personal externo como egresos aparte, y a la IA solo agregados (atributos personales con grupos de 3 o más).
-- [ ] Diseño fino del módulo de Personal (sesión de diseño).
-- [ ] **Siguiente: perfiles de acceso.** Administrador técnico; dirección y contaduría con acceso completo, pero con candados para cambios graves (borrados, cambios masivos) y, más adelante, solicitudes que aprueba el administrador a distancia.
+- [x] Diseño fino del módulo de Personal (sesión de diseño).
+- [x] **Perfiles de acceso (2026-10-07, ADR-028).** Cuentas con contraseña (Argon2id), administrador y dirección/contaduría, permiso declarado y revisado en Rust en cada comando (con prueba que impide comandos sin permiso), borrados de dirección/contaduría como solicitudes con el registro oculto, panel de administración (cuentas, solicitudes, bitácora, código de recuperación), bloqueo por inactividad, bitácora con autor; el PIN se retira. Migración 0016.
+- [x] Diseño fino de las pantallas de acceso y del panel de administración (sesión de diseño).
+- [x] **«Mi institución», bloque 3: Beneficiarios e inteligencia de datos (2026-10-07, ADR-029).** Módulo aparte (`care/`, tablas `care_*`, migración 0017 con traslado del padrón, que desaparece), ficha en 5 pasos según asilo o casa hogar, salud solo por categorías, lista de espera, tablero con indicadores y hallazgos que cruzan beneficiarios con espacios, dinero y personal, aviso de privacidad por persona; a la IA solo conteos y hallazgos sin dinero. `common/` con los validadores compartidos.
+- [ ] Diseño fino del módulo de Beneficiarios y su tablero (sesión de diseño).
+- [x] **«Mi institución», bloque 4: Instalaciones (2026-10-07, ADR-030).** Módulo aparte (`facilities/`, tablas `fac_*`, migración 0018 con traslado de la lista del perfil, que desaparece). El inmueble con m², pisos y cómo se sube, tenencia y papeles, servicios, y seguridad y protección civil. Espacios y equipo por grupo con conteo por estado y lo no contado «sin revisar», fallas de una lista, camas, barras y regadera accesible. Tablero con indicadores (m² por persona, personas por baño, camas) y hallazgos que cruzan la casa con las personas atendidas; a la IA todo, salvo conteos de personas con atributos de menos de 3.
+- [ ] Diseño fino del módulo de Instalaciones y su tablero (sesión de diseño).
+- [ ] Umbrales de la NOM-031-SSA3 y la NOM-032-SSA3 para calificar las proporciones de Instalaciones (confirmar en el texto oficial).
+- [x] **Primer inicio (2026-10-08, ADR-031).** Bienvenida por cuenta, puesta en marcha del administrador y asistente obligatorio de datos de la institución en 6 pasos con revisión; cifras rápidas de personal y beneficiarios; ubicación, año de fundación, figura jurídica, donataria y CLUNI en el perfil y en la ficha de la IA. Migración 0019. `CIMIENTO_DATA_DIR` para probar desde cero sin tocar los ejemplos.
+- [ ] Diseño fino del primer inicio (sesión de diseño) y lista de «Siguientes pasos» en Inicio.
+- [ ] Módulo remoto para aprobar solicitudes a distancia (sobre `access_request`).
 
 - [x] Prueba manual en la app: cargar un ejemplo, pegar una CURP ficticia en las notas, ver la cuarentena y tapar; agregar un documento de texto y borrarlo con el botón de emergencia.
 
@@ -174,3 +183,17 @@ Objetivo: proyecto que compila, base cifrada y las pruebas técnicas de riesgo r
 - Migración a la nube si se justifica.
 - [x] (2026-10-02) Riel de convocatorias abandonado (ver `docs/huella-riel-de-convocatorias.md`). Schema canónico `schemas/canonical_call.schema.json` y pipeline `documents/canonical/` (contrato, paquete de documentos, recuperación de páginas por campo, normalización, verificación de citas, ensamble y validación). ADR-015.
 - [x] Comparar las dos formas de lectura (una llamada o una por bloque, con o sin recuperación de páginas) sobre los siete paquetes reales con Flash-Lite; decidido: por bloque con embeddings; el código del riel se retiró (2026-10-03).
+
+## Fase 9 · Monolito modular: núcleo y módulos (ADR-032)
+
+Objetivo: tratar la app como un ERP de la institución. «Inicio» y «Mi institución» forman el núcleo; Personal, Beneficiarios, Instalaciones, Finanzas y Proyectos son módulos independientes que se conectan solo por su `api`. Un bloque por commit, con las pruebas en verde. Proyectos se separa sin lógica nueva (su desarrollo queda en pausa).
+
+- [x] **B0** ADR-032, arquitectura, principios y glosario; prueba de fronteras (`cargo test architecture`) con la lista de deuda de hoy (28 dependencias que van al revés).
+- [ ] **B1** Ayudantes del escáner a la base; `core::institution::kind` y `Flavor::from_kind`; `api::delete_person` y los ejemplos por el `api` de cada módulo.
+- [ ] **B2** `hr`, `care` y `facilities` a `modules/`.
+- [ ] **B3** Módulo de Finanzas (`modules/finance/`, tablas `fin_*`, migración, comandos `finance_*`, paso «Dinero» y ficha de la IA).
+- [ ] **B4** `core/` con `core::api`; lo que cruza núcleo y Proyectos (borrados aprobados, escaneo de la base) lo arman los comandos.
+- [ ] **B5** Proyectos a `modules/projects/` con `ProjectsError`. La lista de deuda queda vacía.
+- [ ] **B6** Frontend en `src/core/` y `src/modules/`, módulos en el riel, «Mi institución» con resúmenes; notas «Para cloud».
+
+**Terminado cuando:** la lista de deuda de `architecture_tests.rs` está vacía, todas las pruebas pasan y cada módulo se abre desde el riel.

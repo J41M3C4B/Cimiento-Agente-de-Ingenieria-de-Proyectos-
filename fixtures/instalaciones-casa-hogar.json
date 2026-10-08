@@ -1,0 +1,130 @@
+{
+  "site": {
+    "name": "Casa principal",
+    "land_m2": 800,
+    "built_m2": 620,
+    "floors": 2,
+    "floor_access": [
+      "none"
+    ],
+    "built_year": 1995,
+    "tenure": "loan",
+    "tenure_until": 2029,
+    "tenure_documented": true,
+    "water_sources": [
+      "network"
+    ],
+    "water_shortage": "often",
+    "water_storage_liters": 5000,
+    "power_outages": "never",
+    "gas": "lp_tank",
+    "drainage": "sewer",
+    "internet": true,
+    "extinguishers": 3,
+    "extinguishers_current": true,
+    "smoke_detectors": 2,
+    "marked_exits": true,
+    "emergency_lights": true,
+    "first_aid_kit": true,
+    "internal_program": "yes",
+    "civil_protection_opinion": true,
+    "opinion_year": 2024,
+    "drills_per_year": 2,
+    "notes": null
+  },
+  "spaces": [
+    {
+      "kind": "bedroom",
+      "floor": 1,
+      "count": 6,
+      "good": 4,
+      "fair": 2,
+      "beds": 36,
+      "hospital_beds": 0
+    },
+    {
+      "kind": "bathroom",
+      "floor": 1,
+      "count": 3,
+      "good": 1,
+      "poor": 2,
+      "problems": [
+        "damp",
+        "leaks"
+      ],
+      "notes": "Humedad y regaderas en mal estado."
+    },
+    {
+      "kind": "bathroom",
+      "floor": 0,
+      "count": 1,
+      "good": 1
+    },
+    {
+      "kind": "classroom",
+      "label": "Aula de tareas",
+      "floor": 0,
+      "count": 1,
+      "good": 1
+    },
+    {
+      "kind": "dining",
+      "floor": 0,
+      "count": 1,
+      "good": 1
+    },
+    {
+      "kind": "kitchen",
+      "floor": 0,
+      "count": 1,
+      "fair": 1,
+      "problems": [
+        "electrical"
+      ]
+    },
+    {
+      "kind": "play",
+      "floor": 0,
+      "count": 1,
+      "fair": 1,
+      "problems": [
+        "floor"
+      ]
+    },
+    {
+      "kind": "yard",
+      "floor": 0,
+      "count": 1,
+      "good": 1
+    }
+  ],
+  "equipment": [
+    {
+      "kind": "washer",
+      "count": 2,
+      "good": 2
+    },
+    {
+      "kind": "fridge",
+      "count": 1,
+      "fair": 1
+    },
+    {
+      "kind": "stove",
+      "count": 1,
+      "poor": 1,
+      "notes": "Dos quemadores no prenden."
+    },
+    {
+      "kind": "computer",
+      "count": 4,
+      "good": 2,
+      "unusable": 2
+    },
+    {
+      "kind": "vehicle",
+      "count": 1,
+      "fair": 1
+    }
+  ]
+}

@@ -3,12 +3,13 @@ import { es } from "../i18n/es-MX";
 import { projectTone } from "../lib/palette";
 import { useTheme } from "../lib/theme";
 import type { ProjectRow } from "../lib/types";
+import { PersonMenu } from "../features/access/PersonMenu";
+import type { SessionApi } from "../features/access/session";
 import { PROJECT_STEPS, stepIndex } from "../features/projects/steps";
-import { Icon } from "./icons";
 import type { IconName } from "./icons";
-import { Avatar, IconButton, StepDots } from "./ui";
+import { Avatar, IconButton, Logo, StepDots } from "./ui";
 
-export type Page = "home" | "projects" | "profile" | "documents" | "ai" | "security" | "help";
+export type Page = "home" | "projects" | "profile" | "documents" | "ai" | "security" | "admin" | "help";
 
 const TOP: [Page, string, IconName][] = [
   ["home", es.nav.home, "home"],
@@ -16,9 +17,11 @@ const TOP: [Page, string, IconName][] = [
   ["profile", es.nav.profile, "building"],
   ["documents", es.nav.documents, "file"],
 ];
-const MORE: [Page, string, IconName][] = [
-  ["ai", es.nav.ai, "sparkles"],
-  ["security", es.nav.security, "shield"],
+/** The sections below the line; some only for whoever may use them (ADR-028). */
+const MORE: [Page, string, IconName, "settings" | "administer" | null][] = [
+  ["ai", es.nav.ai, "sparkles", "settings"],
+  ["security", es.nav.security, "shield", null],
+  ["admin", es.nav.admin, "users", "administer"],
 ];
 
 /**
@@ -31,8 +34,7 @@ export function Shell({
   institution,
   focus,
   onOpenFocus,
-  locked,
-  onLock,
+  access,
   children,
 }: {
   page: Page;
@@ -41,9 +43,8 @@ export function Shell({
   /** the project the capsule talks about: the one open, or else the one in progress */
   focus: ProjectRow | undefined;
   onOpenFocus: () => void;
-  /** with a PIN set, the rail has a button to lock */
-  locked: boolean;
-  onLock: () => void;
+  /** the person inside: the menu shows what they may use, and the rail locks or closes the session */
+  access: SessionApi | null;
   children: ReactNode;
 }) {
   const [theme, toggleTheme] = useTheme();
@@ -58,9 +59,7 @@ export function Shell({
     <div className="shell">
       <div className="frame">
         <header className="topbar">
-          <span className="grid h-ctl w-ctl place-items-center rounded-field bg-ink text-on-ink" title={es.app.name}>
-            <Icon name="logo" size={22} />
-          </span>
+          <Logo className="h-8" />
           <div className="capsule" aria-label={es.nav.openProject}>
             {focus ? (
               <>
@@ -79,19 +78,28 @@ export function Shell({
           </div>
           <div className="ml-auto flex items-center gap-3">
             <IconButton icon={theme === "dark" ? "sun" : "moon"} label={theme === "dark" ? es.nav.themeLight : es.nav.themeDark} onClick={toggleTheme} />
-            <button type="button" onClick={() => onNavigate("profile")} title={es.nav.profile} className="flex items-center gap-2.5 border-l border-line pl-4 text-ui font-bold">
-              <span className="hidden max-w-[220px] truncate md:inline">{institution}</span>
-              <Avatar name={institution} tone="violet" />
-            </button>
+            {access ? (
+              <PersonMenu access={access} />
+            ) : (
+              <button type="button" onClick={() => onNavigate("profile")} title={es.nav.profile} className="flex items-center gap-2.5 border-l border-line pl-4 text-ui font-bold">
+                <span className="hidden max-w-[220px] truncate md:inline">{institution}</span>
+                <Avatar name={institution} tone="violet" />
+              </button>
+            )}
           </div>
         </header>
         <nav aria-label={es.nav.mainSections} className="rail">
           {TOP.map(rail)}
           <span className="rail-sep" aria-hidden="true" />
-          {MORE.map(rail)}
+          {MORE.filter(([, , , needs]) => !needs || access?.can(needs)).map(([id, label, icon]) => rail([id, label, icon]))}
           <span className="rail-gap" aria-hidden="true" />
           {rail(["help", es.nav.help, "help"])}
-          {locked && <IconButton icon="lock" label={es.nav.lock} tip={es.nav.lock} variant="danger" onClick={onLock} />}
+          {access && (
+            <>
+              <IconButton icon="lock" label={es.access.menu.lock} tip={es.access.menu.lock} onClick={access.lock} />
+              <IconButton icon="x" label={`${es.access.menu.logout} (${access.session.display_name})`} tip={es.access.menu.logout} variant="danger" onClick={access.logout} />
+            </>
+          )}
         </nav>
         <main className="frame-main min-w-0">{children}</main>
       </div>

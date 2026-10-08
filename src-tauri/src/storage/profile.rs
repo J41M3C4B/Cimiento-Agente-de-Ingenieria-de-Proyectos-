@@ -32,7 +32,7 @@ pub fn current_year(conn: &Connection) -> Result<i64, StorageError> {
 }
 
 /// The lists that hang from a version of the profile.
-const PROFILE_LISTS: [&str; 5] = ["population_group", "staff_group", "facility", "income_source", "expense_item"];
+const PROFILE_LISTS: [&str; 4] = ["population_group", "staff_group", "income_source", "expense_item"];
 
 fn text(o: &Option<String>) -> Option<&str> {
     o.as_deref().map(str::trim).filter(|s| !s.is_empty())
@@ -43,7 +43,9 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
     let head = conn
         .query_row(
             "SELECT i.id, i.name, i.kind, i.mission, i.legal_rfc, i.contact_phone, i.contact_email, i.legal_rep_name,
-                    p.id, p.version, p.confirmed_at, p.capacity_total, p.annual_budget_mxn, p.notes
+                    p.id, p.version, p.confirmed_at, p.capacity_total, p.annual_budget_mxn, p.notes,
+                    i.state, i.municipality, i.founded_year, i.legal_form, i.authorized_donee, i.cluni,
+                    p.served_estimate, p.staff_paid_estimate, p.staff_volunteer_estimate
              FROM institution i JOIN institution_profile p ON p.institution_id = i.id
              ORDER BY p.version DESC LIMIT 1",
             [],
@@ -58,6 +60,12 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
                         contact_phone: r.get(5)?,
                         contact_email: r.get(6)?,
                         legal_rep_name: r.get(7)?,
+                        state: r.get(14)?,
+                        municipality: r.get(15)?,
+                        founded_year: r.get(16)?,
+                        legal_form: r.get(17)?,
+                        authorized_donee: r.get(18)?,
+                        cluni: r.get(19)?,
                     },
                     r.get::<_, String>(8)?,
                     r.get::<_, i64>(9)?,
@@ -65,11 +73,12 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
                     r.get::<_, Option<i64>>(11)?,
                     r.get::<_, Option<i64>>(12)?,
                     r.get::<_, Option<String>>(13)?,
+                    [r.get::<_, Option<i64>>(20)?, r.get::<_, Option<i64>>(21)?, r.get::<_, Option<i64>>(22)?],
                 ))
             },
         )
         .optional()?;
-    let Some((institution_id, institution, profile_id, version, confirmed_at, capacity_total, annual_budget_mxn, notes)) =
+    let Some((institution_id, institution, profile_id, version, confirmed_at, capacity_total, annual_budget_mxn, notes, [served_estimate, staff_paid_estimate, staff_volunteer_estimate])) =
         head
     else {
         return Ok(None);
@@ -106,18 +115,6 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
-    let facilities = conn
-        .prepare("SELECT kind, count, condition, accessible, notes FROM facility WHERE profile_id = ?1 ORDER BY rowid")?
-        .query_map([&profile_id], |r| {
-            Ok(FacilityInput {
-                kind: r.get(0)?,
-                count: r.get(1)?,
-                condition: r.get::<_, Option<String>>(2)?.and_then(|s| Condition::from_db(&s)),
-                accessible: r.get::<_, Option<i64>>(3)?.map(|v| v != 0),
-                notes: r.get(4)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
     let income = conn
         .prepare("SELECT label, kind, amount_mxn, period FROM income_source WHERE profile_id = ?1 ORDER BY rowid")?
         .query_map([&profile_id], |r| {
@@ -141,7 +138,19 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
         profile_id,
         version,
         confirmed_at,
-        input: ProfileInput { institution, capacity_total, annual_budget_mxn, notes, population, staff, facilities, income, expenses },
+        input: ProfileInput {
+            institution,
+            capacity_total,
+            annual_budget_mxn,
+            notes,
+            served_estimate,
+            staff_paid_estimate,
+            staff_volunteer_estimate,
+            population,
+            staff,
+            income,
+            expenses,
+        },
         as_of_year: current_year(conn)?,
     }))
 }
@@ -158,19 +167,25 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
         Some(iid) => {
             tx.execute(
                 "UPDATE institution SET name=?2, kind=?3, mission=?4, legal_rfc=?5, contact_phone=?6, contact_email=?7,
-                        legal_rep_name=?8, updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?1",
+                        legal_rep_name=?8, state=?9, municipality=?10, founded_year=?11, legal_form=?12, authorized_donee=?13,
+                        cluni=?14, updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?1",
                 params![iid, inst.name.trim(), inst.kind.as_db(), text(&inst.mission), text(&inst.legal_rfc),
-                        text(&inst.contact_phone), text(&inst.contact_email), text(&inst.legal_rep_name)],
+                        text(&inst.contact_phone), text(&inst.contact_email), text(&inst.legal_rep_name), text(&inst.state),
+                        text(&inst.municipality), inst.founded_year, text(&inst.legal_form), text(&inst.authorized_donee),
+                        text(&inst.cluni)],
             )?;
             iid
         }
         None => {
             let iid = id("inst");
             tx.execute(
-                "INSERT INTO institution (id,name,kind,mission,legal_rfc,contact_phone,contact_email,legal_rep_name,created_at,updated_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%SZ','now'),strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
+                "INSERT INTO institution (id,name,kind,mission,legal_rfc,contact_phone,contact_email,legal_rep_name,state,
+                        municipality,founded_year,legal_form,authorized_donee,cluni,created_at,updated_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,strftime('%Y-%m-%dT%H:%M:%SZ','now'),strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
                 params![iid, inst.name.trim(), inst.kind.as_db(), text(&inst.mission), text(&inst.legal_rfc),
-                        text(&inst.contact_phone), text(&inst.contact_email), text(&inst.legal_rep_name)],
+                        text(&inst.contact_phone), text(&inst.contact_email), text(&inst.legal_rep_name), text(&inst.state),
+                        text(&inst.municipality), inst.founded_year, text(&inst.legal_form), text(&inst.authorized_donee),
+                        text(&inst.cluni)],
             )?;
             iid
         }
@@ -187,8 +202,10 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
         Some((pid, _, None)) => {
             // current draft: update in place
             tx.execute(
-                "UPDATE institution_profile SET capacity_total=?2, annual_budget_mxn=?3, notes=?4 WHERE id=?1",
-                params![pid, input.capacity_total, input.annual_budget_mxn, text(&input.notes)],
+                "UPDATE institution_profile SET capacity_total=?2, annual_budget_mxn=?3, notes=?4, served_estimate=?5,
+                        staff_paid_estimate=?6, staff_volunteer_estimate=?7 WHERE id=?1",
+                params![pid, input.capacity_total, input.annual_budget_mxn, text(&input.notes), input.served_estimate,
+                        input.staff_paid_estimate, input.staff_volunteer_estimate],
             )?;
             for t in PROFILE_LISTS {
                 tx.execute(&format!("DELETE FROM {t} WHERE profile_id=?1"), [&pid])?;
@@ -199,9 +216,11 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
             let version = other.map_or(1, |(_, v, _)| v + 1);
             let pid = id("prof");
             tx.execute(
-                "INSERT INTO institution_profile (id,institution_id,version,capacity_total,annual_budget_mxn,notes,created_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
-                params![pid, institution_id, version, input.capacity_total, input.annual_budget_mxn, text(&input.notes)],
+                "INSERT INTO institution_profile (id,institution_id,version,capacity_total,annual_budget_mxn,notes,served_estimate,
+                        staff_paid_estimate,staff_volunteer_estimate,created_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
+                params![pid, institution_id, version, input.capacity_total, input.annual_budget_mxn, text(&input.notes),
+                        input.served_estimate, input.staff_paid_estimate, input.staff_volunteer_estimate],
             )?;
             pid
         }
@@ -221,13 +240,6 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,'computed')",
             params![id("staff"), profile_id, s.role.trim(), s.count, text(&s.shift), s.paid as i64,
                     s.monthly_salary_mxn, s.contract.map(|c| c.as_db()), s.start_year, text(&s.notes), text(&s.relation)],
-        )?;
-    }
-    for f in &input.facilities {
-        tx.execute(
-            "INSERT INTO facility (id,profile_id,kind,count,condition,accessible,notes,origin) VALUES (?1,?2,?3,?4,?5,?6,?7,'user')",
-            params![id("fac"), profile_id, f.kind.trim(), f.count, f.condition.map(|c| c.as_db()),
-                    f.accessible.map(|a| a as i64), text(&f.notes)],
         )?;
     }
     for i in &input.income {
@@ -318,9 +330,6 @@ mod tests {
                 label: "Adultos mayores".into(), count: 18, dependency_level: Some(DependencyLevel::High), ..Default::default()
             }],
             staff: vec![StaffGroupInput { role: "Enfermería".into(), count: 3, paid: true, ..Default::default() }],
-            facilities: vec![FacilityInput {
-                kind: "Baño".into(), count: 2, condition: Some(Condition::Poor), accessible: Some(false), notes: None,
-            }],
             income: vec![IncomeSourceInput { label: "Cuotas".into(), kind: IncomeKind::FeeEstimate, amount_mxn: Some(50_000), period: Period::Monthly }],
             expenses: vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(30_000), period: Period::Monthly }],
             ..Default::default()
@@ -335,7 +344,6 @@ mod tests {
         assert_eq!(saved.version, 1);
         assert!(saved.confirmed_at.is_none());
         assert_eq!(saved.input.population[0].count, 18);
-        assert_eq!(saved.input.facilities[0].accessible, Some(false));
         assert_eq!(saved.input.institution.kind, InstitutionKind::ElderlyHome);
         let inc = &saved.input.income[0];
         assert_eq!((inc.kind, inc.amount_mxn, inc.period), (IncomeKind::FeeEstimate, Some(50_000), Period::Monthly));

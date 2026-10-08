@@ -6,3 +6,4 @@ export * from "./Surface";
 export * from "./Nav";
 export * from "./Overlay";
 export * from "./Content";
+export * from "./Brand";

@@ -61,35 +61,6 @@ impl DependencyLevel {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Condition {
-    Good,
-    Fair,
-    Poor,
-    Critical,
-}
-
-impl Condition {
-    pub fn as_db(self) -> &'static str {
-        match self {
-            Condition::Good => "good",
-            Condition::Fair => "fair",
-            Condition::Poor => "poor",
-            Condition::Critical => "critical",
-        }
-    }
-    pub fn from_db(s: &str) -> Option<Self> {
-        Some(match s {
-            "good" => Condition::Good,
-            "fair" => Condition::Fair,
-            "poor" => Condition::Poor,
-            "critical" => Condition::Critical,
-            _ => return None,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum ContractKind {
     /// Fixed position with benefits.
     Permanent,
@@ -183,6 +154,21 @@ pub struct InstitutionInput {
     pub contact_phone: Option<String>,
     pub contact_email: Option<String>,
     pub legal_rep_name: Option<String>,
+    /// Where it is (ADR-031): a code of `onboarding::STATES` and the municipality. Not personal: it reaches the AI.
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub municipality: Option<String>,
+    #[serde(default)]
+    pub founded_year: Option<i64>,
+    /// A code of `onboarding::LEGAL_FORMS`.
+    #[serde(default)]
+    pub legal_form: Option<String>,
+    /// Donataria autorizada (SAT) and CLUNI: `yes`, `in_progress` or `no`.
+    #[serde(default)]
+    pub authorized_donee: Option<String>,
+    #[serde(default)]
+    pub cluni: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -224,15 +210,6 @@ pub struct StaffGroupInput {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct FacilityInput {
-    pub kind: String,
-    pub count: i64,
-    pub condition: Option<Condition>,
-    pub accessible: Option<bool>,
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct IncomeSourceInput {
     pub label: String,
     #[serde(default)]
@@ -261,12 +238,18 @@ pub struct ProfileInput {
     /// It is the quick way to start; once the list of expenses has a line, the list is the total (ADR-026).
     pub annual_budget_mxn: Option<i64>,
     pub notes: Option<String>,
+    /// Quick figures said by the person (ADR-031): how many people are served and work there while their records
+    /// are not in the modules yet. The records win when they exist.
+    #[serde(default)]
+    pub served_estimate: Option<i64>,
+    #[serde(default)]
+    pub staff_paid_estimate: Option<i64>,
+    #[serde(default)]
+    pub staff_volunteer_estimate: Option<i64>,
     #[serde(default)]
     pub population: Vec<PopulationGroupInput>,
     #[serde(default)]
     pub staff: Vec<StaffGroupInput>,
-    #[serde(default)]
-    pub facilities: Vec<FacilityInput>,
     #[serde(default)]
     pub income: Vec<IncomeSourceInput>,
     #[serde(default)]
@@ -434,6 +417,35 @@ impl ProfileInput {
         if too_large(self.annual_budget_mxn) {
             add("amount_too_large", "annual_budget_mxn".into(), true);
         }
+        for (field, n) in [("served_estimate", self.served_estimate), ("staff_paid_estimate", self.staff_paid_estimate), ("staff_volunteer_estimate", self.staff_volunteer_estimate)] {
+            if neg(n) {
+                add("negative_number", field.into(), true);
+            } else if n.is_some_and(|x| x > super::onboarding::MAX_ESTIMATE) {
+                add("number_too_large", field.into(), true);
+            }
+        }
+        let inst = &self.institution;
+        if inst.founded_year.is_some_and(|y| !(super::onboarding::OLDEST_YEAR..=year).contains(&y)) {
+            add("year_invalid", "institution.founded_year".into(), true);
+        }
+        let known = |v: &Option<String>, list: &[&str]| v.as_deref().is_none_or(|x| x.trim().is_empty() || list.contains(&x));
+        if !known(&inst.state, &super::onboarding::STATES.iter().map(|(c, _)| *c).collect::<Vec<_>>()) {
+            add("code_unknown", "institution.state".into(), true);
+        }
+        for (field, value, list) in [
+            ("institution.legal_form", &inst.legal_form, super::onboarding::LEGAL_FORMS),
+            ("institution.authorized_donee", &inst.authorized_donee, super::onboarding::REGISTRY),
+            ("institution.cluni", &inst.cluni, super::onboarding::REGISTRY),
+        ] {
+            if !known(value, list) {
+                add("code_unknown", field.into(), true);
+            }
+        }
+        if let (Some(served), Some(capacity)) = (self.served_estimate, self.capacity_total) {
+            if served > capacity {
+                add("served_over_capacity", "served_estimate".into(), false);
+            }
+        }
         for (i, g) in self.population.iter().enumerate() {
             let p = format!("population[{i}]");
             if g.label.trim().is_empty() {
@@ -472,14 +484,6 @@ impl ProfileInput {
             }
             if s.start_year.map_or(false, |y| !(1900..=2100).contains(&y)) {
                 add("year_invalid", format!("staff[{i}].start_year"), true);
-            }
-        }
-        for (i, f) in self.facilities.iter().enumerate() {
-            if f.kind.trim().is_empty() {
-                add("label_missing", format!("facilities[{i}].kind"), true);
-            }
-            if f.count < 0 {
-                add("negative_number", format!("facilities[{i}].count"), true);
             }
         }
         for (i, inc) in self.income.iter().enumerate() {
@@ -566,6 +570,7 @@ impl ProfileInput {
             }
         }
         opt("institution.mission", &mut self.institution.mission, f);
+        opt("institution.municipality", &mut self.institution.municipality, f);
         opt("notes", &mut self.notes, f);
         for (i, g) in self.population.iter_mut().enumerate() {
             f(&format!("population[{i}].label"), &mut g.label);
@@ -575,10 +580,6 @@ impl ProfileInput {
             f(&format!("staff[{i}].role"), &mut s.role);
             opt(&format!("staff[{i}].shift"), &mut s.shift, f);
             opt(&format!("staff[{i}].notes"), &mut s.notes, f);
-        }
-        for (i, fa) in self.facilities.iter_mut().enumerate() {
-            f(&format!("facilities[{i}].kind"), &mut fa.kind);
-            opt(&format!("facilities[{i}].notes"), &mut fa.notes, f);
         }
         for (i, inc) in self.income.iter_mut().enumerate() {
             f(&format!("income[{i}].label"), &mut inc.label);

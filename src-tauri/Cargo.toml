@@ -41,6 +41,7 @@ reqwest = { version = "0.13.5", default-features = false, features = ["json", "n
 async-trait = "0.1.92"
 jsonschema = "0.58.3"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time"] }
+argon2 = "0.6.0"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

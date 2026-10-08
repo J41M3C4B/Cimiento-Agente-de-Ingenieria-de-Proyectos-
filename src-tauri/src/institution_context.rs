@@ -11,18 +11,47 @@
 //! as something the person said.
 
 use crate::domain::finances::{ExpenseBasis, BENEFICIARY_FEES, EXPENSE};
-use crate::domain::profile::{Condition, DependencyLevel, InstitutionKind, IncomeKind, Period, ProfileInput};
+use crate::domain::profile::{InstitutionKind, IncomeKind, Period};
+use crate::care::domain::aggregate::CareSummary;
+use crate::domain::facility_insights::FacilityBoard;
+use crate::domain::facility_text;
+use crate::domain::insights::Insight;
+use crate::facilities::domain::aggregate::SiteSummary;
 use crate::hr::api::{Count, MIN_GROUP};
 use crate::hr::domain::aggregate::StaffSummary;
 use crate::service::ServiceError;
 use crate::storage::profile::{self as profile_store, StoredProfile};
 use rusqlite::Connection;
 
-/// The sheet of the current profile (the latest version, confirmed or draft), with the staff as the staff module
-/// tells it now (ADR-027).
+/// The people served as their module tells them now (ADR-029): counts, attributes of groups of three or more, and
+/// the findings of the board that carry no money.
+pub struct PeopleSheet {
+    pub summary: CareSummary,
+    pub findings: Vec<Insight>,
+}
+
+pub fn people_sheet(conn: &Connection) -> Result<PeopleSheet, ServiceError> {
+    let summary = crate::care::api::ai_summary(conn, crate::profile_sync::care_flavor(conn))?;
+    let findings = crate::care_service::board(conn)?.insights.into_iter().filter(|i| i.for_ai).collect();
+    Ok(PeopleSheet { summary, findings })
+}
+
+/// The facilities as their module tells them now (ADR-030): the building, its services and safety, every group of
+/// spaces and equipment, and the findings of their board that may reach the AI.
+pub struct FacilitiesSheet {
+    pub sites: Vec<SiteSummary>,
+    pub board: FacilityBoard,
+}
+
+pub fn facilities_sheet(conn: &Connection) -> Result<FacilitiesSheet, ServiceError> {
+    Ok(FacilitiesSheet { sites: crate::facilities::api::summaries(conn)?, board: crate::facilities_service::board(conn)? })
+}
+
+/// The sheet of the current profile (the latest version, confirmed or draft), with the staff (ADR-027), the people
+/// served (ADR-029) and the facilities (ADR-030) as their modules tell them now.
 pub fn profile_context(conn: &Connection) -> Result<String, ServiceError> {
     Ok(match profile_store::load_current(conn)? {
-        Some(p) => render(&p, &crate::hr::api::ai_summary(conn)?),
+        Some(p) => render(&p, &crate::hr::api::ai_summary(conn)?, &people_sheet(conn)?, &facilities_sheet(conn)?),
         None => "Perfil: sin datos. Todavía no hay nada capturado en «Mi institución»; de la institución solo se sabe lo que la persona diga.".into(),
     })
 }
@@ -35,23 +64,6 @@ fn kind_text(k: InstitutionKind) -> &'static str {
     }
 }
 
-fn condition_text(c: Condition) -> &'static str {
-    match c {
-        Condition::Good => "bueno",
-        Condition::Fair => "regular",
-        Condition::Poor => "malo",
-        Condition::Critical => "crítico",
-    }
-}
-
-fn dependency_text(d: DependencyLevel) -> &'static str {
-    match d {
-        DependencyLevel::Low => "baja",
-        DependencyLevel::Medium => "media",
-        DependencyLevel::High => "alta",
-        DependencyLevel::Total => "total",
-    }
-}
 
 fn relation_text(code: &str) -> &'static str {
     match code {
@@ -130,9 +142,17 @@ fn listed(counts: &[Count], words: fn(&str) -> &'static str) -> String {
 
 /// The staff, by position: how many, their relation, schedule and shift, the seats and what the position does.
 /// Schooling and seniority go only for groups of `MIN_GROUP` people or more.
-fn render_staff(s: &mut String, staff: &StaffSummary, missing: &mut Vec<&str>) {
+fn render_staff(s: &mut String, staff: &StaffSummary, estimate: (Option<i64>, Option<i64>), missing: &mut Vec<&str>) {
     if staff.total == 0 && staff.positions.is_empty() {
-        missing.push("el personal");
+        // no records yet: the quick figures of the onboarding, said as approximate (ADR-031)
+        match estimate {
+            (None, None) => missing.push("el personal"),
+            (paid, volunteer) => s.push_str(&format!(
+                "Personal (cifra aproximada que dio la persona; todavía sin registros): {} con sueldo y {} de voluntariado.\n",
+                paid.map_or("sin dato".to_string(), |n| n.to_string()),
+                volunteer.map_or("sin dato".to_string(), |n| n.to_string())
+            )),
+        }
         return;
     }
     for p in &staff.positions {
@@ -209,45 +229,274 @@ fn text(o: &Option<String>) -> Option<&str> {
     o.as_deref().map(str::trim).filter(|s| !s.is_empty())
 }
 
-/// The people served, one line per group and level of support (the fees that tell lines apart in the roster are
-/// not shown): how many, how many pay a fee, and the ages when the group is of two or more people.
-struct Group {
-    label: String,
-    dependency: Option<DependencyLevel>,
-    count: i64,
-    payers: i64,
-    ages: Option<(i64, i64)>,
+fn care_word(code: &str) -> &'static str {
+    match code {
+        "low" => "poco apoyo",
+        "medium" => "apoyo regular",
+        "high" => "mucho apoyo",
+        "total" => "apoyo en todo",
+        "independent" => "caminan sin ayuda",
+        "cane_walker" => "usan bastón o andadera",
+        "wheelchair" => "usan silla de ruedas",
+        "bedridden" => "están en cama",
+        "motor" => "con discapacidad motriz",
+        "visual" => "con discapacidad visual",
+        "hearing" => "con discapacidad auditiva",
+        "intellectual" => "con discapacidad intelectual",
+        "psychosocial" => "con discapacidad psicosocial",
+        "diabetes" => "con diabetes",
+        "hypertension" => "con hipertensión",
+        "dementia" => "con demencia",
+        "copd" => "con enfermedad pulmonar",
+        "heart_disease" => "con enfermedad del corazón",
+        "arthritis" => "con artritis",
+        "kidney_disease" => "con enfermedad renal",
+        "cancer" => "con cáncer",
+        "permanent" => "residentes permanentes",
+        "temporary" => "de estancia temporal",
+        "day_care" => "de estancia de día",
+        "respite" => "en respiro familiar",
+        "no_family_network" => "sin red familiar",
+        "abandonment" => "por abandono",
+        "dependency" => "por dependencia",
+        "violence" => "por violencia",
+        "orphanhood" => "por orfandad",
+        "poverty" => "por pobreza",
+        "health" => "por salud",
+        "family_custody" => "con su familia como responsable",
+        "dif_custody" => "bajo tutela del DIF",
+        "adoption_process" => "en proceso de adopción",
+        "other_process" => "en otro proceso legal",
+        _ => "por otra razón",
+    }
 }
 
-fn groups(i: &ProfileInput) -> Vec<Group> {
-    let mut out: Vec<Group> = Vec::new();
-    for g in i.population.iter().filter(|g| g.count > 0) {
-        let ages = match (g.age_min, g.age_max) {
-            (Some(a), Some(b)) => Some((a, b)),
-            _ => None,
-        };
-        match out.iter_mut().find(|x| x.label == g.label && x.dependency == g.dependency_level) {
-            Some(x) => {
-                x.count += g.count;
-                x.payers += g.paying_count.unwrap_or(0);
-                x.ages = match (x.ages, ages) {
-                    (Some((a, b)), Some((c, d))) => Some((a.min(c), b.max(d))),
-                    (a, b) => a.or(b),
-                };
-            }
-            None => out.push(Group {
-                label: g.label.clone(),
-                dependency: g.dependency_level,
-                count: g.count,
-                payers: g.paying_count.unwrap_or(0),
-                ages,
-            }),
+fn care_list(counts: &[crate::care::api::Count]) -> String {
+    counts.iter().map(|c| format!("{} {}", c.count, care_word(&c.code))).collect::<Vec<_>>().join(", ")
+}
+
+/// A finding of the board in one sentence (only those that may reach the AI come here).
+fn finding_text(i: &Insight) -> Option<String> {
+    let v = |k: &str| i.values.get(k).copied().unwrap_or(0);
+    Some(match i.code {
+        "mobility_vs_access" => format!(
+            "{} personas usan silla de ruedas o están en cama, y {}: {}.",
+            v("people"),
+            if v("spaces") == 1 { "1 espacio no se puede usar en silla de ruedas".to_string() } else { format!("{} espacios no se pueden usar en silla de ruedas", v("spaces")) },
+            i.items.join("; ")
+        ),
+        "waitlist_vs_seats" if v("free") >= 0 => format!("Hay {} solicitudes en lista de espera y {} plazas libres.", v("waiting"), v("free")),
+        "waitlist_vs_seats" => format!("Hay {} solicitudes en lista de espera.", v("waiting")),
+        "occupancy_high" => format!("La ocupación es de {} % de la capacidad.", v("percent")),
+        "dependency_vs_carers" => format!(
+            "{} personas necesitan mucho apoyo o apoyo en todo, y hay {} personas del personal en puestos de cuidado y salud.",
+            v("dependent"),
+            v("carers")
+        ),
+        "few_visits" => format!("{} personas reciben pocas o ninguna visita de su familia.", v("people")),
+        "no_program" => format!("{} personas de 65 años o más no tienen pensión ni programa social.", v("people")),
+        "school_lag" => format!("{} niñas, niños o adolescentes tienen rezago escolar.", v("people")),
+        _ => return None,
+    })
+}
+
+/// The people served: how many per group and, for groups of `MIN_GROUP` or more, their support, mobility, health,
+/// stay and family; then the findings that cross them with the rest of the institution. Never who.
+fn render_people(s: &mut String, people: &PeopleSheet, fee_payers: i64, estimate: Option<i64>, missing: &mut Vec<&str>) {
+    let c = &people.summary;
+    if c.served == 0 {
+        // no records yet: the quick figure of the onboarding, said as approximate (ADR-031)
+        match estimate {
+            Some(n) => s.push_str(&format!("Personas atendidas (cifra aproximada que dio la persona; todavía sin registros): {n}.\n")),
+            None => missing.push("a quiénes atiende"),
+        }
+        if c.waiting > 0 {
+            s.push_str(&format!("Lista de espera: {} solicitudes.\n", c.waiting));
+        }
+        return;
+    }
+    for g in &c.by_group {
+        s.push_str(&format!("Población: {} — {} {}.\n", g.code, g.count, if g.count == 1 { "persona" } else { "personas" }));
+    }
+    s.push_str(&format!("Total de personas atendidas: {}.\n", c.served));
+    if fee_payers > 0 {
+        s.push_str(&format!("De ellas, {fee_payers} pagan cuota de estancia.\n"));
+    }
+    if let Some(a) = c.average_age {
+        s.push_str(&format!("Edad promedio: {a} años.\n"));
+    }
+    let only = format!("(solo grupos de {MIN_GROUP} o más personas)");
+    for (title, list) in [
+        ("Nivel de apoyo", &c.dependency),
+        ("Movilidad", &c.mobility),
+        ("Discapacidad", &c.disabilities),
+        ("Condiciones de salud", &c.chronic),
+        ("Modalidad de estancia", &c.stay_modes),
+        ("Motivos de ingreso", &c.admission_reasons),
+        ("Situación legal", &c.legal),
+    ] {
+        if !list.is_empty() {
+            s.push_str(&format!("{title} {only}: {}.\n", care_list(list)));
         }
     }
-    out
+    for (text, n) in [
+        ("Reciben pocas o ninguna visita", c.few_visits),
+        ("Tienen pensión o programa social", c.with_program),
+        ("Hablan una lengua indígena", c.indigenous_language),
+        ("Van a la escuela", c.attending_school),
+        ("Tienen rezago escolar", c.school_lag),
+    ] {
+        if let Some(n) = n {
+            s.push_str(&format!("{text}: {n}.\n"));
+        }
+    }
+    if c.admitted_this_year > 0 || c.discharged_this_year > 0 {
+        s.push_str(&format!("En el año ingresaron {} y egresaron {}.\n", c.admitted_this_year, c.discharged_this_year));
+    }
+    if c.waiting > 0 {
+        s.push_str(&format!("Lista de espera: {} solicitudes.\n", c.waiting));
+    }
+    for f in people.findings.iter().filter_map(finding_text) {
+        s.push_str(&format!("Hallazgo: {f}\n"));
+    }
 }
 
-pub fn render(p: &StoredProfile, staff: &StaffSummary) -> String {
+/// A finding of the board of the facilities in one sentence (only those that may reach the AI come here).
+fn facility_finding_text(i: &Insight) -> Option<String> {
+    let v = |k: &str| i.values.get(k).copied().unwrap_or(0);
+    let often = |k: &str| if v(k) == 1 { "seguido" } else { "a veces" };
+    Some(match i.code {
+        "broken_spaces" => format!("Espacios en mal estado o que no se pueden usar: {}.", i.items.join("; ")),
+        "broken_equipment" => format!("Equipo en mal estado o que no se puede usar: {}.", i.items.join("; ")),
+        "structural" if v("groups") == 1 => "1 grupo de espacios tiene grietas o fallas en la instalación eléctrica: conviene revisar la seguridad del edificio.".to_string(),
+        "structural" => format!("{} grupos de espacios tienen grietas o fallas en la instalación eléctrica: conviene revisar la seguridad del edificio.", v("groups")),
+        "only_stairs" if v("people") > 0 => format!(
+            "El inmueble tiene varios pisos y solo escaleras entre ellos; hay {} espacios arriba y {} personas usan silla de ruedas o están en cama.",
+            v("spaces"),
+            v("people")
+        ),
+        "only_stairs" => format!("El inmueble tiene varios pisos y solo escaleras entre ellos; hay {} espacios arriba.", v("spaces")),
+        "bathrooms_without_bars" => format!("{} de {} baños no tienen barras de apoyo.", v("without"), v("bathrooms")),
+        "beds_short" if v("capacity") >= 0 => format!("Hay {} camas para {} personas atendidas y una capacidad de {}.", v("beds"), v("served"), v("capacity")),
+        "beds_short" => format!("Hay {} camas para {} personas atendidas.", v("beds"), v("served")),
+        "tenure_weak" => "El inmueble no es propio ni está en comodato: muchas convocatorias de obra piden que lo sea.".to_string(),
+        "tenure_ending" => format!("El comodato del inmueble termina en {} (faltan {} años).", v("until"), v("years")),
+        "tenure_undocumented" => "No hay papeles que acrediten la posesión del inmueble (escritura o contrato).".to_string(),
+        "civil_protection_gap" => {
+            let parts: Vec<&str> = i
+                .items
+                .iter()
+                .map(|x| match x.as_str() {
+                    "internal_program_no" => "no tiene programa interno de protección civil",
+                    "internal_program_in_progress" => "el programa interno de protección civil está en trámite",
+                    _ => "no tiene dictamen o visto bueno de protección civil",
+                })
+                .collect();
+            format!("Protección civil: {}.", parts.join("; "))
+        }
+        "fire_safety_gap" => {
+            let parts: Vec<&str> = i
+                .items
+                .iter()
+                .map(|x| match x.as_str() {
+                    "no_extinguishers" => "no hay extintores",
+                    "extinguishers_expired" => "los extintores no tienen la recarga al día",
+                    _ => "no hay detectores de humo",
+                })
+                .collect();
+            format!("Seguridad contra incendios: {}.", parts.join("; "))
+        }
+        "water_shortage" => format!("Falta el agua {}.", often("often")),
+        "power_without_backup" => format!("Se va la luz {} y no hay una planta de luz de emergencia que funcione.", often("often")),
+        _ => return None,
+    })
+}
+
+/// The facilities: the building, its services and safety, each group of spaces and equipment with how many are in
+/// each state, a few ratios made by code, and the findings of their board.
+fn render_facilities(s: &mut String, f: &FacilitiesSheet, missing: &mut Vec<&str>) {
+    for site in &f.sites {
+        for line in facility_text::site_lines(&site.site) {
+            s.push_str(&format!("{line}\n"));
+        }
+        for g in &site.spaces {
+            s.push_str(&format!("Espacio: {}\n", facility_text::space_line(g)));
+        }
+        for g in &site.equipment {
+            s.push_str(&format!("Equipo: {}\n", facility_text::equipment_line(g)));
+        }
+    }
+    if !f.sites.iter().any(|x| !x.spaces.is_empty()) {
+        missing.push("las instalaciones");
+        return;
+    }
+    let b = &f.board;
+    let mut ratios = Vec::new();
+    if let Some(m) = b.built_m2_per_person {
+        ratios.push(format!("{m} m² construidos por persona atendida"));
+    }
+    if let Some(p) = b.people_per_bathroom {
+        // «4 personas por baño», «4.5 personas por baño»: no «.0» the figure check would read as a 0
+        ratios.push(if p.fract() == 0.0 { format!("{p:.0} personas por baño") } else { format!("{p:.1} personas por baño") });
+    }
+    if let Some(beds) = b.indicators.beds {
+        ratios.push(format!("{beds} camas en total"));
+    }
+    if !ratios.is_empty() {
+        s.push_str(&format!("Instalaciones, calculado: {}.\n", ratios.join("; ")));
+    }
+    for line in b.insights.iter().filter(|i| i.for_ai).filter_map(facility_finding_text) {
+        s.push_str(&format!("Hallazgo: {line}\n"));
+    }
+}
+
+/// Where the institution is and what it is, legally (ADR-031): most calls filter by these. None of it is personal.
+fn render_identity(s: &mut String, inst: &crate::domain::profile::InstitutionInput, year: i64, missing: &mut Vec<&str>) {
+    use crate::domain::onboarding::state_name;
+    let state = inst.state.as_deref().and_then(state_name);
+    match (text(&inst.municipality), state) {
+        (Some(m), Some(st)) => s.push_str(&format!("Ubicación: {m}, {st}.\n")),
+        (None, Some(st)) => s.push_str(&format!("Ubicación: {st}.\n")),
+        (Some(m), None) => s.push_str(&format!("Ubicación: {m}.\n")),
+        (None, None) => missing.push("dónde está"),
+    }
+    match inst.founded_year {
+        Some(y) if y < year => s.push_str(&format!("Fundada en {y} ({} años de operación).\n", year - y)),
+        Some(y) => s.push_str(&format!("Fundada en {y}.\n")),
+        None => missing.push("el año de fundación"),
+    }
+    match inst.legal_form.as_deref() {
+        Some(f) => s.push_str(&format!(
+            "Figura jurídica: {}.\n",
+            match f {
+                "ac" => "asociación civil (A.C.)",
+                "iap" => "institución de asistencia privada (I.A.P.)",
+                "ibp" => "institución de beneficencia privada (I.B.P.)",
+                "sc" => "sociedad civil (S.C.)",
+                "abp" => "asociación de beneficencia privada (A.B.P.)",
+                "religious" => "asociación religiosa",
+                _ => "otra",
+            }
+        )),
+        None => missing.push("la figura jurídica"),
+    }
+    let registry = |v: &Option<String>| match v.as_deref() {
+        Some("yes") => Some("sí"),
+        Some("in_progress") => Some("en trámite"),
+        Some("no") => Some("no"),
+        _ => None,
+    };
+    match registry(&inst.authorized_donee) {
+        Some(w) => s.push_str(&format!("Donataria autorizada por el SAT: {w}.\n")),
+        None => missing.push("si es donataria autorizada"),
+    }
+    match registry(&inst.cluni) {
+        Some(w) => s.push_str(&format!("CLUNI (registro federal de organizaciones de la sociedad civil): {w}.\n")),
+        None => missing.push("si tiene CLUNI"),
+    }
+}
+
+pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> String {
     let i = &p.input;
     let t = i.totals(p.as_of_year);
     let money = i.finances(p.as_of_year);
@@ -264,6 +513,7 @@ pub fn render(p: &StoredProfile, staff: &StaffSummary) -> String {
         Some(m) => s.push_str(&format!("A qué se dedica: {m}\n")),
         None => missing.push("a qué se dedica"),
     }
+    render_identity(&mut s, &i.institution, p.as_of_year, &mut missing);
     match i.capacity_total {
         Some(c) => s.push_str(&format!("Capacidad total: {c} personas.\n")),
         None => missing.push("capacidad total"),
@@ -337,50 +587,14 @@ pub fn render(p: &StoredProfile, staff: &StaffSummary) -> String {
         s.push_str(&format!("Balance del año, calculado con lo capturado y {against}: los ingresos {verdict}.\n"));
     }
 
-    // people served: only how many, never who
-    let people = groups(i);
-    if people.is_empty() {
-        missing.push("a quiénes atiende");
-    } else {
-        for g in &people {
-            let mut line = format!("Población: {} — {} {}", g.label, g.count, if g.count == 1 { "persona" } else { "personas" });
-            if let Some(d) = g.dependency {
-                line.push_str(&format!("; nivel de dependencia {}", dependency_text(d)));
-            }
-            if let (Some((a, b)), true) = (g.ages, g.count >= 2) {
-                line.push_str(&format!("; edades de {a} a {b} años"));
-            }
-            if g.payers > 0 {
-                line.push_str(&format!("; {} pagan cuota de estancia", g.payers));
-            }
-            s.push_str(&line);
-            s.push_str(".\n");
-        }
-        s.push_str(&format!("Total de personas atendidas: {}.\n", t.population));
-        if t.fee_payers > 0 {
-            s.push_str(&format!("De ellas, {} pagan cuota de estancia.\n", t.fee_payers));
-        }
-    }
+    // people served: from their module, as counts; never who (ADR-029)
+    render_people(&mut s, people, t.fee_payers, i.served_estimate, &mut missing);
 
     // staff: from the staff module, as positions and counts; never a person, a pay or a date (ADR-027)
-    render_staff(&mut s, staff, &mut missing);
+    render_staff(&mut s, staff, (i.staff_paid_estimate, i.staff_volunteer_estimate), &mut missing);
 
-    if i.facilities.is_empty() {
-        missing.push("las instalaciones");
-    } else {
-        for f in &i.facilities {
-            let mut details = vec![format!("estado: {}", f.condition.map(condition_text).unwrap_or("sin indicar"))];
-            match f.accessible {
-                Some(true) => details.push("accesible: sí".into()),
-                Some(false) => details.push("accesible: no".into()),
-                None => {}
-            }
-            if let Some(n) = text(&f.notes) {
-                details.push(format!("nota: {n}"));
-            }
-            s.push_str(&format!("Instalación: {} ×{} ({}).\n", f.kind, f.count, details.join("; ")));
-        }
-    }
+    // facilities: from their module, as groups that count how many are in each state (ADR-030)
+    render_facilities(&mut s, facilities, &mut missing);
 
     if let Some(n) = text(&i.notes) {
         s.push_str(&format!("Notas de la institución: {n}\n"));
@@ -418,11 +632,21 @@ pub(crate) mod tests {
                 legal_rfc: Some("AFI200101AB1".into()),
                 contact_phone: Some("55 5555 0101".into()),
                 legal_rep_name: Some("Rosa Representante".into()),
+                state: Some("jal".into()),
+                municipality: Some("Zapopan".into()),
+                founded_year: Some(1987),
+                legal_form: Some("ac".into()),
+                authorized_donee: Some("yes".into()),
+                cluni: Some("no".into()),
                 ..Default::default()
             },
             capacity_total: Some(25),
             annual_budget_mxn: Some(1_800_000),
             notes: Some("Perfil ficticio para pruebas.".into()),
+            // the records of the modules are there: these figures are not used
+            served_estimate: Some(40),
+            staff_paid_estimate: Some(30),
+            staff_volunteer_estimate: None,
             population: vec![
                 PopulationGroupInput { label: "Adultos mayores".into(), count: 8, age_min: Some(70), age_max: Some(95), dependency_level: Some(DependencyLevel::High), paying_count: Some(5), monthly_fee_mxn: Some(3_333), ..Default::default() },
                 PopulationGroupInput { label: "Adultos mayores".into(), count: 3, age_min: Some(66), age_max: Some(80), dependency_level: Some(DependencyLevel::High), ..Default::default() },
@@ -431,10 +655,6 @@ pub(crate) mod tests {
             staff: vec![
                 StaffGroupInput { role: "Cuidadora".into(), count: 4, paid: true, monthly_salary_mxn: Some(7_777), shift: Some("noche".into()), contract: Some(ContractKind::Permanent), start_year: Some(2019), ..Default::default() },
                 StaffGroupInput { role: "Voluntaria".into(), count: 3, paid: false, ..Default::default() },
-            ],
-            facilities: vec![
-                FacilityInput { kind: "Baño".into(), count: 3, condition: Some(Condition::Poor), accessible: Some(false), notes: Some("Piso resbaloso, sin barras.".into()) },
-                FacilityInput { kind: "Cocina".into(), count: 1, condition: Some(Condition::Good), accessible: None, notes: None },
             ],
             income: vec![
                 IncomeSourceInput { label: "Padrinos".into(), kind: IncomeKind::RecurringDonor, amount_mxn: Some(10_000), period: Period::Monthly },
@@ -474,9 +694,64 @@ pub(crate) mod tests {
         }
     }
 
+    /// The people served of `rich()` in their module: 11 women and 1 man, with the data the findings cross.
+    pub(crate) fn seed_rich_people(c: &mut Connection) {
+        use crate::care::domain::catalog::Flavor;
+        use crate::care::domain::person::BeneficiaryData;
+        let year: i64 = crate::care::storage::today(c).unwrap()[..4].parse().unwrap();
+        let mut people = Vec::new();
+        for i in 0..4 {
+            people.push(BeneficiaryData { first_names: format!("Abuelita Reservada {i}"), sex: Some("female".into()), birth_date: Some(format!("{}-01-01", year - 84)), dependency: Some("high".into()), mobility: Some("wheelchair".into()), visits: Some("never".into()), curp: Some("HEGG560427MVZRRL04".into()), ..Default::default() });
+        }
+        for i in 0..4 {
+            people.push(BeneficiaryData { first_names: format!("Señora Privada {i}"), sex: Some("female".into()), birth_date: Some(format!("{}-01-01", year - 72)), dependency: Some("high".into()), mobility: Some("independent".into()), ..Default::default() });
+        }
+        for i in 0..3 {
+            people.push(BeneficiaryData { first_names: format!("Doña Callada {i}"), sex: Some("female".into()), birth_date: Some(format!("{}-01-01", year - 67)), dependency: Some("medium".into()), ..Default::default() });
+        }
+        people.push(BeneficiaryData { first_names: "Don Discreto".into(), sex: Some("male".into()), birth_date: Some(format!("{}-01-01", year - 93)), dependency: Some("total".into()), mobility: Some("bedridden".into()), ..Default::default() });
+        for mut d in people {
+            d.status = "active".into();
+            let crate::care::service::SaveOutcome::Saved { .. } = crate::care::service::save_person(c, Flavor::ElderlyHome, None, d).unwrap() else { panic!("saved") };
+        }
+    }
+
+    /// The facilities of `rich()` in their module: a house of two floors with only stairs, three bathrooms on the
+    /// ground floor (one in poor state, none with grab bars), a kitchen, six bedrooms upstairs and two washers.
+    pub(crate) fn seed_rich_facilities(c: &Connection) {
+        use crate::facilities::domain::group::{EquipmentData, SpaceData, States};
+        use crate::facilities::domain::site::SiteData;
+        use crate::facilities::service::{self as fac, SaveOutcome};
+        let ok = |o: SaveOutcome| assert!(matches!(o, SaveOutcome::Saved), "{o:?}");
+        ok(fac::save_site(c, SiteData {
+            name: "Casa principal".into(),
+            built_m2: Some(600),
+            floors: Some(2),
+            floor_access: vec!["none".into()],
+            tenure: Some("own".into()),
+            tenure_documented: Some(true),
+            water_sources: vec!["network".into()],
+            extinguishers: Some(4),
+            extinguishers_current: Some(true),
+            internal_program: Some("yes".into()),
+            ..Default::default()
+        }).unwrap());
+        ok(fac::save_space(c, None, SpaceData {
+            kind: "bathroom".into(), count: 3, states: States { good: 2, poor: 1, ..Default::default() }, problems: vec!["floor".into(), "grab_bars".into()],
+            accessible: Some(false), grab_bars: Some(false), notes: Some("Piso resbaloso, sin barras.".into()), ..Default::default()
+        }).unwrap());
+        ok(fac::save_space(c, None, SpaceData { kind: "kitchen".into(), count: 1, states: States { good: 1, ..Default::default() }, ..Default::default() }).unwrap());
+        ok(fac::save_space(c, None, SpaceData {
+            kind: "bedroom".into(), floor: 1, count: 6, states: States { good: 6, ..Default::default() }, beds: Some(20), hospital_beds: Some(2), ..Default::default()
+        }).unwrap());
+        ok(fac::save_equipment(c, None, EquipmentData { kind: "washer".into(), count: 2, states: States { good: 1, unusable: 1, ..Default::default() }, ..Default::default() }).unwrap());
+    }
+
     fn saved(input: &ProfileInput, confirm: bool) -> (tempfile::TempDir, Connection) {
         let (d, mut c) = db();
         seed_rich_staff(&mut c);
+        seed_rich_people(&mut c);
+        seed_rich_facilities(&c);
         profile_store::save(&mut c, input).unwrap();
         if confirm {
             profile_store::confirm(&mut c).unwrap();
@@ -488,6 +763,10 @@ pub(crate) mod tests {
     pub(crate) const RICH_FACTS: &[&str] = &[
         "Asilo Ficticio (asilo)",
         "A qué se dedica: Un hogar digno para adultos mayores.",
+        "Ubicación: Zapopan, Jalisco.",
+        "Figura jurídica: asociación civil (A.C.).",
+        "Donataria autorizada por el SAT: sí.",
+        "CLUNI (registro federal de organizaciones de la sociedad civil): no.",
         "Capacidad total: 25 personas.",
         "Gasto anual aproximado (cifra a ojo de la persona, todo incluido): $1,800,000 pesos.",
         "Ingreso — cuotas de los beneficiarios (del padrón): las pagan 5 personas; el monto no se comparte.",
@@ -499,17 +778,39 @@ pub(crate) mod tests {
         "Egreso: nómina del personal con aguinaldo y prima vacacional (del padrón); el monto no se comparte.",
         "Suma de los egresos escritos a mano: $216,000 pesos al año (sin la nómina).",
         "Balance del año, calculado con lo capturado y la lista de egresos: los ingresos alcanzan a cubrir los egresos y sobra algo.",
-        "Población: Adultos mayores — 11 personas; nivel de dependencia alta; edades de 66 a 95 años; 5 pagan cuota de estancia.",
-        "Población: Hombres — 1 persona; nivel de dependencia total.",
+        "Población: Mujeres de 80 a 89 años — 4 personas.",
+        "Población: Mujeres de 70 a 79 años — 4 personas.",
+        "Población: Mujeres de 60 a 69 años — 3 personas.",
+        "Población: Hombres de 90 años o más — 1 persona.",
         "Total de personas atendidas: 12.",
+        "De ellas, 5 pagan cuota de estancia.",
+        "Nivel de apoyo (solo grupos de 3 o más personas): 3 apoyo regular, 8 mucho apoyo.",
+        "Movilidad (solo grupos de 3 o más personas): 4 caminan sin ayuda, 4 usan silla de ruedas.",
+        "Reciben pocas o ninguna visita: 4.",
+        "Hallazgo: 5 personas usan silla de ruedas o están en cama, y 3 espacios no se pueden usar en silla de ruedas: 3 baños (planta baja).",
+        "Hallazgo: 9 personas necesitan mucho apoyo o apoyo en todo, y hay 4 personas del personal en puestos de cuidado y salud.",
+        "Hallazgo: 4 personas reciben pocas o ninguna visita de su familia.",
+        "Hallazgo: 12 personas de 65 años o más no tienen pensión ni programa social.",
         "Personal: Cuidadora (cuidado) — 4 personas (4 con sueldo; jornada: 4 tiempo completo; turno: 4 nocturno). Plazas autorizadas: 5; sin cubrir: 1.",
         "Funciones del puesto Cuidadora: Atiende a los residentes de noche.",
         "Personal: Voluntaria — 3 personas (3 de voluntariado).",
         "Total del personal: 7 personas: 4 con sueldo, 3 de voluntariado.",
         "Escolaridad del personal (solo grupos de 3 o más personas): 4 con preparatoria o carrera técnica.",
         "Antigüedad en la institución (solo grupos de 3 o más personas): 4 de 5 a 9 años.",
-        "Instalación: Baño ×3 (estado: malo; accesible: no; nota: Piso resbaloso, sin barras.).",
-        "Instalación: Cocina ×1 (estado: bueno).",
+        "Inmueble «Casa principal»: 2 pisos contando la planta baja; entre pisos: solo escaleras; 600 m² construidos.",
+        "El inmueble es propio; tiene papeles que lo acreditan (escritura o contrato).",
+        "Servicios: agua de red municipal.",
+        "Seguridad y protección civil: 4 extintores con la recarga al día; programa interno de protección civil: sí.",
+        "Espacio: Baños, planta baja: 3 (2 bien, 1 mal). Fallas: piso dañado o resbaloso, faltan barras de apoyo o pasamanos. No se pueden usar en silla de ruedas. Sin barras de apoyo. Nota: Piso resbaloso, sin barras.",
+        "Espacio: Cocina, planta baja: 1 (1 bien).",
+        "Espacio: Dormitorios, primer piso: 6 (6 bien). 20 camas, 2 de hospital.",
+        "Equipo: Lavadoras: 2 (1 bien, 1 no se puede usar).",
+        "Instalaciones, calculado: 50 m² construidos por persona atendida; 4 personas por baño; 20 camas en total.",
+        "Hallazgo: Espacios en mal estado o que no se pueden usar: 1 de 3 baños (planta baja).",
+        "Hallazgo: Equipo en mal estado o que no se puede usar: 1 de 2 lavadoras.",
+        "Hallazgo: El inmueble tiene varios pisos y solo escaleras entre ellos; hay 6 espacios arriba y 5 personas usan silla de ruedas o están en cama.",
+        "Hallazgo: 3 de 3 baños no tienen barras de apoyo.",
+        "Hallazgo: Hay 20 camas para 12 personas atendidas y una capacidad de 25.",
         "Notas de la institución: Perfil ficticio para pruebas.",
     ];
 
@@ -542,11 +843,11 @@ pub(crate) mod tests {
         }
         assert!(!ctx.contains("Cuotas aprox."), "a fee estimate left out of the sums is not shown either:\n{ctx}");
         // pay, the fee a person pays, contact data, RFC and the representative; names and identifiers of the staff
-        for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante", "Secreta", "Oculta", "HEGG"] {
+        for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante", "Secreta", "Oculta", "HEGG", "Reservada", "Privada", "Callada", "Discreto"] {
             assert!(!ctx.contains(secret), "«{secret}» leaked:\n{ctx}");
         }
         // the age of a group of one person would be that person's age
-        assert!(ctx.contains("Población: Hombres — 1 persona; nivel de dependencia total."), "{ctx}");
+        assert!(ctx.contains("Población: Hombres de 90 años o más — 1 persona."), "{ctx}");
         assert!(!ctx.contains("93"), "{ctx}");
     }
 
@@ -596,7 +897,9 @@ pub(crate) mod tests {
         let (_d, c) = saved(&rich(), true);
         let ctx = profile_context(&c).unwrap();
         // every number of the sheet is a fact of the profile or a sum made by code
-        let allowed = ["25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9"];
+        // the years of operation change with the year the test runs
+        let operating = (profile_store::current_year(&c).unwrap() - 1987).to_string();
+        let allowed = [operating.as_str(), "1987", "25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9", "89", "79", "60", "69", "90", "65", "77", "2", "6", "20", "50", "600"];
         for n in crate::domain::figures::digit_numbers(&ctx) {
             assert!(allowed.contains(&n.as_str()), "unexpected number {n} in the sheet:\n{ctx}");
         }
@@ -608,11 +911,12 @@ pub(crate) mod tests {
         let mut c = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
         let input: ProfileInput = serde_json::from_str(include_str!("../../fixtures/institucion-asilo.json")).unwrap();
         crate::service::save_profile(&mut c, input.clone(), None).unwrap();
-        crate::roster_service::seed_roster(&mut c, include_str!("../../fixtures/padron-asilo.json")).unwrap();
+        crate::profile_sync::seed_examples(&mut c, include_str!("../../fixtures/padron-asilo.json")).unwrap();
         crate::service::save_profile(&mut c, input, None).unwrap();
+        crate::facilities_service::seed_example(&mut c, include_str!("../../fixtures/instalaciones-asilo.json")).unwrap();
 
         let stored = profile_store::load_current(&c).unwrap().unwrap();
-        let ctx = render(&stored, &crate::hr::api::ai_summary(&c).unwrap());
+        let ctx = render(&stored, &crate::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap(), &facilities_sheet(&c).unwrap());
         assert!(ctx.contains("Personal: "), "{ctx}");
         assert!(ctx.contains("Población: "), "{ctx}");
         assert!(ctx.contains("Total de personas atendidas: "), "{ctx}");

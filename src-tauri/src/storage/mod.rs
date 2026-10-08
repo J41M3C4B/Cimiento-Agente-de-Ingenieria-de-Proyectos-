@@ -1,5 +1,6 @@
 //! Encrypted database, migrations and repositories.
 
+pub mod access;
 pub mod backup;
 pub mod calls;
 pub mod db;
@@ -8,7 +9,6 @@ pub mod drafting;
 mod migrations;
 pub mod profile;
 pub mod projects;
-pub mod roster;
 mod secrets;
 
 #[allow(unused_imports)]

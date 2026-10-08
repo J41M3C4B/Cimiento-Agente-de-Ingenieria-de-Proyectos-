@@ -19,4 +19,5 @@ Pendientes (crear en las fases indicadas):
 
 Reglas: nunca agregar datos reales aquí, ni "de prueba". Las CURP, CLABE y NSS de los casos de prueba tienen formato válido pero son inventadas.
 
+- `instalaciones-asilo.json` e `instalaciones-casa-hogar.json`: inmueble, espacios y equipo ficticios (ADR-030) que cargan los mismos botones de ejemplo. El perfil de `institucion-*.json` ya no trae instalaciones.
 - `padron-asilo.json` y `padron-casa-hogar.json`: personas ficticias (personal y beneficiarios) que cargan los botones de ejemplo de «Mi institución» (solo en desarrollo). El perfil de `institucion-*.json` ya no trae personal ni grupos: se calculan desde el padrón (ADR-020).

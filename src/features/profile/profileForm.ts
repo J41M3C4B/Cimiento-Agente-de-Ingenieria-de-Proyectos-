@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type {
-  Condition,
   IncomeKind,
   InstitutionKind,
   Period,
@@ -35,18 +34,18 @@ export const formSchema = z.object({
   contact_phone: z.string(),
   contact_email: z.string(),
   legal_rep_name: z.string(),
+  state: z.string(),
+  municipality: z.string(),
+  founded_year: wholeNumber,
+  legal_form: z.string(),
+  authorized_donee: z.string(),
+  cluni: z.string(),
+  served_estimate: wholeNumber,
+  staff_paid_estimate: wholeNumber,
+  staff_volunteer_estimate: wholeNumber,
   capacity_total: wholeNumber,
   annual_budget_mxn: pesos,
   notes: z.string(),
-  facilities: z.array(
-    z.object({
-      kind: z.string(),
-      count: wholeNumber,
-      condition: z.string(),
-      accessible: z.enum(["", "yes", "no"]),
-      notes: z.string(),
-    }),
-  ),
   income: z.array(z.object({ label: z.string(), kind: z.string(), amount_mxn: pesos, period: z.enum(["monthly", "annual"]) })),
   expenses: z.array(z.object({ label: z.string(), amount_mxn: pesos, period: z.enum(["monthly", "annual"]) })),
 });
@@ -61,10 +60,18 @@ export const emptyForm = (): FormValues => ({
   contact_phone: "",
   contact_email: "",
   legal_rep_name: "",
+  state: "",
+  municipality: "",
+  founded_year: "",
+  legal_form: "",
+  authorized_donee: "",
+  cluni: "",
+  served_estimate: "",
+  staff_paid_estimate: "",
+  staff_volunteer_estimate: "",
   capacity_total: "",
   annual_budget_mxn: "",
   notes: "",
-  facilities: [],
   income: [],
   expenses: [],
 });
@@ -73,7 +80,6 @@ const str = (v: string | null | undefined) => v ?? "";
 const numStr = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v));
 const textOrNull = (v: string) => (v.trim() === "" ? null : v.trim());
 const numOrNull = (v: string) => (v.trim() === "" ? null : Number(v.trim()));
-const numOrZero = (v: string) => (v.trim() === "" ? 0 : Number(v.trim()));
 const pesosOrNull = (v: string) => (v.trim() === "" ? null : parsePesos(v));
 
 export function fromView(view: ProfileView | null): FormValues {
@@ -87,16 +93,18 @@ export function fromView(view: ProfileView | null): FormValues {
     contact_phone: str(p.institution.contact_phone),
     contact_email: str(p.institution.contact_email),
     legal_rep_name: str(p.institution.legal_rep_name),
+    state: str(p.institution.state),
+    municipality: str(p.institution.municipality),
+    founded_year: numStr(p.institution.founded_year),
+    legal_form: str(p.institution.legal_form),
+    authorized_donee: str(p.institution.authorized_donee),
+    cluni: str(p.institution.cluni),
+    served_estimate: numStr(p.served_estimate),
+    staff_paid_estimate: numStr(p.staff_paid_estimate),
+    staff_volunteer_estimate: numStr(p.staff_volunteer_estimate),
     capacity_total: numStr(p.capacity_total),
     annual_budget_mxn: numStr(p.annual_budget_mxn),
     notes: str(p.notes),
-    facilities: p.facilities.map((f) => ({
-      kind: f.kind,
-      count: String(f.count),
-      condition: f.condition ?? "",
-      accessible: f.accessible === null ? "" : f.accessible ? "yes" : "no",
-      notes: str(f.notes),
-    })),
     income: p.income.map((i) => ({
       label: i.label,
       kind: i.kind,
@@ -117,20 +125,22 @@ export function toInput(v: FormValues): ProfileInput {
       contact_phone: textOrNull(v.contact_phone),
       contact_email: textOrNull(v.contact_email),
       legal_rep_name: textOrNull(v.legal_rep_name),
+      state: textOrNull(v.state),
+      municipality: textOrNull(v.municipality),
+      founded_year: numOrNull(v.founded_year),
+      legal_form: textOrNull(v.legal_form),
+      authorized_donee: textOrNull(v.authorized_donee),
+      cluni: textOrNull(v.cluni),
     },
     capacity_total: numOrNull(v.capacity_total),
+    served_estimate: numOrNull(v.served_estimate),
+    staff_paid_estimate: numOrNull(v.staff_paid_estimate),
+    staff_volunteer_estimate: numOrNull(v.staff_volunteer_estimate),
     annual_budget_mxn: pesosOrNull(v.annual_budget_mxn),
     notes: textOrNull(v.notes),
     // staff and people served come from the roster (ADR-020): the profile adds them up by itself
     population: [],
     staff: [],
-    facilities: v.facilities.map((f) => ({
-      kind: f.kind,
-      count: numOrZero(f.count),
-      condition: f.condition === "" ? null : (f.condition as Condition),
-      accessible: f.accessible === "" ? null : f.accessible === "yes",
-      notes: textOrNull(f.notes),
-    })),
     income: v.income.map((i) => ({
       label: i.label,
       kind: i.kind as IncomeKind,

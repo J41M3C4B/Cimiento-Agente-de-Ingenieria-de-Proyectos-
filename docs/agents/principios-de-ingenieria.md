@@ -12,7 +12,7 @@ App de escritorio (Tauri 2) local y con IA para que asilos y casas hogar diagnos
 2. **La IA nunca calcula.** Totales, porcentajes, presupuestos y validaciones se hacen en Rust/TypeScript.
 3. **La IA nunca escribe archivos.** La IA devuelve JSON estructurado; el código valida y escribe en Word/Excel.
 4. **Todo dato lleva origen.** Campos `origin` (`user`, `document`, `ai_assumption`, `computed`) y `confirmed_at`. Ver `docs/05-modelo-datos.md`.
-5. **Cuántos, nunca quiénes, para la IA y los documentos.** El perfil, la IA, el escáner y los documentos solo manejan agregados. Las fichas individuales (personal y beneficiarios) viven aparte, en el padrón de este equipo (ADR-020), y nada de ellas sale hacia la IA: solo los totales. Todo texto/archivo pasa por el escáner antes de guardarse y antes de ir a la IA. Ver `docs/03-gobernanza-datos.md`, `docs/04-escaner-datos-sensibles.md` y `docs/adr/ADR-020-padron-de-personal-y-beneficiarios.md`.
+5. **Cuántos, nunca quiénes, para la IA y los documentos.** El perfil, la IA, el escáner y los documentos solo manejan agregados. Las fichas individuales viven aparte, en sus módulos de este equipo (personal: ADR-027; beneficiarios: ADR-029), y nada de ellas sale hacia la IA: solo conteos, y los atributos personales solo para grupos de 3 o más. Todo texto/archivo pasa por el escáner antes de guardarse y antes de ir a la IA. Ver `docs/03-gobernanza-datos.md`, `docs/04-escaner-datos-sensibles.md`, `docs/adr/ADR-027-modulo-de-personal-base-de-rh.md` y `docs/adr/ADR-029-modulo-de-beneficiarios-e-inteligencia-de-datos.md`.
 6. **El original nunca se modifica.** Los archivos subidos se procesan; se guarda solo la versión limpia. Las exportaciones son copias nuevas.
 7. **Lenguaje sencillo en la UI.** Todo texto visible sigue `docs/08-estilo-redaccion.md`. Nada de jerga técnica en mensajes al usuario.
 8. **Dos capas: lo que consume la IA no es lo que ve la persona.** El esquema de la convocatoria, la ficha de «Mi institución» para el prompt y los JSON de la IA son de la IA. La persona ve una **ficha** corta en sus palabras (`…Card`, compuesta en Rust, no por la pantalla); la estructura completa solo se ofrece como «Consultar el detalle». Antes de diseñar una pantalla pregunta: ¿esto es para la IA o para la persona? Ver `docs/adr/ADR-024-dos-capas-ia-y-persona.md`.
@@ -29,28 +29,35 @@ Usa siempre la **última versión estable** de cada dependencia y verifica la do
 
 ## Estructura
 
+Monolito modular (ADR-032): un núcleo y módulos independientes; cada capa solo mira hacia abajo.
+
 ```
-src/                 # Frontend React (solo UI y estado de pantalla)
+src/                 # Frontend: core/ (núcleo) y modules/ (un módulo por carpeta); solo UI y estado de pantalla
 src-tauri/src/
-  commands/          # Comandos Tauri: capa delgada, sin lógica de negocio
-  domain/            # Tipos y reglas de negocio puras (sin E/S)
-  storage/           # Base de datos, migraciones, cifrado
-  scanner/           # Detección y tapado de datos sensibles
-  documents/         # Lectura PDF/Excel/Word, plantillas, exportación
-  ai/                # Trait AiProvider, prompts, registro de uso
-  audit/             # Bitácora
-  hr/                # Módulo de Personal (ADR-027): aparte, tablas hr_*, solo agregados hacia fuera
+  commands/          # Comandos Tauri: capa delgada (permiso, llamada, error amigable), sin lógica de negocio
+  modules/projects/  # Proyectos (convocatoria, conversación, diagnóstico, redacción, guía): solo usa core::api
+  core/              # Núcleo: institución, primer inicio, acceso, seguridad, documentos, tableros, ficha de la IA
+  modules/hr/        # Personal (ADR-027): tablas hr_*, solo agregados hacia fuera
+  modules/care/      # Beneficiarios (ADR-029): tablas care_*, solo agregados hacia fuera
+  modules/facilities/# Instalaciones (ADR-030): tablas fac_*
+  modules/finance/   # Finanzas (ADR-026, ADR-032): tablas fin_*; ingresos, egresos y balance
+  ai/ audit/ common/ documents/ scanner/ storage/   # Base: infraestructura sin reglas de negocio
 docs/                # Especificaciones (fuente de verdad)
 fixtures/            # Datos ficticios
 schemas/             # Esquema canónico de convocatorias (JSON Schema)
 ```
 
-Detalle en `docs/01-arquitectura.md`.
+Mientras se aplican los bloques del ADR-032 conviven las rutas viejas (`*_service.rs`, `domain/`, `hr/`…). La tabla `PLACES` de `architecture_tests.rs` dice a qué capa pertenece cada archivo. Detalle en `docs/01-arquitectura.md`.
 
 ## Reglas de código
 
 - **Idioma:** identificadores, comentarios de código y commits en inglés. Textos de UI en español (archivo `src/i18n/es-MX.ts`). Documentación en español. Glosario en `glosario-dominio.md`.
-- **Toda la lógica de negocio vive en Rust** (`domain/`). El frontend no decide reglas, solo muestra y captura.
+- **Toda la lógica de negocio vive en Rust** (en el `domain/` de su módulo o del núcleo). El frontend no decide reglas, solo muestra y captura.
+- **Fronteras (ADR-032):**
+  - Un módulo no usa otro módulo ni al núcleo.
+  - El núcleo usa de un módulo solo su `api`, su `service` y sus tipos; nunca su `storage`.
+  - Proyectos usa solo `core::api`.
+  - `cargo test architecture` lo revisa. Una dependencia nueva hacia arriba o hacia los lados no se agrega a la lista de deuda: se resuelve.
 - **Llamadas a la IA solo desde Rust.** La llave de API nunca llega al frontend.
 - **Cada llamada a la IA** pasa por: escáner → armado de prompt → proveedor → validación de JSON contra esquema → registro en `ai_usage`.
 - **Errores:** en Rust usa `thiserror` en módulos y convierte a un error serializable para la UI con un mensaje amigable en español + código interno.

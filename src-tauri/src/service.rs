@@ -64,8 +64,18 @@ pub enum ServiceError {
     Internal(String),
     #[error("staff module: {0}")]
     Hr(#[from] crate::hr::HrError),
+    #[error("people served module: {0}")]
+    Care(#[from] crate::care::CareError),
+    #[error("facilities module: {0}")]
+    Facilities(#[from] crate::facilities::FacilitiesError),
+    /// The onboarding cannot be closed while a required datum is missing (ADR-031).
+    #[error("the onboarding is not complete")]
+    OnboardingIncomplete,
     #[error("the staff is kept in its own module now")]
     StaffMoved,
+    /// An account or session rule (ADR-028); the code says which.
+    #[error("access: {0}")]
+    Access(&'static str),
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -132,7 +142,7 @@ pub fn save_profile(
     decision: Option<Decision>,
 ) -> Result<SaveProfileOutcome, ServiceError> {
     // staff and people served are never written here: the profile keeps what the roster adds up to (ADR-020)
-    let (staff, population) = crate::roster_service::derive(conn)?;
+    let (staff, population) = crate::profile_sync::derive(conn)?;
     input.staff = staff;
     input.population = population;
     let issues = input.validate(store::current_year(conn)?);
@@ -399,7 +409,7 @@ mod fixture_tests {
             let input: ProfileInput = serde_json::from_str(raw).unwrap();
             // as the example loader does: the institution, then its people, and the profile adds them up
             save_profile(&mut c, input.clone(), None).unwrap();
-            crate::roster_service::seed_roster(&mut c, padron).unwrap();
+            crate::profile_sync::seed_examples(&mut c, padron).unwrap();
             let out = save_profile(&mut c, input, None).unwrap();
             let SaveProfileOutcome::Saved { profile } = out else { panic!("{out:?}") };
             assert!(profile.issues.is_empty(), "{:?}", profile.issues);

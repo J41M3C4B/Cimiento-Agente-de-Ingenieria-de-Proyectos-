@@ -19,6 +19,7 @@ use std::time::{Duration, Instant};
 const PIN_KEY: &str = "security.pin";
 pub const MIN_PIN_DIGITS: usize = 4;
 pub const MAX_PIN_DIGITS: usize = 8;
+#[cfg_attr(not(test), allow(dead_code))]
 const ITERATIONS: u32 = 120_000;
 /// Wrong tries in a row after which the lock waits.
 const MAX_TRIES: u32 = 5;
@@ -57,6 +58,8 @@ pub fn pin_enabled(conn: &Connection) -> Result<bool, ServiceError> {
 }
 
 /// Sets or changes the PIN. Changing it needs the current one (`current`), so someone at the screen cannot swap it.
+// the screen PIN retired with the accounts (ADR-028): an old one is only read to authorize the first account
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn pin_set(conn: &Connection, attempts: &Attempts, new_pin: &str, current: Option<&str>) -> Result<(), ServiceError> {
     if !valid_pin(new_pin) {
         return Err(ServiceError::InvalidPin);
@@ -72,6 +75,8 @@ pub fn pin_set(conn: &Connection, attempts: &Attempts, new_pin: &str, current: O
 }
 
 /// Takes the PIN away. It needs the current PIN.
+// the screen PIN retired with the accounts (ADR-028): an old one is only read to authorize the first account
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn pin_clear(conn: &Connection, attempts: &Attempts, current: &str) -> Result<(), ServiceError> {
     if pin_enabled(conn)? && !matches!(verify(conn, attempts, current, Instant::now())?, Verify::Ok) {
         return Err(ServiceError::WrongPin);

@@ -1,10 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "../../components/icons";
-import { Avatar, Button, Calendar, Card, Folder, NextBox, Steps, Tag, PageHeader } from "../../components/ui";
+import { Alert, Avatar, Button, Calendar, Card, Folder, NextBox, Segments, Steps, Tag, Tile, PageHeader } from "../../components/ui";
+import type { IconName } from "../../components/icons";
 import { es } from "../../i18n/es-MX";
 import { projectTone } from "../../lib/palette";
 import { profileGet, projectList } from "../../lib/tauri";
 import type { ProfileView, ProjectRow } from "../../lib/types";
+import { useSession } from "../access/session";
+import { facilitiesOverview } from "../facilities/api";
+import { FACILITIES_KEY } from "../facilities/FacilitiesTab";
+import { ONBOARDING_KEY, onboardingStatus } from "../onboarding/api";
+import { resumeOnboarding } from "../onboarding/OnboardingGate";
+import type { ProfileTab } from "../profile/ProfilePage";
 import { shortDate, stepInfo, useProjectCall } from "../projects/projectCall";
 import { ProjectFolder } from "../projects/ProjectFolder";
 import { stepsForView } from "../projects/steps";
@@ -29,11 +36,13 @@ export function HomePage({
   onNewProject,
   onGoProjects,
   onGoProfile,
+  onGoAi,
 }: {
   onOpenProject: (id: string) => void;
   onNewProject: () => void;
   onGoProjects: () => void;
-  onGoProfile: () => void;
+  onGoProfile: (tab?: ProfileTab) => void;
+  onGoAi: () => void;
 }) {
   const projects = useQuery({ queryKey: ["projects"], queryFn: projectList });
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
@@ -58,6 +67,8 @@ export function HomePage({
           </Button>
         }
       />
+
+      <PendingData />
 
       {projects.isSuccess && !current && (
         <Card className="flex flex-col items-center gap-3 py-12 text-center">
@@ -90,7 +101,7 @@ export function HomePage({
                 </Tag>
               </div>
               <p className="text-ui text-ink-2">{t.institutionNote}</p>
-              <button type="button" onClick={onGoProfile} className="inline-flex items-center gap-1 text-ui font-bold text-ink underline underline-offset-4">
+              <button type="button" onClick={() => onGoProfile()} className="inline-flex items-center gap-1 text-ui font-bold text-ink underline underline-offset-4">
                 {t.goProfile}
                 <Icon name="next" size={16} />
               </button>
@@ -98,6 +109,8 @@ export function HomePage({
           </div>
         </div>
       )}
+
+      <NextSteps onGoProfile={onGoProfile} onGoAi={onGoAi} />
 
       {others.length > 0 && (
         <section className="space-y-3" aria-labelledby="home-others">
@@ -168,6 +181,83 @@ function DeadlineCard({ project }: { project: ProjectRow }) {
         month={`${capitalize(closes.toLocaleDateString("es-MX", { month: "long" }))} ${closes.getFullYear()}`}
         note={days < 0 ? t.closed : t.daysToDeliver(days)}
       />
+    </Card>
+  );
+}
+
+/**
+ * For the administrator who left the data of the institution to the direction: Inicio says they are still missing,
+ * and a button takes them up again. Once the institution finishes them, it disappears.
+ */
+function PendingData() {
+  const status = useQuery({ queryKey: ONBOARDING_KEY, queryFn: onboardingStatus });
+  const s = status.data;
+  if (!s || s.done || !s.can_postpone) return null;
+  const n = s.steps.filter((x) => !x.complete).length;
+  return (
+    <Alert tone="warn">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div className="min-w-[240px] flex-1">
+          <b className="block font-bold">{t.pending.title}</b>
+          <p className="text-ui text-ink-2">{t.pending.text(n)}</p>
+        </div>
+        <Button size="sm" variant="primary" onClick={resumeOnboarding}>
+          {t.pending.action}
+        </Button>
+      </div>
+    </Alert>
+  );
+}
+
+/**
+ * After the first start: what to do next so the assistant knows the institution better (ADR-031). Each step goes to
+ * where it is done and goes away when it is done; with all of them done the card is not drawn.
+ */
+function NextSteps({ onGoProfile, onGoAi }: { onGoProfile: (tab?: ProfileTab) => void; onGoAi: () => void }) {
+  const access = useSession();
+  const status = useQuery({ queryKey: ONBOARDING_KEY, queryFn: onboardingStatus });
+  const facilities = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
+  const s = status.data;
+  if (!s || !s.done) return null;
+  const all: { key: string; icon: IconName; tone: "teal" | "violet" | "sky" | "amber"; todo: boolean; go: () => void }[] = [
+    { key: "staff", icon: "briefcase", tone: "teal", todo: s.records.staff === 0, go: () => onGoProfile("staff") },
+    { key: "people", icon: "heart", tone: "violet", todo: s.records.served === 0, go: () => onGoProfile("population") },
+    ...(facilities.isSuccess ? [{ key: "facilities", icon: "building" as IconName, tone: "sky" as const, todo: facilities.data.indicators.spaces === 0, go: () => onGoProfile("facilities") }] : []),
+    ...(s.setup && access?.can("settings") ? [{ key: "ai", icon: "sparkles" as IconName, tone: "amber" as const, todo: !s.setup.ai_ready, go: onGoAi }] : []),
+  ];
+  const pending = all.filter((x) => x.todo);
+  if (pending.length === 0) return null;
+  const n = t.nextSteps;
+  return (
+    <Card className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+        <div className="min-w-[260px] flex-1">
+          <h2 className="text-heading font-bold">{n.title}</h2>
+          <p className="max-w-[70ch] text-ui text-ink-2">{n.help}</p>
+        </div>
+        <div className="flex min-w-[140px] flex-col gap-1.5">
+          <span className="text-small font-semibold text-ink-2">{n.progress(all.length - pending.length, all.length)}</span>
+          <Segments total={all.length} filled={all.length - pending.length} label={n.progress(all.length - pending.length, all.length)} tone="green" />
+        </div>
+      </div>
+      <ul className="grid gap-3 md:grid-cols-2">
+        {pending.map((x) => {
+          const [title, detail] = n.items[x.key]!;
+          return (
+            <li key={x.key} className="flex items-center gap-4 rounded-inset bg-inset p-4">
+              <Tile icon={x.icon} tone={x.tone} />
+              <div className="min-w-0 flex-1">
+                <b className="block font-bold">{title}</b>
+                <span className="block text-small text-ink-2">{detail}</span>
+              </div>
+              <Button size="sm" variant="secondary" onClick={x.go}>
+                {n.go}
+                <Icon name="next" size={14} />
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
     </Card>
   );
 }

@@ -2,7 +2,7 @@
 
 ## Principio central
 
-**Cuántos, nunca quiénes, para la IA y los documentos.** El perfil de la institución no tiene ninguna tabla ni campo para registrar individuos. Desde el ADR-020 existe un **padrón** de beneficiarios, y desde el ADR-027 un **módulo de Personal** (tablas `hr_*`), ambos con una ficha por persona que solo vive en la base cifrada de este equipo: no pasan por la IA, no se escanean y no entran en los documentos; el perfil y la IA solo reciben lo que suman (cuántas personas por puesto o grupo, plazas sin cubrir, nómina, cuotas). Los atributos personales del personal (escolaridad, antigüedad) llegan a la IA solo como rangos de grupos de **3 o más personas**.
+**Cuántos, nunca quiénes, para la IA y los documentos.** El perfil de la institución no tiene ninguna tabla ni campo para registrar individuos. Desde el ADR-027 existe un **módulo de Personal** (tablas `hr_*`) y desde el ADR-029 un **módulo de Beneficiarios** (tablas `care_*`; la salud solo por categorías, la situación legal de las niñas solo como categoría, el aviso de privacidad firmado por persona), ambos con una ficha por persona que solo vive en la base cifrada de este equipo: no pasan por la IA, no se escanean y no entran en los documentos; el perfil y la IA solo reciben lo que suman (cuántas personas por puesto o grupo, plazas sin cubrir, nómina, cuotas). Los atributos personales (del personal: escolaridad, antigüedad; de los beneficiarios: salud, movilidad, discapacidad, visitas, pensiones, lengua, situación legal…) llegan a la IA solo como conteos de grupos de **3 o más personas**, y los hallazgos del tablero que llevan dinero nunca llegan.
 
 **Identificadores del personal (ADR-027):** CURP, RFC, NSS y CLABE se guardan en la base cifrada, se validan con su dígito verificador, nunca salen del servicio en claro y en pantalla se ven tapados. Mostrarlos queda en la bitácora (`hr.sensitive_viewed`, con el campo y nunca el valor). Borrar a una persona elimina todo lo suyo y queda registrado (`hr.person_deleted`). Los datos de salud del personal no se recogen.
 
@@ -68,7 +68,9 @@ Eventos mínimos: `document.uploaded`, `scanner.quarantine`, `scanner.override`,
 
 ## Roles
 
-En la versión local hay una sola cuenta por instalación (la computadora es el límite de acceso). Se prepara el modelo para roles futuros:
+Desde el ADR-028 cada persona entra con su cuenta (contraseña Argon2id, bloqueo por intentos y por inactividad) y Rust revisa en cada comando el permiso que necesita. Hoy existen `admin` (todo, incluido el panel de administración, la configuración técnica y borrar por completo) y `manager` (dirección y contaduría: toda la app, pero sus borrados se vuelven solicitudes que el administrador aprueba o devuelve, y el registro se oculta mientras tanto). La bitácora guarda quién hizo cada cosa (`actor_id`). Las cuentas no sustituyen el cifrado: protegen contra errores y usos indebidos de personas sin perfil técnico.
+
+Tabla original de roles previstos:
 
 | Rol | Puede |
 |---|---|

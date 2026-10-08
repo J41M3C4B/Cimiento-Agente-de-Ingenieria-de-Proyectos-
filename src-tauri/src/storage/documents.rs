@@ -106,7 +106,7 @@ pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
     let mut stmt = conn.prepare(
         "SELECT d.id, d.kind, d.display_name, d.data_level, d.redactions_count, d.created_at,
                 (SELECT count(*) FROM document_chunk c WHERE c.document_id = d.id)
-         FROM document d ORDER BY d.created_at DESC, d.id DESC",
+         FROM document d WHERE d.hidden = 0 ORDER BY d.created_at DESC, d.id DESC",
     )?;
     let rows = stmt
         .query_map([], |r| {
@@ -234,11 +234,11 @@ mod tests {
         ).unwrap();
         c.execute("INSERT INTO institution_profile (id,institution_id,version,created_at) VALUES ('p','i',1,'t')", []).unwrap();
         c.execute(
-            "INSERT INTO facility (id,profile_id,kind,count,origin,source_ref) VALUES ('f1','p','Baño zanahoria',1,'document',?1)",
+            "INSERT INTO income_source (id,profile_id,label,origin,source_ref) VALUES ('f1','p','Baño zanahoria','document',?1)",
             [format!("{{\"document_id\":\"{}\",\"page\":1}}", doc.id)],
         ).unwrap();
         c.execute(
-            "INSERT INTO facility (id,profile_id,kind,count,origin,source_ref) VALUES ('f2','p','Cocina',1,'document',?1)",
+            "INSERT INTO income_source (id,profile_id,label,origin,source_ref) VALUES ('f2','p','Cocina','document',?1)",
             [format!("{{\"document_id\":\"{}\"}}", keep.id)],
         ).unwrap();
 
@@ -248,7 +248,7 @@ mod tests {
         assert_eq!(list(&c).unwrap().len(), 1);
         let q = |sql: &str| -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() };
         assert_eq!(q("SELECT count(*) FROM document_chunk"), 1);
-        assert_eq!(q("SELECT count(*) FROM facility"), 1);
+        assert_eq!(q("SELECT count(*) FROM income_source"), 1);
         assert_eq!(q("SELECT count(*) FROM document_chunk_fts WHERE document_chunk_fts MATCH 'zanahoria'"), 0);
         assert_eq!(q("SELECT count(*) FROM document_chunk_fts WHERE document_chunk_fts MATCH 'becas'"), 1);
         // audit says it happened, without content

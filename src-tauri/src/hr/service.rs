@@ -2,7 +2,7 @@
 //! except through `reveal`, which writes in the audit log who looked and at what (never the value).
 
 use super::domain::catalog::{self, Rules};
-use super::domain::ids;
+use crate::common::ids;
 use super::domain::person::{Issue, PersonData, Progress, Secrets};
 use super::domain::position::{Position, PositionInput};
 use super::storage::{self as store, CustomField, CustomModality, StoredPerson};
@@ -183,6 +183,14 @@ pub fn save_person(conn: &mut Connection, id: Option<&str>, mut data: PersonData
     }
     let fields: Vec<String> = store::custom_fields(conn)?.into_iter().map(|f| f.key).collect();
     data.extra.retain(|k, v| fields.contains(k) && !v.trim().is_empty());
+    // a field hidden while its deletion waits keeps its value: if the deletion is refused, nothing was lost
+    if let Some(old) = id.map(|pid| store::person(conn, pid)).transpose()?.flatten() {
+        for key in store::hidden_field_keys(conn)? {
+            if let Some(v) = old.data.extra.get(&key) {
+                data.extra.insert(key, v.clone());
+            }
+        }
+    }
 
     let rules = resolve(conn, &data.modality)?.map(|(_, r)| r);
     let mut issues = data.validate(rules, &today);
@@ -285,6 +293,20 @@ pub fn save_custom_field(conn: &Connection, key: Option<&str>, title: &str, kind
     }
     store::save_custom_field(conn, key, title, kind, options)?;
     Ok(store::custom_fields(conn)?)
+}
+
+/// Hides a record or brings it back (a deletion that waits for the administrator, ADR-028). The name comes back to
+/// label the request.
+pub fn set_person_hidden(conn: &Connection, id: &str, hidden: bool) -> Result<String, HrError> {
+    let p = store::person(conn, id)?.ok_or(HrError::NotFound)?;
+    store::set_person_hidden(conn, id, hidden)?;
+    Ok(p.data.full_name())
+}
+
+pub fn set_field_hidden(conn: &Connection, key: &str, hidden: bool) -> Result<String, HrError> {
+    let title = store::field_title(conn, key)?.ok_or(HrError::NotFound)?;
+    store::set_field_hidden(conn, key, hidden)?;
+    Ok(title)
 }
 
 pub fn delete_custom_field(conn: &Connection, key: &str) -> Result<Vec<CustomField>, HrError> {
