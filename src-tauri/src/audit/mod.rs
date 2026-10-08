@@ -40,6 +40,11 @@ pub enum AuditKind {
     RequestCreated,
     RequestApproved,
     RequestRejected,
+    /// The CURP of a person served was shown (never the value).
+    CareSensitiveViewed,
+    CarePersonDeleted,
+    /// The people served of the old roster moved into their module (counts only).
+    CareImported,
 }
 
 impl AuditKind {
@@ -73,6 +78,9 @@ impl AuditKind {
             AuditKind::RequestCreated => "request.created",
             AuditKind::RequestApproved => "request.approved",
             AuditKind::RequestRejected => "request.rejected",
+            AuditKind::CareSensitiveViewed => "care.sensitive_viewed",
+            AuditKind::CarePersonDeleted => "care.person_deleted",
+            AuditKind::CareImported => "care.imported",
         }
     }
 }

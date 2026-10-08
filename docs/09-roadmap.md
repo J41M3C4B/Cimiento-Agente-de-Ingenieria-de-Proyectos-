@@ -34,7 +34,9 @@ Objetivo: proyecto que compila, base cifrada y las pruebas técnicas de riesgo r
 - [x] **«Mi institución», bloque 2: Personal como base de RH (2026-10-07, ADR-027).** Módulo aparte (`hr/`, tablas `hr_*`, migración 0015 con traslado del padrón), modalidades con reglas y modalidades propias, catálogo de puestos con plazas autorizadas, formulario en 4 pasos con avance, CURP/RFC/NSS/CLABE validados y tapados, baja distinta de borrado, aportaciones y personal externo como egresos aparte, y a la IA solo agregados (atributos personales con grupos de 3 o más).
 - [x] Diseño fino del módulo de Personal (sesión de diseño).
 - [x] **Perfiles de acceso (2026-10-07, ADR-028).** Cuentas con contraseña (Argon2id), administrador y dirección/contaduría, permiso declarado y revisado en Rust en cada comando (con prueba que impide comandos sin permiso), borrados de dirección/contaduría como solicitudes con el registro oculto, panel de administración (cuentas, solicitudes, bitácora, código de recuperación), bloqueo por inactividad, bitácora con autor; el PIN se retira. Migración 0016.
-- [ ] Diseño fino de las pantallas de acceso y del panel de administración (sesión de diseño).
+- [x] Diseño fino de las pantallas de acceso y del panel de administración (sesión de diseño).
+- [x] **«Mi institución», bloque 3: Beneficiarios e inteligencia de datos (2026-10-07, ADR-029).** Módulo aparte (`care/`, tablas `care_*`, migración 0017 con traslado del padrón, que desaparece), ficha en 5 pasos según asilo o casa hogar, salud solo por categorías, lista de espera, tablero con indicadores y hallazgos que cruzan beneficiarios con espacios, dinero y personal, aviso de privacidad por persona; a la IA solo conteos y hallazgos sin dinero. `common/` con los validadores compartidos.
+- [ ] Diseño fino del módulo de Beneficiarios y su tablero (sesión de diseño).
 - [ ] Módulo remoto para aprobar solicitudes a distancia (sobre `access_request`).
 
 - [x] Prueba manual en la app: cargar un ejemplo, pegar una CURP ficticia en las notas, ver la cuarentena y tapar; agregar un documento de texto y borrarlo con el botón de emergencia.

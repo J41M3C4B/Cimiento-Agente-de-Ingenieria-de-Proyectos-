@@ -2,7 +2,7 @@
 //! except through `reveal`, which writes in the audit log who looked and at what (never the value).
 
 use super::domain::catalog::{self, Rules};
-use super::domain::ids;
+use crate::common::ids;
 use super::domain::person::{Issue, PersonData, Progress, Secrets};
 use super::domain::position::{Position, PositionInput};
 use super::storage::{self as store, CustomField, CustomModality, StoredPerson};

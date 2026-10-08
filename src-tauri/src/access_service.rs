@@ -3,7 +3,7 @@
 
 use crate::audit::{self, AuditKind};
 use crate::domain::access::{self as rules, DeletionKind, Permission, Role};
-use crate::roster_service;
+use crate::profile_sync;
 use crate::security_service::{self, Attempts, Verify};
 use crate::service::ServiceError;
 use crate::storage::access::{self as store, NewUser, RequestRow, StoredUser};
@@ -511,34 +511,20 @@ pub fn new_recovery(conn: &Connection) -> Result<String, ServiceError> {
 /// Hides the thing (or brings it back) and returns its name for the request. People hidden or back change the sums
 /// of the profile: the caller syncs it (`sync_after`).
 fn hide(conn: &Connection, kind: DeletionKind, target: &str, hidden: bool) -> Result<String, ServiceError> {
-    use crate::domain::roster::Entity;
-    use crate::storage::roster as roster_store;
     let label = match kind {
         DeletionKind::Document => store::set_hidden(conn, "document", target, hidden)?,
         DeletionKind::Project => store::set_hidden(conn, "project", target, hidden)?,
         DeletionKind::HrPerson => Some(crate::hr::service::set_person_hidden(conn, target, hidden)?),
         DeletionKind::HrField => Some(crate::hr::service::set_field_hidden(conn, target, hidden)?),
-        DeletionKind::Beneficiary => {
-            let data = roster_store::stored(conn, target)?;
-            if data.is_some() {
-                roster_store::set_entry_hidden(conn, target, hidden)?;
-            }
-            data.map(|d| d.get("full_name").cloned().unwrap_or_else(|| "Sin nombre".into()))
-        }
-        DeletionKind::RosterField => {
-            let title = roster_store::field_title(conn, Entity::Beneficiary, target)?;
-            if title.is_some() && !roster_store::set_field_hidden(conn, Entity::Beneficiary, target, hidden)? {
-                return Err(ServiceError::Access("field_builtin"));
-            }
-            title
-        }
+        DeletionKind::Beneficiary => Some(crate::care::service::set_person_hidden(conn, target, hidden)?),
+        DeletionKind::CareField => Some(crate::care::service::set_field_hidden(conn, target, hidden)?),
     };
     label.ok_or(ServiceError::NotFound)
 }
 
 fn sync_after(conn: &mut Connection, kind: DeletionKind) -> Result<(), ServiceError> {
     if matches!(kind, DeletionKind::HrPerson | DeletionKind::Beneficiary) {
-        roster_service::sync_profile(conn)?;
+        profile_sync::sync_profile(conn)?;
     }
     Ok(())
 }
@@ -560,7 +546,6 @@ pub fn request_deletion(conn: &mut Connection, by: &CurrentUser, kind: DeletionK
 
 /// The deletion itself, as the administrator does it.
 fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str) -> Result<(), ServiceError> {
-    use crate::domain::roster::Entity;
     match kind {
         DeletionKind::Document => {
             crate::storage::documents::emergency_delete_document(conn, target)?;
@@ -576,10 +561,10 @@ fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str) -> R
             crate::hr::service::delete_custom_field(conn, target)?;
         }
         DeletionKind::Beneficiary => {
-            roster_service::delete_entry(conn, Entity::Beneficiary, target)?;
+            crate::care_service::delete_person(conn, target)?;
         }
-        DeletionKind::RosterField => {
-            roster_service::delete_field(conn, Entity::Beneficiary, target)?;
+        DeletionKind::CareField => {
+            crate::care::service::delete_custom_field(conn, target)?;
         }
     }
     Ok(())

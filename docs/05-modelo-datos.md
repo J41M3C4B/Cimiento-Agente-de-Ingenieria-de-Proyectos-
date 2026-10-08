@@ -114,6 +114,19 @@ CREATE TABLE income_source (
 -- hr_custom_field  datos propios del formulario
 -- staff_group.relation  tipo de relación de cada línea anónima (dónde cuenta su dinero)
 
+-- Módulo de Beneficiarios (ADR-029, migración 0017; elimina roster_entry y roster_field).
+-- care_person         identificación (birth_date + birth_date_approx, sex, curp, origen, lengua, estudios o escuela,
+--                     group_id), ingreso (entry_date + approx, stay_mode, referred_by, admission_reasons JSON, status
+--                     active|hospitalized|discharged|deceased, status_date, discharge_reason), salud por categorías
+--                     (dependency, mobility, disabilities JSON, chronic_conditions JSON, continence, orientation,
+--                     psych_care, vaccines_up_to_date), familia (visits, legal_status), aportación (monthly_fee_mxn,
+--                     fee_payer, programs JSON), consentimiento (consent_date, consent_signer), extra, hidden
+-- care_contact        hasta 2 responsables por persona (legal_guardian)
+-- care_group          grupos propios (título único)
+-- care_custom_field   datos propios del formulario (hidden mientras su borrado espera)
+-- care_waitlist       solicitudes de ingreso: requested_on, name/phone opcionales, sex, approx_age, dependency, reason,
+--                     status waiting|admitted|declined|withdrawn, person_id
+
 -- Perfiles de acceso (ADR-028, migración 0016).
 -- app_user        cuentas: username (único, minúsculas), display_name, person_id (ficha del personal), role (admin|manager),
 --                 active, password_hash (Argon2id), must_change_password, failed_attempts, locked_until (unix), last_login_at

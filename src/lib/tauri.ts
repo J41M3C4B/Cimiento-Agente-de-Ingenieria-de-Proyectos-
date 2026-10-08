@@ -41,11 +41,6 @@ import type {
   SummaryEdit,
   SummaryOutcome,
   UsageReport,
-  Entity,
-  FieldInput,
-  RosterChange,
-  RosterField,
-  RosterOverview,
 } from "./types";
 
 export interface AppInfo {
@@ -66,13 +61,6 @@ export const appInfo = () => invoke<AppInfo>("app_info");
 export const profileGet = () => invoke<ProfileView | null>("profile_get");
 export const profileSave = (input: ProfileInput, decision?: Decision) =>
   invoke<SaveProfileOutcome>("profile_save", { input, decision: decision ?? null });
-// The roster: staff and people served, one record each (ADR-020)
-export const rosterOverview = (entity: Entity) => invoke<RosterOverview>("roster_overview", { entity });
-export const rosterFieldSave = (entity: Entity, field: FieldInput) => invoke<RosterField[]>("roster_field_save", { entity, field });
-export const rosterFieldDelete = (entity: Entity, key: string) => invoke<RosterField[]>("roster_field_delete", { entity, key });
-export const rosterEntrySave = (entity: Entity, id: string | null, data: Record<string, string>) =>
-  invoke<RosterChange>("roster_entry_save", { entity, id, data });
-export const rosterEntryDelete = (entity: Entity, id: string) => invoke<RosterChange>("roster_entry_delete", { entity, id });
 export const profileConfirm = () => invoke<ProfileView>("profile_confirm");
 // Documents of the institution (global): the files of a call come in with their project
 export const documentAddText = (displayName: string, text: string, decision?: Decision) =>

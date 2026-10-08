@@ -8,7 +8,7 @@ use crate::hr::domain::person::{Issue, PersonData};
 use crate::hr::domain::position::PositionInput;
 use crate::hr::service::{self as hr, ModalityInfo, Overview, PersonView, SaveOutcome};
 use crate::hr::storage::CustomField;
-use crate::roster_service::{flavor_of, sync_profile, totals};
+use crate::profile_sync::{flavor_of, sync_profile, totals};
 use crate::scanner::guard::{guard_fields, Decision, GuardOutcome, QuarantineReport};
 use crate::service::{counts_json, scanner_for, ProfileView, ServiceError};
 use rusqlite::Connection;

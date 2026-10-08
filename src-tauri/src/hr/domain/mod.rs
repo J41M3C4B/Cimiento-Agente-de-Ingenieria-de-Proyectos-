@@ -2,7 +2,6 @@
 
 pub mod aggregate;
 pub mod catalog;
-pub mod ids;
 pub mod payroll;
 pub mod person;
 pub mod position;

@@ -246,24 +246,24 @@ fn a_deletion_asked_by_direction_hides_the_person_until_the_administrator_decide
 
 #[test]
 fn a_hidden_field_keeps_its_values_and_a_document_hides_too() {
-    use crate::domain::roster::{Data, Entity};
-    use crate::storage::roster::FieldInput;
+    use crate::care::domain::person::BeneficiaryData;
     let (_d, mut c) = conn();
     let (s, _) = with_admin(&mut c);
     let (_, rosa_session) = manager(&mut c, &s);
     let rosa = rosa_session.current().unwrap();
-    let fields = crate::roster_service::save_field(&c, Entity::Beneficiary, &FieldInput { key: None, title: "Alergias".into(), kind: crate::domain::roster::FieldKind::Text, options: vec![] }).unwrap();
+    let fields = crate::care_service::save_field(&c, None, "Alergias", "text", &[]).unwrap();
     let key = fields.iter().find(|f| f.title == "Alergias").unwrap().key.clone();
-    let mut data: Data = [("full_name", "Luz"), ("category", "Mujeres adultas mayores")].iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
-    data.insert(key.clone(), "nueces".into());
-    let change = crate::roster_service::save_entry(&mut c, Entity::Beneficiary, None, &data).unwrap();
-    let id = change.entries[0].id.clone();
+    let mut data = BeneficiaryData { first_names: "Luz".into(), approx_age: Some(80), status: "active".into(), ..Default::default() };
+    data.extra.insert(key.clone(), "nueces".into());
+    let crate::care_service::PersonOutcome::Saved { person, .. } = crate::care_service::save_person(&mut c, None, data.clone()).unwrap() else { panic!("saved") };
 
-    request_deletion(&mut c, &rosa, DeletionKind::RosterField, &key).unwrap();
+    request_deletion(&mut c, &rosa, DeletionKind::CareField, &key).unwrap();
     // the record is edited while the field is hidden: its value survives
-    data.remove(&key);
-    crate::roster_service::save_entry(&mut c, Entity::Beneficiary, Some(&id), &data).unwrap();
-    assert_eq!(crate::storage::roster::stored(&c, &id).unwrap().unwrap().get(&key).map(String::as_str), Some("nueces"));
+    let mut again = person.data.clone();
+    again.extra.remove(&key);
+    crate::care_service::save_person(&mut c, Some(&person.id), again).unwrap();
+    let stored = crate::care::storage::person(&c, &person.id).unwrap().unwrap();
+    assert_eq!(stored.data.extra.get(&key).map(String::as_str), Some("nueces"));
 
     let doc = crate::storage::documents::add_text_document(&mut c, "internal", "Reglamento", "Texto del reglamento interno.", 0).unwrap();
     request_deletion(&mut c, &rosa, DeletionKind::Document, &doc.id).unwrap();

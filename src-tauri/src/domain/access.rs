@@ -90,11 +90,17 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("documents_list", Need::Permission(Permission::Use)),
     ("document_emergency_delete", Need::DeleteOrRequest),
     ("dev_load_fixture", Need::Permission(Permission::Settings)),
-    ("roster_overview", Need::Permission(Permission::Use)),
-    ("roster_field_save", Need::Permission(Permission::Use)),
-    ("roster_field_delete", Need::DeleteOrRequest),
-    ("roster_entry_save", Need::Permission(Permission::Use)),
-    ("roster_entry_delete", Need::DeleteOrRequest),
+    ("care_overview", Need::Permission(Permission::Use)),
+    ("care_person_get", Need::Permission(Permission::Use)),
+    ("care_person_save", Need::Permission(Permission::Use)),
+    ("care_person_delete", Need::DeleteOrRequest),
+    ("care_person_reveal", Need::Permission(Permission::Use)),
+    ("care_group_save", Need::Permission(Permission::Use)),
+    ("care_field_save", Need::Permission(Permission::Use)),
+    ("care_field_delete", Need::DeleteOrRequest),
+    ("care_waitlist_save", Need::Permission(Permission::Use)),
+    ("care_waitlist_admit", Need::Permission(Permission::Use)),
+    ("care_waitlist_delete", Need::Permission(Permission::Delete)),
     ("hr_overview", Need::Permission(Permission::Use)),
     ("hr_person_get", Need::Permission(Permission::Use)),
     ("hr_person_save", Need::Permission(Permission::Use)),
@@ -172,22 +178,24 @@ pub fn need_of(command: &str) -> Option<Need> {
 pub enum DeletionKind {
     Document,
     HrPerson,
+    /// A person served (ADR-029).
     Beneficiary,
     Project,
-    RosterField,
+    /// A field of their own of the form of the people served (stored as `roster_field`, its name before ADR-029).
+    CareField,
     HrField,
 }
 
 impl DeletionKind {
     pub const ALL: [DeletionKind; 6] =
-        [DeletionKind::Document, DeletionKind::HrPerson, DeletionKind::Beneficiary, DeletionKind::Project, DeletionKind::RosterField, DeletionKind::HrField];
+        [DeletionKind::Document, DeletionKind::HrPerson, DeletionKind::Beneficiary, DeletionKind::Project, DeletionKind::CareField, DeletionKind::HrField];
     pub fn as_db(self) -> &'static str {
         match self {
             DeletionKind::Document => "document",
             DeletionKind::HrPerson => "hr_person",
             DeletionKind::Beneficiary => "beneficiary",
             DeletionKind::Project => "project",
-            DeletionKind::RosterField => "roster_field",
+            DeletionKind::CareField => "roster_field",
             DeletionKind::HrField => "hr_field",
         }
     }

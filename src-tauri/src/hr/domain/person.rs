@@ -3,7 +3,10 @@
 //! fills in with time and the record shows how far it has come.
 
 use super::catalog::{self, PayKind, Rules};
-use super::{ids, payroll};
+use super::payroll;
+use crate::common::contact::{email_ok, phone_ok, zip_ok};
+use crate::common::ids;
+pub use crate::common::dates::{date_is_valid, years_between};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -106,55 +109,6 @@ pub struct Progress {
 
 fn filled(o: &Option<String>) -> bool {
     o.as_deref().is_some_and(|s| !s.trim().is_empty())
-}
-
-/// `YYYY-MM-DD` that exists on the calendar.
-pub fn date_is_valid(s: &str) -> bool {
-    let p: Vec<&str> = s.split('-').collect();
-    if p.len() != 3 || p[0].len() != 4 || p[1].len() != 2 || p[2].len() != 2 {
-        return false;
-    }
-    let (Ok(y), Ok(m), Ok(d)) = (p[0].parse::<i64>(), p[1].parse::<u32>(), p[2].parse::<u32>()) else { return false };
-    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
-    let days = match m {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 if leap => 29,
-        2 => 28,
-        _ => return false,
-    };
-    (1900..=2100).contains(&y) && (1..=days).contains(&d)
-}
-
-/// Whole years from `from` to `to` (both `YYYY-MM-DD`).
-pub fn years_between(from: &str, to: &str) -> Option<i64> {
-    if !date_is_valid(from) || !date_is_valid(to) {
-        return None;
-    }
-    let y = |s: &str| s[..4].parse::<i64>().ok();
-    let md = |s: &str| (&s[5..]).to_string();
-    let mut years = y(to)? - y(from)?;
-    if md(to) < md(from) {
-        years -= 1;
-    }
-    Some(years)
-}
-
-fn phone_ok(s: &str) -> bool {
-    (10..=13).contains(&s.chars().filter(char::is_ascii_digit).count())
-}
-
-fn email_ok(s: &str) -> bool {
-    let s = s.trim();
-    match s.split_once('@') {
-        Some((u, d)) => !u.is_empty() && !d.contains('@') && d.contains('.') && !d.starts_with('.') && !d.ends_with('.') && !s.contains(char::is_whitespace),
-        None => false,
-    }
-}
-
-fn zip_ok(s: &str) -> bool {
-    let s = s.trim();
-    s.len() == 5 && s.bytes().all(|b| b.is_ascii_digit())
 }
 
 impl PersonData {

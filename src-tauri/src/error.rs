@@ -77,6 +77,12 @@ impl From<ServiceError> for UiError {
             ServiceError::Hr(crate::hr::HrError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
             ServiceError::Hr(crate::hr::HrError::UnknownModality) => UiError::new("unknown_modality", "Elija a cuál modalidad se parece."),
             ServiceError::Access(code) => UiError::new(code, access_message(code)),
+            ServiceError::Care(crate::care::CareError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Care(crate::care::CareError::DuplicateTitle) => UiError::new("duplicate_group", "Ya existe un grupo con ese nombre."),
+            ServiceError::Care(crate::care::CareError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
+            ServiceError::Care(crate::care::CareError::AgeNeeded) => {
+                UiError::new("age_needed", "Escriba la edad aproximada en la solicitud antes de darle ingreso.")
+            }
             ServiceError::StaffMoved => UiError::new("staff_moved", "El personal ahora se lleva en su propia sección. Vuelva a abrir la pantalla."),
             ServiceError::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
             ServiceError::AlreadyRunning => UiError::new("already_running", "Ya lo estamos haciendo. En cuanto termine, se muestra aquí."),

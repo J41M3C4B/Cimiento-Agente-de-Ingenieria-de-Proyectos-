@@ -36,6 +36,11 @@ pub fn profile_db() -> (tempfile::TempDir, SharedDb) {
         facilities: vec![FacilityInput { kind: "Baño".into(), count: 3, condition: Some(Condition::Poor), ..Default::default() }],
         ..Default::default()
     };
+    // the 18 people served live in their module (ADR-029): the sheet of the AI counts them from there
+    for i in 0..18 {
+        let d = crate::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(80), status: "active".into(), ..Default::default() };
+        crate::care::service::save_person(&mut conn, crate::care::domain::catalog::Flavor::Other, None, d).unwrap();
+    }
     profile::save(&mut conn, &input).unwrap();
     profile::confirm(&mut conn).unwrap();
     (dir, Arc::new(Mutex::new(conn)))
@@ -46,6 +51,7 @@ pub fn rich_profile_db() -> (tempfile::TempDir, SharedDb) {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
     crate::institution_context::tests::seed_rich_staff(&mut conn);
+    crate::institution_context::tests::seed_rich_people(&mut conn);
     profile::save(&mut conn, &crate::institution_context::tests::rich()).unwrap();
     profile::confirm(&mut conn).unwrap();
     (dir, Arc::new(Mutex::new(conn)))

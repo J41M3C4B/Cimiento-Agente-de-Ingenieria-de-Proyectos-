@@ -4,14 +4,15 @@ import { Icon } from "../../components/icons";
 import { Alert, Button, Card, Dock, Eyebrow, FactRow, Facts, Inset, Metric, TabPanel, Tag, TextButton, Toast } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
-import { devLoadFixture, profileConfirm, profileGet, profileSave, rosterOverview, toAppError } from "../../lib/tauri";
+import { devLoadFixture, profileConfirm, profileGet, profileSave, toAppError } from "../../lib/tauri";
 import type { Decision, ProfileInput, ProfileIssue, ProfileTotals, ProfileView, QuarantineReport } from "../../lib/types";
 import { FacilitiesTab } from "./FacilitiesTab";
 import { BalanceCard, ExpensesCard, IncomeCard } from "./FinanceCards";
 import { ProfileEdit } from "./ProfileEdit";
 import type { Edit } from "./ProfileEdit";
 import { fromView, toInput } from "./profileForm";
-import { RosterTab } from "./RosterTab";
+import { careOverview } from "../care/api";
+import { CARE_KEY, CareTab } from "../care/CareTab";
 import { hrOverview } from "../hr/api";
 import { HR_KEY, StaffTab } from "../hr/StaffTab";
 import { useSession } from "../access/session";
@@ -38,9 +39,9 @@ export function ProfilePage() {
   // the example data replaces records: only the administrator, in development (ADR-028)
   const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
-  // the staff lives in its own module (ADR-027); the people served, in the roster (ADR-020)
+  // the staff and the people served live in their own modules (ADR-027, ADR-029)
   const staffModule = useQuery({ queryKey: HR_KEY, queryFn: hrOverview });
-  const peopleRoster = useQuery({ queryKey: ["roster", "beneficiary"], queryFn: () => rosterOverview("beneficiary") });
+  const peopleModule = useQuery({ queryKey: CARE_KEY, queryFn: careOverview });
 
   const [tab, setTab] = useState<Tab>("general");
   const [edit, setEdit] = useState<Edit | null>(null);
@@ -99,7 +100,7 @@ export function ProfilePage() {
     setBusy(true);
     try {
       qc.setQueryData(["profile"], await devLoadFixture(name));
-      await qc.invalidateQueries({ queryKey: ["roster"] });
+      await qc.invalidateQueries({ queryKey: CARE_KEY });
       await qc.invalidateQueries({ queryKey: HR_KEY });
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
@@ -125,7 +126,7 @@ export function ProfilePage() {
 
   const totals = staffModule.data?.totals ?? view?.totals ?? ZERO;
   const staffCount = staffModule.data?.people.filter((p) => p.status !== "left").length ?? 0;
-  const peopleCount = peopleRoster.data?.entries.length ?? 0;
+  const peopleCount = peopleModule.data?.board.indicators.served ?? 0;
   const facilities = view?.input.facilities ?? [];
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
 
@@ -134,7 +135,7 @@ export function ProfilePage() {
   if (view) {
     if (!inst?.contact_phone && !inst?.contact_email) todo.push({ text: t.todo.contact, go: () => open({ kind: "contact" }) });
     if (staffModule.isSuccess && staffCount === 0) todo.push({ text: t.todo.staff, go: () => setTab("staff") });
-    if (peopleRoster.isSuccess && peopleCount === 0) todo.push({ text: t.todo.population, go: () => setTab("population") });
+    if (peopleModule.isSuccess && peopleCount === 0) todo.push({ text: t.todo.population, go: () => setTab("population") });
     if (facilities.length === 0) todo.push({ text: t.todo.facilities, go: () => setTab("facilities") });
   }
 
@@ -281,7 +282,7 @@ export function ProfilePage() {
           </TabPanel>
           <TabPanel id="population" active={tab === "population"}>
             <Card className="dock-attach">
-              <RosterTab entity="beneficiary" onProfile={onRosterProfile} onNotice={notify} />
+              <CareTab onProfile={onRosterProfile} onNotice={notify} />
             </Card>
           </TabPanel>
           <TabPanel id="facilities" active={tab === "facilities"}>

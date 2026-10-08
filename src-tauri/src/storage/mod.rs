@@ -9,7 +9,6 @@ pub mod drafting;
 mod migrations;
 pub mod profile;
 pub mod projects;
-pub mod roster;
 mod secrets;
 
 #[allow(unused_imports)]

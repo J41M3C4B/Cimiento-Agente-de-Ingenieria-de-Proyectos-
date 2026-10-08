@@ -11,18 +11,33 @@
 //! as something the person said.
 
 use crate::domain::finances::{ExpenseBasis, BENEFICIARY_FEES, EXPENSE};
-use crate::domain::profile::{Condition, DependencyLevel, InstitutionKind, IncomeKind, Period, ProfileInput};
+use crate::domain::profile::{Condition, InstitutionKind, IncomeKind, Period};
+use crate::care::domain::aggregate::CareSummary;
+use crate::domain::insights::Insight;
 use crate::hr::api::{Count, MIN_GROUP};
 use crate::hr::domain::aggregate::StaffSummary;
 use crate::service::ServiceError;
 use crate::storage::profile::{self as profile_store, StoredProfile};
 use rusqlite::Connection;
 
-/// The sheet of the current profile (the latest version, confirmed or draft), with the staff as the staff module
-/// tells it now (ADR-027).
+/// The people served as their module tells them now (ADR-029): counts, attributes of groups of three or more, and
+/// the findings of the board that carry no money.
+pub struct PeopleSheet {
+    pub summary: CareSummary,
+    pub findings: Vec<Insight>,
+}
+
+pub fn people_sheet(conn: &Connection) -> Result<PeopleSheet, ServiceError> {
+    let summary = crate::care::api::ai_summary(conn, crate::profile_sync::care_flavor(conn))?;
+    let findings = crate::care_service::board(conn)?.insights.into_iter().filter(|i| i.for_ai).collect();
+    Ok(PeopleSheet { summary, findings })
+}
+
+/// The sheet of the current profile (the latest version, confirmed or draft), with the staff (ADR-027) and the people
+/// served (ADR-029) as their modules tell them now.
 pub fn profile_context(conn: &Connection) -> Result<String, ServiceError> {
     Ok(match profile_store::load_current(conn)? {
-        Some(p) => render(&p, &crate::hr::api::ai_summary(conn)?),
+        Some(p) => render(&p, &crate::hr::api::ai_summary(conn)?, &people_sheet(conn)?),
         None => "Perfil: sin datos. Todavía no hay nada capturado en «Mi institución»; de la institución solo se sabe lo que la persona diga.".into(),
     })
 }
@@ -44,14 +59,6 @@ fn condition_text(c: Condition) -> &'static str {
     }
 }
 
-fn dependency_text(d: DependencyLevel) -> &'static str {
-    match d {
-        DependencyLevel::Low => "baja",
-        DependencyLevel::Medium => "media",
-        DependencyLevel::High => "alta",
-        DependencyLevel::Total => "total",
-    }
-}
 
 fn relation_text(code: &str) -> &'static str {
     match code {
@@ -209,45 +216,135 @@ fn text(o: &Option<String>) -> Option<&str> {
     o.as_deref().map(str::trim).filter(|s| !s.is_empty())
 }
 
-/// The people served, one line per group and level of support (the fees that tell lines apart in the roster are
-/// not shown): how many, how many pay a fee, and the ages when the group is of two or more people.
-struct Group {
-    label: String,
-    dependency: Option<DependencyLevel>,
-    count: i64,
-    payers: i64,
-    ages: Option<(i64, i64)>,
+fn care_word(code: &str) -> &'static str {
+    match code {
+        "low" => "poco apoyo",
+        "medium" => "apoyo regular",
+        "high" => "mucho apoyo",
+        "total" => "apoyo en todo",
+        "independent" => "caminan sin ayuda",
+        "cane_walker" => "usan bastón o andadera",
+        "wheelchair" => "usan silla de ruedas",
+        "bedridden" => "están en cama",
+        "motor" => "con discapacidad motriz",
+        "visual" => "con discapacidad visual",
+        "hearing" => "con discapacidad auditiva",
+        "intellectual" => "con discapacidad intelectual",
+        "psychosocial" => "con discapacidad psicosocial",
+        "diabetes" => "con diabetes",
+        "hypertension" => "con hipertensión",
+        "dementia" => "con demencia",
+        "copd" => "con enfermedad pulmonar",
+        "heart_disease" => "con enfermedad del corazón",
+        "arthritis" => "con artritis",
+        "kidney_disease" => "con enfermedad renal",
+        "cancer" => "con cáncer",
+        "permanent" => "residentes permanentes",
+        "temporary" => "de estancia temporal",
+        "day_care" => "de estancia de día",
+        "respite" => "en respiro familiar",
+        "no_family_network" => "sin red familiar",
+        "abandonment" => "por abandono",
+        "dependency" => "por dependencia",
+        "violence" => "por violencia",
+        "orphanhood" => "por orfandad",
+        "poverty" => "por pobreza",
+        "health" => "por salud",
+        "family_custody" => "con su familia como responsable",
+        "dif_custody" => "bajo tutela del DIF",
+        "adoption_process" => "en proceso de adopción",
+        "other_process" => "en otro proceso legal",
+        _ => "por otra razón",
+    }
 }
 
-fn groups(i: &ProfileInput) -> Vec<Group> {
-    let mut out: Vec<Group> = Vec::new();
-    for g in i.population.iter().filter(|g| g.count > 0) {
-        let ages = match (g.age_min, g.age_max) {
-            (Some(a), Some(b)) => Some((a, b)),
-            _ => None,
-        };
-        match out.iter_mut().find(|x| x.label == g.label && x.dependency == g.dependency_level) {
-            Some(x) => {
-                x.count += g.count;
-                x.payers += g.paying_count.unwrap_or(0);
-                x.ages = match (x.ages, ages) {
-                    (Some((a, b)), Some((c, d))) => Some((a.min(c), b.max(d))),
-                    (a, b) => a.or(b),
-                };
-            }
-            None => out.push(Group {
-                label: g.label.clone(),
-                dependency: g.dependency_level,
-                count: g.count,
-                payers: g.paying_count.unwrap_or(0),
-                ages,
-            }),
+fn care_list(counts: &[crate::care::api::Count]) -> String {
+    counts.iter().map(|c| format!("{} {}", c.count, care_word(&c.code))).collect::<Vec<_>>().join(", ")
+}
+
+/// A finding of the board in one sentence (only those that may reach the AI come here).
+fn finding_text(i: &Insight) -> Option<String> {
+    let v = |k: &str| i.values.get(k).copied().unwrap_or(0);
+    Some(match i.code {
+        "mobility_vs_access" => format!(
+            "{} personas usan silla de ruedas o están en cama, y {}: {}.",
+            v("people"),
+            if v("spaces") == 1 { "1 espacio no es accesible".to_string() } else { format!("{} espacios no son accesibles", v("spaces")) },
+            i.items.join(", ")
+        ),
+        "waitlist_vs_seats" if v("free") >= 0 => format!("Hay {} solicitudes en lista de espera y {} plazas libres.", v("waiting"), v("free")),
+        "waitlist_vs_seats" => format!("Hay {} solicitudes en lista de espera.", v("waiting")),
+        "occupancy_high" => format!("La ocupación es de {} % de la capacidad.", v("percent")),
+        "dependency_vs_carers" => format!(
+            "{} personas necesitan mucho apoyo o apoyo en todo, y hay {} personas del personal en puestos de cuidado y salud.",
+            v("dependent"),
+            v("carers")
+        ),
+        "few_visits" => format!("{} personas reciben pocas o ninguna visita de su familia.", v("people")),
+        "no_program" => format!("{} personas de 65 años o más no tienen pensión ni programa social.", v("people")),
+        "school_lag" => format!("{} niñas, niños o adolescentes tienen rezago escolar.", v("people")),
+        _ => return None,
+    })
+}
+
+/// The people served: how many per group and, for groups of `MIN_GROUP` or more, their support, mobility, health,
+/// stay and family; then the findings that cross them with the rest of the institution. Never who.
+fn render_people(s: &mut String, people: &PeopleSheet, fee_payers: i64, missing: &mut Vec<&str>) {
+    let c = &people.summary;
+    if c.served == 0 {
+        missing.push("a quiénes atiende");
+        if c.waiting > 0 {
+            s.push_str(&format!("Lista de espera: {} solicitudes.\n", c.waiting));
+        }
+        return;
+    }
+    for g in &c.by_group {
+        s.push_str(&format!("Población: {} — {} {}.\n", g.code, g.count, if g.count == 1 { "persona" } else { "personas" }));
+    }
+    s.push_str(&format!("Total de personas atendidas: {}.\n", c.served));
+    if fee_payers > 0 {
+        s.push_str(&format!("De ellas, {fee_payers} pagan cuota de estancia.\n"));
+    }
+    if let Some(a) = c.average_age {
+        s.push_str(&format!("Edad promedio: {a} años.\n"));
+    }
+    let only = format!("(solo grupos de {MIN_GROUP} o más personas)");
+    for (title, list) in [
+        ("Nivel de apoyo", &c.dependency),
+        ("Movilidad", &c.mobility),
+        ("Discapacidad", &c.disabilities),
+        ("Condiciones de salud", &c.chronic),
+        ("Modalidad de estancia", &c.stay_modes),
+        ("Motivos de ingreso", &c.admission_reasons),
+        ("Situación legal", &c.legal),
+    ] {
+        if !list.is_empty() {
+            s.push_str(&format!("{title} {only}: {}.\n", care_list(list)));
         }
     }
-    out
+    for (text, n) in [
+        ("Reciben pocas o ninguna visita", c.few_visits),
+        ("Tienen pensión o programa social", c.with_program),
+        ("Hablan una lengua indígena", c.indigenous_language),
+        ("Van a la escuela", c.attending_school),
+        ("Tienen rezago escolar", c.school_lag),
+    ] {
+        if let Some(n) = n {
+            s.push_str(&format!("{text}: {n}.\n"));
+        }
+    }
+    if c.admitted_this_year > 0 || c.discharged_this_year > 0 {
+        s.push_str(&format!("En el año ingresaron {} y egresaron {}.\n", c.admitted_this_year, c.discharged_this_year));
+    }
+    if c.waiting > 0 {
+        s.push_str(&format!("Lista de espera: {} solicitudes.\n", c.waiting));
+    }
+    for f in people.findings.iter().filter_map(finding_text) {
+        s.push_str(&format!("Hallazgo: {f}\n"));
+    }
 }
 
-pub fn render(p: &StoredProfile, staff: &StaffSummary) -> String {
+pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet) -> String {
     let i = &p.input;
     let t = i.totals(p.as_of_year);
     let money = i.finances(p.as_of_year);
@@ -337,30 +434,8 @@ pub fn render(p: &StoredProfile, staff: &StaffSummary) -> String {
         s.push_str(&format!("Balance del año, calculado con lo capturado y {against}: los ingresos {verdict}.\n"));
     }
 
-    // people served: only how many, never who
-    let people = groups(i);
-    if people.is_empty() {
-        missing.push("a quiénes atiende");
-    } else {
-        for g in &people {
-            let mut line = format!("Población: {} — {} {}", g.label, g.count, if g.count == 1 { "persona" } else { "personas" });
-            if let Some(d) = g.dependency {
-                line.push_str(&format!("; nivel de dependencia {}", dependency_text(d)));
-            }
-            if let (Some((a, b)), true) = (g.ages, g.count >= 2) {
-                line.push_str(&format!("; edades de {a} a {b} años"));
-            }
-            if g.payers > 0 {
-                line.push_str(&format!("; {} pagan cuota de estancia", g.payers));
-            }
-            s.push_str(&line);
-            s.push_str(".\n");
-        }
-        s.push_str(&format!("Total de personas atendidas: {}.\n", t.population));
-        if t.fee_payers > 0 {
-            s.push_str(&format!("De ellas, {} pagan cuota de estancia.\n", t.fee_payers));
-        }
-    }
+    // people served: from their module, as counts; never who (ADR-029)
+    render_people(&mut s, people, t.fee_payers, &mut missing);
 
     // staff: from the staff module, as positions and counts; never a person, a pay or a date (ADR-027)
     render_staff(&mut s, staff, &mut missing);
@@ -474,9 +549,32 @@ pub(crate) mod tests {
         }
     }
 
+    /// The people served of `rich()` in their module: 11 women and 1 man, with the data the findings cross.
+    pub(crate) fn seed_rich_people(c: &mut Connection) {
+        use crate::care::domain::catalog::Flavor;
+        use crate::care::domain::person::BeneficiaryData;
+        let year: i64 = crate::care::storage::today(c).unwrap()[..4].parse().unwrap();
+        let mut people = Vec::new();
+        for i in 0..4 {
+            people.push(BeneficiaryData { first_names: format!("Abuelita Reservada {i}"), sex: Some("female".into()), birth_date: Some(format!("{}-01-01", year - 84)), dependency: Some("high".into()), mobility: Some("wheelchair".into()), visits: Some("never".into()), curp: Some("HEGG560427MVZRRL04".into()), ..Default::default() });
+        }
+        for i in 0..4 {
+            people.push(BeneficiaryData { first_names: format!("Señora Privada {i}"), sex: Some("female".into()), birth_date: Some(format!("{}-01-01", year - 72)), dependency: Some("high".into()), mobility: Some("independent".into()), ..Default::default() });
+        }
+        for i in 0..3 {
+            people.push(BeneficiaryData { first_names: format!("Doña Callada {i}"), sex: Some("female".into()), birth_date: Some(format!("{}-01-01", year - 67)), dependency: Some("medium".into()), ..Default::default() });
+        }
+        people.push(BeneficiaryData { first_names: "Don Discreto".into(), sex: Some("male".into()), birth_date: Some(format!("{}-01-01", year - 93)), dependency: Some("total".into()), mobility: Some("bedridden".into()), ..Default::default() });
+        for mut d in people {
+            d.status = "active".into();
+            let crate::care::service::SaveOutcome::Saved { .. } = crate::care::service::save_person(c, Flavor::ElderlyHome, None, d).unwrap() else { panic!("saved") };
+        }
+    }
+
     fn saved(input: &ProfileInput, confirm: bool) -> (tempfile::TempDir, Connection) {
         let (d, mut c) = db();
         seed_rich_staff(&mut c);
+        seed_rich_people(&mut c);
         profile_store::save(&mut c, input).unwrap();
         if confirm {
             profile_store::confirm(&mut c).unwrap();
@@ -499,9 +597,19 @@ pub(crate) mod tests {
         "Egreso: nómina del personal con aguinaldo y prima vacacional (del padrón); el monto no se comparte.",
         "Suma de los egresos escritos a mano: $216,000 pesos al año (sin la nómina).",
         "Balance del año, calculado con lo capturado y la lista de egresos: los ingresos alcanzan a cubrir los egresos y sobra algo.",
-        "Población: Adultos mayores — 11 personas; nivel de dependencia alta; edades de 66 a 95 años; 5 pagan cuota de estancia.",
-        "Población: Hombres — 1 persona; nivel de dependencia total.",
+        "Población: Mujeres de 80 a 89 años — 4 personas.",
+        "Población: Mujeres de 70 a 79 años — 4 personas.",
+        "Población: Mujeres de 60 a 69 años — 3 personas.",
+        "Población: Hombres de 90 años o más — 1 persona.",
         "Total de personas atendidas: 12.",
+        "De ellas, 5 pagan cuota de estancia.",
+        "Nivel de apoyo (solo grupos de 3 o más personas): 3 apoyo regular, 8 mucho apoyo.",
+        "Movilidad (solo grupos de 3 o más personas): 4 caminan sin ayuda, 4 usan silla de ruedas.",
+        "Reciben pocas o ninguna visita: 4.",
+        "Hallazgo: 5 personas usan silla de ruedas o están en cama, y 1 espacio no es accesible: Baño.",
+        "Hallazgo: 9 personas necesitan mucho apoyo o apoyo en todo, y hay 4 personas del personal en puestos de cuidado y salud.",
+        "Hallazgo: 4 personas reciben pocas o ninguna visita de su familia.",
+        "Hallazgo: 12 personas de 65 años o más no tienen pensión ni programa social.",
         "Personal: Cuidadora (cuidado) — 4 personas (4 con sueldo; jornada: 4 tiempo completo; turno: 4 nocturno). Plazas autorizadas: 5; sin cubrir: 1.",
         "Funciones del puesto Cuidadora: Atiende a los residentes de noche.",
         "Personal: Voluntaria — 3 personas (3 de voluntariado).",
@@ -542,11 +650,11 @@ pub(crate) mod tests {
         }
         assert!(!ctx.contains("Cuotas aprox."), "a fee estimate left out of the sums is not shown either:\n{ctx}");
         // pay, the fee a person pays, contact data, RFC and the representative; names and identifiers of the staff
-        for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante", "Secreta", "Oculta", "HEGG"] {
+        for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante", "Secreta", "Oculta", "HEGG", "Reservada", "Privada", "Callada", "Discreto"] {
             assert!(!ctx.contains(secret), "«{secret}» leaked:\n{ctx}");
         }
         // the age of a group of one person would be that person's age
-        assert!(ctx.contains("Población: Hombres — 1 persona; nivel de dependencia total."), "{ctx}");
+        assert!(ctx.contains("Población: Hombres de 90 años o más — 1 persona."), "{ctx}");
         assert!(!ctx.contains("93"), "{ctx}");
     }
 
@@ -596,7 +704,7 @@ pub(crate) mod tests {
         let (_d, c) = saved(&rich(), true);
         let ctx = profile_context(&c).unwrap();
         // every number of the sheet is a fact of the profile or a sum made by code
-        let allowed = ["25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9"];
+        let allowed = ["25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9", "89", "79", "60", "69", "90", "65", "77"];
         for n in crate::domain::figures::digit_numbers(&ctx) {
             assert!(allowed.contains(&n.as_str()), "unexpected number {n} in the sheet:\n{ctx}");
         }
@@ -608,11 +716,11 @@ pub(crate) mod tests {
         let mut c = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
         let input: ProfileInput = serde_json::from_str(include_str!("../../fixtures/institucion-asilo.json")).unwrap();
         crate::service::save_profile(&mut c, input.clone(), None).unwrap();
-        crate::roster_service::seed_roster(&mut c, include_str!("../../fixtures/padron-asilo.json")).unwrap();
+        crate::profile_sync::seed_examples(&mut c, include_str!("../../fixtures/padron-asilo.json")).unwrap();
         crate::service::save_profile(&mut c, input, None).unwrap();
 
         let stored = profile_store::load_current(&c).unwrap().unwrap();
-        let ctx = render(&stored, &crate::hr::api::ai_summary(&c).unwrap());
+        let ctx = render(&stored, &crate::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap());
         assert!(ctx.contains("Personal: "), "{ctx}");
         assert!(ctx.contains("Población: "), "{ctx}");
         assert!(ctx.contains("Total de personas atendidas: "), "{ctx}");

@@ -2,10 +2,10 @@
 
 pub mod access;
 pub mod calls;
+pub mod care;
 pub mod diagnosis;
 pub mod drafting;
 pub mod hr;
-pub mod roster;
 pub mod security;
 
 use crate::access_service::{CurrentUser, Session};
@@ -147,7 +147,7 @@ pub fn dev_load_fixture(session: State<'_, Session>, db: State<Db>, name: String
         // the institution first, so the forms of the roster start with its kind; then the people of the example,
         // and the profile adds them up again
         service::save_profile(&mut conn, input.clone(), None)?;
-        crate::roster_service::seed_roster(&mut conn, padron)?;
+        crate::profile_sync::seed_examples(&mut conn, padron)?;
         return match service::save_profile(&mut conn, input, None)? {
             SaveProfileOutcome::Saved { profile } => Ok(profile),
             _ => Err(UiError::internal()),

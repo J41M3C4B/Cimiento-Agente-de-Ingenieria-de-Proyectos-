@@ -90,43 +90,6 @@ export interface ProfileTotals {
   fees_monthly_mxn: number;
   fees_annual_mxn: number;
 }
-// The roster (ADR-020): one record per staff member and per person served. Apart from the profile.
-export type Entity = "staff" | "beneficiary";
-export type FieldKind = "text" | "select" | "number" | "money" | "year" | "email" | "phone" | "yesno";
-export interface FieldOption {
-  value: string;
-  label: string;
-}
-export interface RosterField {
-  key: string;
-  title: string;
-  kind: FieldKind;
-  options: FieldOption[];
-  builtin: boolean;
-  locked_options: boolean;
-  required: boolean;
-  position: number;
-}
-export interface RosterEntry {
-  id: string;
-  data: Record<string, string>;
-}
-export interface RosterOverview {
-  fields: RosterField[];
-  entries: RosterEntry[];
-  totals: ProfileTotals;
-}
-export interface RosterChange {
-  entries: RosterEntry[];
-  totals: ProfileTotals;
-  profile: ProfileView | null;
-}
-export interface FieldInput {
-  key: string | null;
-  title: string;
-  kind: FieldKind;
-  options: string[];
-}
 
 export interface ProfileView {
   institution_id: string;

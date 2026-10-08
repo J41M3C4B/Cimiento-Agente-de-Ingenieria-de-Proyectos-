@@ -2,7 +2,10 @@ mod access_service;
 mod ai;
 mod audit;
 mod call_service;
+mod care;
+mod care_service;
 mod commands;
+mod common;
 mod conversation_service;
 mod diagnosis_service;
 mod documents;
@@ -14,7 +17,7 @@ mod hr;
 mod institution_context;
 mod jobs;
 mod review_service;
-mod roster_service;
+mod profile_sync;
 mod scanner;
 mod security_service;
 mod service;
@@ -71,11 +74,17 @@ pub fn run() {
             commands::documents_list,
             commands::document_emergency_delete,
             commands::dev_load_fixture,
-            commands::roster::roster_overview,
-            commands::roster::roster_field_save,
-            commands::roster::roster_field_delete,
-            commands::roster::roster_entry_save,
-            commands::roster::roster_entry_delete,
+            commands::care::care_overview,
+            commands::care::care_person_get,
+            commands::care::care_person_save,
+            commands::care::care_person_delete,
+            commands::care::care_person_reveal,
+            commands::care::care_group_save,
+            commands::care::care_field_save,
+            commands::care::care_field_delete,
+            commands::care::care_waitlist_save,
+            commands::care::care_waitlist_admit,
+            commands::care::care_waitlist_delete,
             commands::hr::hr_overview,
             commands::hr::hr_person_get,
             commands::hr::hr_person_save,
