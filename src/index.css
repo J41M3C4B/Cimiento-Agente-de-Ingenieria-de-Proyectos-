@@ -229,6 +229,7 @@ h1, h2, h3 {
   .btn--soft { background: var(--inset); color: var(--ink); }
   .btn--danger { background: var(--card); color: color-mix(in srgb, var(--color-red) 80%, var(--ink)); border-color: var(--line); }
   .btn--danger:hover { background: color-mix(in srgb, var(--color-red) 18%, var(--card)); }
+  .btn--destructive { background: var(--color-red); color: var(--color-onc); }
   .btn--ghost { background: transparent; color: var(--ink); }
   .btn--ghost:hover { background: var(--inset); }
   .btn--plain { background: transparent; color: var(--ink-2); padding: 0 10px; }
@@ -332,18 +333,22 @@ h1, h2, h3 {
     border-radius: var(--radius-pill); background: var(--card); color: var(--ink); font-size: var(--text-small); font-weight: 700; white-space: nowrap;
   }
 
-  /* Dock: pestañas de una página; van directamente sobre el marco (sin bandeja gris detrás) y el contenido también */
-  .dock { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .dock-tabs { display: flex; align-items: center; gap: 4px; }
+  /* Dock: las pestañas de una página son parte de la bandeja de su contenido (efecto de carpeta): la pestaña activa es
+     blanca y se une a la bandeja con esquinas cóncavas; al cambiar de pestaña, cambia la pestaña unida. La bandeja que
+     queda debajo de las pestañas lleva .dock-attach. No hay ninguna superficie gris detrás. */
+  .dock { display: flex; flex-direction: column; min-width: 0; }
+  .dock-tabs { display: flex; align-items: flex-end; }
   .dock-tab {
-    display: flex; align-items: center; gap: 10px; flex: none; height: var(--spacing-ctl); padding: 0 22px; white-space: nowrap;
-    border-radius: var(--radius-pill); color: var(--ink-2); font-size: var(--text-ui); font-weight: 700; cursor: pointer;
-    transition: color 0.16s, background-color 0.16s, box-shadow 0.16s;
+    position: relative; display: flex; align-items: center; gap: 10px; flex: none; height: 52px; padding: 0 30px; white-space: nowrap;
+    border-radius: 24px 24px 0 0; color: var(--ink-3); font-size: var(--text-ui); font-weight: 700; cursor: pointer; transition: color 0.16s;
   }
-  .dock-tab:hover { color: var(--ink); background: color-mix(in srgb, var(--card) 60%, transparent); }
-  .dock-tab[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow-card-v); }
+  .dock-tab:hover { color: var(--ink); }
+  .dock-tab[aria-selected="true"] { background: var(--card); color: var(--ink); }
+  .dock-tab[aria-selected="true"]::after { content: ""; position: absolute; right: -24px; bottom: 0; width: 24px; height: 24px; background: radial-gradient(circle at 100% 0, transparent 23.5px, var(--card) 24px); }
+  .dock-tab[aria-selected="true"]:not(:first-child)::before { content: ""; position: absolute; left: -24px; bottom: 0; width: 24px; height: 24px; background: radial-gradient(circle at 0 0, transparent 23.5px, var(--card) 24px); }
   .dock-count { padding: 0 7px; border-radius: var(--radius-tick); background: var(--ink); color: var(--on-ink); font-size: 12px; line-height: 20px; }
   .dock-tab[aria-selected="false"] .dock-count { background: var(--card); color: var(--ink-2); }
+  .dock[data-first="true"] .dock-attach { border-top-left-radius: 0; }
 
   /* Segmented: pista suave con la opción elegida levantada */
   .seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-radius: var(--radius-pill); background: var(--inset); max-width: 100%; }

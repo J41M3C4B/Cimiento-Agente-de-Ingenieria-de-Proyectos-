@@ -1314,8 +1314,13 @@ export const es = {
       title: "Cimiento está bloqueado",
       help: (name: string) => `Se bloqueó porque pasó un rato sin usarse. ${name}, escriba su contraseña para seguir donde se quedó.`,
       other: "Entrar con otra cuenta",
+      tag: "Bloqueado",
     },
-    menu: { lock: "Bloquear", logout: "Cerrar sesión", changePassword: "Cambiar mi contraseña" },
+    menu: { lock: "Bloquear", logout: "Cerrar sesión", changePassword: "Cambiar mi contraseña", account: "Mi cuenta", currentPassword: "Su contraseña actual", changed: "Listo, su contraseña cambió." },
+    footer: "Sus datos se quedan en esta computadora.",
+    copyCode: "Copiar el código",
+    codeCopied: "Copiado",
+    codeOnce: "No se vuelve a mostrar",
     roles: { admin: "Administración", manager: "Dirección y contaduría" } as Record<string, string>,
   },
   admin: {
@@ -1325,6 +1330,9 @@ export const es = {
     people: {
       help: "Dé acceso a las personas del personal que usarán Cimiento. Entrarán con una contraseña temporal y la cambiarán al entrar.",
       noAccount: "Sin cuenta",
+      summaryActive: "Cuentas activas",
+      summaryPending: "Por cambiar su contraseña",
+      summaryWithout: "Del personal sin cuenta",
       give: "Dar acceso",
       reset: "Nueva contraseña temporal",
       disable: "Desactivar",
@@ -1350,6 +1358,11 @@ export const es = {
     requests: {
       help: "Lo que la dirección o la contaduría quitaron. Ya no se ve en Cimiento; usted decide si se borra por completo o si vuelve.",
       empty: "No hay solicitudes pendientes.",
+      emptyNote: "Cuando la dirección o la contaduría quiten algo, aparecerá aquí para que usted decida.",
+      confirmTitle: "Borrar por completo",
+      confirmBody: "Se borrará de verdad y no se puede deshacer. Si prefiere conservarlo, elija «Devolverlo».",
+      confirmYes: "Sí, borrar por completo",
+      pending: "Por decidir",
       approve: "Borrar por completo",
       reject: "Devolverlo",
       asked: (by: string, at: string) => `Lo pidió ${by} el ${at}`,
@@ -1401,6 +1414,8 @@ export const es = {
     recovery: {
       help: "Su código de recuperación le permite poner una contraseña nueva si olvida la suya. Si lo perdió, genere uno nuevo: el anterior deja de servir.",
       renew: "Generar un código nuevo",
+      renewWarn: "El código anterior deja de servir en cuanto genere uno nuevo.",
+      newCode: "Su código nuevo",
     },
   },
   lock: {

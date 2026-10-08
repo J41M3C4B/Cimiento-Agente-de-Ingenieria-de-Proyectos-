@@ -1,14 +1,20 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Alert, Avatar, Button, Card, Dock, Inset, Modal, PageHeader, Select, StatusDot, TabPanel, Tag, TextInput, Toast } from "../../components/ui";
+import { Icon } from "../../components/icons";
+import type { IconName } from "../../components/icons";
+import { Alert, Avatar, Button, Card, Dock, Inset, Modal, PageHeader, Select, StatusDot, TabPanel, Tag, Tile, TextInput, Toast } from "../../components/ui";
+import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
 import { adminAudit, adminOverview, adminRecoveryCodeNew, adminRequestResolve, adminUserCreate, adminUserResetPassword, adminUserUpdate } from "./api";
-import type { AdminOverview, PersonAccess, UserRow } from "./types";
+import { RecoveryCodeBox } from "./RecoveryCodeBox";
+import type { AdminOverview, PersonAccess, RequestRow, UserRow } from "./types";
 
 const t = es.admin;
 const KEY = ["admin"] as const;
 type Tab = "people" | "requests" | "audit" | "recovery";
+const day = (iso: string) => new Date(iso).toLocaleDateString("es-MX", { dateStyle: "medium" });
+const hour = (iso: string) => new Date(iso).toLocaleTimeString("es-MX", { timeStyle: "short" });
 const when = (iso: string) => new Date(iso).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
 
 /** A window to give access (to a person of the staff or to someone outside it) or to set a new temporary password. */
@@ -63,11 +69,14 @@ function AccountDialog({
       {!resetting && (
         <>
           <TextInput label={es.access.username} autoFocus={!!person} value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} />
-          <Inset className="space-y-1">
-            <b className="block font-bold">
-              {p.role}: {es.access.roles.manager}
-            </b>
-            <span className="block text-small text-ink-2">{p.roleNote}</span>
+          <Inset className="flex items-start gap-3">
+            <Tile icon="shield" tone="sky" small />
+            <div className="min-w-0 space-y-1">
+              <b className="block font-bold">
+                {p.role}: {es.access.roles.manager}
+              </b>
+              <span className="block text-small text-ink-2">{p.roleNote}</span>
+            </div>
           </Inset>
         </>
       )}
@@ -77,12 +86,29 @@ function AccountDialog({
   );
 }
 
+/** A small count with its words, over an inset. */
+function Count({ value, label, tone }: { value: number; label: string; tone: Tone }) {
+  return (
+    <Inset className="flex items-center gap-3 !px-4 !py-3">
+      <span className={`tag tone-${tone} !h-ctl-sm !min-w-ctl-sm justify-center !text-heading !font-extrabold`}>{value}</span>
+      <span className="text-small font-semibold text-ink-2">{label}</span>
+    </Inset>
+  );
+}
+
 function PeopleTab({ data, onData }: { data: AdminOverview; onData: (o: AdminOverview) => void }) {
   const p = t.people;
   const [dialog, setDialog] = useState<{ person: PersonAccess | null; user: UserRow | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const userOf = (id: string | null) => data.users.find((u) => u.id === id) ?? null;
-  const outside = data.users.filter((u) => !data.people.some((x) => x.user_id === u.id));
+  const withAccount = [
+    ...data.users.filter((u) => !data.people.some((x) => x.user_id === u.id)).map((u) => ({ key: u.id, name: u.display_name, sub: u.role === "admin" ? null : p.outside, user: u, person: null as PersonAccess | null })),
+    ...data.people.filter((x) => x.user_id).map((x) => ({ key: x.person_id, name: x.full_name, sub: x.status === "left" ? p.left : null, user: userOf(x.user_id), person: x as PersonAccess | null })),
+  ];
+  const without = data.people.filter((x) => !x.user_id);
+  const active = data.users.filter((u) => u.active).length;
+  const mustChange = data.users.filter((u) => u.active && u.must_change_password).length;
+  const missing = without.filter((x) => x.status !== "left").length;
 
   async function toggle(u: UserRow) {
     setError(null);
@@ -107,14 +133,24 @@ function PeopleTab({ data, onData }: { data: AdminOverview; onData: (o: AdminOve
     );
 
   const row = (key: string, name: string, sub: string | null, u: UserRow | null, person: PersonAccess | null) => (
-    <li key={key} className="flex flex-wrap items-center gap-3 py-3">
-      <Avatar size="sm" name={name} />
+    <li key={key} className="flex flex-wrap items-center gap-x-4 gap-y-3 py-3">
+      <Avatar name={name} />
       <div className="min-w-[200px] flex-1">
         <b className="block font-bold">{name}</b>
-        <span className="block text-small text-ink-3">{[u ? `@${u.username} · ${es.access.roles[u.role]}` : null, sub].filter(Boolean).join(" · ")}</span>
+        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-ink-3">
+          {u && (
+            <>
+              @{u.username}
+              <Tag tone={u.role === "admin" ? "violet" : "sky"} variant="soft">
+                {es.access.roles[u.role]}
+              </Tag>
+            </>
+          )}
+          {sub}
+        </span>
       </div>
-      {accountState(u)}
-      <div className="flex flex-wrap gap-2">
+      <span className="text-small font-semibold">{accountState(u)}</span>
+      <div className="flex flex-wrap items-center gap-2">
         {!u && person && person.status !== "left" && (
           <Button size="sm" variant="primary" onClick={() => setDialog({ person, user: null })}>
             {p.give}
@@ -122,10 +158,10 @@ function PeopleTab({ data, onData }: { data: AdminOverview; onData: (o: AdminOve
         )}
         {u && u.role !== "admin" && (
           <>
-            <Button size="sm" onClick={() => setDialog({ person: null, user: u })}>
+            <Button size="sm" variant="secondary" onClick={() => setDialog({ person: null, user: u })}>
               {p.reset}
             </Button>
-            <Button size="sm" variant="plain" onClick={() => toggle(u)}>
+            <Button size="sm" variant="plain" className={u.active ? "!text-red-ink" : ""} onClick={() => toggle(u)}>
               {u.active ? p.disable : p.enable}
             </Button>
           </>
@@ -135,32 +171,45 @@ function PeopleTab({ data, onData }: { data: AdminOverview; onData: (o: AdminOve
   );
 
   return (
-    <Card className="space-y-4">
+    <Card className="dock-attach space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[70ch] text-ui text-ink-2">{p.help}</p>
         <Button size="sm" variant="secondary" onClick={() => setDialog({ person: null, user: null })}>
+          <Icon name="plus" size={16} strokeWidth={2.4} />
           {p.giveOutside}
         </Button>
       </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Count value={active} label={p.summaryActive} tone="green" />
+        <Count value={mustChange} label={p.summaryPending} tone="amber" />
+        <Count value={missing} label={p.summaryWithout} tone="sky" />
+      </div>
       {error && <Alert tone="error">{error}</Alert>}
-      <ul className="divide-y divide-line">
-        {outside.map((u) => row(u.id, u.display_name, u.role === "admin" ? null : p.outside, u, null))}
-        {data.people.map((x) => row(x.person_id, x.full_name, x.status === "left" ? p.left : null, userOf(x.user_id), x))}
-      </ul>
+      <ul className="divide-y divide-line">{withAccount.map((x) => row(x.key, x.name, x.sub, x.user, x.person))}</ul>
+      {without.length > 0 && (
+        <div className="space-y-1">
+          <h3 className="eyebrow">{p.noAccount}</h3>
+          <ul className="divide-y divide-line">{without.map((x) => row(x.person_id, x.full_name, x.status === "left" ? p.left : null, null, x))}</ul>
+        </div>
+      )}
       {dialog && <AccountDialog person={dialog.person} user={dialog.user} onDone={onData} onClose={() => setDialog(null)} />}
     </Card>
   );
 }
 
+const KIND_ICON: Record<string, IconName> = { document: "file", hr_person: "user", beneficiary: "heart", project: "folder", roster_field: "sliders", hr_field: "sliders" };
+
 function RequestsTab({ data, onData }: { data: AdminOverview; onData: (o: AdminOverview) => void }) {
   const r = t.requests;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState<RequestRow | null>(null);
   async function resolve(id: string, approve: boolean) {
     setBusy(true);
     setError(null);
     try {
       onData(await adminRequestResolve(id, approve));
+      setConfirm(null);
     } catch (e) {
       setError(toAppError(e).message);
     } finally {
@@ -168,57 +217,95 @@ function RequestsTab({ data, onData }: { data: AdminOverview; onData: (o: AdminO
     }
   }
   return (
-    <Card className="space-y-4">
+    <Card className="dock-attach space-y-5">
       <p className="text-ui text-ink-2">{r.help}</p>
       {error && <Alert tone="error">{error}</Alert>}
       {data.pending.length === 0 ? (
-        <Inset className="text-ui text-ink-3">{r.empty}</Inset>
+        <Inset className="flex flex-col items-center gap-3 !py-10 text-center">
+          <Tile icon="check" tone="green" />
+          <div>
+            <b className="block font-bold">{r.empty}</b>
+            <p className="mx-auto mt-1 max-w-sm text-small text-ink-3">{r.emptyNote}</p>
+          </div>
+        </Inset>
       ) : (
-        <ul className="divide-y divide-line">
+        <ul className="space-y-3">
           {data.pending.map((x) => (
-            <li key={x.id} className="flex flex-wrap items-center gap-3 py-3">
-              <div className="min-w-[220px] flex-1">
-                <b className="block font-bold">{x.target_label}</b>
-                <span className="block text-small text-ink-3">
-                  {r.kinds[x.kind]} · {r.asked(x.requested_by_name, when(x.requested_at))}
-                </span>
-              </div>
-              <Button size="sm" disabled={busy} onClick={() => resolve(x.id, false)}>
-                {r.reject}
-              </Button>
-              <Button size="sm" variant="danger" disabled={busy} onClick={() => resolve(x.id, true)}>
-                {r.approve}
-              </Button>
+            <li key={x.id}>
+              <Inset className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                <Tile icon={KIND_ICON[x.kind] ?? "file"} tone="amber" />
+                <div className="min-w-[220px] flex-1">
+                  <b className="block break-words font-bold">{x.target_label}</b>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-ink-3">
+                    <Tag variant="line">{r.kinds[x.kind]}</Tag>
+                    {r.asked(x.requested_by_name, when(x.requested_at))}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => resolve(x.id, false)}>
+                    {r.reject}
+                  </Button>
+                  <Button size="sm" variant="destructive" disabled={busy} onClick={() => setConfirm(x)}>
+                    {r.approve}
+                  </Button>
+                </div>
+              </Inset>
             </li>
           ))}
         </ul>
       )}
       {data.resolved.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="field-label">{r.history}</h3>
+        <div className="space-y-1">
+          <h3 className="eyebrow">{r.history}</h3>
           <ul className="divide-y divide-line">
             {data.resolved.map((x) => (
-              <li key={x.id} className="flex flex-wrap items-center gap-3 py-2 text-ui">
+              <li key={x.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 text-ui">
+                <Tile icon={KIND_ICON[x.kind] ?? "file"} tone="neutral" small />
                 <span className="min-w-[200px] flex-1">
-                  {x.target_label} <span className="text-small text-ink-3">· {r.kinds[x.kind]}</span>
+                  <b className="font-bold">{x.target_label}</b> <span className="text-small text-ink-3">· {r.kinds[x.kind]}</span>
                 </span>
-                <Tag tone={x.status === "approved" ? "red" : "green"}>{x.status === "approved" ? r.approved : r.rejected}</Tag>
-                <span className="text-small text-ink-3">{x.resolved_at ? when(x.resolved_at) : ""}</span>
+                <Tag tone={x.status === "approved" ? "red" : "green"} variant="soft">
+                  {x.status === "approved" ? r.approved : r.rejected}
+                </Tag>
+                <span className="tabular w-28 text-right text-small text-ink-3">{x.resolved_at ? day(x.resolved_at) : ""}</span>
               </li>
             ))}
           </ul>
         </div>
       )}
+      {confirm && (
+        <Modal
+          title={r.confirmTitle}
+          onClose={() => setConfirm(null)}
+          footer={
+            <>
+              <Button onClick={() => setConfirm(null)}>{es.common.cancel}</Button>
+              <Button variant="destructive" disabled={busy} onClick={() => resolve(confirm.id, true)}>
+                {r.confirmYes}
+              </Button>
+            </>
+          }
+        >
+          <p>
+            <strong>{confirm.target_label}</strong>
+          </p>
+          <p className="text-ink-2">{r.confirmBody}</p>
+        </Modal>
+      )}
     </Card>
   );
 }
+
+/** The color of a kind of event in the log: the same family always has the same color. */
+const EVENT_TONE: [string, Tone][] = [["access.denied", "red"], ["emergency.", "red"], ["auth.login_failed", "amber"], ["auth.locked", "amber"], ["auth.", "sky"], ["user.", "violet"], ["request.", "amber"], ["hr.", "teal"], ["backup.", "green"], ["scanner.", "cyan"]];
+const toneOfEvent = (event: string): Tone => EVENT_TONE.find(([p]) => event.startsWith(p))?.[1] ?? "neutral";
 
 function AuditTab() {
   const a = t.audit;
   const [filter, setFilter] = useState("");
   const log = useQuery({ queryKey: ["admin-audit", filter], queryFn: () => adminAudit(filter || null) });
   return (
-    <Card className="space-y-4">
+    <Card className="dock-attach space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ui text-ink-2">{a.help}</p>
         <Select label={a.filter} hideLabel value={filter} onChange={(e) => setFilter(e.target.value)} options={[["", a.all], ...Object.entries(a.filters)]} className="w-full sm:w-auto sm:min-w-[220px]" />
@@ -238,9 +325,21 @@ function AuditTab() {
             <tbody>
               {log.data.map((x, i) => (
                 <tr key={i}>
-                  <td className="tabular whitespace-nowrap">{when(x.at)}</td>
-                  <td>{x.actor ?? a.system}</td>
-                  <td>{a.events[x.event] ?? x.event}</td>
+                  <td className="whitespace-nowrap">
+                    <span className="block font-bold">{day(x.at)}</span>
+                    <span className="tabular block text-small font-medium text-ink-3">{hour(x.at)}</span>
+                  </td>
+                  <td>
+                    <span className="flex items-center gap-2.5">
+                      {x.actor ? <Avatar size="sm" name={x.actor} /> : <Tile icon="logo" tone="neutral" small />}
+                      <span className="font-bold">{x.actor ?? a.system}</span>
+                    </span>
+                  </td>
+                  <td>
+                    <Tag tone={toneOfEvent(x.event)} variant="soft">
+                      {a.events[x.event] ?? x.event}
+                    </Tag>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -255,25 +354,36 @@ function RecoveryTab() {
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   return (
-    <Card className="space-y-4">
-      <p className="text-ui text-ink-2">{t.recovery.help}</p>
-      {code && (
-        <Inset className="space-y-2 text-center">
-          <span className="tabular select-all text-title font-bold tracking-tight">{code}</span>
-          <p className="text-small text-ink-2">{es.access.recovery.help}</p>
-        </Inset>
-      )}
+    <Card className="dock-attach space-y-5">
+      <div className="flex items-start gap-4">
+        <Tile icon="shield" tone="sky" />
+        <div className="min-w-0 space-y-3">
+          <p className="max-w-[70ch] text-ui text-ink-2">{t.recovery.help}</p>
+          <Tag tone="amber" variant="soft" icon="warn">
+            {t.recovery.renewWarn}
+          </Tag>
+        </div>
+      </div>
       {error && <Alert tone="error">{error}</Alert>}
+      {code && (
+        <div className="space-y-2">
+          <h3 className="eyebrow">{t.recovery.newCode}</h3>
+          <RecoveryCodeBox code={code} />
+          <p className="text-small text-ink-3">{es.access.recovery.help}</p>
+        </div>
+      )}
       <Button
-        variant="secondary"
+        variant={code ? "secondary" : "primary"}
         onClick={async () => {
           try {
+            setError(null);
             setCode(await adminRecoveryCodeNew());
           } catch (e) {
             setError(toAppError(e).message);
           }
         }}
       >
+        <Icon name="sparkles" size={18} />
         {t.recovery.renew}
       </Button>
     </Card>

@@ -238,7 +238,7 @@ export function ProfilePage() {
         >
           <TabPanel id="general" active={tab === "general"}>
             <div className="grid items-start gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <Card>
+              <Card className="dock-attach">
                 <FactRow title={t.cards.institution} action={edition({ kind: "institution" })}>
                   <Facts columns={2} items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
                 </FactRow>
@@ -275,17 +275,17 @@ export function ProfilePage() {
             </div>
           </TabPanel>
           <TabPanel id="staff" active={tab === "staff"}>
-            <Card>
+            <Card className="dock-attach">
               <StaffTab onProfile={onRosterProfile} onNotice={notify} />
             </Card>
           </TabPanel>
           <TabPanel id="population" active={tab === "population"}>
-            <Card>
+            <Card className="dock-attach">
               <RosterTab entity="beneficiary" onProfile={onRosterProfile} onNotice={notify} />
             </Card>
           </TabPanel>
           <TabPanel id="facilities" active={tab === "facilities"}>
-            <Card>
+            <Card className="dock-attach">
               <FacilitiesTab
                 facilities={facilities}
                 busy={busy}

@@ -5,7 +5,7 @@ import type { Tone } from "./Tag";
 type TabItem<T extends string> = { id: T; label: string; count?: number; alert?: boolean };
 
 /**
- * The tabs of a page (docs/13 §6): pills straight on the window background, the chosen one lifted on white; the panels below sit there too, with no tray behind. The panel is the
+ * The tabs of a page (docs/13 §6, folder effect): the chosen tab is white and joins the tray of its content (the first tray under the tabs carries `dock-attach`); changing tab moves the joined tab. There is no gray surface behind. The panel is the
  * `children` (use `TabPanel`); each tab names it with `aria-controls`.
  */
 export function Dock<T extends string>({
@@ -22,8 +22,8 @@ export function Dock<T extends string>({
   children: ReactNode;
 }) {
   return (
-    <div className="dock">
-      <div role="tablist" aria-label={label} className="dock-tabs max-w-full overflow-x-auto pb-1">
+    <div className="dock" data-first={items[0]?.id === value}>
+      <div role="tablist" aria-label={label} className="dock-tabs max-w-full overflow-x-auto pr-6">
         {items.map((t) => (
           <button key={t.id} type="button" role="tab" id={`tab-${t.id}`} aria-selected={t.id === value} aria-controls={`panel-${t.id}`} onClick={() => onChange(t.id)} className="dock-tab">
             {t.label}

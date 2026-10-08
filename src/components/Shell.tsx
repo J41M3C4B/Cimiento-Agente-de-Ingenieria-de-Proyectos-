@@ -3,6 +3,7 @@ import { es } from "../i18n/es-MX";
 import { projectTone } from "../lib/palette";
 import { useTheme } from "../lib/theme";
 import type { ProjectRow } from "../lib/types";
+import { PersonMenu } from "../features/access/PersonMenu";
 import type { SessionApi } from "../features/access/session";
 import { PROJECT_STEPS, stepIndex } from "../features/projects/steps";
 import { Icon } from "./icons";
@@ -80,10 +81,14 @@ export function Shell({
           </div>
           <div className="ml-auto flex items-center gap-3">
             <IconButton icon={theme === "dark" ? "sun" : "moon"} label={theme === "dark" ? es.nav.themeLight : es.nav.themeDark} onClick={toggleTheme} />
-            <button type="button" onClick={() => onNavigate("profile")} title={es.nav.profile} className="flex items-center gap-2.5 border-l border-line pl-4 text-ui font-bold">
-              <span className="hidden max-w-[220px] truncate md:inline">{institution}</span>
-              <Avatar name={institution} tone="violet" />
-            </button>
+            {access ? (
+              <PersonMenu access={access} />
+            ) : (
+              <button type="button" onClick={() => onNavigate("profile")} title={es.nav.profile} className="flex items-center gap-2.5 border-l border-line pl-4 text-ui font-bold">
+                <span className="hidden max-w-[220px] truncate md:inline">{institution}</span>
+                <Avatar name={institution} tone="violet" />
+              </button>
+            )}
           </div>
         </header>
         <nav aria-label={es.nav.mainSections} className="rail">
