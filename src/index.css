@@ -99,27 +99,9 @@
   --logo-mark-inv: #ffffff;
   --logo-word-inv: #ffffff;
   --logo-ai: #0a76fc;
+  --logo-ai-on-brand: #000c25;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --canvas: #16171b;
-    --card: #1f2025;
-    --inset: #292a30;
-    --line: #30323a;
-    --ink: #f3f3f5;
-    --ink-2: #b4b4bd;
-    --ink-3: #8a8a94;
-    --on-ink: #121216;
-    --drop: rgb(0 0 0 / 0.35);
-    --shadow-card-v: 0 1px 1px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.5);
-    --shadow-float-v: 0 24px 60px -16px rgb(0 0 0 / 0.7);
-    --logo-mark: #ffffff;
-    --logo-word: #ffffff;
-    --logo-mark-inv: #0a76fc;
-    --logo-word-inv: #000c25;
-    color-scheme: dark;
-  }
-}
+/* el tema oscuro solo se aplica cuando la persona lo elige (data-theme="dark"); por defecto el programa es claro */
 :root[data-theme="dark"] {
   --canvas: #16171b;
   --card: #1f2025;
@@ -505,8 +487,18 @@ h1, h2, h3 {
   /* Primer inicio, pantalla dividida: a la izquierda el azul liso de la marca (sin degradados ni sombras), a la derecha los formularios */
   .onb { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); min-height: 100vh; background: var(--canvas); color: var(--ink); }
   .onb-brand { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: 32px; padding: 48px 56px; background: var(--color-brand); color: var(--color-on-brand); }
-  .onb-art { flex: 1 1 0; min-height: 120px; width: 100%; color: var(--color-on-brand); pointer-events: none; }
-  .onb-copy { max-width: 34ch; }
+  /* the isotipo of the brand (public/SVG/isotipo.svg) used as a mask: one flat, lighter blue, big and cropped by the edge */
+  .onb-art {
+    position: absolute; z-index: -1; top: -5%; right: -16%; height: 88%; aspect-ratio: 51.08 / 77.31;
+    background: color-mix(in srgb, var(--color-brand) 84%, var(--color-white));
+    -webkit-mask: url("/SVG/isotipo.svg") center / contain no-repeat; mask: url("/SVG/isotipo.svg") center / contain no-repeat;
+    pointer-events: none;
+  }
+  .onb-copy { margin-top: auto; max-width: 34ch; }
+  .onb .btn--primary { background: var(--color-brand); color: var(--color-on-brand); }
+  .onb-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .onb-bars > i { display: block; height: 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-brand) 16%, var(--card)); transition: background-color 0.2s; }
+  .onb-bars > i.on { background: var(--color-brand); }
   .onb-side { position: relative; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
   .onb-in { width: 100%; max-width: 720px; margin: 0 auto; padding-left: 48px; padding-right: 48px; }
   @media (max-width: 1023px) {
@@ -522,7 +514,8 @@ h1, h2, h3 {
   .logo .lg-mark { fill: var(--logo-mark); }
   .logo .lg-word { fill: var(--logo-word); font-family: var(--font-sans); font-size: 45.26px; font-weight: 800; }
   .logo .lg-ai { fill: var(--logo-ai); }
-  .logo--on-brand .lg-mark, .logo--on-brand .lg-word, .logo--on-brand .lg-ai { fill: var(--color-on-brand); }
+  .logo--on-brand .lg-mark, .logo--on-brand .lg-word { fill: var(--color-on-brand); }
+  .logo--on-brand .lg-ai { fill: var(--logo-ai-on-brand); }
   .logo--inverse .lg-mark { fill: var(--logo-mark-inv); }
   .logo--inverse .lg-word { fill: var(--logo-word-inv); }
 

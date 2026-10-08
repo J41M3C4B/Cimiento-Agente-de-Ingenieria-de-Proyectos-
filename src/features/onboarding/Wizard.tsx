@@ -130,8 +130,6 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
           </div>
         </>
       }
-      title={o.title}
-      text={o.intro}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-2">

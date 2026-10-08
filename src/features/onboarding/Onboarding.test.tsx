@@ -61,7 +61,7 @@ describe("the first start", () => {
   it("a person who has not seen the welcome sees it first", async () => {
     vi.mocked(api.onboardingStatus).mockResolvedValue(status({ welcomed: false, done: true }));
     gate();
-    expect(await screen.findByText("Le damos la bienvenida a SociAI")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Le damos la bienvenida a SociAI" })).toBeInTheDocument();
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
   });
 
@@ -69,7 +69,7 @@ describe("the first start", () => {
     vi.mocked(api.onboardingStatus).mockResolvedValue(status());
     vi.mocked(api.onboardingSave).mockResolvedValue({ status: "saved", onboarding: status() });
     gate();
-    expect(await screen.findByText("Datos de su institución")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Su institución" })).toBeInTheDocument();
     expect(screen.queryByText("Dejarlos a la dirección y entrar")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Guardar y seguir" }));
     await waitFor(() => expect(screen.getByText(/Para seguir falta: El nombre, A qué se dedica\./)).toBeInTheDocument());
@@ -89,7 +89,7 @@ describe("the first start", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Dejarlos a la dirección y entrar" }));
     expect(screen.getByText("La app")).toBeInTheDocument();
     act(() => resumeOnboarding());
-    expect(await screen.findByText("Datos de su institución")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Su institución" })).toBeInTheDocument();
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
   });
 

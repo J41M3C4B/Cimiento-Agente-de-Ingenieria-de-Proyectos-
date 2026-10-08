@@ -807,15 +807,33 @@ export const es = {
       steps: [
         {
           title: "Le damos la bienvenida a SociAI",
+          highlight: "SociAI",
           text: "Aquí arma los proyectos de su institución para pedir donativos, paso a paso. Usted responde con sus palabras; nosotros nos encargamos del formato y las cuentas.",
+          items: [
+            ["Su institución", "Personal, personas que atiende, instalaciones y presupuesto, en orden."],
+            ["Sus proyectos", "Se arman paso a paso, con el formato que pide cada convocatoria."],
+            ["Sus documentos", "Lo que agrega y lo que se genera queda guardado en un solo lugar."],
+          ] as [string, string][],
         },
         {
           title: "Cuidamos a las personas que atienden",
+          highlight: "Cuidamos",
           text: "Los nombres y datos de cada persona se quedan en esta computadora. La ayuda automática solo recibe cuántas personas hay, nunca quiénes son.",
+          items: [
+            ["En su computadora", "Los nombres y datos no salen de aquí."],
+            ["Sin nombres", "La ayuda automática solo sabe cuántas personas hay."],
+            ["Con su cuenta", "Cada persona entra con su usuario y su contraseña."],
+          ] as [string, string][],
         },
         {
-          title: "Si tiene dudas",
+          title: "Si tiene dudas, aquí estamos",
+          highlight: "aquí estamos",
           text: "En «Ayuda» encuentra cómo se usa cada parte. Si algo falla, su trabajo queda guardado: avísele a la persona que le instaló el programa.",
+          items: [
+            ["La sección «Ayuda»", "Explica cómo se usa cada parte del programa."],
+            ["Su trabajo se guarda", "Si algo falla, lo que ya hizo no se pierde."],
+            ["Quien lo instaló", "Avísele si algo no funciona como espera."],
+          ] as [string, string][],
         },
       ],
       next: "Siguiente",
@@ -840,12 +858,12 @@ export const es = {
       stepsDone: (done: number, total: number) => `${done} de ${total} pasos`,
     },
     aside: {
-      title: "Dejemos lista su institución",
-      text: "Unos minutos ahora y el asistente trabaja con lo que ya sabe de ustedes, sin volver a preguntarles.",
+      title: "Organice su institución en un solo lugar",
+      text: "Haga crecer sus funciones y operaciones sin esfuerzo y sin fricciones.",
       points: [
-        ["Se guarda cada paso", "Puede salir y seguir después."],
-        ["Sus datos se quedan aquí", "En esta computadora. La ayuda automática no ve nombres."],
-        ["Usted responde con sus palabras", "Nosotros nos encargamos del formato y las cuentas."],
+        ["Todo junto", "Personal, personas que atiende, instalaciones y proyectos."],
+        ["Crece con usted", "Sume funciones cuando las necesite, sin complicarse."],
+        ["Sin fricciones", "Usted responde con sus palabras; nosotros hacemos el formato y las cuentas."],
       ] as [string, string][],
     },
     title: "Datos de su institución",

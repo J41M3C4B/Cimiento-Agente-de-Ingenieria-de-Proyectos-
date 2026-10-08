@@ -3,30 +3,28 @@ import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
 import { Alert, Button, Inset, Logo, Steps, Tag, Tile } from "../../components/ui";
-import { BrandArt } from "./BrandArt";
-import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { OnboardingStatus } from "./api";
 
 const o = es.onboarding;
 
-const POINT_ICONS: IconName[] = ["check", "lock", "smile"];
+const POINT_ICONS: IconName[] = ["building", "sparkles", "check"];
 
 /**
- * The frame of the first start, split in two: on the left the flat blue of the brand with the logo, a picture and
- * what the program promises; on the right the forms, with the steps at the top, the content that scrolls and the
- * buttons always at the bottom. On a narrow window the blue shrinks to a band with the logo.
+ * The frame of the first start, split in two: on the left the flat blue of the brand with the logo, the isotipo as a
+ * big lighter picture and what SociAI is for; on the right the forms, with the steps at the top, the content that
+ * scrolls and the buttons always at the bottom. On a narrow window the blue shrinks to a band with the logo.
  */
-export function StartFrame({ children, top, footer, title, text }: { children: ReactNode; /** what stays at the top while the rest scrolls: the steps */ top?: ReactNode; /** the buttons: always at the bottom */ footer: ReactNode; title?: string; text?: string }) {
+export function StartFrame({ children, top, footer }: { children: ReactNode; /** what stays at the top while the rest scrolls: the steps */ top?: ReactNode; /** the buttons: always at the bottom */ footer: ReactNode }) {
   const a = o.aside;
   return (
     <div className="onb text-body">
       <aside className="onb-brand">
         <Logo onBrand className="h-10 self-start" />
-        <BrandArt className="onb-art" />
+        <span aria-hidden="true" className="onb-art" />
         <div className="onb-copy space-y-3">
-          <h2 className="text-title font-bold leading-tight tracking-tight">{title ?? a.title}</h2>
-          <p className="text-body font-semibold">{text ?? a.text}</p>
+          <h2 className="text-hero font-extrabold leading-tight tracking-tight">{a.title}</h2>
+          <p className="text-heading font-semibold">{a.text}</p>
         </div>
         <ul className="hidden flex-col gap-4 lg:flex">
           {a.points.map(([head, line], i) => (
@@ -56,17 +54,38 @@ export function StartFrame({ children, top, footer, title, text }: { children: R
   );
 }
 
-const ICONS: IconName[] = ["sparkles", "shield", "help"];
-const TONES: Tone[] = ["violet", "green", "sky"];
+/** The title with the words that matter in the blue of the brand. */
+function Hero({ title, highlight }: { title: string; highlight: string }) {
+  const at = title.indexOf(highlight);
+  if (at < 0) return <>{title}</>;
+  return (
+    <>
+      {title.slice(0, at)}
+      <span className="text-brand">{highlight}</span>
+      {title.slice(at + highlight.length)}
+    </>
+  );
+}
 
-/** Three short screens, once per person: what SociAI does, how the data are cared for, and where to ask. */
+/**
+ * Three screens, once per person: what SociAI does, how the data are cared for, and where to ask. Each one is a
+ * big title that takes the space, a line that says it and three short cards that fill the foot of the page.
+ * It uses only the blue of the brand.
+ */
 export function Welcome({ onDone, busy }: { onDone: () => void; busy?: boolean }) {
   const [n, setN] = useState(0);
   const steps = o.welcome.steps;
+  const step = steps[n]!;
   const last = n === steps.length - 1;
   return (
     <StartFrame
-      top={<Steps steps={steps.map((x, i) => ({ key: String(i), label: x.title }))} current={n} tone={TONES[n] ?? "violet"} compact />}
+      top={
+        <ol className="onb-bars" aria-label={o.stepOf(n + 1, steps.length)}>
+          {steps.map((s, i) => (
+            <i key={s.title} aria-current={i === n ? "step" : undefined} className={i <= n ? "on" : ""} />
+          ))}
+        </ol>
+      }
       footer={
         <div className="flex items-center justify-between gap-3">
           <span className="text-small font-semibold text-ink-3">{o.stepOf(n + 1, steps.length)}</span>
@@ -79,12 +98,23 @@ export function Welcome({ onDone, busy }: { onDone: () => void; busy?: boolean }
         </div>
       }
     >
-      <div key={n} className="anim-rise my-auto space-y-6 py-6">
-        <Tile icon={ICONS[n] ?? "sparkles"} tone={TONES[n] ?? "violet"} />
-        <div className="space-y-3">
-          <h1 className="text-title font-bold leading-tight tracking-tight">{steps[n]!.title}</h1>
-          <p className="max-w-[52ch] text-body text-ink-2">{steps[n]!.text}</p>
+      <div key={n} className="anim-rise flex flex-1 flex-col gap-8">
+        <div className="my-auto space-y-6 py-4">
+          <span className="block text-heading font-extrabold tracking-tight text-brand">{`0${n + 1}`}</span>
+          <h1 className="break-words text-hero font-extrabold leading-none tracking-tight sm:text-display">
+            <Hero title={step.title} highlight={step.highlight} />
+          </h1>
+          <p className="max-w-[46ch] text-heading font-medium text-ink-2">{step.text}</p>
         </div>
+        <ul className="grid gap-3 sm:grid-cols-3">
+          {step.items.map(([head, line]) => (
+            <li key={head} className="space-y-2 rounded-inset border border-line bg-card p-5">
+              <i aria-hidden="true" className="block h-1 w-8 rounded-pill bg-brand" />
+              <b className="block text-ui font-extrabold">{head}</b>
+              <span className="block text-small text-ink-2">{line}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </StartFrame>
   );

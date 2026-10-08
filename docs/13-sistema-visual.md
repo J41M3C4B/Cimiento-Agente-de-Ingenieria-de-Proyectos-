@@ -68,7 +68,7 @@ Sobre fondo blanco los colores claros rinden menos como línea fina (el amarillo
 
 ### 3.2.1 Azul de marca
 
-La herramienta se llama **SociAI** y su azul es el del logotipo: `brand` (`#0a76fc`), con letra blanca encima (`on-brand`). Es **solo de identidad** y siempre **liso**: sin degradados, brillos ni sombras. Se usa en el panel izquierdo del primer inicio (`.onb`, pantalla dividida con los formularios a la derecha), donde el logo va todo en blanco (`<Logo onBrand>`). No es un acento de estado ni significa nada (§3.4).
+La herramienta se llama **SociAI** y su azul es el del logotipo: `brand` (`#0a76fc`), con letra blanca encima (`on-brand`). Es **solo de identidad** y siempre **liso**: sin degradados, brillos ni sombras. Se usa en el panel izquierdo del primer inicio (`.onb`, pantalla dividida con los formularios a la derecha), donde el logo va todo en blanco (`<Logo onBrand>`). No es un acento de estado ni significa nada (§3.4). En ese panel la «AI» del logo va en `#000c25` y el isotipo (`public/SVG/isotipo.svg`) se usa como imagen grande en un azul más claro, liso. El programa abre siempre en tema claro; el oscuro solo se aplica si la persona lo elige.
 
 ### 3.3 Etiquetas sólidas y tintes
 
