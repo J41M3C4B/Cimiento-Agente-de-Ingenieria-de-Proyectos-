@@ -36,11 +36,10 @@
   --color-teal: #3dd2c2;
   --color-cyan: #4fcbf2;
   --color-onc: #121216;
-  --color-white: #ffffff;
-
-  /* la marca SociAI: el azul de la identidad y la letra blanca que va encima (6:1); solo para la identidad, no para estados */
-  --color-brand: #2350e8;
+  /* el azul de la marca SociAI (el del logotipo), liso, y la letra blanca encima; solo de identidad, no un acento de estado */
+  --color-brand: #0a76fc;
   --color-on-brand: #ffffff;
+  --color-white: #ffffff;
 
   /* tipografía (docs/13 §4) */
   --text-caption: 12.5px;
@@ -94,6 +93,12 @@
   --drop: rgb(20 20 30 / 0.1);
   --shadow-card-v: 0 1px 1px rgb(20 20 30 / 0.03), 0 10px 30px -12px rgb(20 20 30 / 0.12);
   --shadow-float-v: 0 24px 60px -16px rgb(20 20 30 / 0.3);
+  /* logotipo de SociAI: solo lo usa <Logo>; no son acentos de la interfaz. «AI» es del mismo azul en los dos temas */
+  --logo-mark: #0a76fc;
+  --logo-word: #000c25;
+  --logo-mark-inv: #ffffff;
+  --logo-word-inv: #ffffff;
+  --logo-ai: #0a76fc;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -108,6 +113,10 @@
     --drop: rgb(0 0 0 / 0.35);
     --shadow-card-v: 0 1px 1px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.5);
     --shadow-float-v: 0 24px 60px -16px rgb(0 0 0 / 0.7);
+    --logo-mark: #ffffff;
+    --logo-word: #ffffff;
+    --logo-mark-inv: #0a76fc;
+    --logo-word-inv: #000c25;
     color-scheme: dark;
   }
 }
@@ -123,6 +132,10 @@
   --drop: rgb(0 0 0 / 0.35);
   --shadow-card-v: 0 1px 1px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.5);
   --shadow-float-v: 0 24px 60px -16px rgb(0 0 0 / 0.7);
+  --logo-mark: #ffffff;
+  --logo-word: #ffffff;
+  --logo-mark-inv: #0a76fc;
+  --logo-word-inv: #000c25;
   color-scheme: dark;
 }
 
@@ -233,6 +246,7 @@ h1, h2, h3 {
   .btn--soft { background: var(--inset); color: var(--ink); }
   .btn--danger { background: var(--card); color: color-mix(in srgb, var(--color-red) 80%, var(--ink)); border-color: var(--line); }
   .btn--danger:hover { background: color-mix(in srgb, var(--color-red) 18%, var(--card)); }
+  .btn--destructive { background: var(--color-red); color: var(--color-onc); }
   .btn--ghost { background: transparent; color: var(--ink); }
   .btn--ghost:hover { background: var(--inset); }
   .btn--plain { background: transparent; color: var(--ink-2); padding: 0 10px; }
@@ -336,18 +350,22 @@ h1, h2, h3 {
     border-radius: var(--radius-pill); background: var(--card); color: var(--ink); font-size: var(--text-small); font-weight: 700; white-space: nowrap;
   }
 
-  /* Dock: pestañas de una página; van directamente sobre el marco (sin bandeja gris detrás) y el contenido también */
-  .dock { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .dock-tabs { display: flex; align-items: center; gap: 4px; }
+  /* Dock: las pestañas de una página son parte de la bandeja de su contenido (efecto de carpeta): la pestaña activa es
+     blanca y se une a la bandeja con esquinas cóncavas; al cambiar de pestaña, cambia la pestaña unida. La bandeja que
+     queda debajo de las pestañas lleva .dock-attach. No hay ninguna superficie gris detrás. */
+  .dock { display: flex; flex-direction: column; min-width: 0; }
+  .dock-tabs { display: flex; align-items: flex-end; }
   .dock-tab {
-    display: flex; align-items: center; gap: 10px; flex: none; height: var(--spacing-ctl); padding: 0 22px; white-space: nowrap;
-    border-radius: var(--radius-pill); color: var(--ink-2); font-size: var(--text-ui); font-weight: 700; cursor: pointer;
-    transition: color 0.16s, background-color 0.16s, box-shadow 0.16s;
+    position: relative; display: flex; align-items: center; gap: 10px; flex: none; height: 52px; padding: 0 30px; white-space: nowrap;
+    border-radius: 24px 24px 0 0; color: var(--ink-3); font-size: var(--text-ui); font-weight: 700; cursor: pointer; transition: color 0.16s;
   }
-  .dock-tab:hover { color: var(--ink); background: color-mix(in srgb, var(--card) 60%, transparent); }
-  .dock-tab[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow-card-v); }
+  .dock-tab:hover { color: var(--ink); }
+  .dock-tab[aria-selected="true"] { background: var(--card); color: var(--ink); }
+  .dock-tab[aria-selected="true"]::after { content: ""; position: absolute; right: -24px; bottom: 0; width: 24px; height: 24px; background: radial-gradient(circle at 100% 0, transparent 23.5px, var(--card) 24px); }
+  .dock-tab[aria-selected="true"]:not(:first-child)::before { content: ""; position: absolute; left: -24px; bottom: 0; width: 24px; height: 24px; background: radial-gradient(circle at 0 0, transparent 23.5px, var(--card) 24px); }
   .dock-count { padding: 0 7px; border-radius: var(--radius-tick); background: var(--ink); color: var(--on-ink); font-size: 12px; line-height: 20px; }
   .dock-tab[aria-selected="false"] .dock-count { background: var(--card); color: var(--ink-2); }
+  .dock[data-first="true"] .dock-attach { border-top-left-radius: 0; }
 
   /* Segmented: pista suave con la opción elegida levantada */
   .seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-radius: var(--radius-pill); background: var(--inset); max-width: 100%; }
@@ -484,12 +502,38 @@ h1, h2, h3 {
   .next-box:hover .next-go > span, .next-box:focus-visible .next-go > span { max-width: 110px; margin-right: 10px; opacity: 1; }
   @media (max-width: 520px) { .next-box { padding-right: 22px; padding-bottom: 76px; } .next-go { top: auto; bottom: 16px; transform: none; } }
 
+  /* Primer inicio, pantalla dividida: a la izquierda el azul liso de la marca (sin degradados ni sombras), a la derecha los formularios */
+  .onb { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); min-height: 100vh; background: var(--canvas); color: var(--ink); }
+  .onb-brand { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: 32px; padding: 48px 56px; background: var(--color-brand); color: var(--color-on-brand); }
+  .onb-art { flex: 1 1 0; min-height: 120px; width: 100%; color: var(--color-on-brand); pointer-events: none; }
+  .onb-copy { max-width: 34ch; }
+  .onb-side { position: relative; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
+  .onb-in { width: 100%; max-width: 720px; margin: 0 auto; padding-left: 48px; padding-right: 48px; }
+  @media (max-width: 1023px) {
+    .onb { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+    .onb-brand { flex-direction: row; align-items: center; padding: 18px 24px; }
+    .onb-brand .onb-art, .onb-brand .onb-copy { display: none; }
+    .onb-side { height: auto; min-height: 0; }
+    .onb-in { padding-left: 20px; padding-right: 20px; }
+  }
+
+  /* logotipo (<Logo>): se pinta con los tokens --logo-*; «inverso» es para las superficies de tinta (bg-ink) */
+  .logo { display: block; width: auto; flex-shrink: 0; overflow: visible; }
+  .logo .lg-mark { fill: var(--logo-mark); }
+  .logo .lg-word { fill: var(--logo-word); font-family: var(--font-sans); font-size: 45.26px; font-weight: 800; }
+  .logo .lg-ai { fill: var(--logo-ai); }
+  .logo--on-brand .lg-mark, .logo--on-brand .lg-word, .logo--on-brand .lg-ai { fill: var(--color-on-brand); }
+  .logo--inverse .lg-mark { fill: var(--logo-mark-inv); }
+  .logo--inverse .lg-word { fill: var(--logo-word-inv); }
+
   /* Ventana, riel y cápsula (docs/13 §6): todo va directamente sobre el fondo de la ventana, sin una hoja o marco intermedio */
   .shell { display: flex; justify-content: center; min-height: 100vh; }
   .frame { align-content: start; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px 20px; width: 100%; max-width: 1440px; padding: 16px; }
-  .topbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  /* La cabecera y el riel no se mueven: solo se desplaza el contenido. El riel queda por encima para que sus etiquetas nunca queden debajo de una página. */
+  .topbar { grid-column: 1 / -1; position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: -16px -16px -12px; padding: 16px 16px 12px; background: var(--canvas); }
   .capsule { flex: 1 1 240px; max-width: 640px; min-width: 0; display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 8px 0 22px; border-radius: var(--radius-pill); background: var(--card); box-shadow: var(--shadow-card-v); }
-  .rail { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; padding-top: 4px; }
+  .rail { position: sticky; top: 84px; z-index: 40; align-self: start; height: calc(100vh - 112px); display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; padding-top: 4px; }
+  @media (max-height: 640px) { .rail { position: static; height: auto; } }
   .rail-sep { width: 24px; height: 1px; margin: 6px 0; background: var(--line); }
   .rail-gap { flex: 1; min-height: 24px; }
   .rail .icon-btn[data-tip]::after {
@@ -500,51 +544,10 @@ h1, h2, h3 {
   .rail .icon-btn[data-tip]:hover::after, .rail .icon-btn[data-tip]:focus-visible::after { opacity: 1; transform: translateY(-50%); }
   @media (max-width: 860px) {
     .frame { grid-template-columns: minmax(0, 1fr); padding: 12px; }
-    .rail { flex-direction: row; order: 1; max-width: 100%; padding: 4px 2px 8px; overflow-x: auto; }
+    .topbar { position: static; margin: 0; padding: 0; background: none; }
+    .rail { position: static; height: auto; flex-direction: row; order: 1; max-width: 100%; padding: 4px 2px 8px; overflow-x: auto; }
     .rail-gap, .rail-sep { display: none; }
     .rail .icon-btn[data-tip]::after { display: none; }
     .frame-main { order: 2; }
   }
-
-  /* Marca SociAI: la ficha del logo y la bienvenida a pantalla dividida (azul de la marca a la izquierda, formulario a la derecha) */
-  .brand-tile { display: inline-grid; place-items: center; flex: none; border-radius: var(--radius-field); background: var(--color-brand); color: var(--color-on-brand); }
-  .onb { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); min-height: 100vh; background: var(--canvas); }
-  .onb-brand {
-    position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; gap: 32px;
-    padding: 48px 56px; color: var(--color-on-brand);
-    background:
-      radial-gradient(120% 80% at 85% 110%, color-mix(in srgb, var(--color-cyan) 38%, transparent), transparent 60%),
-      radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--color-white) 16%, transparent), transparent 55%),
-      linear-gradient(155deg, color-mix(in srgb, var(--color-brand) 88%, var(--color-white)) 0%, var(--color-brand) 45%, color-mix(in srgb, var(--color-brand) 62%, var(--color-onc)) 100%);
-  }
-  .onb-art { position: absolute; z-index: -1; top: 6%; right: -20%; width: min(100%, 660px); aspect-ratio: 1; opacity: 0.95; pointer-events: none; }
-  /* the copy at the foot rests on a deeper blue so the picture fades under it */
-  .onb-brand::after { content: ""; position: absolute; z-index: -1; inset: auto 0 0 0; height: 52%; background: linear-gradient(to top, color-mix(in srgb, var(--color-brand) 55%, var(--color-onc)) 8%, transparent); pointer-events: none; }
-  .onb-art-spin { transform-origin: 200px 200px; animation: orbit 140s linear infinite; }
-  .onb-art-core { transform-origin: 200px 200px; animation: breathe 5s ease-in-out infinite; }
-  .onb-copy { max-width: 30ch; }
-  .onb-dots { display: flex; align-items: center; gap: 10px; font-size: var(--text-small); font-weight: 700; opacity: 0.85; }
-  .onb-dots > i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.55; }
-  .onb-form { display: flex; align-items: flex-start; justify-content: center; padding: max(40px, 11vh) 40px 40px; }
-  .onb-panel { width: 100%; max-width: 480px; }
-  .onb-progress { display: flex; gap: 6px; }
-  .onb-progress > i { flex: 1; height: 6px; border-radius: var(--radius-pill); background: var(--line); transition: background-color 0.2s; }
-  .onb-progress > i.on { background: var(--color-brand); }
-  @media (max-width: 900px) {
-    .onb { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
-    .onb-brand { flex-direction: row; align-items: center; padding: 20px 24px; }
-    .onb-brand .onb-foot, .onb-art, .onb-brand::after { display: none; }
-    .onb-form { align-items: flex-start; padding: 28px 20px 40px; }
-  }
-}
-
-@keyframes orbit {
-  to { transform: rotate(360deg); }
-}
-@keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: 0.9; }
-  50% { transform: scale(1.06); opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .onb-art-spin, .onb-art-core { animation: none; }
 }

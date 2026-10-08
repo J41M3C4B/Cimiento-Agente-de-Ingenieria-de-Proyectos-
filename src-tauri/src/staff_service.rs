@@ -8,7 +8,7 @@ use crate::hr::domain::person::{Issue, PersonData};
 use crate::hr::domain::position::PositionInput;
 use crate::hr::service::{self as hr, ModalityInfo, Overview, PersonView, SaveOutcome};
 use crate::hr::storage::CustomField;
-use crate::roster_service::{flavor_of, sync_profile, totals};
+use crate::profile_sync::{flavor_of, sync_profile, totals};
 use crate::scanner::guard::{guard_fields, Decision, GuardOutcome, QuarantineReport};
 use crate::service::{counts_json, scanner_for, ProfileView, ServiceError};
 use rusqlite::Connection;
@@ -55,7 +55,7 @@ pub fn overview(conn: &Connection) -> Result<StaffOverview, ServiceError> {
     Ok(StaffOverview { hr: hr::overview(conn)?, totals: totals(conn)? })
 }
 
-fn change(conn: &mut Connection) -> Result<StaffChange, ServiceError> {
+pub(crate) fn change(conn: &mut Connection) -> Result<StaffChange, ServiceError> {
     let profile = sync_profile(conn)?;
     Ok(StaffChange { overview: overview(conn)?, profile })
 }
@@ -68,7 +68,11 @@ pub fn save_person(conn: &mut Connection, id: Option<&str>, data: PersonData) ->
     prepare(conn)?;
     Ok(match hr::save_person(conn, id, data)? {
         SaveOutcome::Invalid { issues } => PersonOutcome::Invalid { issues },
-        SaveOutcome::Saved { person } => PersonOutcome::Saved { person, change: change(conn)? },
+        SaveOutcome::Saved { person } => {
+            // a person who left cannot use the app any more (ADR-028)
+            crate::access_service::after_staff_saved(conn, &person.id, &person.data.status)?;
+            PersonOutcome::Saved { person, change: change(conn)? }
+        }
     })
 }
 

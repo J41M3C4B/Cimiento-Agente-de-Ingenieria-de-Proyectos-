@@ -76,6 +76,15 @@ impl From<ServiceError> for UiError {
             }
             ServiceError::Hr(crate::hr::HrError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
             ServiceError::Hr(crate::hr::HrError::UnknownModality) => UiError::new("unknown_modality", "Elija a cuál modalidad se parece."),
+            ServiceError::Access(code) => UiError::new(code, access_message(code)),
+            ServiceError::Facilities(crate::facilities::FacilitiesError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Care(crate::care::CareError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Care(crate::care::CareError::DuplicateTitle) => UiError::new("duplicate_group", "Ya existe un grupo con ese nombre."),
+            ServiceError::Care(crate::care::CareError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
+            ServiceError::Care(crate::care::CareError::AgeNeeded) => {
+                UiError::new("age_needed", "Escriba la edad aproximada en la solicitud antes de darle ingreso.")
+            }
+            ServiceError::OnboardingIncomplete => UiError::new("onboarding_incomplete", "Todavía faltan datos de la institución. Revise los pasos marcados."),
             ServiceError::StaffMoved => UiError::new("staff_moved", "El personal ahora se lleva en su propia sección. Vuelva a abrir la pantalla."),
             ServiceError::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
             ServiceError::AlreadyRunning => UiError::new("already_running", "Ya lo estamos haciendo. En cuanto termine, se muestra aquí."),
@@ -89,6 +98,36 @@ impl From<ServiceError> for UiError {
                 UiError::internal()
             }
         }
+    }
+}
+
+/// The words for the rules of the accounts (ADR-028).
+pub fn access_message(code: &str) -> &'static str {
+    match code {
+        "not_signed_in" => "Primero entre con su usuario y contraseña.",
+        "session_locked" => "La pantalla está bloqueada. Escriba su contraseña para seguir.",
+        "must_change_password" => "Antes de seguir, cambie la contraseña temporal por una suya.",
+        "access_denied" => "Esto lo hace la persona administradora.",
+        "already_set_up" => "La cuenta de administración ya existe.",
+        "wrong_pin" => "Ese no es el PIN de esta computadora.",
+        "pin_locked" => "Demasiados intentos con el PIN. Espere un momento.",
+        "username_invalid" => "El usuario lleva de 3 a 32 letras o números, sin espacios ni acentos (puede usar punto o guion).",
+        "username_taken" => "Ya hay una cuenta con ese usuario.",
+        "password_short" => "La contraseña debe tener al menos 8 caracteres.",
+        "password_long" => "La contraseña es demasiado larga.",
+        "password_is_username" => "La contraseña no puede ser igual al usuario.",
+        "password_same" => "La contraseña nueva debe ser distinta de la anterior.",
+        "wrong_password" => "La contraseña actual no es correcta.",
+        "recovery_wrong" => "El usuario o el código de recuperación no son correctos.",
+        "recovery_wait" => "Demasiados intentos. Espere un momento antes de volver a intentar.",
+        "role_not_allowed" => "Por ahora solo se dan cuentas de dirección o contaduría.",
+        "last_admin" => "Debe quedar al menos una cuenta de administración activa.",
+        "cannot_disable_self" => "No puede desactivar su propia cuenta.",
+        "person_has_account" => "Esta persona ya tiene una cuenta.",
+        "person_left" => "Esta persona ya no trabaja aquí: no se le puede dar acceso.",
+        "already_requested" => "Eso ya se pidió borrar; la persona administradora lo revisará.",
+        "field_builtin" => "Ese dato es de los que el programa necesita y no se puede quitar.",
+        _ => "No se pudo hacer. Intente otra vez.",
     }
 }
 

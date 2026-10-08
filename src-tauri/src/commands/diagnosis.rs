@@ -1,6 +1,8 @@
 ﻿//! Commands for the AI settings, projects, diagnosis and needs. Thin: they build the
 //! provider (the API key never leaves Rust) and call `diagnosis_service`.
 
+use super::guard;
+use crate::access_service::Session;
 use crate::ai::metrics::{self, UsageReport};
 use crate::ai::settings::{self, AiSettings, ProviderKind};
 use crate::ai::{self, AiError, AiProvider, ModelCheck, ModelTier};
@@ -71,7 +73,8 @@ fn has_key(provider: ProviderKind) -> bool {
 }
 
 #[tauri::command]
-pub fn ai_status(db: State<'_, Db>) -> Result<AiStatusView, UiError> {
+pub fn ai_status(session: State<'_, Session>, db: State<'_, Db>) -> Result<AiStatusView, UiError> {
+    guard(&session, "ai_status")?;
     let conn = db.0.lock().map_err(|_| UiError::internal())?;
     let s: AiSettings = settings::load(&conn).map_err(conn_err)?;
     let spent = settings::month_spend_mxn(&conn).map_err(conn_err)?;
@@ -91,7 +94,8 @@ pub fn ai_status(db: State<'_, Db>) -> Result<AiStatusView, UiError> {
 }
 
 #[tauri::command]
-pub fn ai_set_provider(db: State<'_, Db>, provider: ProviderKind) -> Result<(), UiError> {
+pub fn ai_set_provider(session: State<'_, Session>, db: State<'_, Db>, provider: ProviderKind) -> Result<(), UiError> {
+    guard(&session, "ai_set_provider")?;
     let conn = db.0.lock().map_err(|_| UiError::internal())?;
     let mut s = settings::load(&conn).map_err(conn_err)?;
     s.provider = provider;
@@ -112,7 +116,8 @@ pub struct AiModelsView {
 }
 
 #[tauri::command]
-pub fn ai_models(db: State<'_, Db>) -> Result<AiModelsView, UiError> {
+pub fn ai_models(session: State<'_, Session>, db: State<'_, Db>) -> Result<AiModelsView, UiError> {
+    guard(&session, "ai_models")?;
     let conn = db.0.lock().map_err(|_| UiError::internal())?;
     let s = settings::load(&conn).map_err(conn_err)?;
     Ok(AiModelsView {
@@ -127,7 +132,8 @@ pub fn ai_models(db: State<'_, Db>) -> Result<AiModelsView, UiError> {
 
 /// Swaps the models of the active provider (and the strong tier's thinking depth) without rebuilding the app.
 #[tauri::command]
-pub fn ai_set_models(db: State<'_, Db>, light: String, strong: String, effort: String) -> Result<(), UiError> {
+pub fn ai_set_models(session: State<'_, Session>, db: State<'_, Db>, light: String, strong: String, effort: String) -> Result<(), UiError> {
+    guard(&session, "ai_set_models")?;
     let conn = db.0.lock().map_err(|_| UiError::internal())?;
     let mut s = settings::load(&conn).map_err(conn_err)?;
     let provider = s.provider;
@@ -136,7 +142,8 @@ pub fn ai_set_models(db: State<'_, Db>, light: String, strong: String, effort: S
 }
 
 #[tauri::command]
-pub fn ai_set_key(provider: ProviderKind, key: String) -> Result<(), UiError> {
+pub fn ai_set_key(session: State<'_, Session>, provider: ProviderKind, key: String) -> Result<(), UiError> {
+    guard(&session, "ai_set_key")?;
     if key.trim().is_empty() {
         return Err(UiError::new("empty_text", "Este dato nos falta."));
     }
@@ -144,7 +151,8 @@ pub fn ai_set_key(provider: ProviderKind, key: String) -> Result<(), UiError> {
 }
 
 #[tauri::command]
-pub fn ai_clear_key(provider: ProviderKind) -> Result<(), UiError> {
+pub fn ai_clear_key(session: State<'_, Session>, provider: ProviderKind) -> Result<(), UiError> {
+    guard(&session, "ai_clear_key")?;
     storage::delete_api_key(provider.as_str()).map_err(|e: StorageError| conn_err(e))
 }
 
@@ -159,7 +167,8 @@ pub struct AiCheckView {
 
 /// Checks the saved key and the configured models without spending a generation call.
 #[tauri::command]
-pub async fn ai_check(db: State<'_, Db>) -> Result<AiCheckView, UiError> {
+pub async fn ai_check(session: State<'_, Session>, db: State<'_, Db>) -> Result<AiCheckView, UiError> {
+    guard(&session, "ai_check")?;
     let db = shared(&db);
     let provider = make_provider(&db);
     let Some(provider) = as_dyn(&provider) else {
@@ -175,14 +184,16 @@ pub async fn ai_check(db: State<'_, Db>) -> Result<AiCheckView, UiError> {
 }
 
 #[tauri::command]
-pub fn ai_usage_report(db: State<'_, Db>) -> Result<UsageReport, UiError> {
+pub fn ai_usage_report(session: State<'_, Session>, db: State<'_, Db>) -> Result<UsageReport, UiError> {
+    guard(&session, "ai_usage_report")?;
     let conn = db.0.lock().map_err(|_| UiError::internal())?;
     let s = settings::load(&conn).map_err(conn_err)?;
     metrics::usage_report(&conn, &s).map_err(conn_err)
 }
 
 #[tauri::command]
-pub fn ai_set_cap(db: State<'_, Db>, cap_mxn: f64) -> Result<(), UiError> {
+pub fn ai_set_cap(session: State<'_, Session>, db: State<'_, Db>, cap_mxn: f64) -> Result<(), UiError> {
+    guard(&session, "ai_set_cap")?;
     if !cap_mxn.is_finite() || cap_mxn < 0.0 {
         return Err(UiError::new("negative_number", "Este nÃºmero no puede ser menor que cero."));
     }
@@ -195,26 +206,34 @@ pub fn ai_set_cap(db: State<'_, Db>, cap_mxn: f64) -> Result<(), UiError> {
 // ------------------------------------------------------------------ projects
 
 #[tauri::command]
-pub fn project_list(db: State<'_, Db>) -> Result<Vec<ProjectRow>, UiError> {
+pub fn project_list(session: State<'_, Session>, db: State<'_, Db>) -> Result<Vec<ProjectRow>, UiError> {
+    guard(&session, "project_list")?;
     let conn = db.0.lock().map_err(|_| UiError::internal())?;
     store::list_projects(&conn).map_err(conn_err)
 }
 
 #[tauri::command]
-pub fn project_create(db: State<'_, Db>, initial_request: String, decision: Option<Decision>) -> Result<CreateProjectOutcome, UiError> {
+pub fn project_create(session: State<'_, Session>, db: State<'_, Db>, initial_request: String, decision: Option<Decision>) -> Result<CreateProjectOutcome, UiError> {
+    guard(&session, "project_create")?;
     Ok(svc::create_project(&shared(&db), &initial_request, decision)?)
 }
 
 /// Deletes the project with everything of it, its call included. Cannot be undone.
 #[tauri::command]
-pub fn project_delete(db: State<'_, Db>, project_id: String) -> Result<bool, UiError> {
+pub fn project_delete(session: State<'_, Session>, db: State<'_, Db>, project_id: String) -> Result<bool, UiError> {
+    let gate = guard(&session, "project_delete")?;
     let mut conn = db.0.lock().map_err(|_| UiError::internal())?;
+    if !gate.may_delete() {
+        crate::access_service::request_deletion(&mut conn, gate.user()?, crate::domain::access::DeletionKind::Project, &project_id)?;
+        return Ok(true);
+    }
     store::delete_project(&mut conn, &project_id).map_err(conn_err)
 }
 
 /// Paints the folder of a project (one of the colors of the list, or `None` to leave it to the app).
 #[tauri::command]
-pub fn project_set_color(db: State<'_, Db>, project_id: String, color: Option<String>) -> Result<bool, UiError> {
+pub fn project_set_color(session: State<'_, Session>, db: State<'_, Db>, project_id: String, color: Option<String>) -> Result<bool, UiError> {
+    guard(&session, "project_set_color")?;
     let conn = db.0.lock().map_err(|_| UiError::internal())?;
     if color.as_deref().is_some_and(|c| !store::PROJECT_COLORS.contains(&c)) {
         return Err(UiError::new("invalid_color", "Ese color no está en la lista."));
@@ -224,7 +243,8 @@ pub fn project_set_color(db: State<'_, Db>, project_id: String, color: Option<St
 
 /// Says who gives the support of a project (one of the kinds of the list, or `None` to clear it).
 #[tauri::command]
-pub fn project_set_donor_kind(db: State<'_, Db>, project_id: String, kind: Option<String>) -> Result<bool, UiError> {
+pub fn project_set_donor_kind(session: State<'_, Session>, db: State<'_, Db>, project_id: String, kind: Option<String>) -> Result<bool, UiError> {
+    guard(&session, "project_set_donor_kind")?;
     let conn = db.0.lock().map_err(|_| UiError::internal())?;
     if kind.as_deref().is_some_and(|k| !store::DONOR_KINDS.contains(&k)) {
         return Err(UiError::new("invalid_donor_kind", "Ese tipo de proyecto no está en la lista."));
@@ -233,19 +253,22 @@ pub fn project_set_donor_kind(db: State<'_, Db>, project_id: String, kind: Optio
 }
 
 #[tauri::command]
-pub fn project_advance(db: State<'_, Db>, project_id: String) -> Result<ProjectRow, UiError> {
+pub fn project_advance(session: State<'_, Session>, db: State<'_, Db>, project_id: String) -> Result<ProjectRow, UiError> {
+    guard(&session, "project_advance")?;
     Ok(svc::advance(&shared(&db), &project_id)?)
 }
 
 #[tauri::command]
-pub fn project_go_back(db: State<'_, Db>, project_id: String, target: Stage) -> Result<ProjectRow, UiError> {
+pub fn project_go_back(session: State<'_, Session>, db: State<'_, Db>, project_id: String, target: Stage) -> Result<ProjectRow, UiError> {
+    guard(&session, "project_go_back")?;
     Ok(svc::go_back(&shared(&db), &project_id, target)?)
 }
 
 // ------------------------------------------------------------------ conversation (ADR-017)
 
 #[tauri::command]
-pub fn conversation_get(db: State<'_, Db>, project_id: String) -> Result<ConversationView, UiError> {
+pub fn conversation_get(session: State<'_, Session>, db: State<'_, Db>, project_id: String) -> Result<ConversationView, UiError> {
+    guard(&session, "conversation_get")?;
     let conn = db.0.lock().map_err(|_| UiError::internal())?;
     Ok(convo::conversation_view(&conn, &project_id)?)
 }
@@ -253,8 +276,9 @@ pub fn conversation_get(db: State<'_, Db>, project_id: String) -> Result<Convers
 /// What the AI is doing for a project right now, and how its last job ended (handed over once). The screen asks
 /// this when it comes back, so work that started before the person left is still shown as work in progress.
 #[tauri::command]
-pub fn project_job(jobs: State<'_, Jobs>, project_id: String) -> JobStatus {
-    jobs.status(&project_id)
+pub fn project_job(session: State<'_, Session>, jobs: State<'_, Jobs>, project_id: String) -> Result<JobStatus, UiError> {
+    guard(&session, "project_job")?;
+    Ok(jobs.status(&project_id))
 }
 
 /// Frees the project's slot, saying how the AI part went when it did run (a message held for the scanner did not).
@@ -266,7 +290,8 @@ fn finish_answer(job: JobGuard, out: &AnswerOutcome) {
 
 /// Asks the AI for the opening question. Safe to call again: if the opening exists, nothing is asked.
 #[tauri::command]
-pub async fn conversation_start(db: State<'_, Db>, jobs: State<'_, Jobs>, project_id: String) -> Result<AnswerOutcome, UiError> {
+pub async fn conversation_start(session: State<'_, Session>, db: State<'_, Db>, jobs: State<'_, Jobs>, project_id: String) -> Result<AnswerOutcome, UiError> {
+    guard(&session, "conversation_start")?;
     let job = jobs.claim(&project_id, JobKind::Turn)?;
     let db = shared(&db);
     let provider = make_provider(&db);
@@ -277,14 +302,14 @@ pub async fn conversation_start(db: State<'_, Db>, jobs: State<'_, Jobs>, projec
 
 /// What the person writes; with `confirm_root` it is the quick reply that confirms the root cause.
 #[tauri::command]
-pub async fn conversation_send(
-    db: State<'_, Db>,
+pub async fn conversation_send(session: State<'_, Session>, db: State<'_, Db>,
     jobs: State<'_, Jobs>,
     project_id: String,
     text: String,
     confirm_root: bool,
     decision: Option<Decision>,
 ) -> Result<AnswerOutcome, UiError> {
+    guard(&session, "conversation_send")?;
     let job = jobs.claim(&project_id, JobKind::Turn)?;
     let db = shared(&db);
     let provider = make_provider(&db);
@@ -295,7 +320,8 @@ pub async fn conversation_send(
 
 /// The AI owes a message (it failed): asks again without the person writing anything.
 #[tauri::command]
-pub async fn conversation_retry(db: State<'_, Db>, jobs: State<'_, Jobs>, project_id: String) -> Result<AnswerOutcome, UiError> {
+pub async fn conversation_retry(session: State<'_, Session>, db: State<'_, Db>, jobs: State<'_, Jobs>, project_id: String) -> Result<AnswerOutcome, UiError> {
+    guard(&session, "conversation_retry")?;
     let job = jobs.claim(&project_id, JobKind::Turn)?;
     let db = shared(&db);
     let provider = make_provider(&db);
@@ -305,7 +331,8 @@ pub async fn conversation_retry(db: State<'_, Db>, jobs: State<'_, Jobs>, projec
 }
 
 #[tauri::command]
-pub async fn diagnosis_summary_generate(db: State<'_, Db>, jobs: State<'_, Jobs>, project_id: String) -> Result<SummaryOutcome, UiError> {
+pub async fn diagnosis_summary_generate(session: State<'_, Session>, db: State<'_, Db>, jobs: State<'_, Jobs>, project_id: String) -> Result<SummaryOutcome, UiError> {
+    guard(&session, "diagnosis_summary_generate")?;
     let job = jobs.claim(&project_id, JobKind::Summary)?;
     let db = shared(&db);
     let provider = make_provider(&db);
@@ -315,17 +342,18 @@ pub async fn diagnosis_summary_generate(db: State<'_, Db>, jobs: State<'_, Jobs>
 }
 
 #[tauri::command]
-pub fn diagnosis_summary_edit(
-    db: State<'_, Db>,
+pub fn diagnosis_summary_edit(session: State<'_, Session>, db: State<'_, Db>,
     project_id: String,
     edit: SummaryEdit,
     decision: Option<Decision>,
 ) -> Result<EditOutcome, UiError> {
+    guard(&session, "diagnosis_summary_edit")?;
     Ok(svc::edit_summary(&shared(&db), &project_id, edit, decision)?)
 }
 
 #[tauri::command]
-pub fn diagnosis_summary_confirm(db: State<'_, Db>, project_id: String) -> Result<ConversationView, UiError> {
+pub fn diagnosis_summary_confirm(session: State<'_, Session>, db: State<'_, Db>, project_id: String) -> Result<ConversationView, UiError> {
+    guard(&session, "diagnosis_summary_confirm")?;
     Ok(svc::confirm_summary(&shared(&db), &project_id)?)
 }
 
@@ -338,12 +366,14 @@ pub struct ProposedNeeds {
 }
 
 #[tauri::command]
-pub fn needs_get(db: State<'_, Db>, project_id: String) -> Result<NeedsView, UiError> {
+pub fn needs_get(session: State<'_, Session>, db: State<'_, Db>, project_id: String) -> Result<NeedsView, UiError> {
+    guard(&session, "needs_get")?;
     Ok(svc::get_needs(&shared(&db), &project_id)?)
 }
 
 #[tauri::command]
-pub async fn needs_propose(db: State<'_, Db>, jobs: State<'_, Jobs>, project_id: String) -> Result<ProposedNeeds, UiError> {
+pub async fn needs_propose(session: State<'_, Session>, db: State<'_, Db>, jobs: State<'_, Jobs>, project_id: String) -> Result<ProposedNeeds, UiError> {
+    guard(&session, "needs_propose")?;
     let job = jobs.claim(&project_id, JobKind::Needs)?;
     let db = shared(&db);
     let provider = make_provider(&db);
@@ -353,22 +383,24 @@ pub async fn needs_propose(db: State<'_, Db>, jobs: State<'_, Jobs>, project_id:
 }
 
 #[tauri::command]
-pub fn need_add(
-    db: State<'_, Db>,
+pub fn need_add(session: State<'_, Session>, db: State<'_, Db>,
     project_id: String,
     title: String,
     description: String,
     decision: Option<Decision>,
 ) -> Result<AddNeedOutcome, UiError> {
+    guard(&session, "need_add")?;
     Ok(svc::add_need(&shared(&db), &project_id, &title, &description, decision)?)
 }
 
 #[tauri::command]
-pub fn need_rate(db: State<'_, Db>, project_id: String, need_id: String, scores: Scores) -> Result<NeedsView, UiError> {
+pub fn need_rate(session: State<'_, Session>, db: State<'_, Db>, project_id: String, need_id: String, scores: Scores) -> Result<NeedsView, UiError> {
+    guard(&session, "need_rate")?;
     Ok(svc::rate_need(&shared(&db), &project_id, &need_id, scores)?)
 }
 
 #[tauri::command]
-pub fn need_select(db: State<'_, Db>, project_id: String, need_id: String) -> Result<NeedsView, UiError> {
+pub fn need_select(session: State<'_, Session>, db: State<'_, Db>, project_id: String, need_id: String) -> Result<NeedsView, UiError> {
+    guard(&session, "need_select")?;
     Ok(svc::select_need(&shared(&db), &project_id, &need_id)?)
 }

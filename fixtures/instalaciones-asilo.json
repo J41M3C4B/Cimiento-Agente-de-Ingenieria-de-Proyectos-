@@ -1,0 +1,169 @@
+{
+  "site": {
+    "name": "Casa principal",
+    "land_m2": 1200,
+    "built_m2": 780,
+    "floors": 2,
+    "floor_access": [
+      "none"
+    ],
+    "built_year": 1978,
+    "tenure": "own",
+    "tenure_documented": true,
+    "water_sources": [
+      "network",
+      "truck"
+    ],
+    "water_shortage": "sometimes",
+    "water_storage_liters": 10000,
+    "power_outages": "sometimes",
+    "gas": "lp_tank",
+    "drainage": "sewer",
+    "internet": true,
+    "extinguishers": 4,
+    "extinguishers_current": false,
+    "smoke_detectors": 0,
+    "marked_exits": true,
+    "emergency_lights": false,
+    "first_aid_kit": true,
+    "internal_program": "in_progress",
+    "civil_protection_opinion": false,
+    "drills_per_year": 1,
+    "notes": null
+  },
+  "spaces": [
+    {
+      "kind": "bedroom",
+      "floor": 0,
+      "count": 5,
+      "good": 3,
+      "fair": 2,
+      "beds": 14,
+      "hospital_beds": 6,
+      "accessible": true
+    },
+    {
+      "kind": "bedroom",
+      "floor": 1,
+      "count": 3,
+      "good": 2,
+      "fair": 1,
+      "beds": 9,
+      "hospital_beds": 0,
+      "accessible": false
+    },
+    {
+      "kind": "bathroom",
+      "floor": 0,
+      "count": 2,
+      "good": 1,
+      "poor": 1,
+      "problems": [
+        "floor",
+        "grab_bars",
+        "leaks"
+      ],
+      "accessible": false,
+      "grab_bars": false,
+      "accessible_shower": false,
+      "notes": "Piso resbaloso, sin barras de apoyo ni regaderas con asiento."
+    },
+    {
+      "kind": "bathroom",
+      "floor": 1,
+      "count": 1,
+      "poor": 1,
+      "problems": [
+        "damp",
+        "grab_bars"
+      ],
+      "accessible": false,
+      "grab_bars": false,
+      "accessible_shower": false
+    },
+    {
+      "kind": "kitchen",
+      "floor": 0,
+      "count": 1,
+      "good": 1
+    },
+    {
+      "kind": "dining",
+      "floor": 0,
+      "count": 1,
+      "good": 1,
+      "accessible": true
+    },
+    {
+      "kind": "infirmary",
+      "floor": 0,
+      "count": 1,
+      "fair": 1,
+      "problems": [
+        "furniture"
+      ],
+      "beds": 2,
+      "hospital_beds": 2,
+      "accessible": true
+    },
+    {
+      "kind": "laundry",
+      "floor": 0,
+      "count": 1,
+      "fair": 1,
+      "problems": [
+        "drainage"
+      ]
+    },
+    {
+      "kind": "chapel",
+      "floor": 0,
+      "count": 1,
+      "good": 1
+    },
+    {
+      "kind": "roof",
+      "floor": 1,
+      "count": 1,
+      "poor": 1,
+      "problems": [
+        "roof"
+      ]
+    }
+  ],
+  "equipment": [
+    {
+      "kind": "wheelchair",
+      "count": 6,
+      "good": 4,
+      "poor": 2
+    },
+    {
+      "kind": "patient_lift",
+      "count": 1,
+      "unusable": 1
+    },
+    {
+      "kind": "washer",
+      "count": 2,
+      "good": 1,
+      "unusable": 1
+    },
+    {
+      "kind": "fridge",
+      "count": 2,
+      "good": 2
+    },
+    {
+      "kind": "stove",
+      "count": 1,
+      "fair": 1
+    },
+    {
+      "kind": "water_heater",
+      "count": 2,
+      "good": 1,
+      "poor": 1
+    }
+  ]
+}

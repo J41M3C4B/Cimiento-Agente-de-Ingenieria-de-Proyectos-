@@ -145,7 +145,7 @@ pub fn get_project(conn: &Connection, project_id: &str) -> Result<Option<Project
 
 pub fn list_projects(conn: &Connection) -> Result<Vec<ProjectRow>, StorageError> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {PROJECT_COLS} FROM project WHERE archived_at IS NULL ORDER BY created_at DESC, id DESC"
+        "SELECT {PROJECT_COLS} FROM project WHERE archived_at IS NULL AND hidden = 0 ORDER BY created_at DESC, id DESC"
     ))?;
     let rows = stmt.query_map([], project_from_row)?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows)

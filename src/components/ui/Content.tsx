@@ -237,7 +237,13 @@ export function NextBox({ title, detail, goLabel, onGo, eyebrow }: { title: stri
 }
 
 /** One figure on an inset: its square with an icon, its label, the number, a detail and (optionally) a bar. */
-export function Metric({ icon, tone, label, value, sub, fill, note }: { icon: IconName; tone: Tone; label: string; value: string; sub?: string; fill?: number; note?: string }) {
+export function Metric({
+  icon, tone, label, value, sub, fill, note, approx, hint,
+}: {
+  icon: IconName; tone: Tone; label: string; value: string; sub?: string; fill?: number; note?: string;
+  /** says the figure is an estimate the person gave, not a sum of records: a tag by the number and a line that explains it */
+  approx?: string; hint?: string;
+}) {
   return (
     <Inset className="flex flex-col gap-3">
       <div className="flex items-center gap-2.5">
@@ -245,8 +251,16 @@ export function Metric({ icon, tone, label, value, sub, fill, note }: { icon: Ic
         <span className="text-ui font-semibold text-ink-2">{label}</span>
       </div>
       <div>
-        <div className="tabular whitespace-nowrap text-hero font-normal tracking-tight">{value}</div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="tabular whitespace-nowrap text-hero font-normal tracking-tight">{value}</div>
+          {approx && (
+            <span className="tag tone-amber tag--soft">
+              {approx}
+            </span>
+          )}
+        </div>
         {sub && <div className="mt-0.5 text-small text-ink-3">{sub}</div>}
+        {hint && <div className="mt-0.5 text-caption text-ink-3">{hint}</div>}
       </div>
       {note && (
         <p className="flex items-start gap-1.5 text-small font-semibold text-amber-ink">

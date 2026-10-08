@@ -78,16 +78,8 @@ CREATE TABLE staff_group (
   origin TEXT NOT NULL, source_ref TEXT, confirmed_at TEXT, confirmed_by TEXT
 );
 
-CREATE TABLE facility (
-  id TEXT PRIMARY KEY,
-  profile_id TEXT NOT NULL REFERENCES institution_profile(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL,              -- "dormitorio", "baño", "cocina", "enfermería"
-  count INTEGER NOT NULL DEFAULT 1,
-  condition TEXT CHECK (condition IN ('good','fair','poor','critical')),
-  accessible INTEGER,              -- 0/1/NULL
-  notes TEXT,
-  origin TEXT NOT NULL, source_ref TEXT, confirmed_at TEXT, confirmed_by TEXT
-);
+-- La tabla `facility` (lista de espacios del perfil) se eliminó en la migración 0018: las instalaciones viven en su
+-- módulo (ADR-030, tablas fac_*; ver más abajo).
 
 -- Ingresos escritos a mano (ADR-026). Las cuotas de los beneficiarios del padrón NO se guardan aquí: se calculan.
 CREATE TABLE income_source (
@@ -113,6 +105,48 @@ CREATE TABLE income_source (
 -- hr_emergency_contact  hasta 2 por persona
 -- hr_custom_field  datos propios del formulario
 -- staff_group.relation  tipo de relación de cada línea anónima (dónde cuenta su dinero)
+
+-- Módulo de Beneficiarios (ADR-029, migración 0017; elimina roster_entry y roster_field).
+-- care_person         identificación (birth_date + birth_date_approx, sex, curp, origen, lengua, estudios o escuela,
+--                     group_id), ingreso (entry_date + approx, stay_mode, referred_by, admission_reasons JSON, status
+--                     active|hospitalized|discharged|deceased, status_date, discharge_reason), salud por categorías
+--                     (dependency, mobility, disabilities JSON, chronic_conditions JSON, continence, orientation,
+--                     psych_care, vaccines_up_to_date), familia (visits, legal_status), aportación (monthly_fee_mxn,
+--                     fee_payer, programs JSON), consentimiento (consent_date, consent_signer), extra, hidden
+-- care_contact        hasta 2 responsables por persona (legal_guardian)
+-- care_group          grupos propios (título único)
+-- care_custom_field   datos propios del formulario (hidden mientras su borrado espera)
+-- care_waitlist       solicitudes de ingreso: requested_on, name/phone opcionales, sex, approx_age, dependency, reason,
+--                     status waiting|admitted|declined|withdrawn, person_id
+
+-- Primer inicio (ADR-031, migración 0019).
+-- institution  state (código de 32 estados), municipality, founded_year, legal_form (ac|iap|ibp|sc|abp|religious|other),
+--              authorized_donee y cluni (yes|in_progress|no), onboarded_at (una sola vez, al terminar el asistente)
+-- institution_profile  served_estimate, staff_paid_estimate, staff_volunteer_estimate: cifras rápidas mientras no hay
+--              fichas en los módulos (las fichas mandan)
+-- app_user.welcomed_at  la persona ya vio la bienvenida
+
+-- Módulo de Instalaciones (ADR-030, migración 0018; elimina facility).
+-- fac_site       un inmueble (la pantalla maneja uno): name, land_m2, built_m2, floors, floor_access JSON
+--                (ramp|elevator|stair_lift|none), built_year, tenure (own|loan|rent|borrowed|other), tenure_until,
+--                tenure_documented; servicios (water_sources JSON, water_shortage never|sometimes|often,
+--                water_storage_liters, power_outages, gas, drainage, internet); seguridad (extinguishers,
+--                extinguishers_current, smoke_detectors, marked_exits, emergency_lights, first_aid_kit,
+--                internal_program yes|in_progress|no, civil_protection_opinion, opinion_year, drills_per_year), notes
+-- fac_space      un grupo de espacios de un tipo en un piso: kind (catálogo), label, floor (-1 sótano, 0 planta baja…),
+--                count, good, fair, poor, unusable (suman count o menos: el resto está «sin revisar»), problems JSON,
+--                accessible, beds, hospital_beds (dormitorio y enfermería), grab_bars, accessible_shower (baño), notes,
+--                origin, source_ref
+-- fac_equipment  un grupo de equipo: kind (catálogo), label, count, good, fair, poor, unusable, notes, origin, source_ref
+
+-- Perfiles de acceso (ADR-028, migración 0016).
+-- app_user        cuentas: username (único, minúsculas), display_name, person_id (ficha del personal), role (admin|manager),
+--                 active, password_hash (Argon2id), must_change_password, failed_attempts, locked_until (unix), last_login_at
+-- access_request  borrados que esperan al administrador: kind, target_id, target_label, requested_by, status
+--                 (pending|approved|rejected), resolved_by, resolved_at; una sola pendiente por cosa
+-- audit_log.actor_id  quién hizo cada cosa (de la sesión)
+-- hidden          en document, project, roster_entry, roster_field, hr_person, hr_custom_field: oculto mientras espera
+-- app_settings 'access.recovery'  hash del código de recuperación del administrador
 
 -- Egresos por concepto (ADR-026). La nómina no se escribe aquí: se calcula del padrón con prestaciones.
 -- `institution_profile.annual_budget_mxn` es el «gasto anual aproximado» (modo exprés): cuenta mientras esta

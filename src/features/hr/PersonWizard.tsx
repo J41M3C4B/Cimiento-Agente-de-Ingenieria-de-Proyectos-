@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Choice, FormSection, Inset, MaskedField, Modal, Select, StepNav, Switch, TextButton, TextInput } from "../../components/ui";
+import { Alert, Avatar, Bar, Button, Choice, Eyebrow, FormSection, Inset, MaskedField, Modal, Select, StepNav, Switch, TextButton, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { IssueSummary } from "../../components/IssueSummary";
 import { toAppError } from "../../lib/tauri";
 import { hrModalityCreate, hrPersonDelete, hrPersonReveal, hrPersonSave } from "./api";
 import { modalityName } from "./labels";
@@ -152,7 +153,7 @@ export function PersonWizard({
   const [current, setCurrent] = useState<PersonView | null>(view);
   const [d, setD] = useState<PersonData>(view ? { ...view.data } : emptyPerson());
   const [step, setStep] = useState(0);
-  const [issues, setIssues] = useState<HrIssue[]>([]);
+  const [issues, setIssues] = useState<HrIssue[]>(view?.issues ?? []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newPosition, setNewPosition] = useState(false);
@@ -219,10 +220,9 @@ export function PersonWizard({
   const stepItems = STEPS.map((s) => {
     const p = progress?.[s];
     const na = (s === "pay" && !pays) || (p !== undefined && p.total === 0);
-    return { key: s, label: h.steps[s], filled: p?.filled, total: p?.total, na, caption: p ? h.stepCaption(p.filled, p.total) : undefined, naLabel: h.stepNotApplicable };
+    const warn = issues.filter((i) => stepOf(i.field) === s).length;
+    return { key: s, label: h.steps[s], short: h.stepsShort[s], filled: p?.filled, total: p?.total, na, caption: p ? h.stepCaption(p.filled, p.total) : undefined, naLabel: h.stepNotApplicable, warn, warnLabel: warn > 0 ? es.common.review.title(warn) : undefined };
   });
-  const headsUp = issues.filter((i) => !i.blocking);
-  const blocking = issues.filter((i) => i.blocking);
 
   const grid = (children: ReactNode) => <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>;
 
@@ -230,7 +230,8 @@ export function PersonWizard({
     <>
       <Modal
         title={current ? `${h.editing}: ${[current.data.first_names, current.data.last_name_1].filter(Boolean).join(" ")}` : h.add}
-        size="lg"
+        size="wide"
+        fixed
         onClose={onClose}
         footer={
           <>
@@ -256,21 +257,34 @@ export function PersonWizard({
           </>
         }
       >
+        <div className="flex items-center gap-4">
+          <Avatar name={[d.first_names, d.last_name_1].filter(Boolean).join(" ")} />
+          <div className="min-w-0 flex-1">
+            <b className="block truncate font-bold">{[d.first_names, d.last_name_1, d.last_name_2].filter(Boolean).join(" ") || h.newRecord}</b>
+            <span className="block truncate text-small text-ink-3">
+              {[positions.find((p) => p.id === d.position_id)?.title, modality ? modalityName(modality) : null].filter(Boolean).join(" · ") || h.minimum}
+            </span>
+          </div>
+          {progress && (
+            <div className="hidden w-44 shrink-0 sm:block">
+              <div className="mb-1 flex justify-between text-caption font-semibold text-ink-2">
+                <span>{h.completeness}</span>
+                <span className="tabular">{h.progress(progress.percent)}</span>
+              </div>
+              <Bar percent={progress.percent} label={h.completeness} tone={progress.percent === 100 ? "green" : "ink"} />
+            </div>
+          )}
+        </div>
         <StepNav label={h.stepsLabel} steps={stepItems} current={step} onSelect={setStep} />
-        {!current && step === 0 && <p className="text-ui text-ink-2">{h.minimum}</p>}
-        {blocking.length > 0 && (
-          <Alert tone="error">
-            <ul className="list-disc pl-4">
-              {blocking.map((i, n) => (
-                <li key={n}>{h.issues[i.code] ?? i.code}</li>
-              ))}
-            </ul>
-          </Alert>
-        )}
-
+        <IssueSummary issues={issues} describe={(code) => h.issues[code] ?? code} stepOf={(field) => STEPS.indexOf(stepOf(field))} stepName={(n) => h.steps[STEPS[n]!]} onGo={setStep} />
+        <div key={step} className="anim-rise space-y-6">
+          <div className="flex items-baseline gap-3 border-b border-line pb-3">
+            <Eyebrow>{h.stepOf(step + 1, STEPS.length)}</Eyebrow>
+            <span className="text-ui text-ink-2">{h.stepIntro[STEPS[step]!]}</span>
+          </div>
         {STEPS[step] === "personal" && (
           <>
-            <FormSection title={h.sections.name}>
+            <FormSection title={h.sections.name} icon="user">
               {grid(
                 <>
                   <TextInput label={h.fields.first_names} required autoFocus value={d.first_names} error={err("first_names")} onChange={(e) => set({ first_names: e.target.value })} />
@@ -280,7 +294,7 @@ export function PersonWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={h.sections.identity}>
+            <FormSection title={h.sections.identity} icon="idcard">
               {grid(
                 <>
                   <TextInput label={h.fields.birth_date} type="date" value={d.birth_date ?? ""} error={err("birth_date")} onChange={(e) => set({ birth_date: txt(e.target.value) })} />
@@ -290,7 +304,7 @@ export function PersonWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={h.sections.schooling}>
+            <FormSection title={h.sections.schooling} icon="file">
               {grid(
                 <>
                   <Select label={h.fields.education} options={opt(h.education)} value={d.education ?? ""} onChange={(e) => set({ education: txt(e.target.value) })} />
@@ -298,7 +312,7 @@ export function PersonWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={h.sections.address}>
+            <FormSection title={h.sections.address} icon="building">
               {grid(
                 <>
                   <TextInput label={h.fields.street} value={d.address.street ?? ""} onChange={(e) => setAddress({ street: txt(e.target.value) })} />
@@ -310,7 +324,7 @@ export function PersonWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={h.sections.contact}>
+            <FormSection title={h.sections.contact} icon="phone">
               {grid(
                 <>
                   <TextInput label={h.fields.phone} inputMode="tel" value={d.phone ?? ""} error={err("phone")} onChange={(e) => set({ phone: txt(e.target.value) })} />
@@ -323,7 +337,7 @@ export function PersonWizard({
 
         {STEPS[step] === "job" && (
           <>
-            <FormSection title={h.sections.position}>
+            <FormSection title={h.sections.position} icon="briefcase">
               {grid(
                 <>
                   <Select
@@ -346,7 +360,7 @@ export function PersonWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={h.sections.dates}>
+            <FormSection title={h.sections.dates} icon="calendar">
               {grid(
                 <>
                   <TextInput label={h.fields.start_date} type="date" value={d.start_date ?? ""} error={err("start_date")} hint={current?.start_date_approx ? h.approxDate : undefined} onChange={(e) => set({ start_date: txt(e.target.value) })} />
@@ -356,7 +370,7 @@ export function PersonWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={h.sections.time}>
+            <FormSection title={h.sections.time} icon="clock">
               {grid(
                 <>
                   <Select label={h.fields.schedule} options={opt(h.schedules)} value={d.schedule ?? ""} onChange={(e) => set({ schedule: txt(e.target.value) })} />
@@ -380,7 +394,7 @@ export function PersonWizard({
                 </div>
               </fieldset>
             </FormSection>
-            <FormSection title={h.sections.status}>
+            <FormSection title={h.sections.status} icon="info">
               {grid(
                 <>
                   <Select label={h.fields.status} options={Object.entries(h.status)} value={d.status} onChange={(e) => set({ status: e.target.value })} />
@@ -399,7 +413,7 @@ export function PersonWizard({
         {STEPS[step] === "emergency" && (
           <>
             {d.emergency_contacts.map((c, i) => (
-              <FormSection key={i} title={h.sections.contactN(i + 1)}>
+              <FormSection key={i} title={h.sections.contactN(i + 1)} icon="phone">
                 {grid(
                   <>
                     <TextInput label={h.fields.contact_name} required value={c.full_name} error={err(`emergency_contacts[${i}].full_name`)} onChange={(e) => contact(i, { full_name: e.target.value })} />
@@ -427,7 +441,7 @@ export function PersonWizard({
             <Inset className="text-ui text-ink-2">{h.noPayStep}</Inset>
           ) : (
             <>
-              <FormSection title={h.sections.payment}>
+              <FormSection title={h.sections.payment} icon="banknote">
                 {grid(
                   <>
                     <TextInput
@@ -445,7 +459,7 @@ export function PersonWizard({
                 )}
               </FormSection>
               {d.pay_method === "transfer" && (
-                <FormSection title={h.sections.bank}>
+                <FormSection title={h.sections.bank} icon="wallet">
                   {grid(
                     <>
                       <SecretInput field="clabe" label={h.fields.clabe} hint={h.hints.clabe} personId={current?.id ?? null} stored={secretsStored.clabe} masked={current?.masked.clabe ?? null} value={d.clabe} error={err("clabe")} onChange={(v) => set({ clabe: v })} />
@@ -455,7 +469,7 @@ export function PersonWizard({
                 </FormSection>
               )}
               {modality?.rules.tax_data !== false && (
-                <FormSection title={h.sections.tax}>
+                <FormSection title={h.sections.tax} icon="file">
                   {grid(
                     <>
                       <SecretInput field="rfc" label={h.fields.rfc} hint={h.hints.rfc} personId={current?.id ?? null} stored={secretsStored.rfc} masked={current?.masked.rfc ?? null} value={d.rfc} error={err("rfc")} onChange={(v) => set({ rfc: v })} />
@@ -475,7 +489,7 @@ export function PersonWizard({
           ))}
 
         {STEPS[step] === "pay" && fields.length > 0 && (
-          <FormSection title={h.sections.other}>
+          <FormSection title={h.sections.other} icon="sliders">
             {grid(
               fields.map((f) =>
                 f.kind === "select" ? (
@@ -488,15 +502,8 @@ export function PersonWizard({
           </FormSection>
         )}
 
-        {headsUp.length > 0 && (
-          <Alert tone="warn">
-            <ul className="list-disc pl-4">
-              {headsUp.map((i, n) => (
-                <li key={n}>{h.issues[i.code] ?? i.code}</li>
-              ))}
-            </ul>
-          </Alert>
-        )}
+        </div>
+
         {error && <Alert tone="error">{error}</Alert>}
       </Modal>
 

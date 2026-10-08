@@ -4,21 +4,25 @@ import { Icon } from "../../components/icons";
 import { Alert, Button, Card, Dock, Eyebrow, FactRow, Facts, Inset, Metric, TabPanel, Tag, TextButton, Toast } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
-import { devLoadFixture, profileConfirm, profileGet, profileSave, rosterOverview, toAppError } from "../../lib/tauri";
+import { devLoadFixture, profileConfirm, profileGet, profileSave, toAppError } from "../../lib/tauri";
 import type { Decision, ProfileInput, ProfileIssue, ProfileTotals, ProfileView, QuarantineReport } from "../../lib/types";
-import { FacilitiesTab } from "./FacilitiesTab";
 import { BalanceCard, ExpensesCard, IncomeCard } from "./FinanceCards";
 import { ProfileEdit } from "./ProfileEdit";
 import type { Edit } from "./ProfileEdit";
 import { fromView, toInput } from "./profileForm";
-import { RosterTab } from "./RosterTab";
+import { careOverview } from "../care/api";
+import { facilitiesOverview } from "../facilities/api";
+import { FACILITIES_KEY, FacilitiesTab } from "../facilities/FacilitiesTab";
+import { CARE_KEY, CareTab } from "../care/CareTab";
 import { hrOverview } from "../hr/api";
 import { HR_KEY, StaffTab } from "../hr/StaffTab";
+import { useSession } from "../access/session";
 
 const t = es.profile;
 const money = (n: number) => n.toLocaleString("es-MX");
 const peso = (n: number) => `$${money(n)}`;
-type Tab = "general" | "staff" | "population" | "facilities";
+export type ProfileTab = "general" | "staff" | "population" | "facilities";
+type Tab = ProfileTab;
 
 const ZERO: ProfileTotals = {
   population: 0, staff_paid: 0, staff_volunteer: 0, income_annual_mxn: 0,
@@ -32,14 +36,18 @@ const ZERO: ProfileTotals = {
  * its four figures; below, the detail by cut-out tab. What is on the screen is what is saved: «Editar» opens a
  * window with just those fields, so there is no half-edited page.
  */
-export function ProfilePage() {
+export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTab }) {
   const qc = useQueryClient();
+  // the example data replaces records: only the administrator, in development (ADR-028)
+  const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
-  // the staff lives in its own module (ADR-027); the people served, in the roster (ADR-020)
+  // the staff and the people served live in their own modules (ADR-027, ADR-029)
   const staffModule = useQuery({ queryKey: HR_KEY, queryFn: hrOverview });
-  const peopleRoster = useQuery({ queryKey: ["roster", "beneficiary"], queryFn: () => rosterOverview("beneficiary") });
+  const peopleModule = useQuery({ queryKey: CARE_KEY, queryFn: careOverview });
+  // and the facilities in theirs (ADR-030)
+  const facilitiesModule = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
 
-  const [tab, setTab] = useState<Tab>("general");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [edit, setEdit] = useState<Edit | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -96,8 +104,9 @@ export function ProfilePage() {
     setBusy(true);
     try {
       qc.setQueryData(["profile"], await devLoadFixture(name));
-      await qc.invalidateQueries({ queryKey: ["roster"] });
+      await qc.invalidateQueries({ queryKey: CARE_KEY });
       await qc.invalidateQueries({ queryKey: HR_KEY });
+      await qc.invalidateQueries({ queryKey: FACILITIES_KEY });
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
     } finally {
@@ -105,7 +114,7 @@ export function ProfilePage() {
     }
   }
 
-  function removeItem(kind: "income" | "expenses" | "facilities", index: number) {
+  function removeItem(kind: "income" | "expenses", index: number) {
     if (!view) return;
     const f = fromView(view);
     f[kind].splice(index, 1);
@@ -122,8 +131,8 @@ export function ProfilePage() {
 
   const totals = staffModule.data?.totals ?? view?.totals ?? ZERO;
   const staffCount = staffModule.data?.people.filter((p) => p.status !== "left").length ?? 0;
-  const peopleCount = peopleRoster.data?.entries.length ?? 0;
-  const facilities = view?.input.facilities ?? [];
+  const peopleCount = peopleModule.data?.board.indicators.served ?? 0;
+  const spacesCount = facilitiesModule.data?.indicators.spaces ?? 0;
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
 
   // what is still missing, each one leading to where it is filled in
@@ -131,14 +140,20 @@ export function ProfilePage() {
   if (view) {
     if (!inst?.contact_phone && !inst?.contact_email) todo.push({ text: t.todo.contact, go: () => open({ kind: "contact" }) });
     if (staffModule.isSuccess && staffCount === 0) todo.push({ text: t.todo.staff, go: () => setTab("staff") });
-    if (peopleRoster.isSuccess && peopleCount === 0) todo.push({ text: t.todo.population, go: () => setTab("population") });
-    if (facilities.length === 0) todo.push({ text: t.todo.facilities, go: () => setTab("facilities") });
+    if (peopleModule.isSuccess && peopleCount === 0) todo.push({ text: t.todo.population, go: () => setTab("population") });
+    if (facilitiesModule.isSuccess && spacesCount === 0) todo.push({ text: t.todo.facilities, go: () => setTab("facilities") });
   }
 
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 
   const [showTodo, setShowTodo] = useState(false);
   const capacity = view?.input.capacity_total ?? 0;
+  // while nobody is registered in the modules, the quick figures the person gave at the start stand in, and say so
+  const servedEstimate = view?.input.served_estimate ?? null;
+  const paidEstimate = view?.input.staff_paid_estimate ?? 0;
+  const volunteerEstimate = view?.input.staff_volunteer_estimate ?? 0;
+  const peopleApprox = servedEstimate !== null && peopleCount === 0 && totals.population === 0;
+  const staffApprox = staffCount === 0 && totals.staff_paid + totals.staff_volunteer === 0 && view?.input.staff_paid_estimate != null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -188,8 +203,25 @@ export function ProfilePage() {
 
         {view ? (
           <div className="grid min-w-0 grid-cols-2 gap-3 max-[520px]:grid-cols-1">
-            <Metric icon="heart" tone="violet" label={t.kpi.people} value={money(totals.population)} sub={capacity ? t.kpi.peopleOf(money(capacity)) : undefined} fill={capacity ? (totals.population / capacity) * 100 : undefined} />
-            <Metric icon="briefcase" tone="teal" label={t.kpi.staff} value={money(staffModule.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)} sub={t.kpi.staffPaid(totals.staff_paid)} />
+            <Metric
+              icon="heart"
+              tone="violet"
+              label={t.kpi.people}
+              value={peopleApprox ? `≈ ${money(servedEstimate!)}` : money(totals.population)}
+              approx={peopleApprox ? t.kpi.approx : undefined}
+              hint={peopleApprox ? t.kpi.approxNote : undefined}
+              sub={capacity ? t.kpi.peopleOf(money(capacity)) : undefined}
+              fill={capacity ? ((peopleApprox ? servedEstimate! : totals.population) / capacity) * 100 : undefined}
+            />
+            <Metric
+              icon="briefcase"
+              tone="teal"
+              label={t.kpi.staff}
+              value={staffApprox ? `≈ ${money(paidEstimate + volunteerEstimate)}` : money(staffModule.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)}
+              approx={staffApprox ? t.kpi.approx : undefined}
+              hint={staffApprox ? t.kpi.approxNote : undefined}
+              sub={t.kpi.staffPaid(staffApprox ? paidEstimate : totals.staff_paid)}
+            />
             <Metric icon="banknote" tone="amber" label={t.finance.payroll.label} value={peso(totals.payroll_cost_annual_mxn)} sub={t.finance.payroll.sub(peso(totals.payroll_annual_mxn), peso(totals.payroll_benefits_annual_mxn))} note={totals.benefits_assumed > 0 ? t.finance.payroll.assumed(totals.benefits_assumed) : undefined} />
             <Metric icon="wallet" tone="green" label={t.kpi.fees} value={peso(totals.fees_monthly_mxn)} sub={t.kpi.payers(totals.fee_payers)} />
           </div>
@@ -230,20 +262,38 @@ export function ProfilePage() {
             { id: "general", label: t.tabs.general },
             { id: "staff", label: t.tabs.staff, count: staffCount },
             { id: "population", label: t.tabs.population, count: peopleCount },
-            { id: "facilities", label: t.tabs.facilities, count: facilities.length },
+            { id: "facilities", label: t.tabs.facilities, count: spacesCount },
           ]}
         >
           <TabPanel id="general" active={tab === "general"}>
             <div className="grid items-start gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <Card>
+              <Card className="dock-attach">
                 <FactRow title={t.cards.institution} action={edition({ kind: "institution" })}>
                   <Facts columns={2} items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
                 </FactRow>
                 <FactRow title={t.cards.contact} note={t.privateNote} action={edition({ kind: "contact" })}>
-                  <Facts columns={2} items={[[t.fields.phone, inst?.contact_phone], [t.fields.email, inst?.contact_email]]} />
+                  <Facts
+                    columns={2}
+                    items={[
+                      [t.fields.phone, inst?.contact_phone],
+                      [t.fields.email, inst?.contact_email],
+                      [es.institution.state, inst?.state ? es.institution.states[inst.state] : null],
+                      [es.institution.municipality, inst?.municipality],
+                    ]}
+                  />
                 </FactRow>
                 <FactRow title={t.cards.legal} note={t.legalNote} action={edition({ kind: "legal" })}>
-                  <Facts columns={2} items={[[t.fields.rfc, inst?.legal_rfc], [t.fields.legalRep, inst?.legal_rep_name]]} />
+                  <Facts
+                    columns={2}
+                    items={[
+                      [t.fields.rfc, inst?.legal_rfc],
+                      [t.fields.legalRep, inst?.legal_rep_name],
+                      [es.institution.legalForm, inst?.legal_form ? es.institution.legalForms[inst.legal_form] : null],
+                      [es.institution.foundedYear, inst?.founded_year?.toString()],
+                      [es.institution.authorizedDonee, inst?.authorized_donee ? es.institution.registry[inst.authorized_donee] : null],
+                      [es.institution.cluni, inst?.cluni ? es.institution.registry[inst.cluni] : null],
+                    ]}
+                  />
                 </FactRow>
                 <FactRow title={t.cards.capacity} action={edition({ kind: "capacity" })}>
                   <Facts
@@ -251,6 +301,9 @@ export function ProfilePage() {
                     items={[
                       [t.fields.capacity, view.input.capacity_total !== null ? `${money(view.input.capacity_total)} personas` : null],
                       [t.fields.annualBudget, view.input.annual_budget_mxn !== null ? peso(view.input.annual_budget_mxn) : null],
+                      [es.institution.servedEstimate, view.input.served_estimate !== null ? `${money(view.input.served_estimate)} ${es.institution.approx}` : null],
+                      [es.institution.staffPaidEstimate, view.input.staff_paid_estimate !== null ? `${money(view.input.staff_paid_estimate)} ${es.institution.approx}` : null],
+                      [es.institution.staffVolunteerEstimate, view.input.staff_volunteer_estimate !== null ? `${money(view.input.staff_volunteer_estimate)} ${es.institution.approx}` : null],
                       [t.fields.notes, view.input.notes],
                     ]}
                   />
@@ -272,30 +325,24 @@ export function ProfilePage() {
             </div>
           </TabPanel>
           <TabPanel id="staff" active={tab === "staff"}>
-            <Card>
+            <Card className="dock-attach">
               <StaffTab onProfile={onRosterProfile} onNotice={notify} />
             </Card>
           </TabPanel>
           <TabPanel id="population" active={tab === "population"}>
-            <Card>
-              <RosterTab entity="beneficiary" onProfile={onRosterProfile} onNotice={notify} />
+            <Card className="dock-attach">
+              <CareTab onProfile={onRosterProfile} onNotice={notify} />
             </Card>
           </TabPanel>
           <TabPanel id="facilities" active={tab === "facilities"}>
-            <Card>
-              <FacilitiesTab
-                facilities={facilities}
-                busy={busy}
-                onAdd={() => open({ kind: "facility", index: null })}
-                onEdit={(i) => open({ kind: "facility", index: i })}
-                onRemove={(i) => removeItem("facilities", i)}
-              />
+            <Card className="dock-attach">
+              <FacilitiesTab onNotice={notify} />
             </Card>
           </TabPanel>
         </Dock>
       )}
 
-      {import.meta.env.DEV && (
+      {import.meta.env.DEV && access?.can("settings") && (
         <p className="flex flex-wrap items-center justify-center gap-3 text-small text-ink-3">
           {t.banner.loadExample}
           <Button size="sm" variant="plain" onClick={() => loadExample("asilo")} disabled={busy}>

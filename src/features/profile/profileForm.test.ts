@@ -11,13 +11,21 @@ const input: ProfileInput = {
     contact_phone: "55 5555 0202",
     contact_email: null,
     legal_rep_name: null,
+    state: "cdmx",
+    municipality: "Coyoacán",
+    founded_year: 2001,
+    legal_form: "iap",
+    authorized_donee: "yes",
+    cluni: "in_progress",
   },
   capacity_total: 40,
   annual_budget_mxn: null,
   notes: null,
+  served_estimate: 30,
+  staff_paid_estimate: null,
+  staff_volunteer_estimate: 4,
   population: [],
   staff: [],
-  facilities: [{ kind: "Baño", count: 4, condition: "poor", accessible: false, notes: "Humedad" }],
   income: [{ label: "Donativos", kind: "occasional_donation", amount_mxn: 1000, period: "monthly" }],
   expenses: [{ label: "Alimentos", amount_mxn: 8000, period: "monthly" }],
 };
@@ -85,7 +93,7 @@ describe("profile form conversion", () => {
     expect(ok.success).toBe(true);
     const f = fromView(view(input));
     f.capacity_total = "abc";
-    f.facilities[0].count = "-3";
+    f.annual_budget_mxn = "-3";
     const bad = formSchema.safeParse(f);
     expect(bad.success).toBe(false);
     expect(bad.error!.issues.map((i) => i.message)).toEqual(["not_a_number", "not_a_number"]);

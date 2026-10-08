@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { Icon } from "../icons";
 import type { IconName } from "../icons";
 
-type Variant = "primary" | "secondary" | "soft" | "danger" | "ghost" | "plain";
+type Variant = "primary" | "secondary" | "soft" | "danger" | "destructive" | "ghost" | "plain";
 
 /** The only button. `md` is 44 high, `sm` 36 (docs/13 §7.1). One `primary` per tray at most. */
 export function Button({

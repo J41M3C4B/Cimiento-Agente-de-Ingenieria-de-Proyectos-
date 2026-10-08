@@ -6,41 +6,17 @@
     "legal_rfc": "AHE200101AB1",
     "contact_phone": "55 5555 0101",
     "contact_email": "contacto@asilo-ejemplo.org",
-    "legal_rep_name": null
+    "legal_rep_name": null,
+    "state": "pue",
+    "municipality": "Puebla",
+    "founded_year": 1985,
+    "legal_form": "ac",
+    "authorized_donee": "yes",
+    "cluni": "yes"
   },
   "capacity_total": 25,
   "annual_budget_mxn": 1800000,
   "notes": "Perfil ficticio para desarrollo y pruebas.",
-  "facilities": [
-    {
-      "kind": "Dormitorio",
-      "count": 8,
-      "condition": "fair",
-      "accessible": true,
-      "notes": null
-    },
-    {
-      "kind": "Baño",
-      "count": 3,
-      "condition": "poor",
-      "accessible": false,
-      "notes": "Piso resbaloso, sin barras de apoyo ni regaderas con asiento."
-    },
-    {
-      "kind": "Cocina",
-      "count": 1,
-      "condition": "good",
-      "accessible": null,
-      "notes": null
-    },
-    {
-      "kind": "Enfermería",
-      "count": 1,
-      "condition": "fair",
-      "accessible": true,
-      "notes": null
-    }
-  ],
   "income": [
     {
       "label": "Padrinos que dan cada mes",

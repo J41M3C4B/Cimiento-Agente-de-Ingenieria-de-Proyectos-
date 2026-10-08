@@ -1,9 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Alert, Button, DropZone, Modal, Section, StatusDot, TextInput, PageHeader } from "../../components/ui";
+import { Alert, Button, DropZone, Modal, Section, TextInput, PageHeader } from "../../components/ui";
 import { extOf, fileSize } from "../documents/documentsModel";
 import { es } from "../../i18n/es-MX";
-import { backupCreate, backupRestore, pinClear, pinSet, pinStatus, securityScan, toAppError } from "../../lib/tauri";
+import { backupCreate, backupRestore, securityScan, toAppError } from "../../lib/tauri";
+import { useSession } from "../access/session";
 
 const t = es.security;
 
@@ -17,69 +18,6 @@ function toBase64(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
-}
-
-function PinSection() {
-  const qc = useQueryClient();
-  const status = useQuery({ queryKey: ["pin-status"], queryFn: pinStatus });
-  const [current, setCurrent] = useState("");
-  const [pin, setPin] = useState("");
-  const [again, setAgain] = useState("");
-  const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
-  const on = status.data === true;
-
-  const done = async (text: string) => {
-    setCurrent("");
-    setPin("");
-    setAgain("");
-    setNotice({ tone: "ok", text });
-    await qc.invalidateQueries({ queryKey: ["pin-status"] });
-  };
-  const fail = (e: unknown) => setNotice({ tone: "warn", text: toAppError(e).message });
-
-  const save = useMutation({ mutationFn: () => pinSet(pin, on ? current : undefined), onSuccess: () => done(t.pinSaved), onError: fail });
-  const clear = useMutation({ mutationFn: () => pinClear(current), onSuccess: () => done(t.pinCleared), onError: fail });
-  const differ = again !== "" && pin !== again;
-  const canSave = pin !== "" && pin === again && (!on || current !== "");
-
-  return (
-    <Section title={t.pinTitle} help={t.pinHelp}>
-      <p className="text-ui font-bold">
-        <StatusDot tone={on ? "green" : "amber"}>{on ? t.pinOn : t.pinOff}</StatusDot>
-      </p>
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (canSave) save.mutate();
-        }}
-      >
-        {on && <TextInput label={t.currentPin} type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={current} onChange={(e) => setCurrent(e.target.value)} />}
-        <TextInput label={t.newPin} hint={t.newPinHint} type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={pin} onChange={(e) => setPin(e.target.value)} />
-        <TextInput
-          label={t.repeatPin}
-          type="password"
-          inputMode="numeric"
-          autoComplete="off"
-          maxLength={8}
-          value={again}
-          error={differ ? t.pinsDiffer : undefined}
-          onChange={(e) => setAgain(e.target.value)}
-        />
-        {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
-        <div className="flex flex-wrap gap-3">
-          <Button type="submit" variant="primary" disabled={!canSave || save.isPending}>
-            {on ? t.changePin : t.setPin}
-          </Button>
-          {on && (
-            <Button variant="danger" disabled={current === "" || clear.isPending} onClick={() => clear.mutate()}>
-              {t.clearPin}
-            </Button>
-          )}
-        </div>
-      </form>
-    </Section>
-  );
 }
 
 function BackupSection() {
@@ -197,16 +135,17 @@ function ScanSection() {
 }
 
 export function SecurityPage() {
+  // restoring replaces everything: only the administrator (ADR-028)
+  const access = useSession();
   return (
     <div className="space-y-6">
       <PageHeader title={t.title} intro={t.intro} />
       <div className="grid items-start gap-4 min-[1000px]:grid-cols-2">
         <div className="space-y-4">
-          <PinSection />
           <BackupSection />
         </div>
         <div className="space-y-4">
-          <RestoreSection />
+          {access?.can("settings") && <RestoreSection />}
           <ScanSection />
         </div>
       </div>

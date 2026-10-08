@@ -16,13 +16,16 @@ export function Modal({
   footer,
   size = "md",
   dismissable = false,
+  fixed = false,
 }: {
   title: string;
   children: ReactNode;
   onClose?: () => void;
   footer?: ReactNode;
-  size?: "md" | "lg" | "xl";
+  size?: "md" | "lg" | "wide" | "xl";
   dismissable?: boolean;
+  /** a window of the same height on every screen of a flow, so it does not grow and shrink as the person moves on */
+  fixed?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   // the latest «close» is kept apart: a window written with an inline function must not lose the person's focus
@@ -41,7 +44,7 @@ export function Modal({
   }, []);
   return (
     <div className="scrim" onMouseDown={(e) => dismissable && e.target === e.currentTarget && onClose?.()}>
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={`modal ${size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-3xl" : "max-w-[640px]"}`}>
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={`modal ${size === "xl" ? "max-w-5xl" : size === "wide" ? "max-w-4xl" : size === "lg" ? "max-w-3xl" : "max-w-[640px]"} ${fixed ? "h-[min(52rem,92vh)]" : ""}`}>
         <header className="flex items-center justify-between gap-4 px-6 pb-2 pt-6">
           <h2 className="text-subtitle font-bold tracking-tight">{title}</h2>
           {onClose && <IconButton icon="x" label={es.common.close} variant="default" size="sm" onClick={onClose} />}

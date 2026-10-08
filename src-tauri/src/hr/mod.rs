@@ -1,7 +1,7 @@
 //! The staff module (ADR-027): the first base of a future human-resources module.
 //!
 //! It is kept apart so it can become a crate of its own: it has its own tables (`hr_*`), its own errors and its
-//! own rules, and it uses nothing of the rest of the app but the audit log. The rest of the app talks to it only
+//! own rules, and it uses nothing of the rest of the app but the audit log and `common` (shared validators). The rest of the app talks to it only
 //! through `api` (anonymous aggregates) and, for the screens, through `service`. A test checks the border.
 
 pub mod api;
@@ -47,7 +47,7 @@ mod tests {
                     for (n, line) in text.lines().enumerate() {
                         if let Some(at) = line.find(concat!("crate", "::")) {
                             let rest = &line[at + 7..];
-                            if !(rest.starts_with("hr") || rest.starts_with("audit")) {
+                            if !(rest.starts_with("hr") || rest.starts_with("audit") || rest.starts_with("common")) {
                                 out.push((format!("{}:{}", p.display(), n + 1), line.trim().to_string()));
                             }
                         }

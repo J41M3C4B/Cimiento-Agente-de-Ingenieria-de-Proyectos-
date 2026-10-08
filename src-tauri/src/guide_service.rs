@@ -31,6 +31,8 @@ pub struct GuideData {
     pub summary: Option<StoredSummary>,
     pub root: Option<String>,
     pub institution: Option<crate::domain::profile::ProfileInput>,
+    /// The facilities, from their module (ADR-030).
+    pub facilities: Vec<crate::facilities::domain::aggregate::SiteSummary>,
     pub call_name: Option<String>,
     pub funder: Option<String>,
     pub year: Option<i64>,
@@ -49,6 +51,7 @@ pub fn gather(conn: &Connection, project_id: &str) -> Result<GuideData, ServiceE
         summary: projects::get_summary(conn, project_id)?,
         root: projects::get_root(conn, project_id)?.map(|r| r.text),
         institution: profile_store::load_current(conn)?.map(|p| p.input),
+        facilities: crate::facilities::api::summaries(conn)?,
         call_name: reading.as_ref().map(|r| r.name.clone()),
         funder: reading.as_ref().and_then(|r| r.funder.clone()),
         year: reading.as_ref().and_then(|r| r.year),
@@ -269,10 +272,20 @@ pub fn guide_blocks(data: &GuideData, pending: &[String]) -> Vec<Block> {
             b.push(Block::Heading(2, "Población que se atiende".into()));
             b.push(Block::Bullets(i.population_by_label().into_iter().map(|(label, n)| format!("{label}: {n} personas")).collect()));
         }
-        if !i.facilities.is_empty() {
-            b.push(Block::Heading(2, "Instalaciones".into()));
-            b.push(Block::Bullets(i.facilities.iter().map(|f| format!("{} (×{})", f.kind, f.count)).collect()));
-        }
+    }
+    let facility_lines: Vec<String> = data
+        .facilities
+        .iter()
+        .flat_map(|s| {
+            crate::domain::facility_text::site_lines(&s.site)
+                .into_iter()
+                .chain(s.spaces.iter().map(crate::domain::facility_text::space_line))
+                .chain(s.equipment.iter().map(crate::domain::facility_text::equipment_line))
+        })
+        .collect();
+    if !facility_lines.is_empty() {
+        b.push(Block::Heading(2, "Instalaciones".into()));
+        b.push(Block::Bullets(facility_lines));
     }
 
     // 9. what is pending

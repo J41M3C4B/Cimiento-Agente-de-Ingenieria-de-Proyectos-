@@ -1,61 +1,101 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../lib/tauri", () => ({
-  profileSave: vi.fn(),
-  devLoadFixture: vi.fn(),
-  toAppError: (e: unknown) => ({ code: "x", message: e instanceof Error ? e.message : String(e) }),
+vi.mock("./api", async (orig) => ({
+  ...(await orig<typeof import("./api")>()),
+  onboardingStatus: vi.fn(),
+  onboardingSave: vi.fn(),
+  onboardingFinish: vi.fn(),
+  onboardingWelcomeDone: vi.fn(),
 }));
+vi.mock("../../lib/tauri", () => ({ toAppError: (e: unknown) => ({ code: "x", message: String(e) }), devLoadFixture: vi.fn() }));
+vi.mock("../access/session", () => ({ useSession: () => ({ can: () => false }) }));
 
-import * as api from "../../lib/tauri";
-import type { ProfileView } from "../../lib/types";
-import { Onboarding } from "./Onboarding";
+import * as api from "./api";
+import type { OnboardingStatus } from "./api";
+import { OnboardingGate, resumeOnboarding } from "./OnboardingGate";
 
-function show() {
+const KEYS = ["institution", "location", "people", "team", "money", "building"];
+
+function status(patch: Partial<OnboardingStatus> = {}): OnboardingStatus {
+  return {
+    done: false,
+    ready: false,
+    welcomed: true,
+    can_postpone: false,
+    setup: null,
+    records: { served: 0, staff: 0, fee_payers: 0 },
+    steps: KEYS.map((key) => ({ key, missing: key === "institution" ? ["name", "mission"] : ["x"], complete: false })),
+    data: {
+      institution: { name: "", kind: "elderly_home", mission: null, legal_rfc: null, contact_phone: null, contact_email: null, legal_rep_name: null, state: null, municipality: null, founded_year: null, legal_form: null, authorized_donee: null, cluni: null },
+      capacity_total: null, served_estimate: null, staff_paid_estimate: null, staff_volunteer_estimate: null, annual_budget_mxn: null, income: [],
+      floors: null, built_m2: null, tenure: null, tenure_until: null, tenure_documented: null,
+    },
+    ...patch,
+  };
+}
+
+function gate() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <Onboarding />
+      <OnboardingGate>
+        <p>La app</p>
+      </OnboardingGate>
     </QueryClientProvider>,
   );
-  return qc;
 }
 
-beforeEach(() => vi.resetAllMocks());
-
-describe("Onboarding", () => {
-  it("shows the brand on the left and the first form on the right", () => {
-    show();
-    expect(screen.getByRole("img", { name: "SociAI" })).toBeInTheDocument();
-    expect(screen.getByText("Paso 1 de 3", { selector: "p" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Nombre de la institución/)).toBeInTheDocument();
+describe("the first start", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    try {
+      sessionStorage.clear();
+    } catch {
+      // no storage in this environment
+    }
   });
 
-  it("does not go on without the name", async () => {
-    show();
-    await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
-    expect(await screen.findByText("Este dato nos falta: el nombre de la institución.")).toBeInTheDocument();
-    expect(screen.getByText("Paso 1 de 3", { selector: "p" })).toBeInTheDocument();
+  it("a person who has not seen the welcome sees it first", async () => {
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ welcomed: false, done: true }));
+    gate();
+    expect(await screen.findByText("Le damos la bienvenida a SociAI")).toBeInTheDocument();
+    expect(screen.queryByText("La app")).not.toBeInTheDocument();
   });
 
-  it("walks the three steps, saves the profile once and hands it to the app", async () => {
-    const profile = { input: { institution: { name: "Casa Esperanza" } } } as unknown as ProfileView;
-    vi.mocked(api.profileSave).mockResolvedValue({ status: "saved", profile });
-    const qc = show();
-    await userEvent.type(screen.getByLabelText(/Nombre de la institución/), "Casa Esperanza");
-    await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
-    await userEvent.type(await screen.findByLabelText("Teléfono de la institución"), "5512345678");
-    await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
-    await userEvent.type(await screen.findByLabelText(/Capacidad total/), "40");
-    await userEvent.click(screen.getByRole("button", { name: /Empezar/ }));
+  it("the direction cannot skip the data and is told what is missing", async () => {
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status());
+    vi.mocked(api.onboardingSave).mockResolvedValue({ status: "saved", onboarding: status() });
+    gate();
+    expect(await screen.findByText("Datos de su institución")).toBeInTheDocument();
+    expect(screen.queryByText("Dejarlos a la dirección y entrar")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+    await waitFor(() => expect(screen.getByText(/Para seguir falta: El nombre, A qué se dedica\./)).toBeInTheDocument());
+    expect(screen.queryByText("La app")).not.toBeInTheDocument();
+  });
 
-    await waitFor(() => expect(api.profileSave).toHaveBeenCalledTimes(1));
-    const input = vi.mocked(api.profileSave).mock.calls[0]![0];
-    expect(input.institution.name).toBe("Casa Esperanza");
-    expect(input.institution.contact_phone).toBe("5512345678");
-    expect(input.capacity_total).toBe(40);
-    await waitFor(() => expect(qc.getQueryData(["profile"])).toBe(profile));
+  it("the administrator may leave the data to the direction and enter", async () => {
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ can_postpone: true, setup: { ai_ready: false, managers: 0 } }));
+    gate();
+    await userEvent.click(await screen.findByRole("button", { name: "Dejarlos a la dirección y entrar" }));
+    expect(screen.getByText("La app")).toBeInTheDocument();
+  });
+
+  it("the administrator who left the data can take them up again from Inicio", async () => {
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ can_postpone: true, setup: { ai_ready: false, managers: 0 } }));
+    gate();
+    await userEvent.click(await screen.findByRole("button", { name: "Dejarlos a la dirección y entrar" }));
+    expect(screen.getByText("La app")).toBeInTheDocument();
+    act(() => resumeOnboarding());
+    expect(await screen.findByText("Datos de su institución")).toBeInTheDocument();
+    expect(screen.queryByText("La app")).not.toBeInTheDocument();
+  });
+
+  it("a finished institution opens the app", async () => {
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ done: true }));
+    gate();
+    expect(await screen.findByText("La app")).toBeInTheDocument();
   });
 });
