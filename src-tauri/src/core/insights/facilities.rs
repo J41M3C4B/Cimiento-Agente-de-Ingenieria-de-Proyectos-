@@ -7,8 +7,8 @@
 //! thresholds are checked in the official text.
 
 use crate::modules::care::api::MIN_GROUP;
-use crate::domain::facility_text::group_ref;
-use crate::domain::insights::{insight, Insight};
+use crate::core::insights::facility_text::group_ref;
+use crate::core::insights::people::{insight, Insight};
 use crate::modules::facilities::domain::aggregate::Indicators;
 use crate::modules::facilities::domain::site::SiteData;
 use serde::Serialize;

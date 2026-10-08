@@ -3,14 +3,16 @@
 //! of a position go through the scanner before they are saved, because they may reach the AI.
 
 use crate::audit::{self, AuditKind};
-use crate::domain::profile::ProfileTotals;
+use crate::core::profile::domain::ProfileTotals;
 use crate::modules::hr::domain::person::{Issue, PersonData};
 use crate::modules::hr::domain::position::PositionInput;
 use crate::modules::hr::service::{self as hr, ModalityInfo, Overview, PersonView, SaveOutcome};
 use crate::modules::hr::service::CustomField;
-use crate::profile_sync::{sync_profile, totals};
+use crate::core::profile::sync::{sync_profile, totals};
 use crate::scanner::guard::{counts_json, guard_fields, Decision, GuardOutcome, QuarantineReport};
-use crate::service::{scanner_for, ProfileView, ServiceError};
+use crate::core::screen::scanner_for;
+use crate::core::profile::service::ProfileView;
+use crate::core::error::ServiceError;
 use rusqlite::Connection;
 use serde::Serialize;
 
@@ -69,7 +71,7 @@ pub fn save_person(conn: &mut Connection, id: Option<&str>, data: PersonData) ->
         SaveOutcome::Invalid { issues } => PersonOutcome::Invalid { issues },
         SaveOutcome::Saved { person } => {
             // a person who left cannot use the app any more (ADR-028)
-            crate::access_service::after_staff_saved(conn, &person.id, &person.data.status)?;
+            crate::core::access::service::after_staff_saved(conn, &person.id, &person.data.status)?;
             PersonOutcome::Saved { person, change: change(conn)? }
         }
     })
@@ -130,5 +132,5 @@ pub fn delete_field(conn: &Connection, key: &str) -> Result<Vec<CustomField>, Se
 }
 
 #[cfg(test)]
-#[path = "staff_service_tests.rs"]
+#[path = "staff_tests.rs"]
 mod tests;

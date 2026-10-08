@@ -3,8 +3,9 @@ use std::sync::{Arc, Mutex};
 use crate::ai::mock::MockProvider;
 use crate::ai::{AiError, AiResponse};
 use crate::conversation_service::{conversation_view, send_message, start_conversation, AnswerOutcome};
-use crate::domain::profile::*;
-use crate::storage::{open_encrypted, profile};
+use crate::core::profile::domain::*;
+use crate::storage::open_encrypted;
+use crate::core::profile::storage as profile;
 use crate::test_support::*;
 
 fn setup() -> (tempfile::TempDir, SharedDb, String) {
@@ -123,7 +124,7 @@ async fn without_the_ai_there_is_no_summary_and_nothing_is_made_up() {
 /// in their own words (not only the summary that the AI wrote from it).
 #[tokio::test]
 async fn every_ai_call_of_the_first_steps_reads_the_whole_institution() {
-    use crate::institution_context::tests::RICH_FACTS;
+    use crate::core::ai_sheet::tests::RICH_FACTS;
     let (_d, db) = rich_profile_db();
     let pid = project_in_diagnosis(&db);
     let conversation = reach_confirmed_root(&db, &pid).await;

@@ -2,7 +2,7 @@
 //! The text of every file is kept per page in `document_chunk`; the canonical document the reading
 //! produced is kept whole in `call_reading`. Nothing of the original file is kept.
 
-use super::documents::add_call_document;
+use crate::core::archive::storage::add_call_document;
 use super::StorageError;
 use crate::audit::{self, AuditKind};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -295,7 +295,7 @@ pub fn delete(conn: &mut Connection, id: &str) -> Result<bool, StorageError> {
         return Ok(false);
     }
     for f in &files {
-        super::documents::emergency_delete_document(conn, &f.document_id)?;
+        crate::core::archive::storage::emergency_delete_document(conn, &f.document_id)?;
     }
     // a reading with no files (or whose files were already gone) is removed here
     conn.execute("DELETE FROM call_reading WHERE id=?1", [id])?;
@@ -407,7 +407,7 @@ mod tests {
         let id = create(&mut c, &meta("D"), &files()).unwrap();
         finish(&c, &id, ReadingStatus::Ready, None, Some(&json!({"x": 1})), &json!({})).unwrap();
         let first = get(&c, &id).unwrap().unwrap().files[0].document_id.clone();
-        super::super::documents::emergency_delete_document(&mut c, &first).unwrap();
+        crate::core::archive::storage::emergency_delete_document(&mut c, &first).unwrap();
         assert_eq!(q(&c, "SELECT count(*) FROM call_reading"), 0);
     }
 }

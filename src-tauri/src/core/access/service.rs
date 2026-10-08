@@ -2,11 +2,11 @@
 //! the administrator. The rules (roles, permissions, passwords) are in `domain::access`; here they meet the database.
 
 use crate::audit::{self, AuditKind};
-use crate::domain::access::{self as rules, DeletionKind, Permission, Role};
-use crate::profile_sync;
-use crate::security_service::{self, Attempts, Verify};
-use crate::service::ServiceError;
-use crate::storage::access::{self as store, NewUser, RequestRow, StoredUser};
+use crate::core::access::domain::{self as rules, DeletionKind, Permission, Role};
+use crate::core::profile::sync as profile_sync;
+use crate::core::security::{self as security_service, Attempts, Verify};
+use crate::core::error::ServiceError;
+use crate::core::access::storage::{self as store, NewUser, RequestRow, StoredUser};
 use argon2::password_hash::phc::PasswordHash;
 use argon2::password_hash::{PasswordHasher, PasswordVerifier};
 use argon2::Argon2;
@@ -551,20 +551,20 @@ pub type DeleteProject<'a> = &'a dyn Fn(&mut Connection, &str) -> Result<(), Ser
 fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str, delete_project: DeleteProject) -> Result<(), ServiceError> {
     match kind {
         DeletionKind::Document => {
-            crate::storage::documents::emergency_delete_document(conn, target)?;
+            crate::core::archive::storage::emergency_delete_document(conn, target)?;
         }
         DeletionKind::Project => {
             delete_project(conn, target)?;
         }
         DeletionKind::HrPerson => {
-            crate::staff_service::delete_person(conn, target)?;
+            crate::core::bridge::staff::delete_person(conn, target)?;
             store::deactivate_for_person(conn, target)?;
         }
         DeletionKind::HrField => {
             crate::modules::hr::service::delete_custom_field(conn, target)?;
         }
         DeletionKind::Beneficiary => {
-            crate::care_service::delete_person(conn, target)?;
+            crate::core::bridge::care::delete_person(conn, target)?;
         }
         DeletionKind::CareField => {
             crate::modules::care::service::delete_custom_field(conn, target)?;
@@ -597,5 +597,5 @@ pub fn after_staff_saved(conn: &Connection, person_id: &str, status: &str) -> Re
 }
 
 #[cfg(test)]
-#[path = "access_service_tests.rs"]
+#[path = "service_tests.rs"]
 mod tests;

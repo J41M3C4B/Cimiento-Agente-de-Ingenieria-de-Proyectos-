@@ -17,9 +17,9 @@ use crate::domain::sections::SectionKind;
 use crate::domain::stage::Stage;
 use crate::drafting_service::{drafting_view, DraftingView, SectionStatus};
 use crate::scanner::{RegexScanner, SensitiveScanner};
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
 use crate::storage::projects::{self as projects, ProjectRow, StoredSummary};
-use crate::storage::profile as profile_store;
+use crate::core::profile::storage as profile_store;
 use rusqlite::Connection;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -30,7 +30,7 @@ pub struct GuideData {
     pub drafting: DraftingView,
     pub summary: Option<StoredSummary>,
     pub root: Option<String>,
-    pub institution: Option<crate::domain::profile::ProfileInput>,
+    pub institution: Option<crate::core::profile::domain::ProfileInput>,
     /// The facilities, from their module (ADR-030).
     pub facilities: Vec<crate::modules::facilities::domain::aggregate::SiteSummary>,
     pub call_name: Option<String>,
@@ -277,10 +277,10 @@ pub fn guide_blocks(data: &GuideData, pending: &[String]) -> Vec<Block> {
         .facilities
         .iter()
         .flat_map(|s| {
-            crate::domain::facility_text::site_lines(&s.site)
+            crate::core::insights::facility_text::site_lines(&s.site)
                 .into_iter()
-                .chain(s.spaces.iter().map(crate::domain::facility_text::space_line))
-                .chain(s.equipment.iter().map(crate::domain::facility_text::equipment_line))
+                .chain(s.spaces.iter().map(crate::core::insights::facility_text::space_line))
+                .chain(s.equipment.iter().map(crate::core::insights::facility_text::equipment_line))
         })
         .collect();
     if !facility_lines.is_empty() {

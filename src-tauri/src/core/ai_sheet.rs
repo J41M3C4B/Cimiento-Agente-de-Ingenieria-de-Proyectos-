@@ -10,19 +10,19 @@
 //! It carries no incidental numbers either (versions, dates): the figure check treats every number of this text
 //! as something the person said.
 
-use crate::domain::profile::InstitutionKind;
+use crate::core::profile::domain::InstitutionKind;
 use crate::modules::finance::domain::balance::{self, ExpenseBasis, BENEFICIARY_FEES, EXPENSE};
 use crate::modules::finance::domain::lines::FinanceInput;
 use crate::modules::finance::domain::money::{IncomeKind, Period};
 use crate::modules::care::domain::aggregate::CareSummary;
-use crate::domain::facility_insights::FacilityBoard;
-use crate::domain::facility_text;
-use crate::domain::insights::Insight;
+use crate::core::insights::facilities::FacilityBoard;
+use crate::core::insights::facility_text;
+use crate::core::insights::people::Insight;
 use crate::modules::facilities::domain::aggregate::SiteSummary;
 use crate::modules::hr::api::{Count, MIN_GROUP};
 use crate::modules::hr::domain::aggregate::StaffSummary;
-use crate::service::ServiceError;
-use crate::storage::profile::{self as profile_store, StoredProfile};
+use crate::core::error::ServiceError;
+use crate::core::profile::storage::{self as profile_store, StoredProfile};
 use rusqlite::Connection;
 
 /// The people served as their module tells them now (ADR-029): counts, attributes of groups of three or more, and
@@ -34,7 +34,7 @@ pub struct PeopleSheet {
 
 pub fn people_sheet(conn: &Connection) -> Result<PeopleSheet, ServiceError> {
     let summary = crate::modules::care::api::ai_summary(conn, crate::core::institution::care_flavor(conn))?;
-    let findings = crate::care_service::board(conn)?.insights.into_iter().filter(|i| i.for_ai).collect();
+    let findings = crate::core::bridge::care::board(conn)?.insights.into_iter().filter(|i| i.for_ai).collect();
     Ok(PeopleSheet { summary, findings })
 }
 
@@ -46,7 +46,7 @@ pub struct FacilitiesSheet {
 }
 
 pub fn facilities_sheet(conn: &Connection) -> Result<FacilitiesSheet, ServiceError> {
-    Ok(FacilitiesSheet { sites: crate::modules::facilities::api::summaries(conn)?, board: crate::facilities_service::board(conn)? })
+    Ok(FacilitiesSheet { sites: crate::modules::facilities::api::summaries(conn)?, board: crate::core::bridge::facilities::board(conn)? })
 }
 
 /// The sheet of the current profile (the latest version, confirmed or draft), with the staff (ADR-027), the people
@@ -459,8 +459,8 @@ fn render_facilities(s: &mut String, f: &FacilitiesSheet, missing: &mut Vec<&str
 }
 
 /// Where the institution is and what it is, legally (ADR-031): most calls filter by these. None of it is personal.
-fn render_identity(s: &mut String, inst: &crate::domain::profile::InstitutionInput, year: i64, missing: &mut Vec<&str>) {
-    use crate::domain::onboarding::state_name;
+fn render_identity(s: &mut String, inst: &crate::core::profile::domain::InstitutionInput, year: i64, missing: &mut Vec<&str>) {
+    use crate::core::onboarding::domain::state_name;
     let state = inst.state.as_deref().and_then(state_name);
     match (text(&inst.municipality), state) {
         (Some(m), Some(st)) => s.push_str(&format!("Ubicación: {m}, {st}.\n")),
@@ -507,7 +507,7 @@ fn render_identity(s: &mut String, inst: &crate::domain::profile::InstitutionInp
 pub fn render(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> String {
     let i = &p.input;
     let t = i.totals(p.as_of_year);
-    let money = balance::finances(fin, &crate::finance_service::derived_from(&t));
+    let money = balance::finances(fin, &crate::core::bridge::finance::derived_from(&t));
     let mut s = String::new();
     let mut missing: Vec<&str> = Vec::new();
 
@@ -619,7 +619,7 @@ pub fn render(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, peopl
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::domain::profile::*;
+    use crate::core::profile::domain::*;
     use crate::modules::finance::domain::lines::{ExpenseItemInput, IncomeSourceInput};
     use crate::storage::open_encrypted;
 
@@ -855,7 +855,7 @@ pub(crate) mod tests {
         // not even added up: payroll, its benefits, its cost, and the fees of the roster; nor the exact balance
         let stored = profile_store::load_current(&c).unwrap().unwrap();
         let t = stored.input.totals(stored.as_of_year);
-        let f = crate::finance_service::finances(&c).unwrap();
+        let f = crate::core::bridge::finance::finances(&c).unwrap();
         let numbers = crate::domain::figures::digit_numbers(&ctx);
         for hidden in [t.payroll_monthly_mxn, t.payroll_annual_mxn, t.payroll_benefits_annual_mxn, t.payroll_cost_annual_mxn,
                        t.fees_monthly_mxn, t.fees_annual_mxn, f.income_annual_mxn, f.expenses_annual_mxn.unwrap(), f.balance_annual_mxn.unwrap()] {
@@ -929,12 +929,12 @@ pub(crate) mod tests {
     fn the_padron_reaches_the_ai_only_as_counts() {
         let dir = tempfile::tempdir().unwrap();
         let mut c = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
-        let input: ProfileInput = serde_json::from_str(include_str!("../../fixtures/institucion-asilo.json")).unwrap();
-        crate::service::save_profile(&mut c, input.clone(), None).unwrap();
-        crate::profile_sync::seed_examples(&mut c, include_str!("../../fixtures/padron-asilo.json")).unwrap();
-        crate::service::save_profile(&mut c, input, None).unwrap();
-        crate::facilities_service::seed_example(&mut c, include_str!("../../fixtures/instalaciones-asilo.json")).unwrap();
-        let money: FinanceInput = serde_json::from_str(include_str!("../../fixtures/institucion-asilo.json")).unwrap();
+        let input: ProfileInput = serde_json::from_str(include_str!("../../../fixtures/institucion-asilo.json")).unwrap();
+        crate::core::profile::service::save_profile(&mut c, input.clone(), None).unwrap();
+        crate::core::profile::sync::seed_examples(&mut c, include_str!("../../../fixtures/padron-asilo.json")).unwrap();
+        crate::core::profile::service::save_profile(&mut c, input, None).unwrap();
+        crate::core::bridge::facilities::seed_example(&mut c, include_str!("../../../fixtures/instalaciones-asilo.json")).unwrap();
+        let money: FinanceInput = serde_json::from_str(include_str!("../../../fixtures/institucion-asilo.json")).unwrap();
         crate::modules::finance::storage::save(&mut c, &money).unwrap();
 
         let stored = profile_store::load_current(&c).unwrap().unwrap();

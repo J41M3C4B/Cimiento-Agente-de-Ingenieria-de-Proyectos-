@@ -9,8 +9,9 @@ use crate::domain::figures;
 use crate::domain::priority::{self, Scores, Weights};
 use crate::domain::stage::{self, Missing, Stage, StageError};
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::service::{guard_texts, ServiceError};
-use crate::storage::profile as profile_store;
+use crate::core::screen::guard_texts;
+use crate::core::error::ServiceError;
+use crate::core::profile::storage as profile_store;
 use crate::storage::projects::{self as store, NeedRow, ProjectRow};
 use crate::scanner::RegexScanner;
 use rusqlite::Connection;
@@ -63,7 +64,7 @@ pub fn profile_summary_for_tests(conn: &Connection) -> Result<String, ServiceErr
 }
 
 /// What the AI reads about the institution: the sheet built in `institution_context` (aggregates only).
-pub use crate::institution_context::profile_context;
+pub use crate::core::ai_sheet::profile_context;
 
 // ------------------------------------------------------------------ views
 

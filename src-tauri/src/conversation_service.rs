@@ -7,12 +7,12 @@
 
 use crate::ai::{AiProvider, AiTask};
 use crate::diagnosis_service::{ask_ai, lock, profile_context, AiStatus, SharedDb};
-use crate::service::guard_texts;
+use crate::core::screen::guard_texts;
 use crate::documents::canonical::summary::summarize;
 use crate::domain::conversation::{self as conv, Cause, Kind, Outcome, Phase, Reply, Role, Step, Tactic, MAX_WHYS};
 use crate::domain::{figures, stage::Stage};
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
 use crate::storage::calls;
 use crate::storage::projects::{self as store, ProjectRow, StoredSummary, TurnRow};
 use rusqlite::Connection;

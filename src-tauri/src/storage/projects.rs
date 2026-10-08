@@ -431,8 +431,9 @@ pub fn facts(conn: &Connection, project_id: &str) -> Result<StageFacts, StorageE
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::profile::*;
-    use crate::storage::{open_encrypted, profile};
+    use crate::core::profile::domain::*;
+    use crate::storage::open_encrypted;
+    use crate::core::profile::storage as profile;
 
     const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 

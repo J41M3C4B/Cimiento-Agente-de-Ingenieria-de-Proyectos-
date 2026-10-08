@@ -5,8 +5,9 @@
 //! The scan only counts: it never returns a piece of what it finds.
 
 use crate::scanner::{PublicDocScanner, RegexScanner, SensitiveScanner};
-use crate::service::ServiceError;
-use crate::storage::{backup, open_encrypted, profile as profile_store, SharedDb};
+use crate::core::error::ServiceError;
+use crate::storage::{backup, open_encrypted, SharedDb};
+use crate::core::profile::storage as profile_store;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -334,11 +335,11 @@ mod tests {
         assert_eq!(clean.findings, 0);
         assert!(clean.tables.iter().any(|t| t.table == "project_section"));
 
-        use crate::domain::profile::*;
+        use crate::core::profile::domain::*;
         let mut c = c;
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };
-        crate::storage::profile::save(&mut c, &input).unwrap();
-        crate::storage::profile::confirm(&mut c).unwrap();
+        crate::core::profile::storage::save(&mut c, &input).unwrap();
+        crate::core::profile::storage::confirm(&mut c).unwrap();
         let p = crate::storage::projects::create_project(&mut c, "Proyecto", None).unwrap();
         // data of a person written straight into the database, as a bug or an old version might have left it
         c.execute(
@@ -360,12 +361,12 @@ mod tests {
     }
 
     fn working_database(dir: &Path, key: &str, title: &str) -> (PathBuf, SharedDb) {
-        use crate::domain::profile::*;
+        use crate::core::profile::domain::*;
         let path = dir.join("cimiento.db");
         let mut c = open_encrypted(&path, key).unwrap();
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };
-        crate::storage::profile::save(&mut c, &input).unwrap();
-        crate::storage::profile::confirm(&mut c).unwrap();
+        crate::core::profile::storage::save(&mut c, &input).unwrap();
+        crate::core::profile::storage::confirm(&mut c).unwrap();
         crate::storage::projects::create_project(&mut c, title, None).unwrap();
         (path, Arc::new(Mutex::new(c)))
     }

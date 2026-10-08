@@ -2,7 +2,7 @@
 //! A call belongs to the project born from it. The reading runs in the background and the screen asks how it is going.
 
 use super::guard;
-use crate::access_service::Session;
+use crate::core::access::service::Session;
 use crate::call_service::{self as svc, NewProjectOutcome, PackageFile, ReadingDetail, UploadedFile};
 use crate::commands::diagnosis::{as_dyn, make_provider};
 use crate::error::UiError;

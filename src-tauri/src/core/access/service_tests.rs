@@ -2,8 +2,8 @@
 //! the recovery code and the deletions that wait for the administrator.
 
 use super::*;
-use crate::domain::access::{Need, Permission};
-use crate::domain::profile::{InstitutionInput, InstitutionKind, ProfileInput};
+use crate::core::access::domain::{Need, Permission};
+use crate::core::profile::domain::{InstitutionInput, InstitutionKind, ProfileInput};
 use crate::modules::hr::domain::person::PersonData;
 use crate::storage::open_encrypted;
 
@@ -38,9 +38,9 @@ fn events(c: &Connection) -> Vec<(String, Option<String>, String)> {
 /// A person of the staff and an account for them as direction, already with their own password.
 fn manager(c: &mut Connection, admin_session: &Session) -> (String, Session) {
     with_profile(c);
-    let pos = crate::staff_service::overview(c).unwrap().hr.positions[0].position.id.clone();
+    let pos = crate::core::bridge::staff::overview(c).unwrap().hr.positions[0].position.id.clone();
     let data = PersonData { first_names: "Rosa María".into(), last_name_1: Some("Hernández".into()), position_id: Some(pos), modality: "indefinite".into(), status: "active".into(), ..Default::default() };
-    let crate::staff_service::PersonOutcome::Saved { person, .. } = crate::staff_service::save_person(c, None, data).unwrap() else { panic!("saved") };
+    let crate::core::bridge::staff::PersonOutcome::Saved { person, .. } = crate::core::bridge::staff::save_person(c, None, data).unwrap() else { panic!("saved") };
     let a = admin(admin_session);
     create_user(c, &a, &NewAccount { person_id: Some(&person.id), display_name: "", username: "rosa.hernandez", role: Role::Manager, temporary_password: "temporal123" }).unwrap();
     let session = Session::default();
@@ -51,9 +51,9 @@ fn manager(c: &mut Connection, admin_session: &Session) -> (String, Session) {
 }
 
 fn with_profile(c: &mut Connection) {
-    if crate::storage::profile::load_current(c).unwrap().is_none() {
+    if crate::core::profile::storage::load_current(c).unwrap().is_none() {
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), kind: InstitutionKind::ElderlyHome, ..Default::default() }, ..Default::default() };
-        crate::storage::profile::save(c, &input).unwrap();
+        crate::core::profile::storage::save(c, &input).unwrap();
     }
 }
 
@@ -78,11 +78,11 @@ fn the_first_account_is_the_administrator_and_it_can_be_made_only_once() {
 fn a_computer_with_a_pin_asks_it_before_making_the_administrator_and_then_the_pin_retires() {
     let (_d, mut c) = conn();
     let attempts = Attempts::default();
-    crate::security_service::pin_set(&c, &attempts, "4821", None).unwrap();
+    crate::core::security::pin_set(&c, &attempts, "4821", None).unwrap();
     assert!(status(&c, &Session::default()).unwrap().setup_needs_pin);
     assert!(matches!(setup_admin(&mut c, &Session::default(), &attempts, "Jaime", "jaime", ADMIN_PASSWORD, Some("1111")), Err(ServiceError::Access("wrong_pin"))));
     setup_admin(&mut c, &Session::default(), &attempts, "Jaime", "jaime", ADMIN_PASSWORD, Some("4821")).unwrap();
-    assert!(!crate::security_service::pin_enabled(&c).unwrap());
+    assert!(!crate::core::security::pin_enabled(&c).unwrap());
 }
 
 #[test]
@@ -182,7 +182,7 @@ fn a_person_who_leaves_the_institution_loses_access() {
     let mut data = crate::modules::hr::service::get_person(&c, &person).unwrap().unwrap().data;
     data.status = "left".into();
     data.left_date = Some("2026-10-01".into());
-    crate::staff_service::save_person(&mut c, Some(&person), data).unwrap();
+    crate::core::bridge::staff::save_person(&mut c, Some(&person), data).unwrap();
     assert!(matches!(login(&c, &Session::default(), "rosa.hernandez", "mi clave propia").unwrap(), LoginOutcome::Disabled));
 }
 
@@ -219,14 +219,14 @@ fn a_deletion_asked_by_direction_hides_the_person_until_the_administrator_decide
     let a = admin(&s);
     let (_, rosa_session) = manager(&mut c, &s);
     let rosa = rosa_session.current().unwrap();
-    let pos = crate::staff_service::overview(&c).unwrap().hr.positions[0].position.id.clone();
+    let pos = crate::core::bridge::staff::overview(&c).unwrap().hr.positions[0].position.id.clone();
     let data = PersonData { first_names: "Ana".into(), position_id: Some(pos), modality: "indefinite".into(), status: "active".into(), pay_amount_mxn: Some(9_000), ..Default::default() };
-    let crate::staff_service::PersonOutcome::Saved { person, .. } = crate::staff_service::save_person(&mut c, None, data).unwrap() else { panic!() };
-    let payroll = |c: &Connection| crate::storage::profile::load_current(c).unwrap().unwrap().input.staff.iter().map(|l| l.monthly_salary_mxn.unwrap_or(0) * l.count).sum::<i64>();
+    let crate::core::bridge::staff::PersonOutcome::Saved { person, .. } = crate::core::bridge::staff::save_person(&mut c, None, data).unwrap() else { panic!() };
+    let payroll = |c: &Connection| crate::core::profile::storage::load_current(c).unwrap().unwrap().input.staff.iter().map(|l| l.monthly_salary_mxn.unwrap_or(0) * l.count).sum::<i64>();
     assert_eq!(payroll(&c), 9_000);
 
     request_deletion(&mut c, &rosa, DeletionKind::HrPerson, &person.id).unwrap();
-    assert!(!crate::staff_service::overview(&c).unwrap().hr.people.iter().any(|p| p.id == person.id), "gone from the list for everyone");
+    assert!(!crate::core::bridge::staff::overview(&c).unwrap().hr.people.iter().any(|p| p.id == person.id), "gone from the list for everyone");
     assert_eq!(payroll(&c), 0, "and from the sums");
     assert!(matches!(request_deletion(&mut c, &rosa, DeletionKind::HrPerson, &person.id), Err(ServiceError::Access("already_requested"))));
     let pending = admin_overview(&c).unwrap().pending;
@@ -234,7 +234,7 @@ fn a_deletion_asked_by_direction_hides_the_person_until_the_administrator_decide
 
     // rejected: it comes back
     resolve_request(&mut c, &a, &pending[0].id, false, &no_project).unwrap();
-    assert!(crate::staff_service::overview(&c).unwrap().hr.people.iter().any(|p| p.id == person.id));
+    assert!(crate::core::bridge::staff::overview(&c).unwrap().hr.people.iter().any(|p| p.id == person.id));
     assert_eq!(payroll(&c), 9_000);
 
     // asked again and approved: deleted for good
@@ -256,21 +256,21 @@ fn a_hidden_field_keeps_its_values_and_a_document_hides_too() {
     let (s, _) = with_admin(&mut c);
     let (_, rosa_session) = manager(&mut c, &s);
     let rosa = rosa_session.current().unwrap();
-    let fields = crate::care_service::save_field(&c, None, "Alergias", "text", &[]).unwrap();
+    let fields = crate::core::bridge::care::save_field(&c, None, "Alergias", "text", &[]).unwrap();
     let key = fields.iter().find(|f| f.title == "Alergias").unwrap().key.clone();
     let mut data = BeneficiaryData { first_names: "Luz".into(), approx_age: Some(80), status: "active".into(), ..Default::default() };
     data.extra.insert(key.clone(), "nueces".into());
-    let crate::care_service::PersonOutcome::Saved { person, .. } = crate::care_service::save_person(&mut c, None, data.clone()).unwrap() else { panic!("saved") };
+    let crate::core::bridge::care::PersonOutcome::Saved { person, .. } = crate::core::bridge::care::save_person(&mut c, None, data.clone()).unwrap() else { panic!("saved") };
 
     request_deletion(&mut c, &rosa, DeletionKind::CareField, &key).unwrap();
     // the record is edited while the field is hidden: its value survives
     let mut again = person.data.clone();
     again.extra.remove(&key);
-    crate::care_service::save_person(&mut c, Some(&person.id), again).unwrap();
+    crate::core::bridge::care::save_person(&mut c, Some(&person.id), again).unwrap();
     let stored = crate::modules::care::storage::person(&c, &person.id).unwrap().unwrap();
     assert_eq!(stored.data.extra.get(&key).map(String::as_str), Some("nueces"));
 
-    let doc = crate::storage::documents::add_text_document(&mut c, "internal", "Reglamento", "Texto del reglamento interno.", 0).unwrap();
+    let doc = crate::core::archive::storage::add_text_document(&mut c, "internal", "Reglamento", "Texto del reglamento interno.", 0).unwrap();
     request_deletion(&mut c, &rosa, DeletionKind::Document, &doc.id).unwrap();
-    assert!(crate::storage::documents::list_institution(&c).unwrap().is_empty());
+    assert!(crate::core::archive::storage::list_institution(&c).unwrap().is_empty());
 }

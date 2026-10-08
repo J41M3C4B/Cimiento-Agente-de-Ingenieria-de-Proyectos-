@@ -2,12 +2,13 @@
 //! The stay fees and what the staff costs come from their modules, added up by the core (`derived`); the names of
 //! the lines go through the scanner before they are saved, because they reach the AI.
 
-use crate::domain::profile::ProfileTotals;
+use crate::core::profile::domain::ProfileTotals;
 use crate::modules::finance::domain::balance::{Derived, Finances};
 use crate::modules::finance::domain::lines::{FinanceInput, FinanceIssue};
 use crate::modules::finance::service::{self as fin, FinanceView, SaveOutcome};
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::service::{guard_texts, ServiceError};
+use crate::core::screen::guard_texts;
+use crate::core::error::ServiceError;
 use rusqlite::Connection;
 use serde::Serialize;
 
@@ -30,7 +31,7 @@ pub fn derived_from(t: &ProfileTotals) -> Derived {
 }
 
 pub fn derived(conn: &Connection) -> Result<Derived, ServiceError> {
-    Ok(derived_from(&crate::profile_sync::totals(conn)?))
+    Ok(derived_from(&crate::core::profile::sync::totals(conn)?))
 }
 
 pub fn view(conn: &Connection) -> Result<FinanceView, ServiceError> {
@@ -140,7 +141,7 @@ mod tests {
     #[test]
     fn the_payroll_comes_from_the_staff_module_already_added_up() {
         let (_d, mut c) = conn();
-        crate::institution_context::tests::seed_rich_staff(&mut c);
+        crate::core::ai_sheet::tests::seed_rich_staff(&mut c);
         let d = derived(&c).unwrap();
         // 4 caregivers of 7,777 a month, with the benefits of 7 years of work
         assert!(d.payroll_cost_annual_mxn > 4 * 7_777 * 12, "{d:?}");

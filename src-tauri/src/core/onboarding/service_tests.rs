@@ -2,7 +2,7 @@
 //! scanner, the checks, the records of the modules counting instead of the quick figures, and what the AI reads.
 
 use super::*;
-use crate::domain::profile::InstitutionKind;
+use crate::core::profile::domain::InstitutionKind;
 use crate::modules::finance::domain::money::{IncomeKind, Period};
 use crate::storage::open_encrypted;
 
@@ -102,7 +102,7 @@ fn step_by_step_to_a_finished_institution_that_the_ai_knows() {
     assert_eq!(events, 1);
     assert!(finish(&mut c, &rosa).unwrap().done, "closing twice changes nothing");
 
-    let sheet = crate::institution_context::profile_context(&c).unwrap();
+    let sheet = crate::core::ai_sheet::profile_context(&c).unwrap();
     for fact in [
         "Ubicación: Zapopan, Jalisco.",
         "Fundada en 1987 (",

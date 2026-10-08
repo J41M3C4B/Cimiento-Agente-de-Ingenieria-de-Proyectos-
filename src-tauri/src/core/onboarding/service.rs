@@ -1,20 +1,22 @@
 //! The first start (ADR-031). Three moments: the welcome of each account (once per person), the setup the
 //! administrator leaves ready (the AI and the accounts), and the data of the institution, required before the app is
-//! used. What each step needs is decided in `domain::onboarding`; this saves each step as it goes (the profile as a
+//! used. What each step needs is decided in `onboarding::domain`; this saves each step as it goes (the profile as a
 //! draft and the main site), so the person can leave and come back where they were, and closes it: the profile is
 //! confirmed and `institution.onboarded_at` is set once, for good.
 
-use crate::access_service::CurrentUser;
+use crate::core::access::service::CurrentUser;
 use crate::audit::{self, AuditKind};
-use crate::domain::access::Role;
-use crate::domain::onboarding::{self, Facts, StepStatus};
-use crate::domain::profile::{InstitutionInput, ProfileInput};
-use crate::finance_service::FinanceOutcome;
+use crate::core::access::domain::Role;
+use crate::core::onboarding::domain::{self as onboarding, Facts, StepStatus};
+use crate::core::profile::domain::{InstitutionInput, ProfileInput};
+use crate::core::bridge::finance::FinanceOutcome;
 use crate::modules::finance::domain::lines::IncomeSourceInput;
 use crate::modules::facilities::domain::site::SiteData;
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::service::{self, SaveProfileOutcome, ServiceError};
-use crate::storage::profile as profile_store;
+use crate::core::profile::service;
+use crate::core::profile::service::SaveProfileOutcome;
+use crate::core::error::ServiceError;
+use crate::core::profile::storage as profile_store;
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -93,7 +95,7 @@ fn onboarded(conn: &Connection) -> Result<bool, ServiceError> {
 fn records(conn: &Connection) -> Result<Records, ServiceError> {
     let people = crate::modules::care::api::indicators(conn, crate::core::institution::care_flavor(conn))?;
     let staff = crate::modules::hr::api::ai_summary(conn)?;
-    let totals = crate::profile_sync::totals(conn)?;
+    let totals = crate::core::profile::sync::totals(conn)?;
     Ok(Records { served: people.served, staff: staff.total, fee_payers: totals.fee_payers })
 }
 
@@ -165,7 +167,7 @@ pub fn save(conn: &mut Connection, user: &CurrentUser, data: OnboardingData, dec
     let mut money = crate::modules::finance::api::lines(conn)?;
     money.annual_budget_mxn = data.annual_budget_mxn;
     money.income = data.income;
-    match crate::finance_service::save(conn, money, decision)? {
+    match crate::core::bridge::finance::save(conn, money, decision)? {
         FinanceOutcome::Saved { .. } => {}
         FinanceOutcome::Invalid { issues } => {
             return Ok(OnboardingOutcome::Invalid { issues: issues.into_iter().map(|i| OnboardingIssue { code: i.code, field: i.field }).collect() })
@@ -223,5 +225,5 @@ pub fn mark_done(conn: &Connection) -> Result<(), ServiceError> {
 }
 
 #[cfg(test)]
-#[path = "onboarding_service_tests.rs"]
+#[path = "service_tests.rs"]
 mod tests;

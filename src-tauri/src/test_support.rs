@@ -6,9 +6,10 @@ use crate::ai::{AiError, AiProvider, AiResponse, Usage};
 use crate::call_service::{create_project_from_call, NewProjectOutcome, PackageFile, UploadedFile};
 use crate::conversation_service::{send_message, start_conversation, AnswerOutcome, ConversationView};
 use crate::diagnosis_service::{advance, SharedDb};
-use crate::domain::profile::*;
+use crate::core::profile::domain::*;
 use crate::storage::calls::{self, FileRole, ReadingStatus};
-use crate::storage::{open_encrypted, profile};
+use crate::storage::open_encrypted;
+use crate::core::profile::storage as profile;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 
@@ -57,11 +58,11 @@ pub fn profile_db() -> (tempfile::TempDir, SharedDb) {
 pub fn rich_profile_db() -> (tempfile::TempDir, SharedDb) {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
-    crate::institution_context::tests::seed_rich_staff(&mut conn);
-    crate::institution_context::tests::seed_rich_people(&mut conn);
-    crate::institution_context::tests::seed_rich_facilities(&conn);
-    profile::save(&mut conn, &crate::institution_context::tests::rich()).unwrap();
-    crate::modules::finance::storage::save(&mut conn, &crate::institution_context::tests::rich_money()).unwrap();
+    crate::core::ai_sheet::tests::seed_rich_staff(&mut conn);
+    crate::core::ai_sheet::tests::seed_rich_people(&mut conn);
+    crate::core::ai_sheet::tests::seed_rich_facilities(&conn);
+    profile::save(&mut conn, &crate::core::ai_sheet::tests::rich()).unwrap();
+    crate::modules::finance::storage::save(&mut conn, &crate::core::ai_sheet::tests::rich_money()).unwrap();
     profile::confirm(&mut conn).unwrap();
     (dir, Arc::new(Mutex::new(conn)))
 }

@@ -1,14 +1,14 @@
-//! Commands of the staff module (ADR-027): thin, they call `staff_service`.
+//! Commands of the staff module (ADR-027): thin, they call `core::bridge::staff`.
 
 use super::guard;
-use crate::access_service::Session;
+use crate::core::access::service::Session;
 use crate::error::UiError;
 use crate::modules::hr::domain::person::PersonData;
 use crate::modules::hr::domain::position::PositionInput;
 use crate::modules::hr::service::{ModalityInfo, PersonView};
 use crate::modules::hr::storage::CustomField;
 use crate::scanner::guard::Decision;
-use crate::staff_service::{self as svc, PersonOutcome, PositionOutcome, StaffChange, StaffOverview};
+use crate::core::bridge::staff::{self as svc, PersonOutcome, PositionOutcome, StaffChange, StaffOverview};
 use crate::Db;
 use tauri::State;
 
@@ -42,11 +42,11 @@ pub fn hr_person_delete(session: State<'_, Session>, db: State<'_, Db>, id: Stri
     let gate = guard(&session, "hr_person_delete")?;
     let mut conn = lock(&db)?;
     if !gate.may_delete() {
-        crate::access_service::request_deletion(&mut conn, gate.user()?, crate::domain::access::DeletionKind::HrPerson, &id)?;
+        crate::core::access::service::request_deletion(&mut conn, gate.user()?, crate::core::access::domain::DeletionKind::HrPerson, &id)?;
         return Ok(svc::change(&mut conn)?);
     }
     let change = svc::delete_person(&mut conn, &id)?;
-    crate::storage::access::deactivate_for_person(&conn, &id).map_err(crate::service::ServiceError::from)?;
+    crate::core::access::storage::deactivate_for_person(&conn, &id).map_err(crate::core::error::ServiceError::from)?;
     Ok(change)
 }
 
@@ -91,8 +91,8 @@ pub fn hr_field_delete(session: State<'_, Session>, db: State<'_, Db>, key: Stri
     let gate = guard(&session, "hr_field_delete")?;
     let mut conn = lock(&db)?;
     if !gate.may_delete() {
-        crate::access_service::request_deletion(&mut conn, gate.user()?, crate::domain::access::DeletionKind::HrField, &key)?;
-        return Ok(crate::modules::hr::storage::custom_fields(&conn).map_err(crate::service::ServiceError::from)?);
+        crate::core::access::service::request_deletion(&mut conn, gate.user()?, crate::core::access::domain::DeletionKind::HrField, &key)?;
+        return Ok(crate::modules::hr::storage::custom_fields(&conn).map_err(crate::core::error::ServiceError::from)?);
     }
     Ok(svc::delete_field(&conn, &key)?)
 }

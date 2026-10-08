@@ -106,12 +106,12 @@ fn names_and_notes_go_through_the_scanner_because_they_reach_the_ai() {
 #[test]
 fn the_board_crosses_the_stairs_with_the_people_in_a_wheelchair() {
     let (_d, mut c) = conn();
-    let input = crate::domain::profile::ProfileInput {
-        institution: crate::domain::profile::InstitutionInput { name: "Asilo Ficticio".into(), kind: crate::domain::profile::InstitutionKind::ElderlyHome, ..Default::default() },
+    let input = crate::core::profile::domain::ProfileInput {
+        institution: crate::core::profile::domain::InstitutionInput { name: "Asilo Ficticio".into(), kind: crate::core::profile::domain::InstitutionKind::ElderlyHome, ..Default::default() },
         capacity_total: Some(20),
         ..Default::default()
     };
-    crate::storage::profile::save(&mut c, &input).unwrap();
+    crate::core::profile::storage::save(&mut c, &input).unwrap();
     for i in 0..3 {
         let d = crate::modules::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(85), mobility: Some("wheelchair".into()), status: "active".into(), ..Default::default() };
         crate::modules::care::service::save_person(&mut c, crate::modules::care::domain::catalog::Flavor::ElderlyHome, None, d).unwrap();
@@ -139,7 +139,7 @@ fn the_board_crosses_the_stairs_with_the_people_in_a_wheelchair() {
 
 #[test]
 fn both_examples_load_valid_and_reach_the_ai() {
-    for raw in [include_str!("../../fixtures/instalaciones-asilo.json"), include_str!("../../fixtures/instalaciones-casa-hogar.json")] {
+    for raw in [include_str!("../../../../fixtures/instalaciones-asilo.json"), include_str!("../../../../fixtures/instalaciones-casa-hogar.json")] {
         let (_d, mut c) = conn();
         seed_example(&mut c, raw).unwrap();
         let o = overview(&c).unwrap();

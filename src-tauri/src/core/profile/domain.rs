@@ -322,22 +322,22 @@ impl ProfileInput {
         for (field, n) in [("served_estimate", self.served_estimate), ("staff_paid_estimate", self.staff_paid_estimate), ("staff_volunteer_estimate", self.staff_volunteer_estimate)] {
             if neg(n) {
                 add("negative_number", field.into(), true);
-            } else if n.is_some_and(|x| x > super::onboarding::MAX_ESTIMATE) {
+            } else if n.is_some_and(|x| x > crate::core::onboarding::domain::MAX_ESTIMATE) {
                 add("number_too_large", field.into(), true);
             }
         }
         let inst = &self.institution;
-        if inst.founded_year.is_some_and(|y| !(super::onboarding::OLDEST_YEAR..=year).contains(&y)) {
+        if inst.founded_year.is_some_and(|y| !(crate::core::onboarding::domain::OLDEST_YEAR..=year).contains(&y)) {
             add("year_invalid", "institution.founded_year".into(), true);
         }
         let known = |v: &Option<String>, list: &[&str]| v.as_deref().is_none_or(|x| x.trim().is_empty() || list.contains(&x));
-        if !known(&inst.state, &super::onboarding::STATES.iter().map(|(c, _)| *c).collect::<Vec<_>>()) {
+        if !known(&inst.state, &crate::core::onboarding::domain::STATES.iter().map(|(c, _)| *c).collect::<Vec<_>>()) {
             add("code_unknown", "institution.state".into(), true);
         }
         for (field, value, list) in [
-            ("institution.legal_form", &inst.legal_form, super::onboarding::LEGAL_FORMS),
-            ("institution.authorized_donee", &inst.authorized_donee, super::onboarding::REGISTRY),
-            ("institution.cluni", &inst.cluni, super::onboarding::REGISTRY),
+            ("institution.legal_form", &inst.legal_form, crate::core::onboarding::domain::LEGAL_FORMS),
+            ("institution.authorized_donee", &inst.authorized_donee, crate::core::onboarding::domain::REGISTRY),
+            ("institution.cluni", &inst.cluni, crate::core::onboarding::domain::REGISTRY),
         ] {
             if !known(value, list) {
                 add("code_unknown", field.into(), true);

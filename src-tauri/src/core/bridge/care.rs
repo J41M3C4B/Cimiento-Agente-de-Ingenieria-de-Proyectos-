@@ -6,12 +6,13 @@ use crate::modules::care::domain::person::{BeneficiaryData, Issue};
 use crate::modules::care::domain::waitlist::WaitlistInput;
 use crate::modules::care::service::{self as care, Overview, PersonView, SaveOutcome};
 use crate::modules::care::service::{CustomField, Group, WaitlistRow};
-use crate::domain::insights::{self, Board, Context};
-use crate::domain::profile::ProfileTotals;
+use crate::core::insights::people::{self as insights, Board, Context};
+use crate::core::profile::domain::ProfileTotals;
 use crate::core::institution::care_flavor;
-use crate::profile_sync::{sync_profile, totals};
-use crate::service::{ProfileView, ServiceError};
-use crate::storage::profile as profile_store;
+use crate::core::profile::sync::{sync_profile, totals};
+use crate::core::profile::service::ProfileView;
+use crate::core::error::ServiceError;
+use crate::core::profile::storage as profile_store;
 use rusqlite::Connection;
 use serde::Serialize;
 
@@ -53,14 +54,14 @@ pub fn board(conn: &Connection) -> Result<Board, ServiceError> {
     let waiting = crate::modules::care::api::waiting(conn)?;
     let profile = profile_store::load_current(conn)?;
     let capacity = profile.as_ref().and_then(|p| p.input.capacity_total);
-    let expenses = crate::finance_service::finances(conn)?.expenses_annual_mxn;
+    let expenses = crate::core::bridge::finance::finances(conn)?.expenses_annual_mxn;
     // the spaces live in their module (ADR-030)
     let blocked = crate::modules::facilities::api::indicators(conn)?.not_accessible;
     let staff = crate::modules::hr::api::ai_summary(conn)?;
     let carers = staff.positions.iter().filter(|p| matches!(p.area.as_deref(), Some("care" | "health"))).map(|p| p.people).sum();
     let cx = Context {
         capacity,
-        not_accessible: blocked.iter().map(|g| format!("{} {} ({})", g.count, crate::domain::facility_text::group_name(&g.kind, g.label.as_deref(), g.count, true), crate::domain::facility_text::floor(g.floor))).collect(),
+        not_accessible: blocked.iter().map(|g| format!("{} {} ({})", g.count, crate::core::insights::facility_text::group_name(&g.kind, g.label.as_deref(), g.count, true), crate::core::insights::facility_text::floor(g.floor))).collect(),
         not_accessible_spaces: blocked.iter().map(|g| g.count).sum(),
 
         expenses_annual: expenses,
@@ -115,7 +116,7 @@ pub fn reveal_curp(conn: &Connection, id: &str) -> Result<String, ServiceError> 
 pub fn save_group(conn: &mut Connection, id: Option<&str>, title: &str, active: bool, decision: Option<crate::scanner::guard::Decision>) -> Result<Result<Vec<Group>, crate::scanner::guard::QuarantineReport>, ServiceError> {
     use crate::scanner::guard::{guard_fields, GuardOutcome};
     // a group's title may reach the AI (it names the people of the group): it goes through the scanner
-    let scanner = crate::service::scanner_for(conn)?;
+    let scanner = crate::core::screen::scanner_for(conn)?;
     let title = match guard_fields(&scanner, &[("title".to_string(), title.to_string())], decision)? {
         GuardOutcome::Quarantine(report) => return Ok(Err(report)),
         GuardOutcome::Redacted { mut texts, .. } => texts.pop().unwrap_or_default(),
@@ -154,5 +155,5 @@ pub fn delete_waitlist(conn: &mut Connection, id: &str) -> Result<CareChange, Se
 }
 
 #[cfg(test)]
-#[path = "care_service_tests.rs"]
+#[path = "care_tests.rs"]
 mod tests;

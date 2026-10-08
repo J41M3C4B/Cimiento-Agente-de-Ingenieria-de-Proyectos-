@@ -1,7 +1,7 @@
 //! Commands of the drafting, the review and the guide (ADR-018). Thin: they call the services.
 
 use super::guard;
-use crate::access_service::Session;
+use crate::core::access::service::Session;
 use super::diagnosis::{as_dyn, make_provider, shared};
 use crate::drafting_service::{self as svc, BudgetItemInput, DraftMode, DraftOutcome, DraftingView, EditOutcome};
 use crate::error::UiError;

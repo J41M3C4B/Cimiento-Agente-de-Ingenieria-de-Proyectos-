@@ -291,13 +291,14 @@ pub fn set_asks_for_proposal(conn: &Connection, project_id: &str, asks: bool) ->
 mod tests {
     use super::*;
     use crate::storage::projects::create_project;
-    use crate::storage::{open_encrypted, profile};
+    use crate::storage::open_encrypted;
+    use crate::core::profile::storage as profile;
     use serde_json::json;
 
     const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
     fn project() -> (tempfile::TempDir, Connection, String) {
-        use crate::domain::profile::*;
+        use crate::core::profile::domain::*;
         let dir = tempfile::tempdir().unwrap();
         let mut c = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };

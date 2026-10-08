@@ -1,9 +1,9 @@
-//! Commands of the money (ADR-026, ADR-032): thin, they call `finance_service`.
+//! Commands of the money (ADR-026, ADR-032): thin, they call `core::bridge::finance`.
 
 use super::guard;
-use crate::access_service::Session;
+use crate::core::access::service::Session;
 use crate::error::UiError;
-use crate::finance_service::{self as svc, FinanceOutcome};
+use crate::core::bridge::finance::{self as svc, FinanceOutcome};
 use crate::modules::finance::domain::lines::FinanceInput;
 use crate::modules::finance::service::FinanceView;
 use crate::scanner::guard::Decision;

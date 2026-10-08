@@ -2,10 +2,10 @@
 //! scanner on the positions, and the rules of the catalog.
 
 use super::*;
-use crate::domain::profile::{InstitutionInput, InstitutionKind, ProfileInput};
+use crate::core::profile::domain::{InstitutionInput, InstitutionKind, ProfileInput};
 use crate::modules::hr::domain::person::EmergencyContact;
 use crate::storage::open_encrypted;
-use crate::storage::profile as profile_store;
+use crate::core::profile::storage as profile_store;
 
 const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
@@ -208,7 +208,7 @@ fn saving_the_profile_form_does_not_wipe_the_staff_lines() {
     let kitchen = position(&c, "Cocina");
     saved(save_person(&mut c, None, person("Ana", &kitchen, "indefinite", None)).unwrap());
     let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };
-    let crate::service::SaveProfileOutcome::Saved { profile } = crate::service::save_profile(&mut c, input, None).unwrap() else { panic!("saved") };
+    let crate::core::profile::service::SaveProfileOutcome::Saved { profile } = crate::core::profile::service::save_profile(&mut c, input, None).unwrap() else { panic!("saved") };
     assert_eq!(profile.input.staff.len(), 1);
     assert_eq!(profile.input.staff[0].relation.as_deref(), Some("employee"));
 }

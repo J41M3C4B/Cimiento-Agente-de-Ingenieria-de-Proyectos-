@@ -1,16 +1,16 @@
-//! Commands of the people served (ADR-029): thin, they call `care_service`.
+//! Commands of the people served (ADR-029): thin, they call `core::bridge::care`.
 
 use super::guard;
-use crate::access_service::{request_deletion, Session};
+use crate::core::access::service::{request_deletion, Session};
 use crate::modules::care::domain::person::BeneficiaryData;
 use crate::modules::care::domain::waitlist::WaitlistInput;
 use crate::modules::care::service::PersonView;
 use crate::modules::care::storage::{CustomField, Group};
-use crate::care_service::{self as svc, CareChange, CareOverview, PersonOutcome, WaitlistOutcome};
-use crate::domain::access::DeletionKind;
+use crate::core::bridge::care::{self as svc, CareChange, CareOverview, PersonOutcome, WaitlistOutcome};
+use crate::core::access::domain::DeletionKind;
 use crate::error::UiError;
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
 use crate::Db;
 use serde::Serialize;
 use tauri::State;

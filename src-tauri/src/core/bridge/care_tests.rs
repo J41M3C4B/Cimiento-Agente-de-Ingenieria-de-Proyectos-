@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::modules::care::domain::person::ResponsibleContact;
-use crate::domain::profile::{InstitutionInput, InstitutionKind, ProfileInput};
+use crate::core::profile::domain::{InstitutionInput, InstitutionKind, ProfileInput};
 use crate::modules::finance::domain::lines::{ExpenseItemInput, FinanceInput};
 use crate::modules::finance::domain::money::Period;
 use crate::storage::open_encrypted;
@@ -22,7 +22,7 @@ fn with_profile(c: &mut Connection, kind: InstitutionKind) {
         capacity_total: Some(4),
         ..Default::default()
     };
-    crate::storage::profile::save(c, &input).unwrap();
+    crate::core::profile::storage::save(c, &input).unwrap();
     let money = FinanceInput { expenses: vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(24_000), period: Period::Monthly }], ..Default::default() };
     crate::modules::finance::storage::save(c, &money).unwrap();
     // two bathrooms a wheelchair cannot use, in the facilities module (ADR-030)

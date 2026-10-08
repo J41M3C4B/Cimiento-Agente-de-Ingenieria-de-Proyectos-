@@ -1,8 +1,6 @@
-mod access_service;
 mod ai;
 mod audit;
 mod call_service;
-mod care_service;
 mod commands;
 mod common;
 mod conversation_service;
@@ -10,21 +8,13 @@ mod core;
 mod diagnosis_service;
 mod documents;
 mod domain;
-mod facilities_service;
-mod finance_service;
 mod drafting_service;
 mod error;
 mod guide_service;
-mod institution_context;
-mod onboarding_service;
 mod jobs;
 mod modules;
 mod review_service;
-mod profile_sync;
 mod scanner;
-mod security_service;
-mod service;
-mod staff_service;
 mod storage;
 #[cfg(test)]
 mod architecture_tests;
@@ -55,9 +45,9 @@ pub fn run() {
             let _ = storage::calls::mark_interrupted(&conn);
             let db = Arc::new(Mutex::new(conn));
             // who is using the app (ADR-028): nobody until they enter
-            app.manage(access_service::Session::new(db.clone()));
+            app.manage(core::access::service::Session::new(db.clone()));
             app.manage(Db(db));
-            app.manage(security_service::Attempts::default());
+            app.manage(core::security::Attempts::default());
             app.manage(jobs::Jobs::default());
             Ok(())
         })

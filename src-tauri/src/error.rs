@@ -2,7 +2,7 @@
 //! Nothing technical reaches the person (see `docs/08-estilo-redaccion.md`).
 
 use crate::scanner::guard::GuardError;
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

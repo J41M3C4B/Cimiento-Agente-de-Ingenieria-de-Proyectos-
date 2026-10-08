@@ -1,13 +1,10 @@
 //! Encrypted database, migrations and repositories.
 
-pub mod access;
 pub mod backup;
 pub mod calls;
 pub mod db;
-pub mod documents;
 pub mod drafting;
 mod migrations;
-pub mod profile;
 pub mod projects;
 mod secrets;
 

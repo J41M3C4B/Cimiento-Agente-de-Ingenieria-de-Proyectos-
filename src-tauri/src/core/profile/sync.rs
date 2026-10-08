@@ -2,9 +2,10 @@
 //! modules. This writes them into the current profile after every change, and gives the sums with them. No name,
 //! phone, mail or identifier ever comes in here.
 
-use crate::domain::profile::{ContractKind, DependencyLevel, PopulationGroupInput, ProfileInput, ProfileTotals, StaffGroupInput};
-use crate::service::{ProfileView, ServiceError};
-use crate::storage::profile as profile_store;
+use crate::core::profile::domain::{ContractKind, DependencyLevel, PopulationGroupInput, ProfileInput, ProfileTotals, StaffGroupInput};
+use crate::core::profile::service::ProfileView;
+use crate::core::error::ServiceError;
+use crate::core::profile::storage as profile_store;
 use rusqlite::Connection;
 
 /// The anonymous lines of both modules, as the profile keeps them.

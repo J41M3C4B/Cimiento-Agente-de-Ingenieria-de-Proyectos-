@@ -3,7 +3,7 @@
 
 use crate::domain::checklist::Report;
 use crate::guide_service::{gather, review_report};
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
 use crate::storage::projects::ProjectRow;
 use rusqlite::Connection;
 use serde::Serialize;

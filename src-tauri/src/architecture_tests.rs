@@ -41,26 +41,6 @@ const PLACES: &[(&str, Layer)] = &[
     ("modules::finance", Module("finance")),
     // core
     ("core", Core),
-    ("access_service", Core),
-    ("care_service", Core),
-    ("facilities_service", Core),
-    ("finance_service", Core),
-    ("institution_context", Core),
-    ("onboarding_service", Core),
-    ("profile_sync", Core),
-    ("security_service", Core),
-    ("service", Core),
-    ("staff_service", Core),
-    ("domain::access", Core),
-    ("domain::facility_insights", Core),
-    ("domain::facility_text", Core),
-    ("domain::finances", Core),
-    ("domain::insights", Core),
-    ("domain::onboarding", Core),
-    ("domain::profile", Core),
-    ("storage::access", Core),
-    ("storage::documents", Core),
-    ("storage::profile", Core),
     // projects
     ("modules::projects", Projects),
     ("call_service", Projects),
@@ -91,23 +71,18 @@ const PLACES: &[(&str, Layer)] = &[
 /// What breaks the rule today: (the file, as a module path; what it uses). Each block of ADR-032 empties its part.
 const DEBT: &[(&str, &str)] = &[
     // B5: the projects get their own error and read the institution only through `core::api`
-    ("service", "domain::stage"),
-    ("call_service", "service"),
-    ("call_service", "storage::profile"),
-    ("conversation_service", "service"),
-    ("diagnosis_service", "institution_context"),
-    ("diagnosis_service", "service"),
-    ("diagnosis_service", "storage::profile"),
+    ("call_service", "core"),
+    ("conversation_service", "core"),
+    ("core::error", "domain::stage"),
+    ("diagnosis_service", "core"),
     ("documents::canonical::requirements", "domain::requirements"),
-    ("drafting_service", "service"),
-    ("guide_service", "domain::facility_text"),
-    ("guide_service", "domain::profile"),
+    ("drafting_service", "core"),
+    ("guide_service", "core"),
     ("guide_service", "modules::facilities::api"),
     ("guide_service", "modules::facilities::domain"),
-    ("guide_service", "service"),
-    ("guide_service", "storage::profile"),
-    ("jobs", "service"),
-    ("review_service", "service"),
+    ("jobs", "core"),
+    ("review_service", "core"),
+    ("storage::calls", "core"),
 ];
 
 fn segments(path: &str) -> Vec<&str> {
@@ -312,7 +287,7 @@ fn the_layer_rules() {
     assert!(allowed("storage::migrations", Base, Module("hr"), &rest("legacy")));
     assert!(!allowed("storage::backup", Base, Module("hr"), &rest("legacy")));
     assert!(allowed("commands::hr", Shell, Module("hr"), &rest("storage")));
-    assert_eq!(place("storage::profile::load_current").map(|p| p.0), Some(Core));
+    assert_eq!(place("core::profile::storage::load_current").map(|p| p.0), Some(Core));
     assert_eq!(place("storage::open_encrypted").map(|p| p.0), Some(Base));
     assert_eq!(place("modules::finance::api").map(|p| p.0), Some(Module("finance")));
 }

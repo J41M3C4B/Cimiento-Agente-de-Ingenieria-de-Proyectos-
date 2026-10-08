@@ -3,7 +3,7 @@
 //! sees the steps instead of the app (the administrator may leave them to the direction). The rules live here; the
 //! screen only shows what is missing.
 
-use super::profile::ProfileInput;
+use crate::core::profile::domain::ProfileInput;
 use crate::modules::finance::domain::lines::FinanceInput;
 use crate::modules::facilities::domain::site::SiteData;
 use serde::Serialize;
@@ -170,7 +170,7 @@ pub fn complete(steps: &[StepStatus]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::profile::InstitutionInput;
+    use crate::core::profile::domain::InstitutionInput;
     use crate::modules::finance::domain::lines::IncomeSourceInput;
     use crate::modules::finance::domain::money::{IncomeKind, Period};
 

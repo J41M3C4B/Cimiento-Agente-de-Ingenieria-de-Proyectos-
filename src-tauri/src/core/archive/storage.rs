@@ -1,6 +1,6 @@
 //! Clean documents (text only), their fragments and the emergency delete.
 
-use super::StorageError;
+use crate::storage::StorageError;
 use crate::audit::{self, AuditKind};
 use crate::documents::chunking::chunk_text;
 use rusqlite::{params, Connection, OptionalExtension};

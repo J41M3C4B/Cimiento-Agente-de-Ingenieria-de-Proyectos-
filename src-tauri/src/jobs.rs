@@ -6,7 +6,7 @@
 //! It lives in memory on purpose: a call dies with the program, so after a restart there is nothing to recover.
 
 use crate::diagnosis_service::AiStatus;
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};

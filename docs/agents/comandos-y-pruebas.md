@@ -18,17 +18,17 @@ cargo test card                                        # la ficha de la convocat
 #   la ficha de una convocatoria real, sin llamadas (a ojo):
 #   $env:CIMIENTO_CANON_FILE="D:\...\x.canonico.json"; cargo test print_card_of_a_real_call -- --ignored --nocapture
 cargo test jobs                                        # un proceso de IA por proyecto a la vez (ADR-023)
-cargo test institution_context                         # la ficha de «Mi institución» que lee la IA: qué lleva, qué nunca (ADR-023)
+cargo test ai_sheet                                    # la ficha de «Mi institución» que lee la IA: qué lleva, qué nunca (ADR-023)
 cargo test finance                                     # módulo de Finanzas (ADR-026, ADR-032): ingresos por tipo, egresos, balance, escáner y guardado; la nómina con prestaciones está en `cargo test profile`
 cargo test hr::                                        # módulo de Personal (ADR-027): modalidades, CURP/RFC/NSS/CLABE, avance, agregados y su frontera
 cargo test access                                      # perfiles de acceso (ADR-028): roles, permiso de cada comando, cuentas, bloqueo, recuperación y solicitudes de borrado
 cargo test care                                        # módulo de Beneficiarios (ADR-029): ficha, grupos, lista de espera, indicadores, tablero y lo que llega a la IA
 cargo test onboarding                                  # primer inicio (ADR-031): pasos, cifras rápidas, cierre, bienvenida y lo que llega a la IA
 cargo test facilit                                     # módulo de Instalaciones (ADR-030): inmueble, grupos con conteo por estado, traslado, tablero, escáner y lo que llega a la IA
-cargo test staff_service                               # el personal con la base real: lo que llega al perfil y a la IA, identificadores tapados, puestos con escáner
+cargo test bridge::staff                               # el personal con la base real: lo que llega al perfil y a la IA, identificadores tapados, puestos con escáner
 cargo test drafting_service                            # redacción, presupuesto y cronograma (ADR-018), con modelo simulado
 cargo test guide_service                               # revisión y guía en Word (ADR-018): escribe archivos en carpetas temporales
-cargo test security_service                            # PIN, escaneo de la base, respaldo y restauración (ADR-019)
+cargo test core::security                              # PIN, escaneo de la base, respaldo y restauración (ADR-019)
 # una guía de muestra para abrirla en Word a mano:
 #   $env:CIMIENTO_SAMPLE_DIR="D:\...\muestra"; cargo test write_a_sample_guide -- --ignored --nocapture
 pnpm tauri build --bundles nsis                        # instalador de Windows (con Strawberry Perl antes que el de Git en el PATH)

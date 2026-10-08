@@ -1,13 +1,13 @@
 //! Commands of the access profiles (ADR-028): entering, the session, and the administration panel. Thin: they call
-//! `access_service`.
+//! `core::access`.
 
 use super::guard;
-use crate::access_service::{self as svc, AccessStatus, AdminOverview, LoginOutcome, NewAccount, Session, SessionView, SetupOutcome};
-use crate::domain::access::Role;
+use crate::core::access::service::{self as svc, AccessStatus, AdminOverview, LoginOutcome, NewAccount, Session, SessionView, SetupOutcome};
+use crate::core::access::domain::Role;
 use crate::error::UiError;
-use crate::security_service::Attempts;
-use crate::service::ServiceError;
-use crate::storage::access::{self as store, AuditRow};
+use crate::core::security::Attempts;
+use crate::core::error::ServiceError;
+use crate::core::access::storage::{self as store, AuditRow};
 use crate::Db;
 use tauri::State;
 
@@ -138,7 +138,7 @@ pub fn admin_request_resolve(session: State<'_, Session>, db: State<'_, Db>, id:
     let gate = guard(&session, "admin_request_resolve")?;
     let mut conn = lock(&db)?;
     // a project belongs to the projects module: the core is told how to delete it (ADR-032)
-    let delete_project = |c: &mut rusqlite::Connection, target: &str| -> Result<(), crate::service::ServiceError> {
+    let delete_project = |c: &mut rusqlite::Connection, target: &str| -> Result<(), crate::core::error::ServiceError> {
         crate::storage::projects::delete_project(c, target)?;
         Ok(())
     };

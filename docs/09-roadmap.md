@@ -192,7 +192,7 @@ Objetivo: tratar la app como un ERP de la institución. «Inicio» y «Mi instit
 - [x] **B1** Revisar textos y anotarlo en la bitácora pasa a la base (`scanner::guard::screen_texts`); `core::institution::kind` y `Flavor::from_kind` (nadie más lee el tipo de la tabla); los ejemplos y los tipos de las pantallas por el `api` y el `service` de cada módulo. Quedan 21 dependencias en la lista de deuda.
 - [x] **B2** `hr`, `care` y `facilities` a `src-tauri/src/modules/`; la prueba de frontera de cada módulo revisa su nueva carpeta.
 - [x] **B3** Módulo de Finanzas (`modules/finance/`, tablas `fin_*`, migración 0020, comandos `finance_get` y `finance_save`); el núcleo le pasa la nómina y las cuotas ya sumadas (`finance_service`), el paso «Dinero» del primer inicio y la ficha de la IA leen el módulo y dicen lo mismo que antes; en «Mi institución» las tarjetas de dinero guardan en el módulo y el gasto aproximado tiene su propia ventana.
-- [ ] **B4** `core/` con `core::api`; lo que cruza núcleo y Proyectos (borrados aprobados, escaneo de la base) lo arman los comandos.
+- [x] **B4** `core/` (acceso, primer inicio, perfil, documentos, seguridad, puentes con cada módulo, tableros, ficha de la IA, `error`, `screen` y `core::api`); la conexión compartida y el escáner de documentos públicos pasan a la base; el borrado aprobado de un proyecto lo hace el comando. Quedan 12 dependencias en la lista, todas de Proyectos (B5).
 - [ ] **B5** Proyectos a `modules/projects/` con `ProjectsError`. La lista de deuda queda vacía.
 - [ ] **B6** Frontend en `src/core/` y `src/modules/`, módulos en el riel, «Mi institución» con resúmenes; notas «Para cloud».
 

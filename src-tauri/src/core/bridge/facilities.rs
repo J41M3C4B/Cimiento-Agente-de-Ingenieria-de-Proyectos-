@@ -2,7 +2,7 @@
 //! free texts (names and notes) go through the scanner before they are saved, because they reach the AI; the board
 //! crosses the indicators of the module with the people served and the capacity.
 
-use crate::domain::facility_insights::{self, Context, FacilityBoard};
+use crate::core::insights::facilities::{self as facility_insights, Context, FacilityBoard};
 use crate::core::institution::{care_flavor, facilities_flavor as flavor};
 use crate::modules::facilities::Flavor;
 use crate::modules::facilities::domain::group::{EquipmentData, SpaceData};
@@ -10,8 +10,9 @@ use crate::modules::facilities::domain::site::SiteData;
 use crate::modules::facilities::domain::Issue;
 use crate::modules::facilities::service::{self as fac, Overview, SaveOutcome};
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::service::{guard_texts, ServiceError};
-use crate::storage::profile as profile_store;
+use crate::core::screen::guard_texts;
+use crate::core::error::ServiceError;
+use crate::core::profile::storage as profile_store;
 use rusqlite::Connection;
 use serde::Serialize;
 
@@ -142,5 +143,5 @@ pub fn seed_example(conn: &mut Connection, raw: &str) -> Result<(), ServiceError
 }
 
 #[cfg(test)]
-#[path = "facilities_service_tests.rs"]
+#[path = "facilities_tests.rs"]
 mod tests;

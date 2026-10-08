@@ -11,14 +11,16 @@ pub mod hr;
 pub mod onboarding;
 pub mod security;
 
-use crate::access_service::{CurrentUser, Session};
-use crate::domain::access::{need_of, Permission};
-use crate::domain::profile::ProfileInput;
+use crate::core::access::service::{CurrentUser, Session};
+use crate::core::access::domain::{need_of, Permission};
+use crate::core::profile::domain::ProfileInput;
 use crate::error::access_message;
 use crate::error::UiError;
 use crate::scanner::guard::Decision;
-use crate::service::{self, AddDocumentOutcome, ProfileView, SaveProfileOutcome};
-use crate::storage::documents::{self as docs, DeleteSummary, DocumentSummary};
+use crate::core::profile::service;
+use crate::core::archive::service::AddDocumentOutcome;
+use crate::core::profile::service::{ProfileView, SaveProfileOutcome};
+use crate::core::archive::storage::{self as docs, DeleteSummary, DocumentSummary};
 use crate::Db;
 use serde::Serialize;
 use tauri::State;
@@ -58,7 +60,7 @@ pub fn guard(session: &State<'_, Session>, command: &str) -> Result<Gate, UiErro
         let state = session.state.lock().map_err(|_| UiError::internal())?;
         (state.user.clone(), state.locked)
     };
-    match crate::access_service::check(user, locked, need) {
+    match crate::core::access::service::check(user, locked, need) {
         Ok(user) => Ok(Gate { user }),
         Err(code) => {
             if code == "access_denied" {
@@ -111,7 +113,7 @@ pub fn document_add_text(session: State<'_, Session>, db: State<Db>,
 ) -> Result<AddDocumentOutcome, UiError> {
     guard(&session, "document_add_text")?;
     let mut conn = lock(&db)?;
-    Ok(service::add_text_document(&mut conn, "internal", &display_name, &text, decision)?)
+    Ok(crate::core::archive::service::add_text_document(&mut conn, "internal", &display_name, &text, decision)?)
 }
 
 /// The documents of the institution: those of a call belong to their project and are not listed here.
@@ -119,7 +121,7 @@ pub fn document_add_text(session: State<'_, Session>, db: State<Db>,
 pub fn documents_list(session: State<'_, Session>, db: State<Db>) -> Result<Vec<DocumentSummary>, UiError> {
     guard(&session, "documents_list")?;
     let conn = lock(&db)?;
-    docs::list_institution(&conn).map_err(|e| UiError::from(service::ServiceError::from(e)))
+    docs::list_institution(&conn).map_err(|e| UiError::from(crate::core::error::ServiceError::from(e)))
 }
 
 #[tauri::command]
@@ -128,10 +130,10 @@ pub fn document_emergency_delete(session: State<'_, Session>, db: State<Db>, id:
     let mut conn = lock(&db)?;
     if !gate.may_delete() {
         // it disappears now; the administrator deletes it for good or brings it back (ADR-028)
-        crate::access_service::request_deletion(&mut conn, gate.user()?, crate::domain::access::DeletionKind::Document, &id)?;
+        crate::core::access::service::request_deletion(&mut conn, gate.user()?, crate::core::access::domain::DeletionKind::Document, &id)?;
         return Ok(DeleteSummary { chunks: 0, derived_rows: 0 });
     }
-    docs::emergency_delete_document(&mut conn, &id).map_err(|e| UiError::from(service::ServiceError::from(e)))
+    docs::emergency_delete_document(&mut conn, &id).map_err(|e| UiError::from(crate::core::error::ServiceError::from(e)))
 }
 
 /// Development only: loads a fictitious profile from `fixtures/`.
@@ -158,12 +160,12 @@ pub fn dev_load_fixture(session: State<'_, Session>, db: State<Db>, name: String
         // the institution first, so the forms of the roster start with its kind; then the people of the example,
         // and the profile adds them up again
         service::save_profile(&mut conn, input.clone(), None)?;
-        crate::profile_sync::seed_examples(&mut conn, padron)?;
-        crate::facilities_service::seed_example(&mut conn, facilities)?;
+        crate::core::profile::sync::seed_examples(&mut conn, padron)?;
+        crate::core::bridge::facilities::seed_example(&mut conn, facilities)?;
         // an example is a finished institution: it does not go through the first start (ADR-031)
-        crate::onboarding_service::mark_done(&conn)?;
+        crate::core::onboarding::service::mark_done(&conn)?;
         let money: crate::modules::finance::domain::lines::FinanceInput = serde_json::from_str(raw).map_err(|_| UiError::internal())?;
-        crate::modules::finance::storage::save(&mut conn, &money).map_err(crate::service::ServiceError::from)?;
+        crate::modules::finance::storage::save(&mut conn, &money).map_err(crate::core::error::ServiceError::from)?;
         return match service::save_profile(&mut conn, input, None)? {
             SaveProfileOutcome::Saved { profile } => Ok(profile),
             _ => Err(UiError::internal()),

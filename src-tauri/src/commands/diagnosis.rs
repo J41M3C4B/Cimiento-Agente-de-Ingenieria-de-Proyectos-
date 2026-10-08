@@ -2,7 +2,7 @@
 //! provider (the API key never leaves Rust) and call `diagnosis_service`.
 
 use super::guard;
-use crate::access_service::Session;
+use crate::core::access::service::Session;
 use crate::ai::metrics::{self, UsageReport};
 use crate::ai::settings::{self, AiSettings, ProviderKind};
 use crate::ai::{self, AiError, AiProvider, ModelCheck, ModelTier};
@@ -15,7 +15,7 @@ use crate::domain::stage::Stage;
 use crate::error::UiError;
 use crate::jobs::{JobGuard, JobKind, JobStatus, Jobs};
 use crate::scanner::guard::Decision;
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
 use crate::storage::projects::{self as store, ProjectRow};
 use crate::storage::{self, StorageError};
 use crate::Db;
@@ -224,7 +224,7 @@ pub fn project_delete(session: State<'_, Session>, db: State<'_, Db>, project_id
     let gate = guard(&session, "project_delete")?;
     let mut conn = db.0.lock().map_err(|_| UiError::internal())?;
     if !gate.may_delete() {
-        crate::access_service::request_deletion(&mut conn, gate.user()?, crate::domain::access::DeletionKind::Project, &project_id)?;
+        crate::core::access::service::request_deletion(&mut conn, gate.user()?, crate::core::access::domain::DeletionKind::Project, &project_id)?;
         return Ok(true);
     }
     store::delete_project(&mut conn, &project_id).map_err(conn_err)

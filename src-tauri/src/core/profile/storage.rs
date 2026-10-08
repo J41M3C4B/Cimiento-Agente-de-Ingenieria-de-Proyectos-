@@ -1,9 +1,9 @@
 //! Institution profile persistence. Every confirmation freezes a version; editing
 //! a confirmed profile starts a new draft version.
 
-use super::StorageError;
+use crate::storage::StorageError;
 use crate::audit::{self, AuditKind};
-use crate::domain::profile::*;
+use crate::core::profile::domain::*;
 use crate::scanner::ScannerConfig;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;

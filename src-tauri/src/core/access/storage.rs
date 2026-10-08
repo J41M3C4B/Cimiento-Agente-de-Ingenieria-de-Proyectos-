@@ -1,8 +1,8 @@
 //! Persistence of the access profiles (ADR-028): accounts, deletion requests, who is acting, and the audit log as the
 //! administrator reads it.
 
-use super::StorageError;
-use crate::domain::access::{DeletionKind, Role};
+use crate::storage::StorageError;
+use crate::core::access::domain::{DeletionKind, Role};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde::Serialize;
 use ulid::Ulid;

@@ -10,7 +10,7 @@ use crate::ai::pipeline::{self, AiCall, SqliteLedger};
 use crate::ai::settings::{self, ProviderKind};
 use crate::ai::{self, AiProvider, AiTask, ModelTier};
 use crate::diagnosis_service::{AiStatus, SharedDb};
-use crate::service::guard_texts;
+use crate::core::screen::guard_texts;
 use crate::domain::figures;
 use crate::domain::stage::{self, Stage};
 use crate::documents::canonical::assemble::{assemble, Reading};
@@ -22,10 +22,11 @@ use crate::documents::canonical::summary::{summarize, CallSummary};
 use crate::documents::text::{clean_text, norm, same_statement};
 use crate::scanner::guard::{Decision, QuarantineReport};
 use crate::scanner::{PublicDocScanner, RegexScanner, SensitiveScanner};
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
 use crate::storage::calls::{self, CallMeta, FileRole, NewFile, ReadingRow, ReadingStatus};
 use crate::storage::projects::{self as projects, ProjectRow};
-use crate::storage::{self, profile as profile_store};
+use crate::storage;
+use crate::core::profile::storage as profile_store;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -864,7 +865,7 @@ mod tests {
     }
 
     fn setup_with_profile() -> (tempfile::TempDir, SharedDb) {
-        use crate::domain::profile::*;
+        use crate::core::profile::domain::*;
         let (d, db) = setup();
         {
             let mut c = db.lock().unwrap();
