@@ -183,3 +183,17 @@ Objetivo: proyecto que compila, base cifrada y las pruebas técnicas de riesgo r
 - Migración a la nube si se justifica.
 - [x] (2026-10-02) Riel de convocatorias abandonado (ver `docs/huella-riel-de-convocatorias.md`). Schema canónico `schemas/canonical_call.schema.json` y pipeline `documents/canonical/` (contrato, paquete de documentos, recuperación de páginas por campo, normalización, verificación de citas, ensamble y validación). ADR-015.
 - [x] Comparar las dos formas de lectura (una llamada o una por bloque, con o sin recuperación de páginas) sobre los siete paquetes reales con Flash-Lite; decidido: por bloque con embeddings; el código del riel se retiró (2026-10-03).
+
+## Fase 9 · Monolito modular: núcleo y módulos (ADR-032)
+
+Objetivo: tratar la app como un ERP de la institución. «Inicio» y «Mi institución» forman el núcleo; Personal, Beneficiarios, Instalaciones, Finanzas y Proyectos son módulos independientes que se conectan solo por su `api`. Un bloque por commit, con las pruebas en verde. Proyectos se separa sin lógica nueva (su desarrollo queda en pausa).
+
+- [x] **B0** ADR-032, arquitectura, principios y glosario; prueba de fronteras (`cargo test architecture`) con la lista de deuda de hoy (28 dependencias que van al revés).
+- [ ] **B1** Ayudantes del escáner a la base; `core::institution::kind` y `Flavor::from_kind`; `api::delete_person` y los ejemplos por el `api` de cada módulo.
+- [ ] **B2** `hr`, `care` y `facilities` a `modules/`.
+- [ ] **B3** Módulo de Finanzas (`modules/finance/`, tablas `fin_*`, migración, comandos `finance_*`, paso «Dinero» y ficha de la IA).
+- [ ] **B4** `core/` con `core::api`; lo que cruza núcleo y Proyectos (borrados aprobados, escaneo de la base) lo arman los comandos.
+- [ ] **B5** Proyectos a `modules/projects/` con `ProjectsError`. La lista de deuda queda vacía.
+- [ ] **B6** Frontend en `src/core/` y `src/modules/`, módulos en el riel, «Mi institución» con resúmenes; notas «Para cloud».
+
+**Terminado cuando:** la lista de deuda de `architecture_tests.rs` está vacía, todas las pruebas pasan y cada módulo se abre desde el riel.

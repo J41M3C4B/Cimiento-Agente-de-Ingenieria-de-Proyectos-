@@ -27,6 +27,8 @@ mod service;
 mod staff_service;
 mod storage;
 #[cfg(test)]
+mod architecture_tests;
+#[cfg(test)]
 mod test_support;
 
 use std::sync::{Arc, Mutex};

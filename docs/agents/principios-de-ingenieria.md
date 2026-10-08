@@ -29,31 +29,35 @@ Usa siempre la **última versión estable** de cada dependencia y verifica la do
 
 ## Estructura
 
+Monolito modular (ADR-032): un núcleo y módulos independientes; cada capa solo mira hacia abajo.
+
 ```
-src/                 # Frontend React (solo UI y estado de pantalla)
+src/                 # Frontend: core/ (núcleo) y modules/ (un módulo por carpeta); solo UI y estado de pantalla
 src-tauri/src/
-  commands/          # Comandos Tauri: capa delgada, sin lógica de negocio
-  domain/            # Tipos y reglas de negocio puras (sin E/S)
-  storage/           # Base de datos, migraciones, cifrado
-  scanner/           # Detección y tapado de datos sensibles
-  documents/         # Lectura PDF/Excel/Word, plantillas, exportación
-  ai/                # Trait AiProvider, prompts, registro de uso
-  audit/             # Bitácora
-  hr/                # Módulo de Personal (ADR-027): aparte, tablas hr_*, solo agregados hacia fuera
-  care/              # Módulo de Beneficiarios (ADR-029): aparte, tablas care_*, solo agregados hacia fuera
-  facilities/        # Módulo de Instalaciones (ADR-030): aparte, tablas fac_*; inmueble, espacios y equipo por grupo
-  common/            # Validadores compartidos por los módulos (CURP, RFC, NSS, CLABE, fechas); no depende de nada
+  commands/          # Comandos Tauri: capa delgada (permiso, llamada, error amigable), sin lógica de negocio
+  modules/projects/  # Proyectos (convocatoria, conversación, diagnóstico, redacción, guía): solo usa core::api
+  core/              # Núcleo: institución, primer inicio, acceso, seguridad, documentos, tableros, ficha de la IA
+  modules/hr/        # Personal (ADR-027): tablas hr_*, solo agregados hacia fuera
+  modules/care/      # Beneficiarios (ADR-029): tablas care_*, solo agregados hacia fuera
+  modules/facilities/# Instalaciones (ADR-030): tablas fac_*
+  modules/finance/   # Finanzas (ADR-026, ADR-032): tablas fin_*; ingresos, egresos y balance
+  ai/ audit/ common/ documents/ scanner/ storage/   # Base: infraestructura sin reglas de negocio
 docs/                # Especificaciones (fuente de verdad)
 fixtures/            # Datos ficticios
 schemas/             # Esquema canónico de convocatorias (JSON Schema)
 ```
 
-Detalle en `docs/01-arquitectura.md`.
+Mientras se aplican los bloques del ADR-032 conviven las rutas viejas (`*_service.rs`, `domain/`, `hr/`…). La tabla `PLACES` de `architecture_tests.rs` dice a qué capa pertenece cada archivo. Detalle en `docs/01-arquitectura.md`.
 
 ## Reglas de código
 
 - **Idioma:** identificadores, comentarios de código y commits en inglés. Textos de UI en español (archivo `src/i18n/es-MX.ts`). Documentación en español. Glosario en `glosario-dominio.md`.
-- **Toda la lógica de negocio vive en Rust** (`domain/`). El frontend no decide reglas, solo muestra y captura.
+- **Toda la lógica de negocio vive en Rust** (en el `domain/` de su módulo o del núcleo). El frontend no decide reglas, solo muestra y captura.
+- **Fronteras (ADR-032):**
+  - Un módulo no usa otro módulo ni al núcleo.
+  - El núcleo usa de un módulo solo su `api`, su `service` y sus tipos; nunca su `storage`.
+  - Proyectos usa solo `core::api`.
+  - `cargo test architecture` lo revisa. Una dependencia nueva hacia arriba o hacia los lados no se agrega a la lista de deuda: se resuelve.
 - **Llamadas a la IA solo desde Rust.** La llave de API nunca llega al frontend.
 - **Cada llamada a la IA** pasa por: escáner → armado de prompt → proveedor → validación de JSON contra esquema → registro en `ai_usage`.
 - **Errores:** en Rust usa `thiserror` en módulos y convierte a un error serializable para la UI con un mensaje amigable en español + código interno.

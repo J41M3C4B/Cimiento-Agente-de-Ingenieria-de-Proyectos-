@@ -10,6 +10,7 @@ pnpm tauri dev        # desarrollo
 pnpm build            # compila el frontend (tsc + vite)
 pnpm test             # pruebas del frontend (Vitest)
 cargo test            # pruebas Rust (desde src-tauri/)
+cargo test architecture                                # capas del monolito modular (ADR-032): cada capa solo mira hacia abajo; lista de deuda que solo se achica
 cargo test canonical                                   # lectura canónica (ADR-015): contrato, paquete, recuperación, normalización, ensamble, resumen y estrategias; sin red ni gasto
 cargo test call_service                                # crear un proyecto desde su convocatoria y leerla en segundo plano, con modelo simulado (sin red ni gasto)
 cargo test conversation                                # la conversación del diagnóstico (ADR-017): reglas puras, servicio con modelo simulado y batería de personas simuladas (sin red ni gasto)
