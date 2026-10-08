@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Choice, FormSection, Inset, Modal, Select, Steps, Switch, TextButton, TextInput } from "../../components/ui";
+import { Alert, Avatar, Bar, Button, Choice, Eyebrow, FormSection, Inset, MaskedField, Modal, Select, StepNav, Switch, TextButton, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
 import { carePersonDelete, carePersonReveal, carePersonSave } from "./api";
@@ -73,6 +73,7 @@ export function BeneficiaryWizard({
   const [busy, setBusy] = useState(false);
   const [noBirthDate, setNoBirthDate] = useState(!view);
   const [shownCurp, setShownCurp] = useState<string | null>(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const elderly = flavor === "elderly_home";
   const children = flavor === "children_home";
@@ -118,10 +119,11 @@ export function BeneficiaryWizard({
   }
 
   const progress = current?.progress;
-  const stepLabel = (s: Step) => {
+  const stepItems = STEPS.map((s) => {
     const p = progress?.[s];
-    return p && p.total > 0 ? `${c.steps[s]} · ${p.filled}/${p.total}` : c.steps[s];
-  };
+    return { key: s, label: c.steps[s], filled: p?.filled, total: p?.total, na: p !== undefined && p.total === 0, caption: p ? c.stepCaption(p.filled, p.total) : undefined, naLabel: c.stepNotApplicable };
+  });
+  const fullName = [d.first_names, d.last_name_1, d.last_name_2].filter(Boolean).join(" ");
   const blocking = issues.filter((i) => i.blocking);
   const headsUp = issues.filter((i) => !i.blocking);
   const curpStored = current?.curp_stored ?? false;
@@ -130,26 +132,25 @@ export function BeneficiaryWizard({
     <>
       <Modal
         title={current ? `${c.editing}: ${[current.data.first_names, current.data.last_name_1].filter(Boolean).join(" ")}` : c.add}
-        size="lg"
+        size="wide"
+        fixed
         onClose={onClose}
         footer={
           <>
             {current && (
-              <Button variant="plain" className="mr-auto" disabled={busy} onClick={() => setConfirmRemove(true)}>
+              <Button variant="plain" className="mr-auto !text-red-ink" disabled={busy} onClick={() => setConfirmRemove(true)}>
                 <Icon name="trash" size={16} />
                 {c.removePerson}
               </Button>
             )}
             {step > 0 && <Button onClick={() => setStep(step - 1)}>{c.back}</Button>}
+            <Button disabled={busy} onClick={() => save(false)}>
+              {busy ? es.common.saving : c.save}
+            </Button>
             {step < STEPS.length - 1 ? (
-              <>
-                <Button disabled={busy} onClick={() => save(false)}>
-                  {busy ? es.common.saving : c.save}
-                </Button>
-                <Button variant="primary" onClick={() => setStep(step + 1)}>
-                  {c.next}
-                </Button>
-              </>
+              <Button variant="primary" onClick={() => setStep(step + 1)}>
+                {c.next}
+              </Button>
             ) : (
               <Button variant="primary" disabled={busy} onClick={() => save(true)}>
                 {busy ? es.common.saving : c.saveAndClose}
@@ -158,8 +159,28 @@ export function BeneficiaryWizard({
           </>
         }
       >
-        <Steps steps={STEPS.map((s) => ({ key: s, label: stepLabel(s) }))} current={step} />
-        {!current && step === 0 && <p className="text-ui text-ink-2">{c.minimum}</p>}
+        <div className="flex items-center gap-4">
+          <Avatar name={fullName} />
+          <div className="min-w-0 flex-1">
+            <b className="block truncate font-bold">{fullName || c.newRecord}</b>
+            <span className="block truncate text-small text-ink-3">{[current?.group, current?.age != null ? c.years(current.age) : null].filter(Boolean).join(" · ") || c.minimum}</span>
+          </div>
+          {progress && (
+            <div className="hidden w-44 shrink-0 sm:block">
+              <div className="mb-1 flex justify-between text-caption font-semibold text-ink-2">
+                <span>{c.completeness}</span>
+                <span className="tabular">{c.progress(progress.percent)}</span>
+              </div>
+              <Bar percent={progress.percent} label={c.completeness} tone={progress.percent === 100 ? "green" : "ink"} />
+            </div>
+          )}
+        </div>
+        <StepNav label={c.stepsLabel} steps={stepItems} current={step} onSelect={setStep} />
+        <div key={step} className="anim-rise space-y-6">
+        <div className="flex items-baseline gap-3 border-b border-line pb-3">
+          <Eyebrow>{c.stepOf(step + 1, STEPS.length)}</Eyebrow>
+          <span className="text-ui text-ink-2">{c.stepIntro[STEPS[step]!]}</span>
+        </div>
         {blocking.length > 0 && (
           <Alert tone="error">
             <ul className="list-disc pl-4">
@@ -172,7 +193,7 @@ export function BeneficiaryWizard({
 
         {STEPS[step] === "identification" && (
           <>
-            <FormSection title={c.sections.name}>
+            <FormSection title={c.sections.name} icon="user">
               {grid(
                 <>
                   <TextInput label={c.fields.first_names} required autoFocus value={d.first_names} error={err("first_names")} onChange={(e) => set({ first_names: e.target.value })} />
@@ -182,7 +203,7 @@ export function BeneficiaryWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={c.sections.identity}>
+            <FormSection title={c.sections.identity} icon="idcard">
               {grid(
                 <>
                   {noBirthDate ? (
@@ -192,24 +213,42 @@ export function BeneficiaryWizard({
                   )}
                   <Switch label={c.unknownDate} className="self-end" checked={noBirthDate} onChange={(e) => setNoBirthDate(e.target.checked)} />
                   {curpStored && d.curp === null ? (
-                    <div className="min-w-0">
-                      <span className="field-label">{c.fields.curp}</span>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="tabular text-ui font-bold">{shownCurp ?? current?.curp_masked ?? c.secret.stored}</span>
-                        {shownCurp === null && current && (
-                          <TextButton onClick={async () => setShownCurp(await carePersonReveal(current.id))}>{c.secret.show}</TextButton>
-                        )}
-                        <TextButton onClick={() => set({ curp: "" })}>{c.secret.change}</TextButton>
-                      </div>
-                      {shownCurp !== null && <span className="field-hint">{c.secret.shownNote}</span>}
-                    </div>
+                    <MaskedField
+                      label={c.fields.curp}
+                      value={shownCurp ?? current?.curp_masked ?? c.secret.stored}
+                      hint={shownCurp !== null ? c.secret.shownNote : c.hints.curp}
+                      error={revealError ?? undefined}
+                      actions={
+                        <>
+                          {shownCurp === null && current && (
+                            <Button
+                              size="sm"
+                              variant="plain"
+                              onClick={async () => {
+                                try {
+                                  setRevealError(null);
+                                  setShownCurp(await carePersonReveal(current.id));
+                                } catch (e) {
+                                  setRevealError(toAppError(e).message);
+                                }
+                              }}
+                            >
+                              {c.secret.show}
+                            </Button>
+                          )}
+                          <Button size="sm" variant="plain" onClick={() => set({ curp: "" })}>
+                            {c.secret.change}
+                          </Button>
+                        </>
+                      }
+                    />
                   ) : (
                     <TextInput label={c.fields.curp} hint={c.hints.curp} value={d.curp ?? ""} error={err("curp")} onChange={(e) => set({ curp: e.target.value.toUpperCase() })} />
                   )}
                 </>,
               )}
             </FormSection>
-            <FormSection title={c.sections.origin}>
+            <FormSection title={c.sections.origin} icon="home">
               {grid(
                 <>
                   <TextInput label={c.fields.origin_municipality} value={d.origin_municipality ?? ""} onChange={(e) => set({ origin_municipality: txt(e.target.value) })} />
@@ -219,7 +258,7 @@ export function BeneficiaryWizard({
               )}
             </FormSection>
             {elderly && (
-              <FormSection title={c.sections.schooling}>
+              <FormSection title={c.sections.schooling} icon="file">
                 {grid(
                   <>
                     <Select label={c.fields.education} options={opt(c.education)} value={d.education ?? ""} onChange={(e) => set({ education: txt(e.target.value) })} />
@@ -229,7 +268,7 @@ export function BeneficiaryWizard({
               </FormSection>
             )}
             {children && (
-              <FormSection title={c.sections.school}>
+              <FormSection title={c.sections.school} icon="file">
                 {grid(
                   <>
                     <Select label={c.fields.attends_school} options={[["", c.select], ["yes", c.yes], ["no", c.no]]} value={yesNo(d.attends_school)} onChange={(e) => set({ attends_school: fromYesNo(e.target.value) })} />
@@ -240,7 +279,7 @@ export function BeneficiaryWizard({
               </FormSection>
             )}
             {groups.length > 0 && (
-              <FormSection title={c.sections.group}>
+              <FormSection title={c.sections.group} icon="users">
                 <Select
                   label={c.fields.group_id}
                   options={[["", c.fields.groupAuto(current?.group ?? "—")], ...groups.filter((g) => g.active || g.id === d.group_id).map((g) => [g.id, g.title] as [string, string])]}
@@ -254,7 +293,7 @@ export function BeneficiaryWizard({
 
         {STEPS[step] === "stay" && (
           <>
-            <FormSection title={c.sections.entry}>
+            <FormSection title={c.sections.entry} icon="calendar">
               {grid(
                 <>
                   <TextInput label={c.fields.entry_date} type="date" value={d.entry_date ?? ""} hint={d.entry_date_approx ? c.approxEntry : undefined} error={err("entry_date")} onChange={(e) => set({ entry_date: txt(e.target.value) })} />
@@ -263,10 +302,10 @@ export function BeneficiaryWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={c.sections.reasons}>
+            <FormSection title={c.sections.reasons} icon="info">
               <Many label={c.fields.admission_reasons} labels={c.admissionReasons} value={d.admission_reasons} onChange={(v) => set({ admission_reasons: v })} />
             </FormSection>
-            <FormSection title={c.sections.status}>
+            <FormSection title={c.sections.status} icon="clock">
               {grid(
                 <>
                   <Select label={c.fields.status} options={Object.entries(c.statuses)} value={d.status} onChange={(e) => set({ status: e.target.value })} />
@@ -285,7 +324,7 @@ export function BeneficiaryWizard({
         {STEPS[step] === "care" && (
           <>
             <Inset className="text-small text-ink-2">{c.healthNote}</Inset>
-            <FormSection title={c.sections.support}>
+            <FormSection title={c.sections.support} icon="heart">
               {grid(
                 <>
                   <Select label={c.fields.dependency} options={opt(c.dependency)} value={d.dependency ?? ""} onChange={(e) => set({ dependency: txt(e.target.value) })} />
@@ -305,7 +344,7 @@ export function BeneficiaryWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={c.sections.health}>
+            <FormSection title={c.sections.health} icon="shield">
               <Many label={c.fields.disabilities} labels={c.disabilities} value={d.disabilities} onChange={(v) => set({ disabilities: v })} />
               {!children && <Many label={c.fields.chronic_conditions} labels={c.chronic} value={d.chronic_conditions} onChange={(v) => set({ chronic_conditions: v })} />}
             </FormSection>
@@ -315,7 +354,7 @@ export function BeneficiaryWizard({
         {STEPS[step] === "family" && (
           <>
             {d.contacts.map((x, i) => (
-              <FormSection key={i} title={c.sections.contactN(i + 1)}>
+              <FormSection key={i} title={c.sections.contactN(i + 1)} icon="phone">
                 {grid(
                   <>
                     <TextInput label={c.fields.contact_name} required value={x.full_name} error={err(`contacts[${i}].full_name`)} onChange={(e) => contact(i, { full_name: e.target.value })} />
@@ -334,11 +373,11 @@ export function BeneficiaryWizard({
                 {c.addContact}
               </Button>
             )}
-            <FormSection title={c.sections.visits}>
+            <FormSection title={c.sections.visits} icon="calendar">
               <Select label={c.fields.visits} options={opt(c.visits)} value={d.visits ?? ""} onChange={(e) => set({ visits: txt(e.target.value) })} />
             </FormSection>
             {children && (
-              <FormSection title={c.sections.legal}>
+              <FormSection title={c.sections.legal} icon="shield">
                 <Select label={c.fields.legal_status} hint={c.hints.legal} options={opt(c.legal)} value={d.legal_status ?? ""} onChange={(e) => set({ legal_status: txt(e.target.value) })} />
               </FormSection>
             )}
@@ -347,7 +386,7 @@ export function BeneficiaryWizard({
 
         {STEPS[step] === "contribution" && (
           <>
-            <FormSection title={c.sections.fee}>
+            <FormSection title={c.sections.fee} icon="wallet">
               {grid(
                 <>
                   <TextInput label={c.fields.monthly_fee_mxn} prefix="$" inputMode="numeric" hint={c.hints.fee} value={d.monthly_fee_mxn?.toString() ?? ""} error={err("monthly_fee_mxn")} onChange={(e) => set({ monthly_fee_mxn: num(e.target.value) })} />
@@ -355,10 +394,10 @@ export function BeneficiaryWizard({
                 </>,
               )}
             </FormSection>
-            <FormSection title={c.sections.programs}>
+            <FormSection title={c.sections.programs} icon="building">
               <Many label={c.fields.programs} labels={c.programs} value={d.programs} onChange={(v) => set({ programs: v })} />
             </FormSection>
-            <FormSection title={c.sections.consent}>
+            <FormSection title={c.sections.consent} icon="lock">
               <p className="text-small text-ink-2">{c.hints.consent}</p>
               {grid(
                 <>
@@ -368,7 +407,7 @@ export function BeneficiaryWizard({
               )}
             </FormSection>
             {fields.length > 0 && (
-              <FormSection title={c.sections.other}>
+              <FormSection title={c.sections.other} icon="file">
                 {grid(
                   fields.map((f) =>
                     f.kind === "select" ? (
@@ -393,6 +432,7 @@ export function BeneficiaryWizard({
           </Alert>
         )}
         {error && <Alert tone="error">{error}</Alert>}
+        </div>
       </Modal>
 
       {confirmRemove && (
