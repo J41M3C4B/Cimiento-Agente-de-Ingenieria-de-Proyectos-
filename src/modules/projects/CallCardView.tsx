@@ -6,8 +6,8 @@ import { Alert, Button, Eyebrow, Facts, Inset } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { callBriefMake, toAppError } from "../../lib/tauri";
 import type { CallCard, CardPoint, ReadingDetail } from "../../lib/types";
-import { Thinking } from "../projects/ChatParts";
-import { useCallJob } from "../projects/useProjectJob";
+import { Thinking } from "./ChatParts";
+import { useCallJob } from "./useProjectJob";
 import { Cite } from "./CallReading";
 
 const t = es.calls;

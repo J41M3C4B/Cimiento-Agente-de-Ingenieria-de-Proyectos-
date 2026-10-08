@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Card, Folder, Segmented } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import { CallIndex } from "../calls/CallIndex";
+import { CallIndex } from "./CallIndex";
 
 type Tab = "call" | "project";
 

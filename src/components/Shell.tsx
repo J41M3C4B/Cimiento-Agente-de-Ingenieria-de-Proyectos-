@@ -3,9 +3,9 @@ import { es } from "../i18n/es-MX";
 import { projectTone } from "../lib/palette";
 import { useTheme } from "../lib/theme";
 import type { ProjectRow } from "../lib/types";
-import { PersonMenu } from "../features/access/PersonMenu";
-import type { SessionApi } from "../features/access/session";
-import { PROJECT_STEPS, stepIndex } from "../features/projects/steps";
+import { PersonMenu } from "../core/access/PersonMenu";
+import type { SessionApi } from "../core/access/session";
+import { PROJECT_STEPS, stepIndex } from "../modules/projects/steps";
 import type { IconName } from "./icons";
 import { Avatar, IconButton, Logo, StepDots } from "./ui";
 

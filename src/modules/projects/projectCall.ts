@@ -1,4 +1,4 @@
-import { useReading } from "../calls/CallReading";
+import { useReading } from "./CallReading";
 import { es } from "../../i18n/es-MX";
 import type { CallCard, ProjectRow } from "../../lib/types";
 import { PROJECT_STEPS, stepIndex } from "./steps";

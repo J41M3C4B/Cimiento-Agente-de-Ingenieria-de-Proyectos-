@@ -3,7 +3,7 @@ import { Icon } from "../../components/icons";
 import { Alert, Avatar, Button, IconButton, Inset, Modal, Select, Tag, TextInput, THead, Tile } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
-import { useSession } from "../access/session";
+import { useSession } from "../../core/access/session";
 import { careWaitlistAdmit, careWaitlistDelete, careWaitlistSave } from "./api";
 import type { BeneficiaryView, CareChange, WaitlistInput, WaitlistRow } from "./types";
 

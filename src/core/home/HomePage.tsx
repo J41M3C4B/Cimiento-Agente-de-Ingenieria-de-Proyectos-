@@ -7,14 +7,14 @@ import { projectTone } from "../../lib/palette";
 import { profileGet, projectList } from "../../lib/tauri";
 import type { ProfileView, ProjectRow } from "../../lib/types";
 import { useSession } from "../access/session";
-import { facilitiesOverview } from "../facilities/api";
-import { FACILITIES_KEY } from "../facilities/FacilitiesTab";
+import { facilitiesOverview } from "../../modules/facilities/api";
+import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { ONBOARDING_KEY, onboardingStatus } from "../onboarding/api";
 import { resumeOnboarding } from "../onboarding/OnboardingGate";
 import type { ProfileTab } from "../profile/ProfilePage";
-import { shortDate, stepInfo, useProjectCall } from "../projects/projectCall";
-import { ProjectFolder } from "../projects/ProjectFolder";
-import { stepsForView } from "../projects/steps";
+import { shortDate, stepInfo, useProjectCall } from "../../modules/projects/projectCall";
+import { ProjectFolder } from "../../modules/projects/ProjectFolder";
+import { stepsForView } from "../../modules/projects/steps";
 
 const t = es.home;
 

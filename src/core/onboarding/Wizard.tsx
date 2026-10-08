@@ -5,7 +5,7 @@ import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
 import type { Decision, IncomeKind, InstitutionKind, Period } from "../../lib/types";
-import { YesNo } from "../facilities/GroupDialog";
+import { YesNo } from "../../modules/facilities/GroupDialog";
 import { INCOME_KINDS } from "../profile/finance";
 import { parsePesos } from "../profile/profileForm";
 import { onboardingFinish, onboardingSave } from "./api";
