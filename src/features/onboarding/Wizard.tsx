@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
-import { Alert, Button, Choice, Eyebrow, Facts, FormSection, RadioCard, Select, StepNav, Tag, TextArea, TextButton, TextInput, Tile } from "../../components/ui";
+import { Alert, Button, Eyebrow, Facts, FormSection, RadioCard, Segmented, Select, StepNav, Tag, TextArea, TextButton, TextInput, Tile } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
@@ -26,21 +26,15 @@ const num = (v: string) => (v.trim() === "" || !/^\d+$/.test(v.trim()) ? null : 
 const options = (labels: Record<string, string>): [string, string][] => [["", es.facilities.select], ...Object.entries(labels)];
 const txt = (v: string) => (v === "" ? null : v);
 
-/** A short answer as pills (Sí / En trámite / No…). */
-function Pills({ label, labels, value, onChange, name }: { label: string; labels: Record<string, string>; value: string | null; onChange: (v: string) => void; name: string }) {
+/** A short answer (Sí / En trámite / No…) as one plain group. */
+function Pills({ label, labels, value, onChange }: { label: string; labels: Record<string, string>; value: string | null; onChange: (v: string) => void; name?: string }) {
   return (
     <fieldset>
       <legend className="field-label">
         {label}
         <span className="req">*</span>
       </legend>
-      <div className="flex flex-wrap gap-2">
-        {Object.entries(labels).map(([code, text]) => (
-          <Choice key={code} name={name} checked={value === code} onChange={() => onChange(code)}>
-            {text}
-          </Choice>
-        ))}
-      </div>
+      <Segmented label={label} value={value ?? ""} onChange={onChange} items={Object.entries(labels).map(([id, text]) => ({ id, label: text }))} />
     </fieldset>
   );
 }
@@ -176,7 +170,7 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
         {key === "location" && (
           <div className="space-y-6">
             <FormSection title={o.steps.location}>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
                 <Select label={ins.state} required options={options(ins.states)} value={d.institution.state ?? ""} onChange={(e) => setInst({ state: txt(e.target.value) })} error={issue("institution.state")} />
                 <TextInput label={ins.municipality} required value={d.institution.municipality ?? ""} onChange={(e) => setInst({ municipality: txt(e.target.value) })} />
                 <TextInput label={p.fields.phone} hint={p.privateNote} inputMode="tel" value={d.institution.contact_phone ?? ""} onChange={(e) => setInst({ contact_phone: txt(e.target.value) })} />
@@ -184,7 +178,7 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
               </div>
             </FormSection>
             <FormSection title={p.cards.legal}>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
                 <Select label={ins.legalForm} required options={options(ins.legalForms)} value={d.institution.legal_form ?? ""} onChange={(e) => setInst({ legal_form: txt(e.target.value) })} />
                 <TextInput label={ins.foundedYear} required inputMode="numeric" value={d.institution.founded_year?.toString() ?? ""} onChange={(e) => setInst({ founded_year: num(e.target.value) })} error={issue("institution.founded_year")} />
                 <TextInput label={p.fields.rfc} value={d.institution.legal_rfc ?? ""} onChange={(e) => setInst({ legal_rfc: txt(e.target.value) })} />
@@ -197,7 +191,7 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
         )}
 
         {key === "people" && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
             <TextInput label={p.fields.capacity} required suffix={o.unitPeople} inputMode="numeric" value={d.capacity_total?.toString() ?? ""} onChange={(e) => set({ capacity_total: num(e.target.value) })} error={issue("capacity_total")} />
             {status.records.served > 0 ? (
               <Alert tone="info">{o.records.served(status.records.served)}</Alert>
@@ -211,7 +205,7 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
           (status.records.staff > 0 ? (
             <Alert tone="info">{o.records.staff(status.records.staff)}</Alert>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
               <TextInput label={ins.staffPaidEstimate} required suffix={o.unitPeople} inputMode="numeric" value={d.staff_paid_estimate?.toString() ?? ""} onChange={(e) => set({ staff_paid_estimate: num(e.target.value) })} error={issue("staff_paid_estimate")} />
               <TextInput label={ins.staffVolunteerEstimate} required hint={o.zeroHint} suffix={o.unitPeople} inputMode="numeric" value={d.staff_volunteer_estimate?.toString() ?? ""} onChange={(e) => set({ staff_volunteer_estimate: num(e.target.value) })} error={issue("staff_volunteer_estimate")} />
             </div>
@@ -234,14 +228,16 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
               {d.income.map((x, i) => {
                 const change = (patch: Partial<typeof x>) => set({ income: d.income.map((y, j) => (j === i ? { ...y, ...patch } : y)) });
                 return (
-                  <div key={i} className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1.4fr_1.2fr_1fr_0.9fr_auto]">
-                    <TextInput label={o.income.label} placeholder={o.income.placeholder} value={x.label} onChange={(e) => change({ label: e.target.value })} error={issue(`income[${i}].label`)} />
-                    <Select label={p.finance.kindLabel} options={INCOME_KINDS.map((k) => [k, p.finance.incomeKinds[k]![0]])} value={x.kind} onChange={(e) => change({ kind: e.target.value as IncomeKind })} />
+                  <div key={i} className="grid items-start gap-3 rounded-inset border border-line p-4 sm:grid-cols-3">
+                    <div className="flex items-end gap-3 sm:col-span-3">
+                      <TextInput className="flex-1" label={o.income.label} placeholder={o.income.placeholder} value={x.label} onChange={(e) => change({ label: e.target.value })} error={issue(`income[${i}].label`)} />
+                      <Button variant="plain" onClick={() => set({ income: d.income.filter((_, j) => j !== i) })} aria-label={es.common.remove}>
+                        <Icon name="trash" size={16} />
+                      </Button>
+                    </div>
+                    <Select label={o.income.columns.kind} options={INCOME_KINDS.map((k) => [k, p.finance.incomeKinds[k]![0]])} value={x.kind} onChange={(e) => change({ kind: e.target.value as IncomeKind })} />
                     <TextInput label={o.income.amount} prefix="$" value={x.amount_mxn?.toString() ?? ""} onChange={(e) => change({ amount_mxn: e.target.value.trim() === "" ? null : parsePesos(e.target.value) })} />
-                    <Select label={p.finance.periodLabel} options={[["monthly", p.finance.period.monthly], ["annual", p.finance.period.annual]]} value={x.period} onChange={(e) => change({ period: e.target.value as Period })} />
-                    <Button variant="plain" onClick={() => set({ income: d.income.filter((_, j) => j !== i) })} aria-label={es.common.remove}>
-                      <Icon name="trash" size={16} />
-                    </Button>
+                    <Select label={o.income.columns.period} options={[["monthly", p.finance.period.monthly], ["annual", p.finance.period.annual]]} value={x.period} onChange={(e) => change({ period: e.target.value as Period })} />
                   </div>
                 );
               })}
@@ -257,8 +253,8 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
 
         {key === "building" && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <TextInput label={es.facilities.building.floors} required inputMode="numeric" value={d.floors?.toString() ?? ""} onChange={(e) => set({ floors: num(e.target.value) })} error={issue("site.floors")} />
+            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+              <TextInput label={o.floors} hint={o.floorsHint} required inputMode="numeric" value={d.floors?.toString() ?? ""} onChange={(e) => set({ floors: num(e.target.value) })} error={issue("site.floors")} />
               <TextInput label={es.facilities.building.built_m2} suffix="m²" inputMode="numeric" value={d.built_m2?.toString() ?? ""} onChange={(e) => set({ built_m2: num(e.target.value) })} error={issue("site.built_m2")} />
             </div>
             <Pills name="tenure" label={es.facilities.building.tenure} labels={es.facilities.building.tenures} value={d.tenure} onChange={(v) => set({ tenure: v })} />
@@ -330,9 +326,9 @@ function Review({ status, onEdit }: { status: OnboardingStatus; onEdit: (i: numb
   return (
     <div className="space-y-4">
       <Alert tone={pending === 0 ? "ok" : "warn"}>{pending === 0 ? o.reviewReady : o.reviewPending(pending)}</Alert>
-      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
+      <div className="gap-3 md:columns-2">
         {status.steps.map((s, i) => (
-          <section key={s.key} className="flex flex-col gap-3 rounded-inset bg-inset p-4">
+          <section key={s.key} className="mb-3 flex break-inside-avoid flex-col gap-3 rounded-inset bg-inset p-4">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-ui font-bold">{o.steps[s.key]}</h2>
               <div className="flex items-center gap-2">

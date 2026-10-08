@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Choice, FactRow, Facts, FormSection, Modal, Tag, TextArea, TextInput } from "../../components/ui";
+import { Alert, Button, Choice, FactRow, Facts, FormSection, Modal, Segmented, Tag, TextArea, TextInput } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { Many, YesNo } from "./GroupDialog";
@@ -23,18 +23,23 @@ const word = (labels: Record<string, string>, v: string | null) => (v ? (labels[
 const words = (labels: Record<string, string>, v: string[]) => (v.length ? v.map((x) => labels[x] ?? x).join(", ") : null);
 const n = (v: number | null) => (v === null ? null : v.toLocaleString("es-MX"));
 
-/** One question with a few short answers, as pills; a click on the chosen one clears it. */
+/** One question with a few short answers; a click on the chosen one clears it. Up to three answers go in one plain group, more go as pills. */
 function OneOf({ label, labels, value, onChange, name, tone }: { label: string; labels: Record<string, string>; value: string | null; onChange: (v: string | null) => void; name: string; tone?: Record<string, Tone> }) {
+  const entries = Object.entries(labels);
   return (
     <fieldset>
       <legend className="field-label">{label}</legend>
-      <div className="flex flex-wrap gap-2">
-        {Object.entries(labels).map(([code, text]) => (
-          <Choice key={code} name={name} tone={tone?.[code]} checked={value === code} onChange={() => onChange(code)} onClick={() => value === code && onChange(null)}>
-            {text}
-          </Choice>
-        ))}
-      </div>
+      {entries.length <= 3 ? (
+        <Segmented label={label} value={value ?? ""} onChange={(v) => onChange(v === value ? null : v)} items={entries.map(([id, text]) => ({ id, label: text }))} />
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {entries.map(([code, text]) => (
+            <Choice key={code} name={name} tone={tone?.[code]} checked={value === code} onChange={() => onChange(code)} onClick={() => value === code && onChange(null)}>
+              {text}
+            </Choice>
+          ))}
+        </div>
+      )}
     </fieldset>
   );
 }

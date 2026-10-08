@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Choice, FormSection, Modal, Select, Stepper, TextArea, TextInput } from "../../components/ui";
-import type { Tone } from "../../components/ui";
+import { Alert, Button, Choice, FormSection, Modal, Segmented, Select, Stepper, TextArea, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { STATE_KEYS, STATE_TONE, StateBar } from "./StateBar";
 import type { EquipmentData, FacilityIssue, SpaceData, States } from "./types";
@@ -19,18 +18,21 @@ export const emptySpace = (kind = "bedroom"): SpaceData => ({
 });
 export const emptyEquipment = (kind = "washer"): EquipmentData => ({ kind, label: null, count: 1, good: 0, fair: 0, poor: 0, unusable: 0, notes: null });
 
-/** A yes / no / I do not know question, as three pills. */
-export function YesNo({ label, value, onChange, name }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void; name: string }) {
+/** A yes / no / I do not know question: three plain options in one group, nothing more. */
+export function YesNo({ label, value, onChange }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void; name?: string }) {
   return (
     <fieldset>
       <legend className="field-label">{label}</legend>
-      <div className="flex flex-wrap gap-2">
-        {[["yes", es.common.yes, "green"], ["no", es.common.no, "amber"], ["", f.unknown, "neutral"]].map(([v, text, tone]) => (
-          <Choice key={v} name={name} tone={tone as Tone} checked={yesNo(value) === v} onChange={() => onChange(fromYesNo(v))}>
-            {text}
-          </Choice>
-        ))}
-      </div>
+      <Segmented
+        label={label}
+        value={yesNo(value)}
+        onChange={(v) => onChange(fromYesNo(v))}
+        items={[
+          { id: "yes", label: es.common.yes },
+          { id: "no", label: es.common.no },
+          { id: "", label: f.unknown },
+        ]}
+      />
     </fieldset>
   );
 }
