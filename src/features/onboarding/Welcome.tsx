@@ -3,30 +3,29 @@ import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
 import { Alert, Button, Inset, Logo, Steps, Tag, Tile } from "../../components/ui";
-import { BrandArt } from "./BrandArt";
-import type { Tone } from "../../components/ui";
+import { HelpChat, OrgGraph, PrivacyFlow } from "./WelcomeArt";
 import { es } from "../../i18n/es-MX";
 import type { OnboardingStatus } from "./api";
 
 const o = es.onboarding;
 
-const POINT_ICONS: IconName[] = ["check", "lock", "smile"];
+const POINT_ICONS: IconName[] = ["building", "sparkles", "check"];
 
 /**
- * The frame of the first start, split in two: on the left the flat blue of the brand with the logo, a picture and
- * what the program promises; on the right the forms, with the steps at the top, the content that scrolls and the
- * buttons always at the bottom. On a narrow window the blue shrinks to a band with the logo.
+ * The frame of the first start, split in two: on the left the flat blue of the brand with the logo, the isotipo as a
+ * big lighter picture and what SociAI is for; on the right the forms, with the steps at the top, the content that
+ * scrolls and the buttons always at the bottom. On a narrow window the blue shrinks to a band with the logo.
  */
-export function StartFrame({ children, top, footer, title, text }: { children: ReactNode; /** what stays at the top while the rest scrolls: the steps */ top?: ReactNode; /** the buttons: always at the bottom */ footer: ReactNode; title?: string; text?: string }) {
+export function StartFrame({ children, top, footer }: { children: ReactNode; /** what stays at the top while the rest scrolls: the steps */ top?: ReactNode; /** the buttons: always at the bottom */ footer: ReactNode }) {
   const a = o.aside;
   return (
     <div className="onb text-body">
       <aside className="onb-brand">
         <Logo onBrand className="h-10 self-start" />
-        <BrandArt className="onb-art" />
+        <span aria-hidden="true" className="onb-art" />
         <div className="onb-copy space-y-3">
-          <h2 className="text-title font-bold leading-tight tracking-tight">{title ?? a.title}</h2>
-          <p className="text-body font-semibold">{text ?? a.text}</p>
+          <h2 className="text-hero font-extrabold leading-tight tracking-tight">{a.title}</h2>
+          <p className="text-heading font-semibold">{a.text}</p>
         </div>
         <ul className="hidden flex-col gap-4 lg:flex">
           {a.points.map(([head, line], i) => (
@@ -48,42 +47,66 @@ export function StartFrame({ children, top, footer, title, text }: { children: R
           <div className={`onb-in flex flex-1 flex-col gap-6 pb-6 ${top ? "pt-6" : "pt-8 lg:pt-10"}`}>{children}</div>
         </div>
         <div className="border-t border-line">
-          <div className="onb-in py-4">{footer}</div>
-          <p className="onb-in pb-3 text-caption text-ink-3">{es.access.footer}</p>
+          <div className="onb-in py-5">{footer}</div>
         </div>
       </main>
     </div>
   );
 }
 
-const ICONS: IconName[] = ["sparkles", "shield", "help"];
-const TONES: Tone[] = ["violet", "green", "sky"];
+/** The title in the navy of the brand, with the key word in the blue of the brand. */
+function Hero({ title, highlight }: { title: string; highlight: string }) {
+  const at = title.indexOf(highlight);
+  if (at < 0) return <>{title}</>;
+  return (
+    <>
+      {title.slice(0, at)}
+      <span className="text-brand">{highlight}</span>
+      {title.slice(at + highlight.length)}
+    </>
+  );
+}
 
-/** Three short screens, once per person: what SociAI does, how the data are cared for, and where to ask. */
+const ART = [OrgGraph, PrivacyFlow, HelpChat];
+
+/**
+ * Three screens, once per person: what SociAI is (a graph with the institution at the head), how the data are
+ * cared for (what stays here and what the help sees) and where to ask (a question and its answer). Each one is a
+ * title, a line that says it and a drawing that takes the rest of the space. Only the blue of the brand.
+ */
 export function Welcome({ onDone, busy }: { onDone: () => void; busy?: boolean }) {
   const [n, setN] = useState(0);
   const steps = o.welcome.steps;
+  const step = steps[n]!;
   const last = n === steps.length - 1;
+  const Art = ART[n] ?? OrgGraph;
   return (
     <StartFrame
-      top={<Steps steps={steps.map((x, i) => ({ key: String(i), label: x.title }))} current={n} tone={TONES[n] ?? "violet"} compact />}
+      top={
+        <ol className="onb-bars" aria-label={o.stepOf(n + 1, steps.length)}>
+          {steps.map((s, i) => (
+            <i key={s.title} aria-current={i === n ? "step" : undefined} className={i <= n ? "on" : ""} />
+          ))}
+        </ol>
+      }
       footer={
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-small font-semibold text-ink-3">{o.stepOf(n + 1, steps.length)}</span>
-          <div className="flex gap-2">
-            {n > 0 && <Button onClick={() => setN(n - 1)}>{o.welcome.back}</Button>}
-            <Button variant="primary" disabled={busy} onClick={() => (last ? onDone() : setN(n + 1))}>
-              {last ? o.welcome.start : o.welcome.next}
-            </Button>
-          </div>
+        <div className="flex items-center justify-end gap-2">
+          {n > 0 && <Button onClick={() => setN(n - 1)}>{o.welcome.back}</Button>}
+          <Button variant="primary" disabled={busy} onClick={() => (last ? onDone() : setN(n + 1))}>
+            {last ? o.welcome.start : o.welcome.next}
+          </Button>
         </div>
       }
     >
-      <div key={n} className="anim-rise my-auto space-y-6 py-6">
-        <Tile icon={ICONS[n] ?? "sparkles"} tone={TONES[n] ?? "violet"} />
-        <div className="space-y-3">
-          <h1 className="text-title font-bold leading-tight tracking-tight">{steps[n]!.title}</h1>
-          <p className="max-w-[52ch] text-body text-ink-2">{steps[n]!.text}</p>
+      <div key={n} className="anim-rise flex flex-1 flex-col justify-center gap-12 py-4">
+        <div className="space-y-4">
+          <h1 className="onb-hero break-words text-hero font-extrabold tracking-tight sm:text-headline">
+            <Hero title={step.title} highlight={step.highlight} />
+          </h1>
+          <p className="max-w-[52ch] text-body font-medium text-ink-2">{step.text}</p>
+        </div>
+        <div className="flex w-full justify-center">
+          <Art />
         </div>
       </div>
     </StartFrame>
@@ -139,12 +162,9 @@ export function Setup({
       }
     >
       <div className="space-y-6">
-        <div className="flex items-start gap-4">
-          <Tile icon="sliders" tone="ink" />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <h1 className="text-title font-bold leading-tight tracking-tight">{o.setup.title}</h1>
-            <p className="max-w-[60ch] text-ui text-ink-2">{o.setup.help}</p>
-          </div>
+        <div className="space-y-1.5">
+          <h1 className="onb-title text-title font-extrabold leading-tight tracking-tight">{o.setup.title}</h1>
+          <p className="max-w-[60ch] text-ui text-ink-2">{o.setup.help}</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-small font-semibold text-ink-2">{o.setup.stepsDone(done, rows.length)}</span>

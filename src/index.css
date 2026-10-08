@@ -39,6 +39,7 @@
   /* el azul de la marca SociAI (el del logotipo), liso, y la letra blanca encima; solo de identidad, no un acento de estado */
   --color-brand: #0a76fc;
   --color-on-brand: #ffffff;
+  --color-brand-ink: #000c25;
   --color-white: #ffffff;
 
   /* tipografía (docs/13 §4) */
@@ -58,6 +59,8 @@
   --text-title--line-height: 1.15;
   --text-hero: 32px;
   --text-hero--line-height: 1.1;
+  --text-headline: 46px;
+  --text-headline--line-height: 1.08;
   --text-display: 72px;
   --text-display--line-height: 1;
 
@@ -100,26 +103,7 @@
   --logo-word-inv: #ffffff;
   --logo-ai: #0a76fc;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --canvas: #16171b;
-    --card: #1f2025;
-    --inset: #292a30;
-    --line: #30323a;
-    --ink: #f3f3f5;
-    --ink-2: #b4b4bd;
-    --ink-3: #8a8a94;
-    --on-ink: #121216;
-    --drop: rgb(0 0 0 / 0.35);
-    --shadow-card-v: 0 1px 1px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.5);
-    --shadow-float-v: 0 24px 60px -16px rgb(0 0 0 / 0.7);
-    --logo-mark: #ffffff;
-    --logo-word: #ffffff;
-    --logo-mark-inv: #0a76fc;
-    --logo-word-inv: #000c25;
-    color-scheme: dark;
-  }
-}
+/* el tema oscuro solo se aplica cuando la persona lo elige (data-theme="dark"); por defecto el programa es claro */
 :root[data-theme="dark"] {
   --canvas: #16171b;
   --card: #1f2025;
@@ -505,8 +489,94 @@ h1, h2, h3 {
   /* Primer inicio, pantalla dividida: a la izquierda el azul liso de la marca (sin degradados ni sombras), a la derecha los formularios */
   .onb { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); min-height: 100vh; background: var(--canvas); color: var(--ink); }
   .onb-brand { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: 32px; padding: 48px 56px; background: var(--color-brand); color: var(--color-on-brand); }
-  .onb-art { flex: 1 1 0; min-height: 120px; width: 100%; color: var(--color-on-brand); pointer-events: none; }
-  .onb-copy { max-width: 34ch; }
+  /* the isotipo of the brand (public/SVG/isotipo.svg) used as a mask: one flat, lighter blue, big and cropped by the edge */
+  .onb-art {
+    position: absolute; z-index: -1; top: -5%; right: -16%; height: 88%; aspect-ratio: 51.08 / 77.31;
+    background: color-mix(in srgb, var(--color-brand) 84%, var(--color-white));
+    -webkit-mask: url("/SVG/isotipo.svg") center / contain no-repeat; mask: url("/SVG/isotipo.svg") center / contain no-repeat;
+    pointer-events: none;
+  }
+  .onb-copy { margin-top: auto; max-width: 34ch; }
+  /* inside the first start the blue of the brand is the only color: the accents become the brand blue (red stays for what went wrong) */
+  .onb .tone-green, .onb .tone-amber, .onb .tone-violet, .onb .tone-sky, .onb .tone-teal, .onb .tone-cyan, .onb .tone-rose { --c: var(--color-brand); --tt: var(--color-on-brand); }
+  .onb .alert:not(.tone-red) .alert-badge { color: var(--color-on-brand); }
+  .onb :focus-visible { outline-color: var(--color-brand); }
+  .onb .field:focus-visible { border-color: var(--color-brand); }
+  .onb .radio-card input:checked + .radio-card-face { border-color: var(--color-brand); background: color-mix(in srgb, var(--color-brand) 8%, var(--card)); }
+  .onb .radio-card input:checked + .radio-card-face .radio-card-dot { border-color: var(--color-brand); background: radial-gradient(var(--color-brand) 42%, transparent 46%); }
+  .onb .seg-item[aria-selected="true"], .onb .seg-item[aria-pressed="true"] { background: var(--color-brand); color: var(--color-on-brand); box-shadow: none; }
+  .onb .check[aria-checked="true"] { background: var(--color-brand); border-color: var(--color-brand); color: var(--color-on-brand); }
+  .onb .switch input:checked + .switch-track { background: var(--color-brand); }
+  .onb-title { color: var(--color-brand-ink); }
+  :root[data-theme="dark"] .onb-title { color: var(--ink); }
+  .onb .btn--primary { background: var(--color-brand); color: var(--color-on-brand); }
+  /* the sentence of the hero is in the navy of the brand (in the dark theme, the ordinary ink); the key word goes in the brand blue */
+  .onb-hero { color: var(--color-brand-ink); }
+  :root[data-theme="dark"] .onb-hero { color: var(--ink); }
+  /* one soft block with three facts, split by hairlines (not three loose cards) */
+  .onb-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-radius: var(--radius-inset); background: color-mix(in srgb, var(--color-brand) 8%, var(--card)); }
+  .onb-fact { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 20px; }
+  .onb-fact + .onb-fact { border-left: 1px solid color-mix(in srgb, var(--color-brand) 20%, transparent); }
+  .onb-fact-icon { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 8px; border-radius: 50%; background: var(--color-brand); color: var(--color-on-brand); }
+  @media (max-width: 639px) {
+    .onb-facts { grid-template-columns: minmax(0, 1fr); }
+    .onb-fact + .onb-fact { border-left: 0; border-top: 1px solid color-mix(in srgb, var(--color-brand) 20%, transparent); }
+  }
+  /* the drawings of the welcome: always the brand blue, flat */
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .onb-pop { animation: pop 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .onb-fade { animation: fade 0.7s ease-out both; }
+  @media (prefers-reduced-motion: reduce) { .onb-pop, .onb-fade { animation: none; } }
+
+  /* step 1: Mi institución at the head and its branches */
+  .onb-graph { display: grid; grid-template-rows: auto 88px auto; justify-items: center; width: 100%; }
+  .onb-graph-lines { grid-row: 2; width: 100%; height: 100%; overflow: visible; }
+  .onb-graph-lines path { fill: none; stroke: color-mix(in srgb, var(--color-brand) 50%, transparent); stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  .onb-head { display: inline-flex; align-items: center; gap: 12px; height: 68px; padding: 0 32px 0 10px; border-radius: var(--radius-pill); background: var(--color-brand); color: var(--color-on-brand); font-size: var(--text-subtitle); font-weight: 800; letter-spacing: -0.01em; }
+  .onb-head-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--color-on-brand); color: var(--color-brand); }
+  .onb-kids { grid-row: 3; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); width: 100%; margin: 0; padding: 0; list-style: none; }
+  .onb-kid { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 0 4px; text-align: center; }
+  .onb-kid-bubble { display: grid; place-items: center; width: var(--d, 72px); height: var(--d, 72px); margin-bottom: 8px; border-radius: 50%; background: color-mix(in srgb, var(--color-brand) 12%, var(--card)); border: 2px solid color-mix(in srgb, var(--color-brand) 40%, transparent); color: var(--color-brand); }
+  .onb-kid b { font-size: var(--text-ui); font-weight: 800; }
+  .onb-kid span { font-size: var(--text-small); line-height: 1.3; color: var(--ink-2); }
+  @media (max-width: 639px) {
+    .onb-graph { grid-template-rows: auto auto; gap: 24px; }
+    .onb-graph-lines { display: none; }
+    .onb-kids { grid-row: 2; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 20px; }
+  }
+
+  /* step 2: what stays here and what the automatic help sees */
+  .onb-flow { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 14px; width: 100%; }
+  .onb-box { display: flex; flex-direction: column; justify-content: space-between; gap: 18px; min-width: 0; padding: 24px; border-radius: var(--radius-inset); }
+  .onb-box--here { background: color-mix(in srgb, var(--color-brand) 9%, var(--card)); }
+  .onb-box--sees { background: var(--card); border: 1.5px solid color-mix(in srgb, var(--color-brand) 40%, transparent); }
+  .onb-box h3 { display: flex; align-items: center; gap: 8px; font-size: var(--text-body); font-weight: 800; }
+  .onb-box h3 svg { color: var(--color-brand); }
+  .onb-box p { font-size: var(--text-ui); color: var(--ink-2); }
+  .onb-row { display: flex; align-items: center; gap: 12px; }
+  .onb-ini { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: color-mix(in srgb, var(--color-brand) 18%, var(--card)); color: var(--color-brand); }
+  .onb-redact { flex: 1; height: 12px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--ink) 16%, transparent); }
+  .onb-gate { display: grid; place-items: center; align-self: center; width: 56px; height: 56px; border-radius: 50%; background: var(--color-brand); color: var(--color-on-brand); }
+  .onb-box .onb-count { display: flex; align-items: baseline; gap: 10px; color: var(--color-brand); font-size: var(--text-display); font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .onb-count small { font-size: var(--text-heading); font-weight: 700; letter-spacing: 0; color: var(--ink-2); }
+  @media (max-width: 639px) {
+    .onb-flow { grid-template-columns: minmax(0, 1fr); }
+    .onb-gate { justify-self: center; transform: rotate(90deg); }
+  }
+
+  /* step 3: help that answers, and work that is saved */
+  .onb-chat { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 640px; }
+  .onb-msg { max-width: 90%; padding: 18px 24px; font-size: var(--text-body); font-weight: 600; line-height: 1.5; }
+  .onb-msg--ask { align-self: flex-end; border-radius: 20px 20px 6px 20px; background: var(--color-brand); color: var(--color-on-brand); }
+  .onb-msg--answer { display: flex; align-items: flex-start; gap: 12px; align-self: flex-start; border-radius: 20px 20px 20px 6px; background: var(--card); border: 1.5px solid color-mix(in srgb, var(--color-brand) 30%, transparent); }
+  .onb-msg-icon { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--color-brand); color: var(--color-on-brand); }
+  .onb-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .onb-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 18px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-brand) 12%, var(--card)); font-size: var(--text-ui); font-weight: 700; }
+  .onb-pill svg { flex: none; color: var(--color-brand); }
+  .onb-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .onb-bars > i { display: block; height: 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-brand) 16%, var(--card)); transition: background-color 0.2s; }
+  .onb-bars > i.on { background: var(--color-brand); }
   .onb-side { position: relative; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
   .onb-in { width: 100%; max-width: 720px; margin: 0 auto; padding-left: 48px; padding-right: 48px; }
   @media (max-width: 1023px) {

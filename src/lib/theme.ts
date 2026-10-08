@@ -12,11 +12,12 @@ const stored = (): Theme | null => {
   }
 };
 
-const system = (): Theme => (typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+/** The program opens in the light theme; dark is only for whoever chooses it. */
+const FALLBACK: Theme = "light";
 
-/** The theme of the window: the one the person chose, or else the one of the system. Choosing it is remembered. */
+/** The theme of the window: the one the person chose, or else the light one. Choosing it is remembered. */
 export function useTheme(): [Theme, () => void] {
-  const [theme, setTheme] = useState<Theme>(() => stored() ?? system());
+  const [theme, setTheme] = useState<Theme>(() => stored() ?? FALLBACK);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);

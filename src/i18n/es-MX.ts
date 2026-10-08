@@ -807,17 +807,48 @@ export const es = {
       steps: [
         {
           title: "Le damos la bienvenida a SociAI",
+          highlight: "AI",
           text: "Aquí arma los proyectos de su institución para pedir donativos, paso a paso. Usted responde con sus palabras; nosotros nos encargamos del formato y las cuentas.",
         },
         {
           title: "Cuidamos a las personas que atienden",
+          highlight: "Cuidamos",
           text: "Los nombres y datos de cada persona se quedan en esta computadora. La ayuda automática solo recibe cuántas personas hay, nunca quiénes son.",
         },
         {
-          title: "Si tiene dudas",
+          title: "Si tiene dudas, aquí estamos",
+          highlight: "aquí estamos",
           text: "En «Ayuda» encuentra cómo se usa cada parte. Si algo falla, su trabajo queda guardado: avísele a la persona que le instaló el programa.",
         },
       ],
+      // what each drawing says
+      art: {
+        graph: {
+          head: "Mi institución",
+          nodes: [
+            ["Finanzas", "Ingresos y gastos"],
+            ["Personas", "Personal y a quienes atiende"],
+            ["Donantes", "Quién la apoya"],
+            ["Proyectos", "Lo que pide apoyo"],
+            ["Documentos", "Todo en un lugar"],
+          ] as [string, string][],
+        },
+        privacy: {
+          here: "En esta computadora",
+          hereNote: "Nombres, edades y datos de cada persona",
+          sees: "La ayuda automática",
+          seesNote: "Solo cuántas personas hay",
+          count: "38",
+          people: "personas",
+          example: "Por ejemplo",
+        },
+        help: {
+          ask: "¿Cómo agrego a una persona?",
+          answer: "Entre a «Personas», toque «Agregar» y siga los pasos. Le explicamos cada parte.",
+          saved: "Su trabajo se guarda solo",
+          call: "Si algo falla, avise a quien instaló el programa",
+        },
+      },
       next: "Siguiente",
       back: "Atrás",
       start: "Empezar",
@@ -840,12 +871,12 @@ export const es = {
       stepsDone: (done: number, total: number) => `${done} de ${total} pasos`,
     },
     aside: {
-      title: "Dejemos lista su institución",
-      text: "Unos minutos ahora y el asistente trabaja con lo que ya sabe de ustedes, sin volver a preguntarles.",
+      title: "Organice su institución en un solo lugar",
+      text: "Haga crecer sus funciones y operaciones sin esfuerzo y sin fricciones.",
       points: [
-        ["Se guarda cada paso", "Puede salir y seguir después."],
-        ["Sus datos se quedan aquí", "En esta computadora. La ayuda automática no ve nombres."],
-        ["Usted responde con sus palabras", "Nosotros nos encargamos del formato y las cuentas."],
+        ["Todo junto", "Personal, personas que atiende, instalaciones y proyectos."],
+        ["Crece con usted", "Sume funciones cuando las necesite, sin complicarse."],
+        ["Sin fricciones", "Usted responde con sus palabras; nosotros hacemos el formato y las cuentas."],
       ] as [string, string][],
     },
     title: "Datos de su institución",
