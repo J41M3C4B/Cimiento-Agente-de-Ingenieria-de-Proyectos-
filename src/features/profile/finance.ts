@@ -13,7 +13,14 @@ export const KIND_TONE: Record<string, Tone> = {
 export const kindTone = (kind: string): Tone => KIND_TONE[kind] ?? "teal";
 
 /** Literal class names so Tailwind sees them. */
-export const TONE_BG: Partial<Record<Tone, string>> = { sky: "bg-sky", violet: "bg-violet", cyan: "bg-cyan", teal: "bg-teal", green: "bg-green", rose: "bg-rose", amber: "bg-amber" };
+export const TONE_BG: Partial<Record<Tone, string>> = { ink: "bg-ink", sky: "bg-sky", violet: "bg-violet", cyan: "bg-cyan", teal: "bg-teal", green: "bg-green", rose: "bg-rose", amber: "bg-amber" };
+
+/** The color of each kind of expense: the payroll is amber (as everywhere), what goes to people teal, the rest ink. */
+export const expenseTone = (kind: string): Tone => (kind === "payroll" ? "amber" : kind === "staff_support" || kind === "external_staff" ? "teal" : "ink");
+
+/** What part of a total a line is (0..1), for the small «39 %» next to it. Display only: the sums are Rust's. */
+export const shareOf = (annual: number | null, total: number | null): number | null => (annual === null || !total || total <= 0 ? null : annual / total);
+export const percent = (share: number): string => (share > 0 && share < 0.01 ? "<1 %" : `${Math.round(share * 100)} %`);
 
 export const INCOME_KINDS = ["recurring_donor", "occasional_donation", "project_grant", "fee_estimate", "other"] as const;
 

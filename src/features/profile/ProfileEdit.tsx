@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { UseFormRegister } from "react-hook-form";
-import { Alert, Button, Choice, Modal, RadioCard, Select, TextArea, TextInput } from "../../components/ui";
+import { Alert, Button, Choice, FormSection, Inset, Modal, RadioCard, Select, Tag, TextArea, TextInput } from "../../components/ui";
 import { INCOME_KINDS } from "./finance";
 import { es } from "../../i18n/es-MX";
 import type { FinanceInput, ProfileIssue, ProfileView } from "../../lib/types";
@@ -124,17 +124,38 @@ export function ProfileEdit({
         )}
         {edit.kind === "capacity" && (
           <>
-            <TextInput label={t.fields.capacity} suffix="personas" inputMode="numeric" autoFocus error={err(fe.capacity_total)} {...register("capacity_total")} />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <TextInput label={ins.servedEstimate} inputMode="numeric" error={err(fe.served_estimate)} {...register("served_estimate")} />
-              <TextInput label={ins.staffPaidEstimate} inputMode="numeric" error={err(fe.staff_paid_estimate)} {...register("staff_paid_estimate")} />
-              <TextInput label={ins.staffVolunteerEstimate} inputMode="numeric" error={err(fe.staff_volunteer_estimate)} {...register("staff_volunteer_estimate")} />
-            </div>
+            <FormSection title={t.modal.capacityPeople}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <TextInput label={t.fields.capacity} suffix="personas" inputMode="numeric" autoFocus error={err(fe.capacity_total)} {...register("capacity_total")} />
+                <TextInput label={ins.servedEstimate} suffix="personas" inputMode="numeric" error={err(fe.served_estimate)} {...register("served_estimate")} />
+              </div>
+            </FormSection>
+            <FormSection title={t.modal.capacityStaff}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <TextInput label={ins.staffPaidEstimate} inputMode="numeric" error={err(fe.staff_paid_estimate)} {...register("staff_paid_estimate")} />
+                <TextInput label={ins.staffVolunteerEstimate} inputMode="numeric" error={err(fe.staff_volunteer_estimate)} {...register("staff_volunteer_estimate")} />
+              </div>
+            </FormSection>
             <TextArea label={t.fields.notes} {...register("notes")} />
           </>
         )}
         {edit.kind === "estimate" && (
-          <TextInput label={t.fields.annualBudget} hint={t.finance.expenses.estimateHelp} prefix="$" suffix="al año" autoFocus error={err(fe.annual_budget_mxn)} {...register("annual_budget_mxn")} />
+          <>
+            <p className="text-ui text-ink-2">{t.modal.estimateIntro}</p>
+            <Inset className="space-y-3 !p-4">
+              <div className="text-small font-bold text-ink-2">{t.modal.estimateIncludes}</div>
+              <ul className="flex flex-wrap gap-2">
+                {t.modal.estimateItems.map((x) => (
+                  <li key={x}>
+                    <Tag tone="amber" variant="soft" icon="check">
+                      {x}
+                    </Tag>
+                  </li>
+                ))}
+              </ul>
+            </Inset>
+            <TextInput label={t.fields.annualBudget} hint={t.finance.expenses.estimateHelp} prefix="$" suffix="al año" autoFocus error={err(fe.annual_budget_mxn)} {...register("annual_budget_mxn")} />
+          </>
         )}
         {edit.kind === "income" && (
           <>
