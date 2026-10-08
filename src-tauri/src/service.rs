@@ -3,15 +3,13 @@
 use crate::audit::{self, AuditKind};
 use crate::domain::finances::Finances;
 use crate::domain::profile::{ProfileInput, ProfileIssue, ProfileTotals};
-use crate::scanner::guard::{guard_fields, Decision, GuardError, GuardOutcome, QuarantineReport};
+use crate::scanner::guard::{counts_json, guard_fields, screen_texts, Decision, GuardError, GuardOutcome, QuarantineReport, ScreenError};
 use crate::scanner::{RegexScanner, SensitiveScanner};
 use crate::storage::documents::{self as docs, DocumentSummary};
 use crate::storage::profile::{self as store, StoredProfile};
 use crate::storage::StorageError;
 use rusqlite::Connection;
 use serde::Serialize;
-use serde_json::json;
-use std::collections::BTreeMap;
 
 const MAX_TEXT_BYTES: usize = 2 * 1024 * 1024;
 const DOCUMENT_KINDS: &[&str] = &["call", "questionnaire", "template", "internal", "quote", "other"];
@@ -78,6 +76,15 @@ pub enum ServiceError {
     Access(&'static str),
 }
 
+impl From<ScreenError> for ServiceError {
+    fn from(e: ScreenError) -> Self {
+        match e {
+            ScreenError::Guard(e) => ServiceError::Guard(e),
+            ScreenError::Audit(e) => ServiceError::Audit(e),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ProfileView {
     pub institution_id: String,
@@ -128,8 +135,15 @@ pub(crate) fn scanner_for(conn: &Connection) -> Result<RegexScanner, StorageErro
     Ok(RegexScanner::new(store::scanner_config(conn)?))
 }
 
-pub(crate) fn counts_json(counts: &BTreeMap<&'static str, usize>, decision: &str) -> serde_json::Value {
-    json!({ "findings": counts, "decision": decision })
+/// Scans free texts with the words of the institution (its name and contact are not personal data) and writes the
+/// decision to the audit log. `Ok(Err(report))` means "quarantine: show it, save nothing".
+pub(crate) fn guard_texts(
+    conn: &Connection,
+    entity: &str,
+    fields: &[(String, String)],
+    decision: Option<Decision>,
+) -> Result<Result<Vec<String>, QuarantineReport>, ServiceError> {
+    Ok(screen_texts(conn, &scanner_for(conn)?, entity, fields, decision)?)
 }
 
 pub fn get_profile(conn: &Connection) -> Result<Option<ProfileView>, ServiceError> {

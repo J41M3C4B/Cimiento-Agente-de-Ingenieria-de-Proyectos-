@@ -89,7 +89,7 @@ fn onboarded(conn: &Connection) -> Result<bool, ServiceError> {
 }
 
 fn records(conn: &Connection) -> Result<Records, ServiceError> {
-    let people = crate::care::api::indicators(conn, crate::profile_sync::care_flavor(conn))?;
+    let people = crate::care::api::indicators(conn, crate::core::institution::care_flavor(conn))?;
     let staff = crate::hr::api::ai_summary(conn)?;
     let totals = crate::profile_sync::totals(conn)?;
     Ok(Records { served: people.served, staff: staff.total, fee_payers: totals.fee_payers })

@@ -5,7 +5,9 @@
 use super::domain::catalog::{self, Flavor};
 use super::domain::person::{BeneficiaryData, Issue, Progress};
 use super::domain::waitlist::WaitlistInput;
-use super::storage::{self as store, CustomField, Group, StoredPerson, WaitlistRow};
+use super::storage::{self as store, StoredPerson};
+// what the screens show, as it is kept
+pub use super::storage::{CustomField, Group, WaitlistRow};
 use super::CareError;
 use crate::audit::{self, AuditKind};
 use crate::common::ids;

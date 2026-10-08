@@ -35,6 +35,16 @@ pub fn waiting(conn: &Connection) -> Result<i64, CareError> {
     Ok(store::waitlist(conn)?.iter().filter(|w| w.input.status == "waiting").count() as i64)
 }
 
+/// Development only: replaces the people served with the fictitious ones of an example (`fixtures/padron-*.json`),
+/// moved as the old roster was. `year` is the current year (for the ages). Runs inside the caller's transaction.
+#[cfg(debug_assertions)]
+pub fn load_example(conn: &Connection, year: i64, rows: Vec<std::collections::BTreeMap<String, String>>) -> Result<usize, CareError> {
+    conn.execute("DELETE FROM care_person", [])?;
+    let rows: Vec<super::legacy::LegacyRow> =
+        rows.into_iter().map(|data| super::legacy::LegacyRow { id: store::new_id("ben"), data, hidden: false }).collect();
+    super::legacy::import(conn, year, &rows, &[])
+}
+
 /// What the AI may read: counts by group, and personal attributes only for groups of `MIN_GROUP` or more.
 pub fn ai_summary(conn: &Connection, flavor: Flavor) -> Result<CareSummary, CareError> {
     Ok(aggregate::ai_summary(&indicators(conn, flavor)?, waiting(conn)?))

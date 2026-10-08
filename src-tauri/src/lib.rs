@@ -7,6 +7,7 @@ mod care_service;
 mod commands;
 mod common;
 mod conversation_service;
+mod core;
 mod diagnosis_service;
 mod documents;
 mod domain;

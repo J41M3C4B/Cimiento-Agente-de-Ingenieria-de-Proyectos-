@@ -137,6 +137,17 @@ pub enum Flavor {
     Other,
 }
 
+impl Flavor {
+    /// The flavor of the kind of institution the core says (`core::institution::kind`).
+    pub fn from_kind(kind: Option<&str>) -> Self {
+        match kind {
+            Some("elderly_home") => Flavor::ElderlyHome,
+            Some("children_home") => Flavor::ChildrenHome,
+            _ => Flavor::Other,
+        }
+    }
+}
+
 /// The positions a new catalog starts with: title, area.
 pub fn default_positions(flavor: Flavor) -> Vec<(&'static str, &'static str)> {
     let mut v = match flavor {

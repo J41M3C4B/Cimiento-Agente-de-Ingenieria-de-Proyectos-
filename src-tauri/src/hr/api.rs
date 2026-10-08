@@ -29,6 +29,14 @@ fn with_members<T>(conn: &Connection, f: impl FnOnce(&[Member], &[super::domain:
     Ok(f(&members, &positions, &today))
 }
 
+/// Development only: replaces the staff with the fictitious people of an example (`fixtures/padron-*.json`), moved
+/// as the old roster was. Runs inside the caller's transaction.
+#[cfg(debug_assertions)]
+pub fn load_example(conn: &Connection, flavor: Flavor, rows: &[std::collections::BTreeMap<String, String>]) -> Result<usize, HrError> {
+    conn.execute("DELETE FROM hr_person", [])?;
+    super::legacy::import(conn, flavor, rows, &[])
+}
+
 /// One anonymous line per position and pay data: what the profile keeps to add up the payroll.
 pub fn staff_lines(conn: &Connection) -> Result<Vec<StaffLine>, HrError> {
     with_members(conn, |m, p, _| aggregate::staff_lines(m, p))

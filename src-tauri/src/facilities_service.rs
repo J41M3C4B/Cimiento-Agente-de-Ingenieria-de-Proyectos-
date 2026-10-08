@@ -2,15 +2,15 @@
 //! free texts (names and notes) go through the scanner before they are saved, because they reach the AI; the board
 //! crosses the indicators of the module with the people served and the capacity.
 
-use crate::diagnosis_service::guard_texts;
 use crate::domain::facility_insights::{self, Context, FacilityBoard};
-use crate::facilities::domain::catalog::Flavor;
+use crate::core::institution::{care_flavor, facilities_flavor as flavor};
+use crate::facilities::Flavor;
 use crate::facilities::domain::group::{EquipmentData, SpaceData};
 use crate::facilities::domain::site::SiteData;
 use crate::facilities::domain::Issue;
 use crate::facilities::service::{self as fac, Overview, SaveOutcome};
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::service::ServiceError;
+use crate::service::{guard_texts, ServiceError};
 use crate::storage::profile as profile_store;
 use rusqlite::Connection;
 use serde::Serialize;
@@ -30,19 +30,11 @@ pub enum FacilitiesOutcome {
     Quarantine { report: QuarantineReport },
 }
 
-pub fn flavor(conn: &Connection) -> Flavor {
-    match conn.query_row("SELECT kind FROM institution LIMIT 1", [], |r| r.get::<_, String>(0)).ok().as_deref() {
-        Some("elderly_home") => Flavor::ElderlyHome,
-        Some("children_home") => Flavor::ChildrenHome,
-        _ => Flavor::Other,
-    }
-}
-
 /// The board: the indicators crossed with the people served (how many, how many in a wheelchair or in bed) and the
 /// capacity.
 pub fn board(conn: &Connection) -> Result<FacilityBoard, ServiceError> {
     let indicators = crate::facilities::api::indicators(conn)?;
-    let people = crate::care::api::indicators(conn, crate::profile_sync::care_flavor(conn))?;
+    let people = crate::care::api::indicators(conn, care_flavor(conn))?;
     let limited = people.mobility.iter().filter(|c| matches!(c.code.as_str(), "wheelchair" | "bedridden")).map(|c| c.count).sum();
     let capacity = profile_store::load_current(conn)?.and_then(|p| p.input.capacity_total);
     let sites = crate::facilities::api::summaries(conn)?;

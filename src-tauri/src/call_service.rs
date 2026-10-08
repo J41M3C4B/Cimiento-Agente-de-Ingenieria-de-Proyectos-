@@ -9,7 +9,8 @@
 use crate::ai::pipeline::{self, AiCall, SqliteLedger};
 use crate::ai::settings::{self, ProviderKind};
 use crate::ai::{self, AiProvider, AiTask, ModelTier};
-use crate::diagnosis_service::{guard_texts, AiStatus, SharedDb};
+use crate::diagnosis_service::{AiStatus, SharedDb};
+use crate::service::guard_texts;
 use crate::domain::figures;
 use crate::domain::stage::{self, Stage};
 use crate::documents::canonical::assemble::{assemble, Reading};

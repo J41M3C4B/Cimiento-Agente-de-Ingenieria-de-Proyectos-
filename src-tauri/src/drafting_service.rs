@@ -6,7 +6,8 @@
 
 use crate::ai::{prompts, AiProvider, AiTask};
 use crate::conversation_service::{call_context, figure_sources};
-use crate::diagnosis_service::{ask_ai, guard_texts, lock, profile_context, AiStatus, SharedDb};
+use crate::diagnosis_service::{ask_ai, lock, profile_context, AiStatus, SharedDb};
+use crate::service::guard_texts;
 use crate::documents::canonical::requirements::call_requirements;
 use crate::domain::budget::{self, format_mxn, Funder, Item, LineTotal, Totals};
 use crate::domain::requirements::CallRequirements;

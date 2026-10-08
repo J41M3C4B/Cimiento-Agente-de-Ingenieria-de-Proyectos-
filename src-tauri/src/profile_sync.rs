@@ -2,38 +2,10 @@
 //! modules. This writes them into the current profile after every change, and gives the sums with them. No name,
 //! phone, mail or identifier ever comes in here.
 
-use crate::care::domain::catalog::Flavor as CareFlavor;
 use crate::domain::profile::{ContractKind, DependencyLevel, PopulationGroupInput, ProfileInput, ProfileTotals, StaffGroupInput};
-use crate::hr::domain::catalog::Flavor;
 use crate::service::{ProfileView, ServiceError};
 use crate::storage::profile as profile_store;
 use rusqlite::Connection;
-
-fn institution_kind(conn: &Connection) -> Option<String> {
-    conn.query_row("SELECT kind FROM institution LIMIT 1", [], |r| r.get(0)).ok()
-}
-
-/// The kind of institution, as the staff module understands it (to suggest positions).
-pub fn flavor_of(kind: Option<&str>) -> Flavor {
-    match kind {
-        Some("elderly_home") => Flavor::ElderlyHome,
-        Some("children_home") => Flavor::ChildrenHome,
-        _ => Flavor::Other,
-    }
-}
-
-/// The kind of institution, as the module of the people served understands it (extra data and age bands).
-pub fn care_flavor_of(kind: Option<&str>) -> CareFlavor {
-    match kind {
-        Some("elderly_home") => CareFlavor::ElderlyHome,
-        Some("children_home") => CareFlavor::ChildrenHome,
-        _ => CareFlavor::Other,
-    }
-}
-
-pub fn care_flavor(conn: &Connection) -> CareFlavor {
-    care_flavor_of(institution_kind(conn).as_deref())
-}
 
 /// The anonymous lines of both modules, as the profile keeps them.
 pub fn derive(conn: &Connection) -> Result<(Vec<StaffGroupInput>, Vec<PopulationGroupInput>), ServiceError> {
@@ -51,7 +23,7 @@ pub fn derive(conn: &Connection) -> Result<(Vec<StaffGroupInput>, Vec<Population
             relation: Some(l.relation.as_str().into()),
         })
         .collect();
-    let population = crate::care::api::population_lines(conn, care_flavor(conn))?
+    let population = crate::care::api::population_lines(conn, crate::core::institution::care_flavor(conn))?
         .into_iter()
         .map(|l| PopulationGroupInput {
             label: l.label,
@@ -98,18 +70,11 @@ pub fn seed_examples(conn: &mut Connection, raw: &str) -> Result<(), ServiceErro
         beneficiary: Vec<BTreeMap<String, String>>,
     }
     let example: Example = serde_json::from_str(raw).map_err(|e| ServiceError::Internal(e.to_string()))?;
-    let kind = institution_kind(conn);
+    let flavor = crate::core::institution::hr_flavor(conn);
     let year = profile_store::current_year(conn)?;
     let tx = conn.transaction()?;
-    tx.execute("DELETE FROM hr_person", [])?;
-    tx.execute("DELETE FROM care_person", [])?;
-    crate::hr::legacy::import(&tx, flavor_of(kind.as_deref()), &example.staff, &[])?;
-    let rows: Vec<crate::care::legacy::LegacyRow> = example
-        .beneficiary
-        .into_iter()
-        .map(|data| crate::care::legacy::LegacyRow { id: crate::care::storage::new_id("ben"), data, hidden: false })
-        .collect();
-    crate::care::legacy::import(&tx, year, &rows, &[])?;
+    crate::hr::api::load_example(&tx, flavor, &example.staff)?;
+    crate::care::api::load_example(&tx, year, example.beneficiary)?;
     tx.commit()?;
     Ok(())
 }

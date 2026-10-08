@@ -5,10 +5,11 @@
 use crate::care::domain::person::{BeneficiaryData, Issue};
 use crate::care::domain::waitlist::WaitlistInput;
 use crate::care::service::{self as care, Overview, PersonView, SaveOutcome};
-use crate::care::storage::{CustomField, Group, WaitlistRow};
+use crate::care::service::{CustomField, Group, WaitlistRow};
 use crate::domain::insights::{self, Board, Context};
 use crate::domain::profile::ProfileTotals;
-use crate::profile_sync::{care_flavor, sync_profile, totals};
+use crate::core::institution::care_flavor;
+use crate::profile_sync::{sync_profile, totals};
 use crate::service::{ProfileView, ServiceError};
 use crate::storage::profile as profile_store;
 use rusqlite::Connection;

@@ -90,15 +90,6 @@ const PLACES: &[(&str, Layer)] = &[
 
 /// What breaks the rule today: (the file, as a module path; what it uses). Each block of ADR-032 empties its part.
 const DEBT: &[(&str, &str)] = &[
-    // B1: the scanner helpers go to the base, the kind of institution is said by the core, the examples and the
-    // types of the screens come through the `api` and `service` of each module
-    ("facilities_service", "diagnosis_service"),
-    ("storage::migrations", "profile_sync"),
-    ("profile_sync", "care::legacy"),
-    ("profile_sync", "care::storage"),
-    ("profile_sync", "hr::legacy"),
-    ("care_service", "care::storage"),
-    ("staff_service", "hr::storage"),
     // B4: the core stops reaching into the projects; what crosses both (approved deletions, the scan of the whole
     // base) is put together by the commands
     ("access_service", "diagnosis_service"),

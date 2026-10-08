@@ -31,7 +31,7 @@ pub struct PeopleSheet {
 }
 
 pub fn people_sheet(conn: &Connection) -> Result<PeopleSheet, ServiceError> {
-    let summary = crate::care::api::ai_summary(conn, crate::profile_sync::care_flavor(conn))?;
+    let summary = crate::care::api::ai_summary(conn, crate::core::institution::care_flavor(conn))?;
     let findings = crate::care_service::board(conn)?.insights.into_iter().filter(|i| i.for_ai).collect();
     Ok(PeopleSheet { summary, findings })
 }

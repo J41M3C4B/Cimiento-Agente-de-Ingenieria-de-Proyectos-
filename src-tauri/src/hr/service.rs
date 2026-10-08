@@ -5,7 +5,9 @@ use super::domain::catalog::{self, Rules};
 use crate::common::ids;
 use super::domain::person::{Issue, PersonData, Progress, Secrets};
 use super::domain::position::{Position, PositionInput};
-use super::storage::{self as store, CustomField, CustomModality, StoredPerson};
+use super::storage::{self as store, CustomModality, StoredPerson};
+// what the screens show, as it is kept
+pub use super::storage::CustomField;
 use super::HrError;
 use crate::audit::{self, AuditKind};
 use rusqlite::Connection;

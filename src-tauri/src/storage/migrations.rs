@@ -149,7 +149,7 @@ fn move_roster_staff(tx: &Transaction) -> rusqlite::Result<()> {
         })?
         .collect::<Result<Vec<_>, _>>()?;
     let kind: Option<String> = tx.query_row("SELECT kind FROM institution LIMIT 1", [], |r| r.get(0)).optional()?;
-    let flavor = crate::profile_sync::flavor_of(kind.as_deref());
+    let flavor = crate::hr::Flavor::from_kind(kind.as_deref());
     let moved = crate::hr::legacy::import(tx, flavor, &rows, &own).map_err(hr_failure)?;
     tx.execute("DELETE FROM roster_entry WHERE entity = 'staff'", [])?;
     tx.execute("DELETE FROM roster_field WHERE entity = 'staff'", [])?;

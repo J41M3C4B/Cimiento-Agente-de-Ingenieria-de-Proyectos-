@@ -12,6 +12,8 @@ pub mod legacy;
 pub mod service;
 pub mod storage;
 
+pub use domain::catalog::Flavor;
+
 use thiserror::Error;
 
 #[derive(Debug, Error)]

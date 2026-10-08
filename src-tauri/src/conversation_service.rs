@@ -6,7 +6,8 @@
 //! made up in its place.
 
 use crate::ai::{AiProvider, AiTask};
-use crate::diagnosis_service::{ask_ai, guard_texts, lock, profile_context, AiStatus, SharedDb};
+use crate::diagnosis_service::{ask_ai, lock, profile_context, AiStatus, SharedDb};
+use crate::service::guard_texts;
 use crate::documents::canonical::summary::summarize;
 use crate::domain::conversation::{self as conv, Cause, Kind, Outcome, Phase, Reply, Role, Step, Tactic, MAX_WHYS};
 use crate::domain::{figures, stage::Stage};

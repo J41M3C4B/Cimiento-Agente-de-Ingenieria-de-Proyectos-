@@ -3,21 +3,19 @@
 
 use crate::ai::pipeline::{self, AiCall, SqliteLedger};
 use crate::ai::{prompts, AiError, AiProvider, AiTask};
-use crate::audit::{self, AuditKind};
 use crate::conversation_service::{call_context, conversation_view, figure_sources, person_words, transcript, ConversationView};
 use crate::domain::conversation::Phase;
 use crate::domain::figures;
 use crate::domain::priority::{self, Scores, Weights};
 use crate::domain::stage::{self, Missing, Stage, StageError};
-use crate::scanner::guard::{guard_fields, Decision, GuardOutcome, QuarantineReport};
-use crate::service::ServiceError;
+use crate::scanner::guard::{Decision, QuarantineReport};
+use crate::service::{guard_texts, ServiceError};
 use crate::storage::profile as profile_store;
 use crate::storage::projects::{self as store, NeedRow, ProjectRow};
 use crate::scanner::RegexScanner;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 pub type SharedDb = Arc<Mutex<Connection>>;
@@ -57,36 +55,6 @@ pub(crate) fn lock(db: &SharedDb) -> Result<std::sync::MutexGuard<'_, Connection
     db.lock().map_err(|_| ServiceError::Internal("database lock poisoned".into()))
 }
 
-fn scanner_for(conn: &Connection) -> Result<RegexScanner, ServiceError> {
-    Ok(RegexScanner::new(profile_store::scanner_config(conn)?))
-}
-
-fn counts_json(counts: &BTreeMap<&'static str, usize>, decision: &str) -> Value {
-    json!({ "findings": counts, "decision": decision })
-}
-
-/// Scans free texts. `Ok(Err(report))` means "quarantine: show it, save nothing".
-/// `Ok(Ok(texts))` are the texts to save (covered if the person chose so).
-pub(crate) fn guard_texts(
-    conn: &Connection,
-    entity: &str,
-    fields: &[(String, String)],
-    decision: Option<Decision>,
-) -> Result<Result<Vec<String>, QuarantineReport>, ServiceError> {
-    let scanner = scanner_for(conn)?;
-    match guard_fields(&scanner, fields, decision)? {
-        GuardOutcome::Clean => Ok(Ok(fields.iter().map(|(_, t)| t.clone()).collect())),
-        GuardOutcome::Quarantine(r) => Ok(Err(r)),
-        GuardOutcome::Redacted { texts, counts } => {
-            audit::record(conn, AuditKind::ScannerQuarantine, Some(entity), None, counts_json(&counts, "redacted"))?;
-            Ok(Ok(texts))
-        }
-        GuardOutcome::Overridden { counts } => {
-            audit::record(conn, AuditKind::ScannerOverride, Some(entity), None, counts_json(&counts, "not_personal"))?;
-            Ok(Ok(fields.iter().map(|(_, t)| t.clone()).collect()))
-        }
-    }
-}
 
 // ------------------------------------------------------------------ context for the AI
 

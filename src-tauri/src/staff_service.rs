@@ -7,10 +7,10 @@ use crate::domain::profile::ProfileTotals;
 use crate::hr::domain::person::{Issue, PersonData};
 use crate::hr::domain::position::PositionInput;
 use crate::hr::service::{self as hr, ModalityInfo, Overview, PersonView, SaveOutcome};
-use crate::hr::storage::CustomField;
-use crate::profile_sync::{flavor_of, sync_profile, totals};
-use crate::scanner::guard::{guard_fields, Decision, GuardOutcome, QuarantineReport};
-use crate::service::{counts_json, scanner_for, ProfileView, ServiceError};
+use crate::hr::service::CustomField;
+use crate::profile_sync::{sync_profile, totals};
+use crate::scanner::guard::{counts_json, guard_fields, Decision, GuardOutcome, QuarantineReport};
+use crate::service::{scanner_for, ProfileView, ServiceError};
 use rusqlite::Connection;
 use serde::Serialize;
 
@@ -46,8 +46,7 @@ pub enum PositionOutcome {
 
 /// The first time, the catalog of positions starts from the kind of institution.
 fn prepare(conn: &Connection) -> Result<(), ServiceError> {
-    let kind: Option<String> = conn.query_row("SELECT kind FROM institution LIMIT 1", [], |r| r.get(0)).ok();
-    Ok(crate::hr::api::prepare(conn, flavor_of(kind.as_deref()))?)
+    Ok(crate::hr::api::prepare(conn, crate::core::institution::hr_flavor(conn))?)
 }
 
 pub fn overview(conn: &Connection) -> Result<StaffOverview, ServiceError> {

@@ -9,6 +9,17 @@ pub enum Flavor {
     Other,
 }
 
+impl Flavor {
+    /// The flavor of the kind of institution the core says (`core::institution::kind`).
+    pub fn from_kind(kind: Option<&str>) -> Self {
+        match kind {
+            Some("elderly_home") => Flavor::ElderlyHome,
+            Some("children_home") => Flavor::ChildrenHome,
+            _ => Flavor::Other,
+        }
+    }
+}
+
 pub const SPACE_KINDS: &[&str] = &[
     "bedroom", "bathroom", "kitchen", "dining", "laundry", "infirmary", "therapy", "living", "classroom", "play", "chapel", "office", "storage",
     "yard", "roof", "parking", "other",

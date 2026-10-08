@@ -9,6 +9,17 @@ pub enum Flavor {
     Other,
 }
 
+impl Flavor {
+    /// The flavor of the kind of institution the core says (`core::institution::kind`).
+    pub fn from_kind(kind: Option<&str>) -> Self {
+        match kind {
+            Some("elderly_home") => Flavor::ElderlyHome,
+            Some("children_home") => Flavor::ChildrenHome,
+            _ => Flavor::Other,
+        }
+    }
+}
+
 pub const SEXES: &[&str] = &["female", "male", "unsaid"];
 pub const STAY_MODES: &[&str] = &["permanent", "temporary", "day_care", "respite"];
 pub const REFERRED_BY: &[&str] = &["family", "self", "dif", "prosecutor", "hospital", "other_institution", "other"];
