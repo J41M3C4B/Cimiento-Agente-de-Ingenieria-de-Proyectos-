@@ -294,7 +294,7 @@ function ScaleRow({ label, amount, top, tone, gap }: { label: string; amount: nu
 }
 
 /** Income minus expenses in a year, as Rust computed it: the figure and, beside it, the two sides drawn to scale so the gap can be seen. */
-export function BalanceCard({ money: m }: { money: FinanceView }) {
+export function BalanceCard({ money: m, flat }: { money: FinanceView; /** without its own tray: it is the body of the tray around it */ flat?: boolean }) {
   const fin = m.finances;
   const state = balanceState(fin);
   const b = fin.balance_annual_mxn;
@@ -308,8 +308,9 @@ export function BalanceCard({ money: m }: { money: FinanceView }) {
     unknown: { income: f.balance.missingIncome, expenses: f.balance.missingExpenses, both: f.balance.missingBoth }[balanceMissing(fin)],
   }[state];
   const gap = b === null ? 0 : Math.abs(b);
+  const Wrap = flat ? "div" : Card;
   return (
-    <Card className="grid gap-6 min-[1000px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] min-[1000px]:items-center">
+    <Wrap className="grid gap-6 min-[1000px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] min-[1000px]:items-center">
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-heading font-bold">{f.balance.title}</h2>
@@ -334,6 +335,6 @@ export function BalanceCard({ money: m }: { money: FinanceView }) {
           <p className="text-ui text-ink-2">{f.balance.waiting}</p>
         </Inset>
       )}
-    </Card>
+    </Wrap>
   );
 }

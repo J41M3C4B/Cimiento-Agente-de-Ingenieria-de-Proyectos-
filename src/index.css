@@ -248,6 +248,10 @@ h1, h2, h3 {
   .icon-btn--sm { width: var(--spacing-ctl-sm); height: var(--spacing-ctl-sm); }
   .icon-btn[aria-current="page"], .icon-btn[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
   .icon-btn--danger { background: var(--color-red); color: var(--color-onc); border-color: var(--color-red); border-radius: var(--radius-field); }
+  .icon-btn--tone { background: color-mix(in srgb, var(--c) 22%, var(--card)); border-color: transparent; }
+  .icon-btn--tone.tone-ink { background: var(--inset); }
+  .icon-btn--tone:hover { background: color-mix(in srgb, var(--c) 40%, var(--card)); box-shadow: none; }
+  .icon-btn.icon-btn--tone[aria-current="page"] { background: var(--c); color: var(--tt); border-color: transparent; }
   .icon-btn--plain { background: transparent; border-color: transparent; }
 
   /* Field: campo de texto, selector y área de texto, todos con la misma medida */
@@ -604,6 +608,13 @@ h1, h2, h3 {
   .capsule { flex: 1 1 240px; max-width: 640px; min-width: 0; display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 8px 0 22px; border-radius: var(--radius-pill); background: var(--card); box-shadow: var(--shadow-card-v); }
   .rail { position: sticky; top: 84px; z-index: 40; align-self: start; height: calc(100vh - 112px); display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; padding-top: 4px; }
   @media (max-height: 640px) { .rail { position: static; height: auto; } }
+  /* the core and the modules are two groups: the core as plain buttons, the modules together in one capsule, each in its own color */
+  /* the line of a module in «Mi institución»: a tile in the module's color, its figure and the way in */
+  .module-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; width: 100%; min-height: 168px; padding: 16px 18px 18px; border-radius: var(--radius-inset); text-align: left; cursor: pointer; background: color-mix(in srgb, var(--c) 13%, var(--card)); transition: transform 0.16s, background-color 0.16s; }
+  .module-tile:hover { transform: translateY(-2px); background: color-mix(in srgb, var(--c) 22%, var(--card)); }
+  .module-tile-go { display: inline-flex; align-items: center; gap: 6px; margin-top: auto; font-size: var(--text-small); font-weight: 800; }
+  .rail-core { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .rail-group { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px; border-radius: 30px; background: var(--card); box-shadow: var(--shadow-card-v); }
   .rail-sep { width: 24px; height: 1px; margin: 6px 0; background: var(--line); }
   .rail-gap { flex: 1; min-height: 24px; }
   .rail .icon-btn[data-tip]::after {
@@ -617,6 +628,8 @@ h1, h2, h3 {
     .topbar { position: static; margin: 0; padding: 0; background: none; }
     .rail { position: static; height: auto; flex-direction: row; order: 1; max-width: 100%; padding: 4px 2px 8px; overflow-x: auto; }
     .rail-gap, .rail-sep { display: none; }
+    .rail-core, .rail-group { flex-direction: row; }
+    .rail-group { flex: none; padding: 5px 6px; }
     .rail .icon-btn[data-tip]::after { display: none; }
     .frame-main { order: 2; }
   }

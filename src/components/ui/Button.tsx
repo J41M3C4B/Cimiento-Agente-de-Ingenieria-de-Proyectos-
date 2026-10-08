@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes } from "react";
 import { Icon } from "../icons";
 import type { IconName } from "../icons";
+import type { Tone } from "./Tag";
 
 type Variant = "primary" | "secondary" | "soft" | "danger" | "destructive" | "ghost" | "plain";
 
@@ -21,6 +22,7 @@ export function IconButton({
   size = "md",
   variant = "default",
   tip,
+  tone,
   className = "",
   ...props
 }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
@@ -30,10 +32,13 @@ export function IconButton({
   variant?: "default" | "plain" | "danger";
   /** a label that opens to the side on hover (used by the left rail) */
   tip?: string;
+  /** the color of a module: tinted at rest, solid when it is the page the person is on */
+  tone?: Tone;
 }) {
   const v = variant === "default" ? "" : `icon-btn--${variant}`;
+  const t = tone ? `tone-${tone} icon-btn--tone` : "";
   return (
-    <button type="button" aria-label={label} title={tip ? undefined : label} data-tip={tip} {...props} className={`icon-btn ${size === "sm" ? "icon-btn--sm" : ""} ${v} ${className}`}>
+    <button type="button" aria-label={label} title={tip ? undefined : label} data-tip={tip} {...props} className={`icon-btn ${size === "sm" ? "icon-btn--sm" : ""} ${v} ${t} ${className}`}>
       <Icon name={icon} size={size === "sm" ? 16 : 18} />
     </button>
   );

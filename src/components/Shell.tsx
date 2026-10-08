@@ -7,6 +7,8 @@ import { PersonMenu } from "../core/access/PersonMenu";
 import type { SessionApi } from "../core/access/session";
 import { PROJECT_STEPS, stepIndex } from "../modules/projects/steps";
 import type { IconName } from "./icons";
+import { MODULE_META } from "./modules";
+import type { ModuleId } from "./modules";
 import { Avatar, IconButton, Logo, StepDots } from "./ui";
 
 /** The sections of the rail: the core (Inicio, Mi institución, Documentos), the modules (ADR-032) and the settings. */
@@ -17,13 +19,13 @@ const CORE: [Page, string, IconName][] = [
   ["profile", es.nav.profile, "idcard"],
   ["documents", es.nav.documents, "file"],
 ];
-/** One button per module of the institution (ADR-032). */
-const MODULES: [Page, string, IconName][] = [
-  ["projects", es.nav.projects, "folder"],
-  ["staff", es.nav.staff, "briefcase"],
-  ["people", es.nav.people, "heart"],
-  ["facilities", es.nav.facilities, "building"],
-  ["finance", es.nav.finance, "wallet"],
+/** One button per module of the institution (ADR-032), each in its own color (components/modules.ts). */
+const MODULES: [ModuleId, string][] = [
+  ["projects", es.nav.projects],
+  ["staff", es.nav.staff],
+  ["people", es.nav.people],
+  ["facilities", es.nav.facilities],
+  ["finance", es.nav.finance],
 ];
 /** The sections below the line; some only for whoever may use them (ADR-028). */
 const MORE: [Page, string, IconName, "settings" | "administer" | null][] = [
@@ -58,6 +60,9 @@ export function Shell({
   const [theme, toggleTheme] = useTheme();
   const rail = ([id, label, icon]: [Page, string, IconName]) => (
     <IconButton key={id} icon={icon} label={label} tip={label} aria-current={page === id ? "page" : undefined} onClick={() => onNavigate(id)} />
+  );
+  const moduleButton = ([id, label]: [ModuleId, string]) => (
+    <IconButton key={id} icon={MODULE_META[id].icon} label={label} tip={label} tone={MODULE_META[id].tone} aria-current={page === id ? "page" : undefined} onClick={() => onNavigate(id)} />
   );
   const done = focus?.stage === "READY";
   const at = focus ? stepIndex(focus.stage) : -1;
@@ -97,9 +102,12 @@ export function Shell({
           </div>
         </header>
         <nav aria-label={es.nav.mainSections} className="rail">
-          {CORE.map(rail)}
-          <span className="rail-sep" aria-hidden="true" />
-          {MODULES.map(rail)}
+          <div role="group" aria-label={es.nav.coreGroup} className="rail-core">
+            {CORE.map(rail)}
+          </div>
+          <div role="group" aria-label={es.nav.modulesGroup} className="rail-group">
+            {MODULES.map(moduleButton)}
+          </div>
           <span className="rail-sep" aria-hidden="true" />
           {MORE.filter(([, , , needs]) => !needs || access?.can(needs)).map(([id, label, icon]) => rail([id, label, icon]))}
           <span className="rail-gap" aria-hidden="true" />

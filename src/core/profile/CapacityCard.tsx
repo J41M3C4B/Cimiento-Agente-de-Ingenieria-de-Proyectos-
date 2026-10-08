@@ -1,5 +1,4 @@
-import { Icon } from "../../components/icons";
-import { Bar, Button, Card, Inset, Tile } from "../../components/ui";
+import { Bar, Button, Card, Inset, TextButton, Tile } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { ProfileView } from "../../lib/types";
 
@@ -23,10 +22,7 @@ export function CapacityCard({ view, onEdit }: { view: ProfileView; onEdit: () =
     <Card className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-heading font-bold">{c.title}</h2>
-        <Button size="sm" variant="secondary" onClick={onEdit}>
-          <Icon name="pencil" size={16} />
-          {t.edit}
-        </Button>
+        <TextButton onClick={onEdit}>{t.edit}</TextButton>
       </div>
 
       {!known ? (

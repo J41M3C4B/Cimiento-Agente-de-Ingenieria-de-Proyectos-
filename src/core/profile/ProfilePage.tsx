@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Icon } from "../../components/icons";
 import { Alert, Button, Card, Eyebrow, FactRow, Facts, Inset, Metric, Tag, TextButton, Tile, Toast } from "../../components/ui";
 import type { Page } from "../../components/Shell";
-import type { IconName } from "../../components/icons";
+import { MODULE_META } from "../../components/modules";
+import type { ModuleId } from "../../components/modules";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileConfirm, profileGet, profileSave, toAppError } from "../../lib/tauri";
@@ -143,16 +144,15 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
 
   // a line for each module: what it has, and the way into it
   const balance = money?.finances.balance_annual_mxn ?? null;
-  const modules: { page: Page; icon: IconName; tone: "teal" | "violet" | "sky" | "green"; title: string; text: string }[] = [
-    { page: "staff", icon: "briefcase", tone: "teal", title: es.nav.staff, text: t.modules.staff(staffCount) },
-    { page: "people", icon: "heart", tone: "violet", title: es.nav.people, text: t.modules.people(peopleCount) },
-    { page: "facilities", icon: "building", tone: "sky", title: es.nav.facilities, text: t.modules.facilities(spacesCount) },
+  const modules: { page: Exclude<ModuleId, "projects">; title: string; figure: string; label: string }[] = [
+    { page: "staff", title: es.nav.staff, figure: count(staffCount), label: t.modules.unit.staff(staffCount) },
+    { page: "people", title: es.nav.people, figure: count(peopleCount), label: t.modules.unit.people(peopleCount) },
+    { page: "facilities", title: es.nav.facilities, figure: count(spacesCount), label: t.modules.unit.facilities(spacesCount) },
     {
       page: "finance",
-      icon: "wallet",
-      tone: "green",
       title: es.nav.finance,
-      text: balance === null ? t.modules.financeUnknown : t.modules.financeKnown(`${balance < 0 ? "−" : ""}${peso(Math.abs(balance))}`),
+      figure: balance === null ? "—" : `${balance < 0 ? "−" : ""}${peso(Math.abs(balance))}`,
+      label: balance === null ? t.modules.financeUnknown : t.modules.unit.finance,
     },
   ];
 
@@ -299,21 +299,27 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
             <CapacityCard view={view} onEdit={() => open({ kind: "capacity" })} />
           </div>
           <Card className="flex flex-col gap-4">
-            <h2 className="text-heading font-bold">{t.modules.title}</h2>
-            <ul className="grid gap-3 min-[1000px]:grid-cols-2">
+            <div>
+              <h2 className="text-heading font-bold">{t.modules.title}</h2>
+              <p className="mt-1 text-small text-ink-3">{t.modules.help}</p>
+            </div>
+            <ul className="grid gap-3 sm:grid-cols-2 min-[1200px]:grid-cols-4">
               {modules.map((m) => (
                 <li key={m.page}>
-                  <Inset className="flex items-center gap-3">
-                    <Tile icon={m.icon} tone={m.tone} />
-                    <div className="min-w-0 flex-1">
-                      <b className="block text-ui font-bold">{m.title}</b>
-                      <span className="block text-small text-ink-2">{m.text}</span>
-                    </div>
-                    <Button size="sm" variant="secondary" onClick={() => onGo(m.page)}>
+                  <button type="button" onClick={() => onGo(m.page)} className={`module-tile tone-${MODULE_META[m.page].tone}`}>
+                    <span className="flex w-full items-center gap-3">
+                      <Tile icon={MODULE_META[m.page].icon} tone={MODULE_META[m.page].tone} />
+                      <b className="text-ui font-bold">{m.title}</b>
+                    </span>
+                    <span className="block">
+                      <span className="tabular block text-title font-normal leading-none tracking-tight">{m.figure}</span>
+                      <span className="mt-1.5 block text-small text-ink-2">{m.label}</span>
+                    </span>
+                    <span className="module-tile-go">
                       {t.modules.open}
-                      <Icon name="next" size={14} />
-                    </Button>
-                  </Inset>
+                      <Icon name="next" size={14} strokeWidth={2.6} />
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>

@@ -1,4 +1,3 @@
-import { Card } from "../../components/ui";
 import { ModulePage, useNotice } from "../../components/ModulePage";
 import { es } from "../../i18n/es-MX";
 import { FacilitiesTab } from "./FacilitiesTab";
@@ -7,10 +6,8 @@ import { FacilitiesTab } from "./FacilitiesTab";
 export function FacilitiesPage() {
   const [notice, notify] = useNotice();
   return (
-    <ModulePage title={es.modules.facilities.title} intro={es.modules.facilities.intro} notice={notice}>
-      <Card>
-        <FacilitiesTab onNotice={notify} />
-      </Card>
+    <ModulePage module="facilities" title={es.modules.facilities.title} intro={es.modules.facilities.intro} notice={notice}>
+      <FacilitiesTab onNotice={notify} />
     </ModulePage>
   );
 }

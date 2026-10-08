@@ -1,5 +1,4 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Card } from "../../components/ui";
 import { ModulePage, useNotice } from "../../components/ModulePage";
 import { es } from "../../i18n/es-MX";
 import type { ProfileView } from "../../lib/types";
@@ -16,10 +15,8 @@ export function StaffPage() {
     void qc.invalidateQueries({ queryKey: FINANCE_KEY });
   };
   return (
-    <ModulePage title={es.modules.staff.title} intro={es.modules.staff.intro} notice={notice}>
-      <Card>
-        <StaffTab onProfile={onProfile} onNotice={notify} />
-      </Card>
+    <ModulePage module="staff" title={es.modules.staff.title} intro={es.modules.staff.intro} notice={notice}>
+      <StaffTab onProfile={onProfile} onNotice={notify} />
     </ModulePage>
   );
 }

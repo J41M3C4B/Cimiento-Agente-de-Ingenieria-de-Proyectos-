@@ -74,15 +74,13 @@ export function FinancePage() {
   };
 
   return (
-    <ModulePage title={es.modules.finance.title} intro={es.modules.finance.intro} notice={notice}>
-      {headsUp.map((i, n) => (
-        <Alert key={n} tone="warn">
-          {es.issues[i.code]}
-        </Alert>
-      ))}
-      {money && (
-        <>
-          <BalanceCard money={money} />
+    <ModulePage
+      module="finance"
+      title={es.modules.finance.title}
+      intro={es.modules.finance.intro}
+      notice={notice}
+      after={
+        money && (
           <div className="grid items-start gap-4 min-[1000px]:grid-cols-2">
             <IncomeCard money={money} busy={busy} onAdd={() => open({ kind: "income", index: null })} onEdit={(index) => open({ kind: "income", index })} onRemove={(index) => removeItem("income", index)} />
             <ExpensesCard
@@ -95,8 +93,15 @@ export function FinancePage() {
               onEditEstimate={() => open({ kind: "estimate" })}
             />
           </div>
-        </>
-      )}
+        )
+      }
+    >
+      {headsUp.map((i, n) => (
+        <Alert key={n} tone="warn">
+          {es.issues[i.code]}
+        </Alert>
+      ))}
+      {money && <BalanceCard money={money} flat />}
 
       {edit && (
         <FinanceEdit

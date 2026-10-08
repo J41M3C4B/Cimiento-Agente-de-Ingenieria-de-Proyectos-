@@ -30,6 +30,8 @@ export const es = {
     themeLight: "Cambiar a modo claro",
     openProject: "Abrir el proyecto",
     mainSections: "Secciones",
+    coreGroup: "La institución",
+    modulesGroup: "Módulos",
   },
   /** Los módulos de la institución (ADR-032): cada uno se abre desde el riel. */
   modules: {
@@ -187,7 +189,14 @@ export const es = {
     /** Lo que lleva cada módulo, en una línea; el botón lleva al módulo (ADR-032). */
     modules: {
       title: "Lo que lleva la institución",
+      help: "Cada parte se abre en su propia página.",
       open: "Abrir",
+      unit: {
+        staff: (n: number) => (n === 1 ? "persona en el personal" : "personas en el personal"),
+        people: (n: number) => (n === 1 ? "persona atendida" : "personas atendidas"),
+        facilities: (n: number) => (n === 1 ? "espacio registrado" : "espacios registrados"),
+        finance: "balance del año",
+      },
       staff: (n: number) => (n === 0 ? "Todavía no hay personas registradas" : n === 1 ? "1 persona en el personal" : `${n} personas en el personal`),
       people: (n: number) => (n === 0 ? "Todavía no hay personas registradas" : n === 1 ? "1 persona atendida" : `${n} personas atendidas`),
       facilities: (n: number) => (n === 0 ? "Todavía no hay espacios registrados" : n === 1 ? "1 espacio registrado" : `${n} espacios registrados`),
