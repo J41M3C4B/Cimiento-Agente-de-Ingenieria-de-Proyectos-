@@ -488,9 +488,11 @@ h1, h2, h3 {
   /* Ventana, riel y cápsula (docs/13 §6): todo va directamente sobre el fondo de la ventana, sin una hoja o marco intermedio */
   .shell { display: flex; justify-content: center; min-height: 100vh; }
   .frame { align-content: start; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px 20px; width: 100%; max-width: 1440px; padding: 16px; }
-  .topbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  /* La cabecera y el riel no se mueven: solo se desplaza el contenido. El riel queda por encima para que sus etiquetas nunca queden debajo de una página. */
+  .topbar { grid-column: 1 / -1; position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: -16px -16px -12px; padding: 16px 16px 12px; background: var(--canvas); }
   .capsule { flex: 1 1 240px; max-width: 640px; min-width: 0; display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 8px 0 22px; border-radius: var(--radius-pill); background: var(--card); box-shadow: var(--shadow-card-v); }
-  .rail { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; padding-top: 4px; }
+  .rail { position: sticky; top: 84px; z-index: 40; align-self: start; height: calc(100vh - 112px); display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; padding-top: 4px; }
+  @media (max-height: 640px) { .rail { position: static; height: auto; } }
   .rail-sep { width: 24px; height: 1px; margin: 6px 0; background: var(--line); }
   .rail-gap { flex: 1; min-height: 24px; }
   .rail .icon-btn[data-tip]::after {
@@ -501,7 +503,8 @@ h1, h2, h3 {
   .rail .icon-btn[data-tip]:hover::after, .rail .icon-btn[data-tip]:focus-visible::after { opacity: 1; transform: translateY(-50%); }
   @media (max-width: 860px) {
     .frame { grid-template-columns: minmax(0, 1fr); padding: 12px; }
-    .rail { flex-direction: row; order: 1; max-width: 100%; padding: 4px 2px 8px; overflow-x: auto; }
+    .topbar { position: static; margin: 0; padding: 0; background: none; }
+    .rail { position: static; height: auto; flex-direction: row; order: 1; max-width: 100%; padding: 4px 2px 8px; overflow-x: auto; }
     .rail-gap, .rail-sep { display: none; }
     .rail .icon-btn[data-tip]::after { display: none; }
     .frame-main { order: 2; }

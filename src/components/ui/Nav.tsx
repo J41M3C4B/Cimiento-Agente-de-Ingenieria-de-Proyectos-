@@ -84,7 +84,7 @@ export function StepNav({
   onSelect,
   label,
 }: {
-  steps: { key: string; label: string; filled?: number; total?: number; na?: boolean; caption?: string; naLabel?: string }[];
+  steps: { key: string; label: string; filled?: number; total?: number; na?: boolean; caption?: string; naLabel?: string; /** how many things this step asks to review */ warn?: number; warnLabel?: string }[];
   current: number;
   onSelect: (index: number) => void;
   label: string;
@@ -109,6 +109,12 @@ export function StepNav({
                   {done ? <Icon name="check" size={12} strokeWidth={3} /> : s.na ? "–" : i + 1}
                 </span>
                 <span className="truncate">{s.label}</span>
+                {s.warn ? (
+                  <span className="shrink-0 text-amber-ink" title={s.warnLabel}>
+                    <Icon name="warn" size={14} strokeWidth={2.4} />
+                    <span className="sr-only">{s.warnLabel}</span>
+                  </span>
+                ) : null}
               </span>
               <span className="truncate text-caption text-ink-3 max-sm:sr-only">{s.na ? s.naLabel : known ? s.caption : "\u00a0"}</span>
             </button>

@@ -40,6 +40,11 @@ export const es = {
     optional: "Opcional",
     loading: "Un momento, por favor…",
     close: "Cerrar",
+    review: {
+      title: (n: number) => (n === 1 ? "Hay 1 cosa por revisar" : `Hay ${n} cosas por revisar`),
+      mustFix: (n: number) => (n === 1 ? "Falta corregir 1 cosa para guardar" : `Faltan por corregir ${n} cosas para guardar`),
+      go: "Ver",
+    },
   },
   errors: {
     generic:
@@ -841,6 +846,7 @@ export const es = {
       empty: "Todavía no hay espacios. Empiece por los que más usan: dormitorios, baños y cocina.",
       columns: { space: "Espacio", count: "Cuántos", state: "Cómo están", problems: "Qué les falla" },
       kind: "¿Qué espacio es?",
+      where: "El espacio",
       label: "Nombre propio",
       labelHint: "Opcional. Por ejemplo: «Baños de mujeres».",
       labelRequired: "¿Cómo le dicen?",

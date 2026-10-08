@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
 import { Alert, Avatar, Bar, Button, Choice, Eyebrow, FormSection, Inset, MaskedField, Modal, Select, StepNav, Switch, TextButton, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { IssueSummary } from "../../components/IssueSummary";
 import { toAppError } from "../../lib/tauri";
 import { hrModalityCreate, hrPersonDelete, hrPersonReveal, hrPersonSave } from "./api";
 import { modalityName } from "./labels";
@@ -152,7 +153,7 @@ export function PersonWizard({
   const [current, setCurrent] = useState<PersonView | null>(view);
   const [d, setD] = useState<PersonData>(view ? { ...view.data } : emptyPerson());
   const [step, setStep] = useState(0);
-  const [issues, setIssues] = useState<HrIssue[]>([]);
+  const [issues, setIssues] = useState<HrIssue[]>(view?.issues ?? []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newPosition, setNewPosition] = useState(false);
@@ -219,10 +220,9 @@ export function PersonWizard({
   const stepItems = STEPS.map((s) => {
     const p = progress?.[s];
     const na = (s === "pay" && !pays) || (p !== undefined && p.total === 0);
-    return { key: s, label: h.steps[s], filled: p?.filled, total: p?.total, na, caption: p ? h.stepCaption(p.filled, p.total) : undefined, naLabel: h.stepNotApplicable };
+    const warn = issues.filter((i) => stepOf(i.field) === s).length;
+    return { key: s, label: h.steps[s], filled: p?.filled, total: p?.total, na, caption: p ? h.stepCaption(p.filled, p.total) : undefined, naLabel: h.stepNotApplicable, warn, warnLabel: warn > 0 ? es.common.review.title(warn) : undefined };
   });
-  const headsUp = issues.filter((i) => !i.blocking);
-  const blocking = issues.filter((i) => i.blocking);
 
   const grid = (children: ReactNode) => <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>;
 
@@ -276,21 +276,12 @@ export function PersonWizard({
           )}
         </div>
         <StepNav label={h.stepsLabel} steps={stepItems} current={step} onSelect={setStep} />
+        <IssueSummary issues={issues} describe={(code) => h.issues[code] ?? code} stepOf={(field) => STEPS.indexOf(stepOf(field))} stepName={(n) => h.steps[STEPS[n]!]} onGo={setStep} />
         <div key={step} className="anim-rise space-y-6">
           <div className="flex items-baseline gap-3 border-b border-line pb-3">
             <Eyebrow>{h.stepOf(step + 1, STEPS.length)}</Eyebrow>
             <span className="text-ui text-ink-2">{h.stepIntro[STEPS[step]!]}</span>
           </div>
-        {blocking.length > 0 && (
-          <Alert tone="error">
-            <ul className="list-disc pl-4">
-              {blocking.map((i, n) => (
-                <li key={n}>{h.issues[i.code] ?? i.code}</li>
-              ))}
-            </ul>
-          </Alert>
-        )}
-
         {STEPS[step] === "personal" && (
           <>
             <FormSection title={h.sections.name} icon="user">
@@ -513,15 +504,6 @@ export function PersonWizard({
 
         </div>
 
-        {headsUp.length > 0 && (
-          <Alert tone="warn">
-            <ul className="list-disc pl-4">
-              {headsUp.map((i, n) => (
-                <li key={n}>{h.issues[i.code] ?? i.code}</li>
-              ))}
-            </ul>
-          </Alert>
-        )}
         {error && <Alert tone="error">{error}</Alert>}
       </Modal>
 

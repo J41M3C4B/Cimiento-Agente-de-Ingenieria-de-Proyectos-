@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
 import { Alert, Avatar, Bar, Button, Choice, Eyebrow, FormSection, Inset, MaskedField, Modal, Select, StepNav, Switch, TextButton, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { IssueSummary } from "../../components/IssueSummary";
 import { toAppError } from "../../lib/tauri";
 import { carePersonDelete, carePersonReveal, carePersonSave } from "./api";
 import type { BeneficiaryData, BeneficiaryView, CareChange, CareField, CareFlavor, CareGroup, CareIssue, ResponsibleContact } from "./types";
@@ -121,11 +122,10 @@ export function BeneficiaryWizard({
   const progress = current?.progress;
   const stepItems = STEPS.map((s) => {
     const p = progress?.[s];
-    return { key: s, label: c.steps[s], filled: p?.filled, total: p?.total, na: p !== undefined && p.total === 0, caption: p ? c.stepCaption(p.filled, p.total) : undefined, naLabel: c.stepNotApplicable };
+    const warn = issues.filter((i) => stepOf(i.field) === s).length;
+    return { key: s, label: c.steps[s], filled: p?.filled, total: p?.total, na: p !== undefined && p.total === 0, caption: p ? c.stepCaption(p.filled, p.total) : undefined, naLabel: c.stepNotApplicable, warn, warnLabel: warn > 0 ? es.common.review.title(warn) : undefined };
   });
   const fullName = [d.first_names, d.last_name_1, d.last_name_2].filter(Boolean).join(" ");
-  const blocking = issues.filter((i) => i.blocking);
-  const headsUp = issues.filter((i) => !i.blocking);
   const curpStored = current?.curp_stored ?? false;
 
   return (
@@ -176,21 +176,12 @@ export function BeneficiaryWizard({
           )}
         </div>
         <StepNav label={c.stepsLabel} steps={stepItems} current={step} onSelect={setStep} />
+        <IssueSummary issues={issues} describe={(code) => c.issues[code] ?? code} stepOf={(field) => STEPS.indexOf(stepOf(field))} stepName={(n) => c.steps[STEPS[n]!]} onGo={setStep} />
         <div key={step} className="anim-rise space-y-6">
         <div className="flex items-baseline gap-3 border-b border-line pb-3">
           <Eyebrow>{c.stepOf(step + 1, STEPS.length)}</Eyebrow>
           <span className="text-ui text-ink-2">{c.stepIntro[STEPS[step]!]}</span>
         </div>
-        {blocking.length > 0 && (
-          <Alert tone="error">
-            <ul className="list-disc pl-4">
-              {blocking.map((i, n) => (
-                <li key={n}>{c.issues[i.code] ?? i.code}</li>
-              ))}
-            </ul>
-          </Alert>
-        )}
-
         {STEPS[step] === "identification" && (
           <>
             <FormSection title={c.sections.name} icon="user">
@@ -422,15 +413,6 @@ export function BeneficiaryWizard({
           </>
         )}
 
-        {headsUp.length > 0 && (
-          <Alert tone="warn">
-            <ul className="list-disc pl-4">
-              {headsUp.map((i, n) => (
-                <li key={n}>{c.issues[i.code] ?? i.code}</li>
-              ))}
-            </ul>
-          </Alert>
-        )}
         {error && <Alert tone="error">{error}</Alert>}
         </div>
       </Modal>

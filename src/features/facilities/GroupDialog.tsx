@@ -134,9 +134,9 @@ export function SpaceDialog({
         </>
       }
     >
-      <FormSection title={f.spaces.kind}>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Select label={f.spaces.kind} hideLabel options={kinds.map((k) => [k, f.spaceKinds[k] ?? k])} value={d.kind} onChange={(e) => set({ kind: e.target.value })} error={issueText(issues, "kind")} />
+      <FormSection title={f.spaces.where} icon="home">
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+          <Select label={f.spaces.kind} options={kinds.map((k) => [k, f.spaceKinds[k] ?? k])} value={d.kind} onChange={(e) => set({ kind: e.target.value })} error={issueText(issues, "kind")} />
           <TextInput
             label={d.kind === "other" ? f.spaces.labelRequired : f.spaces.label}
             hint={d.kind === "other" ? undefined : f.spaces.labelHint}
