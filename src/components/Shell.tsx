@@ -6,9 +6,8 @@ import type { ProjectRow } from "../lib/types";
 import { PersonMenu } from "../features/access/PersonMenu";
 import type { SessionApi } from "../features/access/session";
 import { PROJECT_STEPS, stepIndex } from "../features/projects/steps";
-import { Icon } from "./icons";
 import type { IconName } from "./icons";
-import { Avatar, IconButton, StepDots } from "./ui";
+import { Avatar, IconButton, Logo, StepDots } from "./ui";
 
 export type Page = "home" | "projects" | "profile" | "documents" | "ai" | "security" | "admin" | "help";
 
@@ -60,9 +59,7 @@ export function Shell({
     <div className="shell">
       <div className="frame">
         <header className="topbar">
-          <span className="grid h-ctl w-ctl place-items-center rounded-field bg-ink text-on-ink" title={es.app.name}>
-            <Icon name="logo" size={22} />
-          </span>
+          <Logo className="h-8" />
           <div className="capsule" aria-label={es.nav.openProject}>
             {focus ? (
               <>

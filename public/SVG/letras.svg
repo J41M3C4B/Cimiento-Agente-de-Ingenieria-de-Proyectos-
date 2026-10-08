@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Capa_2" data-name="Capa 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 146.85 51.39">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #000c25;
+      }
+
+      .cls-2 {
+        fill: #0a76fc;
+      }
+
+      .cls-3 {
+        font-family: PlusJakartaSans-ExtraBold, 'Plus Jakarta Sans';
+        font-size: 45.26px;
+        font-weight: 700;
+      }
+    </style>
+  </defs>
+  <g id="Capa_1-2" data-name="Capa 1">
+    <text class="cls-3" transform="translate(0 39.49)"><tspan class="cls-1" x="0" y="0">Soci</tspan><tspan class="cls-2" x="98.16" y="0">AI</tspan></text>
+  </g>
+</svg>

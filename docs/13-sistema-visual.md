@@ -142,7 +142,7 @@ Los tamaños, radios, colores y sombras de Tailwind que no están en estas tabla
 ```
 
 - **Ventana:** el contenido ocupa toda la ventana con 16 px de margen y 1440 px como máximo, **directamente sobre el fondo**: no hay marco, hoja ni sombra entre el fondo y las bandejas.
-- **Barra superior:** a la izquierda el logo y una **cápsula** (píldora blanca) que dice dónde se está: proyecto, paso y su avance en seis puntos del color del proyecto. A la derecha, botones circulares con borde de 1 px: avisos, buscar, menú y la institución.
+- **Barra superior:** a la izquierda el **logotipo** (`Logo`, 32 px de alto) y una **cápsula** (píldora blanca) que dice dónde se está: proyecto, paso y su avance en seis puntos del color del proyecto. A la derecha, botones circulares con borde de 1 px: avisos, buscar, menú y la institución.
 - **Riel izquierdo:** botones circulares de 44 px, en columna: Inicio, Mis proyectos, Mi institución, Documentos; separador; Ayuda automática, Seguridad; al fondo Ayuda y **Bloquear en rojo**. El activo va relleno de `ink`. Con etiqueta al pasar el cursor (tooltip a la derecha), no desplegable.
 - **Pasos de una ficha o de un asistente (`StepNav`):** círculos sobre una línea y **una sola palabra** debajo (nunca dos líneas de texto). El círculo lleva el número; verde con una palomita es un paso hecho, negro el paso donde está la persona, y un anillo que se llena en verde dice cuánto del paso está capturado. Un punto ámbar en la esquina avisa que el paso pide revisar algo. La línea entre círculos se pinta de verde mientras los pasos van hechos. En pantallas angostas solo quedan los círculos y, debajo, el nombre completo del paso actual.
 - **Respuestas cortas:** una pregunta de sí / no / no sé, o de hasta tres respuestas (En trámite…), se contesta con un solo grupo sencillo (`Segmented`: una pastilla gris con la elegida en blanco), sin puntos ni colores. Las listas de más opciones y las de varias respuestas usan etiquetas (`Choice`).
@@ -214,6 +214,7 @@ Cada fila es **la única medida** de ese componente en toda la interfaz. Si una 
 | `Alert` | auto | `inset` | — | `text-ui` | fondo del estado al 18 %, círculo sólido con ícono |
 | `Modal` | — | `card` | `shadow-float` | título `text-subtitle` 700 | anchos 640 / 768 / 896 (`wide`, para fichas largas) / 1024; `fixed` fija la altura para que un flujo de pasos no crezca y se encoja |
 | `Table` | filas 52 | — | línea 1 px `line` | `text-ui`; encabezado `text-caption` `ink-3` | primera columna 700 |
+| `Logo` / `LogoMark` | por altura (`h-8` en la cabecera, `h-10` en la entrada y la bienvenida) | — | — | el nombre es texto en Plus Jakarta Sans 800 | logotipo de SociAI (S + nombre; `LogoMark` es solo la S). Se pinta con los tokens `--logo-mark`, `--logo-word` y `--logo-ai`, que siguen el tema: sobre fondo claro, S azul y nombre azul marino; sobre fondo oscuro, todo blanco con «AI» azul. `inverse` es para superficies pintadas con `ink` (el lado oscuro del primer inicio), donde los colores se invierten. Los tokens `--logo-*` son solo del logotipo, no son acentos de la interfaz |
 | `Tooltip` | auto | pill | — | `text-small` 700 en `on-ink` sobre `ink` | |
 | `Toast` | auto | pill | `shadow-float` | `text-ui` 700 | fondo `ink` |
 

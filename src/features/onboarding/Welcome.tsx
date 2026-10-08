@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
-import { Alert, Button, Inset, Steps, Tag, Tile } from "../../components/ui";
+import { Alert, Button, Inset, Logo, Steps, Tag, Tile } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { OnboardingStatus } from "./api";
@@ -24,12 +24,7 @@ export function StartFrame({ children, top, footer, title, text }: { children: R
           <aside className="relative flex flex-col gap-8 overflow-hidden bg-ink p-8 text-on-ink lg:p-10">
             <span aria-hidden="true" className="absolute -bottom-28 -right-24 h-64 w-64 rounded-pill bg-violet/20" />
             <span aria-hidden="true" className="absolute -right-8 top-8 h-24 w-24 rounded-pill bg-teal/20 max-lg:hidden" />
-            <div className="relative flex items-center gap-3">
-              <span className="grid h-ctl w-ctl place-items-center rounded-field bg-on-ink text-ink">
-                <Icon name="logo" size={22} />
-              </span>
-              <b className="text-heading font-extrabold tracking-tight">{es.app.name}</b>
-            </div>
+            <Logo inverse className="relative h-10" />
             <div className="relative space-y-3">
               <h2 className="text-subtitle font-bold leading-tight tracking-tight">{title ?? a.title}</h2>
               <p className="text-ui text-on-ink/70 max-lg:hidden">{text ?? a.text}</p>

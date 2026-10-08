@@ -1,8 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
-import { Alert, Avatar, Button, Card, Tag, Tile, TextButton, TextInput } from "../../components/ui";
+import { Alert, Avatar, Button, Card, Logo, Tag, Tile, TextButton, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
 import { accessChangePassword, accessLogin, accessLogout, accessRecover, accessSetupAdmin, accessUnlock } from "./api";
@@ -15,12 +14,7 @@ const t = es.access;
 function Frame({ icon, title, help, children, onSubmit, wide }: { icon: IconName; title: string; help: string; children: ReactNode; onSubmit: () => void; wide?: boolean }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-canvas p-4 text-body text-ink">
-      <div className="flex items-center gap-3">
-        <span className="grid h-ctl w-ctl place-items-center rounded-field bg-ink text-on-ink">
-          <Icon name="logo" size={22} />
-        </span>
-        <b className="text-heading font-extrabold tracking-tight">{es.app.name}</b>
-      </div>
+      <Logo className="h-10" />
       <Card className={`w-full !p-8 ${wide ? "max-w-[560px]" : "max-w-[460px]"}`}>
         <form
           className="space-y-6"

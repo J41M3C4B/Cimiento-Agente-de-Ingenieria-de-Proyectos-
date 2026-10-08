@@ -90,6 +90,12 @@
   --drop: rgb(20 20 30 / 0.1);
   --shadow-card-v: 0 1px 1px rgb(20 20 30 / 0.03), 0 10px 30px -12px rgb(20 20 30 / 0.12);
   --shadow-float-v: 0 24px 60px -16px rgb(20 20 30 / 0.3);
+  /* logotipo de SociAI: solo lo usa <Logo>; no son acentos de la interfaz. «AI» es del mismo azul en los dos temas */
+  --logo-mark: #0a76fc;
+  --logo-word: #000c25;
+  --logo-mark-inv: #ffffff;
+  --logo-word-inv: #ffffff;
+  --logo-ai: #0a76fc;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -104,6 +110,10 @@
     --drop: rgb(0 0 0 / 0.35);
     --shadow-card-v: 0 1px 1px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.5);
     --shadow-float-v: 0 24px 60px -16px rgb(0 0 0 / 0.7);
+    --logo-mark: #ffffff;
+    --logo-word: #ffffff;
+    --logo-mark-inv: #0a76fc;
+    --logo-word-inv: #000c25;
     color-scheme: dark;
   }
 }
@@ -119,6 +129,10 @@
   --drop: rgb(0 0 0 / 0.35);
   --shadow-card-v: 0 1px 1px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.5);
   --shadow-float-v: 0 24px 60px -16px rgb(0 0 0 / 0.7);
+  --logo-mark: #ffffff;
+  --logo-word: #ffffff;
+  --logo-mark-inv: #0a76fc;
+  --logo-word-inv: #000c25;
   color-scheme: dark;
 }
 
@@ -484,6 +498,14 @@ h1, h2, h3 {
   .next-box:hover .next-go, .next-box:focus-visible .next-go { padding: 0 13px 0 22px; }
   .next-box:hover .next-go > span, .next-box:focus-visible .next-go > span { max-width: 110px; margin-right: 10px; opacity: 1; }
   @media (max-width: 520px) { .next-box { padding-right: 22px; padding-bottom: 76px; } .next-go { top: auto; bottom: 16px; transform: none; } }
+
+  /* logotipo (<Logo>): se pinta con los tokens --logo-*; «inverso» es para las superficies de tinta (bg-ink) */
+  .logo { display: block; width: auto; flex-shrink: 0; overflow: visible; }
+  .logo .lg-mark { fill: var(--logo-mark); }
+  .logo .lg-word { fill: var(--logo-word); font-family: var(--font-sans); font-size: 45.26px; font-weight: 800; }
+  .logo .lg-ai { fill: var(--logo-ai); }
+  .logo--inverse .lg-mark { fill: var(--logo-mark-inv); }
+  .logo--inverse .lg-word { fill: var(--logo-word-inv); }
 
   /* Ventana, riel y cápsula (docs/13 §6): todo va directamente sobre el fondo de la ventana, sin una hoja o marco intermedio */
   .shell { display: flex; justify-content: center; min-height: 100vh; }
