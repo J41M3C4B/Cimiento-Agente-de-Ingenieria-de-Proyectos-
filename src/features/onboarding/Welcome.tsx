@@ -3,18 +3,13 @@ import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
 import { Alert, Button, Inset, Logo, Steps, Tag, Tile } from "../../components/ui";
+import { HelpChat, OrgGraph, PrivacyFlow } from "./WelcomeArt";
 import { es } from "../../i18n/es-MX";
 import type { OnboardingStatus } from "./api";
 
 const o = es.onboarding;
 
 const POINT_ICONS: IconName[] = ["building", "sparkles", "check"];
-/** the icon of each fact of each welcome screen */
-const FACT_ICONS: IconName[][] = [
-  ["building", "folder", "file"],
-  ["lock", "shield", "users"],
-  ["help", "check", "user"],
-];
 
 /**
  * The frame of the first start, split in two: on the left the flat blue of the brand with the logo, the isotipo as a
@@ -52,15 +47,14 @@ export function StartFrame({ children, top, footer }: { children: ReactNode; /**
           <div className={`onb-in flex flex-1 flex-col gap-6 pb-6 ${top ? "pt-6" : "pt-8 lg:pt-10"}`}>{children}</div>
         </div>
         <div className="border-t border-line">
-          <div className="onb-in py-4">{footer}</div>
-          <p className="onb-in pb-3 text-caption text-ink-3">{es.access.footer}</p>
+          <div className="onb-in py-5">{footer}</div>
         </div>
       </main>
     </div>
   );
 }
 
-/** The title with the words that matter in the blue of the brand. */
+/** The title in the navy of the brand, with the key word in the blue of the brand. */
 function Hero({ title, highlight }: { title: string; highlight: string }) {
   const at = title.indexOf(highlight);
   if (at < 0) return <>{title}</>;
@@ -73,16 +67,19 @@ function Hero({ title, highlight }: { title: string; highlight: string }) {
   );
 }
 
+const ART = [OrgGraph, PrivacyFlow, HelpChat];
+
 /**
- * Three screens, once per person: what SociAI does, how the data are cared for, and where to ask. Each one is a
- * big title that takes the space, a line that says it and three short cards that fill the foot of the page.
- * It uses only the blue of the brand.
+ * Three screens, once per person: what SociAI is (a graph with the institution at the head), how the data are
+ * cared for (what stays here and what the help sees) and where to ask (a question and its answer). Each one is a
+ * title, a line that says it and a drawing that takes the rest of the space. Only the blue of the brand.
  */
 export function Welcome({ onDone, busy }: { onDone: () => void; busy?: boolean }) {
   const [n, setN] = useState(0);
   const steps = o.welcome.steps;
   const step = steps[n]!;
   const last = n === steps.length - 1;
+  const Art = ART[n] ?? OrgGraph;
   return (
     <StartFrame
       top={
@@ -93,36 +90,24 @@ export function Welcome({ onDone, busy }: { onDone: () => void; busy?: boolean }
         </ol>
       }
       footer={
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-small font-semibold text-ink-3">{o.stepOf(n + 1, steps.length)}</span>
-          <div className="flex gap-2">
-            {n > 0 && <Button onClick={() => setN(n - 1)}>{o.welcome.back}</Button>}
-            <Button variant="primary" disabled={busy} onClick={() => (last ? onDone() : setN(n + 1))}>
-              {last ? o.welcome.start : o.welcome.next}
-            </Button>
-          </div>
+        <div className="flex items-center justify-end gap-2">
+          {n > 0 && <Button onClick={() => setN(n - 1)}>{o.welcome.back}</Button>}
+          <Button variant="primary" disabled={busy} onClick={() => (last ? onDone() : setN(n + 1))}>
+            {last ? o.welcome.start : o.welcome.next}
+          </Button>
         </div>
       }
     >
-      <div key={n} className="anim-rise flex flex-1 flex-col gap-8">
-        <div className="my-auto space-y-6 py-4">
-          <span className="block text-heading font-extrabold tracking-tight text-brand">{`0${n + 1}`}</span>
+      <div key={n} className="anim-rise flex flex-1 flex-col justify-center gap-12 py-4">
+        <div className="space-y-4">
           <h1 className="onb-hero break-words text-hero font-extrabold tracking-tight sm:text-headline">
             <Hero title={step.title} highlight={step.highlight} />
           </h1>
           <p className="max-w-[52ch] text-body font-medium text-ink-2">{step.text}</p>
         </div>
-        <ul className="onb-facts">
-          {step.items.map(([head, line], i) => (
-            <li key={head} className="onb-fact">
-              <span className="onb-fact-icon">
-                <Icon name={FACT_ICONS[n]?.[i] ?? "check"} size={18} strokeWidth={2.2} />
-              </span>
-              <b className="block text-ui font-extrabold">{head}</b>
-              <span className="block text-small text-ink-2">{line}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="flex w-full justify-center">
+          <Art />
+        </div>
       </div>
     </StartFrame>
   );
@@ -177,12 +162,9 @@ export function Setup({
       }
     >
       <div className="space-y-6">
-        <div className="flex items-start gap-4">
-          <Tile icon="sliders" tone="ink" />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <h1 className="text-title font-bold leading-tight tracking-tight">{o.setup.title}</h1>
-            <p className="max-w-[60ch] text-ui text-ink-2">{o.setup.help}</p>
-          </div>
+        <div className="space-y-1.5">
+          <h1 className="onb-title text-title font-extrabold leading-tight tracking-tight">{o.setup.title}</h1>
+          <p className="max-w-[60ch] text-ui text-ink-2">{o.setup.help}</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-small font-semibold text-ink-2">{o.setup.stepsDone(done, rows.length)}</span>

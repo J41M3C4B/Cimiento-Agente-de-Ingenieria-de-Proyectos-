@@ -807,35 +807,48 @@ export const es = {
       steps: [
         {
           title: "Le damos la bienvenida a SociAI",
-          highlight: "SociAI",
+          highlight: "AI",
           text: "Aquí arma los proyectos de su institución para pedir donativos, paso a paso. Usted responde con sus palabras; nosotros nos encargamos del formato y las cuentas.",
-          items: [
-            ["Su institución", "Personal, personas que atiende, instalaciones y presupuesto, en orden."],
-            ["Sus proyectos", "Se arman paso a paso, con el formato que pide cada convocatoria."],
-            ["Sus documentos", "Lo que agrega y lo que se genera queda guardado en un solo lugar."],
-          ] as [string, string][],
         },
         {
           title: "Cuidamos a las personas que atienden",
           highlight: "Cuidamos",
           text: "Los nombres y datos de cada persona se quedan en esta computadora. La ayuda automática solo recibe cuántas personas hay, nunca quiénes son.",
-          items: [
-            ["En su computadora", "Los nombres y datos no salen de aquí."],
-            ["Sin nombres", "La ayuda automática solo sabe cuántas personas hay."],
-            ["Con su cuenta", "Cada persona entra con su usuario y su contraseña."],
-          ] as [string, string][],
         },
         {
           title: "Si tiene dudas, aquí estamos",
           highlight: "aquí estamos",
           text: "En «Ayuda» encuentra cómo se usa cada parte. Si algo falla, su trabajo queda guardado: avísele a la persona que le instaló el programa.",
-          items: [
-            ["La sección «Ayuda»", "Explica cómo se usa cada parte del programa."],
-            ["Su trabajo se guarda", "Si algo falla, lo que ya hizo no se pierde."],
-            ["Quien lo instaló", "Avísele si algo no funciona como espera."],
-          ] as [string, string][],
         },
       ],
+      // what each drawing says
+      art: {
+        graph: {
+          head: "Mi institución",
+          nodes: [
+            ["Finanzas", "Ingresos y gastos"],
+            ["Personas", "Personal y a quienes atiende"],
+            ["Donantes", "Quién la apoya"],
+            ["Proyectos", "Lo que pide apoyo"],
+            ["Documentos", "Todo en un lugar"],
+          ] as [string, string][],
+        },
+        privacy: {
+          here: "En esta computadora",
+          hereNote: "Nombres, edades y datos de cada persona",
+          sees: "La ayuda automática",
+          seesNote: "Solo cuántas personas hay",
+          count: "38",
+          people: "personas",
+          example: "Por ejemplo",
+        },
+        help: {
+          ask: "¿Cómo agrego a una persona?",
+          answer: "Entre a «Personas», toque «Agregar» y siga los pasos. Le explicamos cada parte.",
+          saved: "Su trabajo se guarda solo",
+          call: "Si algo falla, avise a quien instaló el programa",
+        },
+      },
       next: "Siguiente",
       back: "Atrás",
       start: "Empezar",

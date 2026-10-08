@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import type { IconName } from "../../components/icons";
-import { Alert, Button, Eyebrow, Facts, FormSection, RadioCard, Segmented, Select, StepNav, Tag, TextArea, TextButton, TextInput, Tile } from "../../components/ui";
-import type { Tone } from "../../components/ui";
+import { Alert, Button, Facts, FormSection, RadioCard, Segmented, Select, StepNav, Tag, TextArea, TextButton, TextInput } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
@@ -19,8 +17,6 @@ const o = es.onboarding;
 const ins = es.institution;
 const p = es.profile;
 const REVIEW = "review";
-const STEP_ICON: Record<string, IconName> = { institution: "building", location: "idcard", people: "heart", team: "briefcase", money: "banknote", building: "home", review: "check" };
-const STEP_TONE: Record<string, Tone> = { institution: "violet", location: "sky", people: "rose", team: "teal", money: "amber", building: "cyan", review: "green" };
 
 const num = (v: string) => (v.trim() === "" || !/^\d+$/.test(v.trim()) ? null : Number(v.trim()));
 const options = (labels: Record<string, string>): [string, string][] => [["", es.facilities.select], ...Object.entries(labels)];
@@ -110,6 +106,7 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
       top={
         <>
           <StepNav
+            brand
             label={o.title}
             current={n}
             onSelect={go}
@@ -119,11 +116,9 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
               return { key: k, label: o.steps[k] ?? k, short: o.stepsShort[k], filled: done ? 1 : 0, total: 1, caption: done ? o.stepDone : o.stepPending };
             })}
           />
-          <div className="flex items-start gap-4 border-t border-line pt-6">
-            <Tile icon={STEP_ICON[key] ?? "building"} tone={STEP_TONE[key] ?? "ink"} />
-            <div className="min-w-0 flex-1 space-y-1">
-              <Eyebrow>{o.stepOf(n + 1, keys.length)}</Eyebrow>
-              <h1 className="text-subtitle font-bold leading-tight tracking-tight">{o.steps[key]}</h1>
+          <div className="border-t border-line pt-6">
+            <div className="min-w-0 space-y-1.5">
+              <h1 className="onb-title text-title font-extrabold leading-tight tracking-tight">{o.steps[key]}</h1>
               <p className="max-w-[64ch] text-ui text-ink-2">{o.help[key]}</p>
               {key !== REVIEW && <p className="pt-1 text-caption text-ink-3">{o.requiredNote}</p>}
             </div>
