@@ -3,8 +3,8 @@
 use super::guard;
 use crate::access_service::Session;
 use crate::error::UiError;
-use crate::facilities::domain::group::{EquipmentData, SpaceData};
-use crate::facilities::domain::site::SiteData;
+use crate::modules::facilities::domain::group::{EquipmentData, SpaceData};
+use crate::modules::facilities::domain::site::SiteData;
 use crate::facilities_service::{self as svc, FacilitiesOutcome, FacilitiesOverview};
 use crate::scanner::guard::Decision;
 use crate::Db;

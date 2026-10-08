@@ -4,7 +4,7 @@
 //! screen only shows what is missing.
 
 use super::profile::ProfileInput;
-use crate::facilities::domain::site::SiteData;
+use crate::modules::facilities::domain::site::SiteData;
 use serde::Serialize;
 
 /// The steps, in order. The last screen (review and confirm) is not a step: it needs all of them complete.

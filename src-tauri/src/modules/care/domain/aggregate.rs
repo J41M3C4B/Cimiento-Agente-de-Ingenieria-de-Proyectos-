@@ -231,7 +231,7 @@ pub fn ai_summary(i: &Indicators, waiting: i64) -> CareSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::care::domain::person::ResponsibleContact;
+    use crate::modules::care::domain::person::ResponsibleContact;
 
     fn person(sex: &str, birth: &str, f: impl FnOnce(&mut BeneficiaryData)) -> BeneficiaryData {
         let mut d = BeneficiaryData { first_names: "Persona".into(), sex: Some(sex.into()), birth_date: Some(birth.into()), status: "active".into(), ..Default::default() };

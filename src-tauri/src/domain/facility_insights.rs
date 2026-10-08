@@ -6,11 +6,11 @@
 //! No rule judges against a norm (NOM-031-SSA3, NOM-032-SSA3) yet: the ratios are shown, not graded, until their
 //! thresholds are checked in the official text.
 
-use crate::care::api::MIN_GROUP;
+use crate::modules::care::api::MIN_GROUP;
 use crate::domain::facility_text::group_ref;
 use crate::domain::insights::{insight, Insight};
-use crate::facilities::domain::aggregate::Indicators;
-use crate::facilities::domain::site::SiteData;
+use crate::modules::facilities::domain::aggregate::Indicators;
+use crate::modules::facilities::domain::site::SiteData;
 use serde::Serialize;
 
 /// Years left of a «comodato» or a lease that make it a finding.
@@ -122,8 +122,8 @@ pub fn board(i: Indicators, cx: &Context) -> FacilityBoard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::facilities::domain::aggregate::{indicators, SiteSummary};
-    use crate::facilities::domain::group::{EquipmentData, SpaceData, States};
+    use crate::modules::facilities::domain::aggregate::{indicators, SiteSummary};
+    use crate::modules::facilities::domain::group::{EquipmentData, SpaceData, States};
 
     fn house() -> SiteSummary {
         let st = |good, poor, unusable| States { good, poor, unusable, ..Default::default() };

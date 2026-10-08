@@ -38,7 +38,7 @@ pub fn annual(amount: i64, period: Period) -> i64 {
 }
 
 /// The pay rules of the law live in the staff module (ADR-027).
-pub use crate::hr::api::annual_benefits;
+pub use crate::modules::hr::api::annual_benefits;
 
 /// Whether a contract carries the benefits of the law. Fees (honorarios) do not; an unknown contract is taken as
 /// a job with benefits, which is the safe side for a budget.

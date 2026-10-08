@@ -190,7 +190,7 @@ Objetivo: tratar la app como un ERP de la institución. «Inicio» y «Mi instit
 
 - [x] **B0** ADR-032, arquitectura, principios y glosario; prueba de fronteras (`cargo test architecture`) con la lista de deuda de hoy (28 dependencias que van al revés).
 - [x] **B1** Revisar textos y anotarlo en la bitácora pasa a la base (`scanner::guard::screen_texts`); `core::institution::kind` y `Flavor::from_kind` (nadie más lee el tipo de la tabla); los ejemplos y los tipos de las pantallas por el `api` y el `service` de cada módulo. Quedan 21 dependencias en la lista de deuda.
-- [ ] **B2** `hr`, `care` y `facilities` a `modules/`.
+- [x] **B2** `hr`, `care` y `facilities` a `src-tauri/src/modules/`; la prueba de frontera de cada módulo revisa su nueva carpeta.
 - [ ] **B3** Módulo de Finanzas (`modules/finance/`, tablas `fin_*`, migración, comandos `finance_*`, paso «Dinero» y ficha de la IA).
 - [ ] **B4** `core/` con `core::api`; lo que cruza núcleo y Proyectos (borrados aprobados, escaneo de la base) lo arman los comandos.
 - [ ] **B5** Proyectos a `modules/projects/` con `ProjectsError`. La lista de deuda queda vacía.

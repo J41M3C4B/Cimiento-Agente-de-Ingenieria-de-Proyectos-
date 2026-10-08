@@ -48,7 +48,7 @@ mod tests {
                     for (n, line) in std::fs::read_to_string(&p).unwrap().lines().enumerate() {
                         if let Some(at) = line.find(concat!("crate", "::")) {
                             let rest = &line[at + 7..];
-                            if !(rest.starts_with("care") || rest.starts_with("audit") || rest.starts_with("common")) {
+                            if !(rest.starts_with("modules::care") || rest.starts_with("audit") || rest.starts_with("common")) {
                                 out.push(format!("{}:{}: {}", p.display(), n + 1, line.trim()));
                             }
                         }
@@ -57,7 +57,7 @@ mod tests {
             }
         }
         let mut found = Vec::new();
-        visit(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/care"), &mut found);
+        visit(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/modules/care"), &mut found);
         assert!(found.is_empty(), "the module of the people served reaches into the app: {found:#?}");
     }
 }

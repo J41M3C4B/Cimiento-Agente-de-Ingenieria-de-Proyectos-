@@ -2,10 +2,10 @@
 
 use super::guard;
 use crate::access_service::{request_deletion, Session};
-use crate::care::domain::person::BeneficiaryData;
-use crate::care::domain::waitlist::WaitlistInput;
-use crate::care::service::PersonView;
-use crate::care::storage::{CustomField, Group};
+use crate::modules::care::domain::person::BeneficiaryData;
+use crate::modules::care::domain::waitlist::WaitlistInput;
+use crate::modules::care::service::PersonView;
+use crate::modules::care::storage::{CustomField, Group};
 use crate::care_service::{self as svc, CareChange, CareOverview, PersonOutcome, WaitlistOutcome};
 use crate::domain::access::DeletionKind;
 use crate::error::UiError;
@@ -90,7 +90,7 @@ pub fn care_field_delete(session: State<'_, Session>, db: State<'_, Db>, key: St
     let mut conn = lock(&db)?;
     if !gate.may_delete() {
         request_deletion(&mut conn, gate.user()?, DeletionKind::CareField, &key)?;
-        return Ok(crate::care::storage::custom_fields(&conn).map_err(ServiceError::from)?);
+        return Ok(crate::modules::care::storage::custom_fields(&conn).map_err(ServiceError::from)?);
     }
     Ok(svc::delete_field(&conn, &key)?)
 }

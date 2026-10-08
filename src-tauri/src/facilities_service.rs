@@ -4,11 +4,11 @@
 
 use crate::domain::facility_insights::{self, Context, FacilityBoard};
 use crate::core::institution::{care_flavor, facilities_flavor as flavor};
-use crate::facilities::Flavor;
-use crate::facilities::domain::group::{EquipmentData, SpaceData};
-use crate::facilities::domain::site::SiteData;
-use crate::facilities::domain::Issue;
-use crate::facilities::service::{self as fac, Overview, SaveOutcome};
+use crate::modules::facilities::Flavor;
+use crate::modules::facilities::domain::group::{EquipmentData, SpaceData};
+use crate::modules::facilities::domain::site::SiteData;
+use crate::modules::facilities::domain::Issue;
+use crate::modules::facilities::service::{self as fac, Overview, SaveOutcome};
 use crate::scanner::guard::{Decision, QuarantineReport};
 use crate::service::{guard_texts, ServiceError};
 use crate::storage::profile as profile_store;
@@ -33,11 +33,11 @@ pub enum FacilitiesOutcome {
 /// The board: the indicators crossed with the people served (how many, how many in a wheelchair or in bed) and the
 /// capacity.
 pub fn board(conn: &Connection) -> Result<FacilityBoard, ServiceError> {
-    let indicators = crate::facilities::api::indicators(conn)?;
-    let people = crate::care::api::indicators(conn, care_flavor(conn))?;
+    let indicators = crate::modules::facilities::api::indicators(conn)?;
+    let people = crate::modules::care::api::indicators(conn, care_flavor(conn))?;
     let limited = people.mobility.iter().filter(|c| matches!(c.code.as_str(), "wheelchair" | "bedridden")).map(|c| c.count).sum();
     let capacity = profile_store::load_current(conn)?.and_then(|p| p.input.capacity_total);
-    let sites = crate::facilities::api::summaries(conn)?;
+    let sites = crate::modules::facilities::api::summaries(conn)?;
     let cx = Context {
         served: people.served,
         capacity,

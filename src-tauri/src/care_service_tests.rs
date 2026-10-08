@@ -2,7 +2,7 @@
 //! CURP, discharges, the waiting list, groups of their own and the board.
 
 use super::*;
-use crate::care::domain::person::ResponsibleContact;
+use crate::modules::care::domain::person::ResponsibleContact;
 use crate::domain::profile::{ExpenseItemInput, InstitutionInput, InstitutionKind, Period, ProfileInput};
 use crate::storage::open_encrypted;
 
@@ -23,8 +23,8 @@ fn with_profile(c: &mut Connection, kind: InstitutionKind) {
     };
     crate::storage::profile::save(c, &input).unwrap();
     // two bathrooms a wheelchair cannot use, in the facilities module (ADR-030)
-    let bathrooms = crate::facilities::domain::group::SpaceData { kind: "bathroom".into(), count: 2, accessible: Some(false), ..Default::default() };
-    crate::facilities::service::save_space(c, None, bathrooms).unwrap();
+    let bathrooms = crate::modules::facilities::domain::group::SpaceData { kind: "bathroom".into(), count: 2, accessible: Some(false), ..Default::default() };
+    crate::modules::facilities::service::save_space(c, None, bathrooms).unwrap();
 }
 
 fn person(first: &str, sex: &str, age: i64) -> BeneficiaryData {
@@ -106,7 +106,7 @@ fn a_discharge_leaves_the_counts_but_keeps_the_record() {
     let mut gone = v.data.clone();
     gone.status = "discharged".into();
     gone.discharge_reason = Some("family_reintegration".into());
-    gone.status_date = Some(crate::care::storage::today(&c).unwrap());
+    gone.status_date = Some(crate::modules::care::storage::today(&c).unwrap());
     let (_, change) = saved(save_person(&mut c, Some(&v.id), gone).unwrap());
     assert_eq!(change.overview.board.indicators.served, 0);
     assert_eq!(change.overview.board.indicators.discharged_this_year, 1);
@@ -126,7 +126,7 @@ fn the_waiting_list_counts_as_demand_and_a_request_becomes_a_record() {
 
     let no_age = WaitlistInput { requested_on: "2026-08-02".into(), status: "waiting".into(), ..Default::default() };
     let WaitlistOutcome::Saved { waitlist, .. } = save_waitlist(&mut c, None, &no_age).unwrap() else { panic!() };
-    assert!(matches!(admit_waitlist(&mut c, &waitlist[1].id), Err(ServiceError::Care(crate::care::CareError::AgeNeeded))));
+    assert!(matches!(admit_waitlist(&mut c, &waitlist[1].id), Err(ServiceError::Care(crate::modules::care::CareError::AgeNeeded))));
 
     let PersonOutcome::Saved { person, change } = admit_waitlist(&mut c, &waitlist[0].id).unwrap() else { panic!() };
     assert_eq!((person.data.first_names.as_str(), person.data.last_name_1.as_deref(), person.data.last_name_2.as_deref()), ("Carmen", Some("Pérez"), Some("López")));
@@ -169,5 +169,5 @@ fn a_group_of_their_own_names_the_line_and_goes_through_the_scanner() {
     let (v, change) = saved(save_person(&mut c, None, p).unwrap());
     assert_eq!(v.group, "Pabellón A");
     assert_eq!(change.profile.unwrap().input.population[0].label, "Pabellón A");
-    assert!(matches!(save_group(&mut c, None, "pabellón a", true, None), Err(ServiceError::Care(crate::care::CareError::DuplicateTitle))));
+    assert!(matches!(save_group(&mut c, None, "pabellón a", true, None), Err(ServiceError::Care(crate::modules::care::CareError::DuplicateTitle))));
 }

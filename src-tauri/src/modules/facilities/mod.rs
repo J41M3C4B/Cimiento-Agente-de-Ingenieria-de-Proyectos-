@@ -38,7 +38,7 @@ mod tests {
                     for (n, line) in std::fs::read_to_string(&p).unwrap().lines().enumerate() {
                         if let Some(at) = line.find(concat!("crate", "::")) {
                             let rest = &line[at + 7..];
-                            if !(rest.starts_with("facilities") || rest.starts_with("audit") || rest.starts_with("common")) {
+                            if !(rest.starts_with("modules::facilities") || rest.starts_with("audit") || rest.starts_with("common")) {
                                 out.push(format!("{}:{}: {}", p.display(), n + 1, line.trim()));
                             }
                         }
@@ -47,7 +47,7 @@ mod tests {
             }
         }
         let mut found = Vec::new();
-        visit(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/facilities"), &mut found);
+        visit(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/modules/facilities"), &mut found);
         assert!(found.is_empty(), "the facilities module reaches into the app: {found:#?}");
     }
 }

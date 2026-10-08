@@ -49,7 +49,7 @@ mod tests {
                     for (n, line) in text.lines().enumerate() {
                         if let Some(at) = line.find(concat!("crate", "::")) {
                             let rest = &line[at + 7..];
-                            if !(rest.starts_with("hr") || rest.starts_with("audit") || rest.starts_with("common")) {
+                            if !(rest.starts_with("modules::hr") || rest.starts_with("audit") || rest.starts_with("common")) {
                                 out.push((format!("{}:{}", p.display(), n + 1), line.trim().to_string()));
                             }
                         }
@@ -58,7 +58,7 @@ mod tests {
             }
         }
         let mut found = Vec::new();
-        visit(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/hr"), &mut found);
+        visit(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/modules/hr"), &mut found);
         assert!(found.is_empty(), "the staff module reaches into the app: {found:#?}");
     }
 }

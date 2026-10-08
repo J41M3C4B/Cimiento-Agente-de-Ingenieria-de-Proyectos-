@@ -32,7 +32,7 @@ pub struct GuideData {
     pub root: Option<String>,
     pub institution: Option<crate::domain::profile::ProfileInput>,
     /// The facilities, from their module (ADR-030).
-    pub facilities: Vec<crate::facilities::domain::aggregate::SiteSummary>,
+    pub facilities: Vec<crate::modules::facilities::domain::aggregate::SiteSummary>,
     pub call_name: Option<String>,
     pub funder: Option<String>,
     pub year: Option<i64>,
@@ -51,7 +51,7 @@ pub fn gather(conn: &Connection, project_id: &str) -> Result<GuideData, ServiceE
         summary: projects::get_summary(conn, project_id)?,
         root: projects::get_root(conn, project_id)?.map(|r| r.text),
         institution: profile_store::load_current(conn)?.map(|p| p.input),
-        facilities: crate::facilities::api::summaries(conn)?,
+        facilities: crate::modules::facilities::api::summaries(conn)?,
         call_name: reading.as_ref().map(|r| r.name.clone()),
         funder: reading.as_ref().and_then(|r| r.funder.clone()),
         year: reading.as_ref().and_then(|r| r.year),

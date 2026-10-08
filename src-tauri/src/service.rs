@@ -61,11 +61,11 @@ pub enum ServiceError {
     #[error("internal error: {0}")]
     Internal(String),
     #[error("staff module: {0}")]
-    Hr(#[from] crate::hr::HrError),
+    Hr(#[from] crate::modules::hr::HrError),
     #[error("people served module: {0}")]
-    Care(#[from] crate::care::CareError),
+    Care(#[from] crate::modules::care::CareError),
     #[error("facilities module: {0}")]
-    Facilities(#[from] crate::facilities::FacilitiesError),
+    Facilities(#[from] crate::modules::facilities::FacilitiesError),
     /// The onboarding cannot be closed while a required datum is missing (ADR-031).
     #[error("the onboarding is not complete")]
     OnboardingIncomplete,

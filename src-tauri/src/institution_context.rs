@@ -12,13 +12,13 @@
 
 use crate::domain::finances::{ExpenseBasis, BENEFICIARY_FEES, EXPENSE};
 use crate::domain::profile::{InstitutionKind, IncomeKind, Period};
-use crate::care::domain::aggregate::CareSummary;
+use crate::modules::care::domain::aggregate::CareSummary;
 use crate::domain::facility_insights::FacilityBoard;
 use crate::domain::facility_text;
 use crate::domain::insights::Insight;
-use crate::facilities::domain::aggregate::SiteSummary;
-use crate::hr::api::{Count, MIN_GROUP};
-use crate::hr::domain::aggregate::StaffSummary;
+use crate::modules::facilities::domain::aggregate::SiteSummary;
+use crate::modules::hr::api::{Count, MIN_GROUP};
+use crate::modules::hr::domain::aggregate::StaffSummary;
 use crate::service::ServiceError;
 use crate::storage::profile::{self as profile_store, StoredProfile};
 use rusqlite::Connection;
@@ -31,7 +31,7 @@ pub struct PeopleSheet {
 }
 
 pub fn people_sheet(conn: &Connection) -> Result<PeopleSheet, ServiceError> {
-    let summary = crate::care::api::ai_summary(conn, crate::core::institution::care_flavor(conn))?;
+    let summary = crate::modules::care::api::ai_summary(conn, crate::core::institution::care_flavor(conn))?;
     let findings = crate::care_service::board(conn)?.insights.into_iter().filter(|i| i.for_ai).collect();
     Ok(PeopleSheet { summary, findings })
 }
@@ -44,14 +44,14 @@ pub struct FacilitiesSheet {
 }
 
 pub fn facilities_sheet(conn: &Connection) -> Result<FacilitiesSheet, ServiceError> {
-    Ok(FacilitiesSheet { sites: crate::facilities::api::summaries(conn)?, board: crate::facilities_service::board(conn)? })
+    Ok(FacilitiesSheet { sites: crate::modules::facilities::api::summaries(conn)?, board: crate::facilities_service::board(conn)? })
 }
 
 /// The sheet of the current profile (the latest version, confirmed or draft), with the staff (ADR-027), the people
 /// served (ADR-029) and the facilities (ADR-030) as their modules tell them now.
 pub fn profile_context(conn: &Connection) -> Result<String, ServiceError> {
     Ok(match profile_store::load_current(conn)? {
-        Some(p) => render(&p, &crate::hr::api::ai_summary(conn)?, &people_sheet(conn)?, &facilities_sheet(conn)?),
+        Some(p) => render(&p, &crate::modules::hr::api::ai_summary(conn)?, &people_sheet(conn)?, &facilities_sheet(conn)?),
         None => "Perfil: sin datos. Todavía no hay nada capturado en «Mi institución»; de la institución solo se sabe lo que la persona diga.".into(),
     })
 }
@@ -271,7 +271,7 @@ fn care_word(code: &str) -> &'static str {
     }
 }
 
-fn care_list(counts: &[crate::care::api::Count]) -> String {
+fn care_list(counts: &[crate::modules::care::api::Count]) -> String {
     counts.iter().map(|c| format!("{} {}", c.count, care_word(&c.code))).collect::<Vec<_>>().join(", ")
 }
 
@@ -671,9 +671,9 @@ pub(crate) mod tests {
 
     /// The staff of `rich()` in the staff module: 4 night caregivers with pay and 3 volunteers.
     pub(crate) fn seed_rich_staff(c: &mut Connection) {
-        use crate::hr::domain::person::PersonData;
-        use crate::hr::domain::position::PositionInput;
-        use crate::hr::storage as hr;
+        use crate::modules::hr::domain::person::PersonData;
+        use crate::modules::hr::domain::position::PositionInput;
+        use crate::modules::hr::storage as hr;
         let carer = hr::insert_position(c, &PositionInput {
             title: "Cuidadora".into(), area: Some("care".into()), duties: Some("Atiende a los residentes de noche.".into()), authorized_seats: Some(5), ..Default::default()
         }).unwrap();
@@ -696,9 +696,9 @@ pub(crate) mod tests {
 
     /// The people served of `rich()` in their module: 11 women and 1 man, with the data the findings cross.
     pub(crate) fn seed_rich_people(c: &mut Connection) {
-        use crate::care::domain::catalog::Flavor;
-        use crate::care::domain::person::BeneficiaryData;
-        let year: i64 = crate::care::storage::today(c).unwrap()[..4].parse().unwrap();
+        use crate::modules::care::domain::catalog::Flavor;
+        use crate::modules::care::domain::person::BeneficiaryData;
+        let year: i64 = crate::modules::care::storage::today(c).unwrap()[..4].parse().unwrap();
         let mut people = Vec::new();
         for i in 0..4 {
             people.push(BeneficiaryData { first_names: format!("Abuelita Reservada {i}"), sex: Some("female".into()), birth_date: Some(format!("{}-01-01", year - 84)), dependency: Some("high".into()), mobility: Some("wheelchair".into()), visits: Some("never".into()), curp: Some("HEGG560427MVZRRL04".into()), ..Default::default() });
@@ -712,16 +712,16 @@ pub(crate) mod tests {
         people.push(BeneficiaryData { first_names: "Don Discreto".into(), sex: Some("male".into()), birth_date: Some(format!("{}-01-01", year - 93)), dependency: Some("total".into()), mobility: Some("bedridden".into()), ..Default::default() });
         for mut d in people {
             d.status = "active".into();
-            let crate::care::service::SaveOutcome::Saved { .. } = crate::care::service::save_person(c, Flavor::ElderlyHome, None, d).unwrap() else { panic!("saved") };
+            let crate::modules::care::service::SaveOutcome::Saved { .. } = crate::modules::care::service::save_person(c, Flavor::ElderlyHome, None, d).unwrap() else { panic!("saved") };
         }
     }
 
     /// The facilities of `rich()` in their module: a house of two floors with only stairs, three bathrooms on the
     /// ground floor (one in poor state, none with grab bars), a kitchen, six bedrooms upstairs and two washers.
     pub(crate) fn seed_rich_facilities(c: &Connection) {
-        use crate::facilities::domain::group::{EquipmentData, SpaceData, States};
-        use crate::facilities::domain::site::SiteData;
-        use crate::facilities::service::{self as fac, SaveOutcome};
+        use crate::modules::facilities::domain::group::{EquipmentData, SpaceData, States};
+        use crate::modules::facilities::domain::site::SiteData;
+        use crate::modules::facilities::service::{self as fac, SaveOutcome};
         let ok = |o: SaveOutcome| assert!(matches!(o, SaveOutcome::Saved), "{o:?}");
         ok(fac::save_site(c, SiteData {
             name: "Casa principal".into(),
@@ -916,7 +916,7 @@ pub(crate) mod tests {
         crate::facilities_service::seed_example(&mut c, include_str!("../../fixtures/instalaciones-asilo.json")).unwrap();
 
         let stored = profile_store::load_current(&c).unwrap().unwrap();
-        let ctx = render(&stored, &crate::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap(), &facilities_sheet(&c).unwrap());
+        let ctx = render(&stored, &crate::modules::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap(), &facilities_sheet(&c).unwrap());
         assert!(ctx.contains("Personal: "), "{ctx}");
         assert!(ctx.contains("Población: "), "{ctx}");
         assert!(ctx.contains("Total de personas atendidas: "), "{ctx}");

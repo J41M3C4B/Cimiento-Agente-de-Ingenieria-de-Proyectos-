@@ -33,9 +33,8 @@ const PLACES: &[(&str, Layer)] = &[
     ("domain", Base),
     ("domain::figures", Base),
     // modules
-    ("hr", Module("hr")),
-    ("care", Module("care")),
-    ("facilities", Module("facilities")),
+    // only its mod.rs, which declares them; a new module needs its own line
+    ("modules", Base),
     ("modules::hr", Module("hr")),
     ("modules::care", Module("care")),
     ("modules::facilities", Module("facilities")),
@@ -108,8 +107,8 @@ const DEBT: &[(&str, &str)] = &[
     ("drafting_service", "service"),
     ("guide_service", "domain::facility_text"),
     ("guide_service", "domain::profile"),
-    ("guide_service", "facilities::api"),
-    ("guide_service", "facilities::domain"),
+    ("guide_service", "modules::facilities::api"),
+    ("guide_service", "modules::facilities::domain"),
     ("guide_service", "service"),
     ("guide_service", "storage::profile"),
     ("jobs", "service"),
@@ -296,8 +295,8 @@ fn every_layer_only_looks_down() {
 
 #[test]
 fn paths_are_read_from_a_line() {
-    assert_eq!(paths_in("use crate::hr::api::{Count, MIN_GROUP};"), vec!["hr::api::Count", "hr::api::MIN_GROUP", "hr::api"]);
-    assert_eq!(paths_in("let x = crate::care::api::waiting(conn)?;"), vec!["care::api::waiting"]);
+    assert_eq!(paths_in("use crate::modules::hr::api::{Count, MIN_GROUP};"), vec!["modules::hr::api::Count", "modules::hr::api::MIN_GROUP", "modules::hr::api"]);
+    assert_eq!(paths_in("let x = crate::modules::care::api::waiting(conn)?;"), vec!["modules::care::api::waiting"]);
     assert_eq!(paths_in("use crate::domain::{stage, profile::ProfileInput as P};"), vec!["domain::stage", "domain::profile::ProfileInput", "domain"]);
     assert!(paths_in("let a = 1;").is_empty());
 }

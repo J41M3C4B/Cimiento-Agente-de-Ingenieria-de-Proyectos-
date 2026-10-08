@@ -171,7 +171,7 @@ pub fn summary(people: &[Member], positions: &[Position], today: &str) -> StaffS
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hr::domain::position::PositionInput;
+    use crate::modules::hr::domain::position::PositionInput;
 
     fn position(id: &str, title: &str, seats: Option<i64>) -> Position {
         Position { id: id.into(), input: PositionInput { title: title.into(), area: Some("care".into()), authorized_seats: seats, ..Default::default() }, active: true }

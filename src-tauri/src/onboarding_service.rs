@@ -9,7 +9,7 @@ use crate::audit::{self, AuditKind};
 use crate::domain::access::Role;
 use crate::domain::onboarding::{self, Facts, StepStatus};
 use crate::domain::profile::{IncomeSourceInput, InstitutionInput, ProfileInput};
-use crate::facilities::domain::site::SiteData;
+use crate::modules::facilities::domain::site::SiteData;
 use crate::scanner::guard::{Decision, QuarantineReport};
 use crate::service::{self, SaveProfileOutcome, ServiceError};
 use crate::storage::profile as profile_store;
@@ -89,8 +89,8 @@ fn onboarded(conn: &Connection) -> Result<bool, ServiceError> {
 }
 
 fn records(conn: &Connection) -> Result<Records, ServiceError> {
-    let people = crate::care::api::indicators(conn, crate::core::institution::care_flavor(conn))?;
-    let staff = crate::hr::api::ai_summary(conn)?;
+    let people = crate::modules::care::api::indicators(conn, crate::core::institution::care_flavor(conn))?;
+    let staff = crate::modules::hr::api::ai_summary(conn)?;
     let totals = crate::profile_sync::totals(conn)?;
     Ok(Records { served: people.served, staff: staff.total, fee_payers: totals.fee_payers })
 }
@@ -103,7 +103,7 @@ fn setup(conn: &Connection) -> Result<Setup, ServiceError> {
 }
 
 fn main_site(conn: &Connection) -> Result<Option<SiteData>, ServiceError> {
-    Ok(crate::facilities::api::summaries(conn)?.into_iter().next().map(|s| s.site))
+    Ok(crate::modules::facilities::api::summaries(conn)?.into_iter().next().map(|s| s.site))
 }
 
 pub fn status(conn: &Connection, user: &CurrentUser) -> Result<OnboardingStatus, ServiceError> {
@@ -169,7 +169,7 @@ pub fn save(conn: &mut Connection, user: &CurrentUser, data: OnboardingData, dec
     site.tenure_documented = data.tenure_documented;
     let touched = site != before;
     if touched {
-        if let crate::facilities::service::SaveOutcome::Invalid { issues } = crate::facilities::service::save_site(conn, site)? {
+        if let crate::modules::facilities::service::SaveOutcome::Invalid { issues } = crate::modules::facilities::service::save_site(conn, site)? {
             return Ok(OnboardingOutcome::Invalid { issues: issues.into_iter().filter(|i| i.blocking).map(|i| OnboardingIssue { code: i.code, field: format!("site.{}", i.field) }).collect() });
         }
     }

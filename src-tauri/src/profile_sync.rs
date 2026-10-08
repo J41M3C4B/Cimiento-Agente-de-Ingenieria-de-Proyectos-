@@ -9,7 +9,7 @@ use rusqlite::Connection;
 
 /// The anonymous lines of both modules, as the profile keeps them.
 pub fn derive(conn: &Connection) -> Result<(Vec<StaffGroupInput>, Vec<PopulationGroupInput>), ServiceError> {
-    let staff = crate::hr::api::staff_lines(conn)?
+    let staff = crate::modules::hr::api::staff_lines(conn)?
         .into_iter()
         .map(|l| StaffGroupInput {
             role: l.role,
@@ -23,7 +23,7 @@ pub fn derive(conn: &Connection) -> Result<(Vec<StaffGroupInput>, Vec<Population
             relation: Some(l.relation.as_str().into()),
         })
         .collect();
-    let population = crate::care::api::population_lines(conn, crate::core::institution::care_flavor(conn))?
+    let population = crate::modules::care::api::population_lines(conn, crate::core::institution::care_flavor(conn))?
         .into_iter()
         .map(|l| PopulationGroupInput {
             label: l.label,
@@ -73,8 +73,8 @@ pub fn seed_examples(conn: &mut Connection, raw: &str) -> Result<(), ServiceErro
     let flavor = crate::core::institution::hr_flavor(conn);
     let year = profile_store::current_year(conn)?;
     let tx = conn.transaction()?;
-    crate::hr::api::load_example(&tx, flavor, &example.staff)?;
-    crate::care::api::load_example(&tx, year, example.beneficiary)?;
+    crate::modules::hr::api::load_example(&tx, flavor, &example.staff)?;
+    crate::modules::care::api::load_example(&tx, year, example.beneficiary)?;
     tx.commit()?;
     Ok(())
 }

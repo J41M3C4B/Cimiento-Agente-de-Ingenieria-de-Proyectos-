@@ -3,8 +3,8 @@
 //! its numbers; the screen and the sheet of the AI put the words. Only findings without money and with groups of
 //! `MIN_GROUP` or more may reach the AI.
 
-use crate::care::api::MIN_GROUP;
-use crate::care::domain::aggregate::Indicators;
+use crate::modules::care::api::MIN_GROUP;
+use crate::modules::care::domain::aggregate::Indicators;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -47,7 +47,7 @@ pub(crate) fn insight(code: &'static str, values: &[(&'static str, i64)], items:
     Insight { code, values: values.iter().copied().collect(), items, for_ai }
 }
 
-fn count_of(list: &[crate::care::api::Count], codes: &[&str]) -> i64 {
+fn count_of(list: &[crate::modules::care::api::Count], codes: &[&str]) -> i64 {
     list.iter().filter(|c| codes.contains(&c.code.as_str())).map(|c| c.count).sum()
 }
 
@@ -97,7 +97,7 @@ pub fn board(i: Indicators, waiting: i64, cx: &Context) -> Board {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::care::api::Count;
+    use crate::modules::care::api::Count;
 
     fn count(code: &str, n: i64) -> Count {
         Count { code: code.into(), count: n }

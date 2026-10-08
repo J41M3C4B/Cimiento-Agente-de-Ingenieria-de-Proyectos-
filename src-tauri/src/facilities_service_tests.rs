@@ -2,7 +2,7 @@
 //! with the people served, what reaches the AI, and the examples.
 
 use super::*;
-use crate::facilities::domain::group::States;
+use crate::modules::facilities::domain::group::States;
 use crate::scanner::guard::Decision;
 use crate::storage::open_encrypted;
 
@@ -65,7 +65,7 @@ fn four_bathrooms_one_poor_are_saved_counted_and_named() {
 
     let o = delete_space(&c, &o.facilities.spaces[0].space.id).unwrap();
     assert!(o.facilities.spaces.is_empty());
-    assert!(matches!(delete_space(&c, "spc_nobody"), Err(ServiceError::Facilities(crate::facilities::FacilitiesError::NotFound))));
+    assert!(matches!(delete_space(&c, "spc_nobody"), Err(ServiceError::Facilities(crate::modules::facilities::FacilitiesError::NotFound))));
 }
 
 #[test]
@@ -113,8 +113,8 @@ fn the_board_crosses_the_stairs_with_the_people_in_a_wheelchair() {
     };
     crate::storage::profile::save(&mut c, &input).unwrap();
     for i in 0..3 {
-        let d = crate::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(85), mobility: Some("wheelchair".into()), status: "active".into(), ..Default::default() };
-        crate::care::service::save_person(&mut c, crate::care::domain::catalog::Flavor::ElderlyHome, None, d).unwrap();
+        let d = crate::modules::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(85), mobility: Some("wheelchair".into()), status: "active".into(), ..Default::default() };
+        crate::modules::care::service::save_person(&mut c, crate::modules::care::domain::catalog::Flavor::ElderlyHome, None, d).unwrap();
     }
     saved(save_site(&c, SiteData { name: "Casa".into(), floors: Some(2), floor_access: vec!["none".into()], built_m2: Some(300), ..Default::default() }, None).unwrap());
     let rooms = SpaceData { kind: "bedroom".into(), floor: 1, count: 4, states: States::all(4, "good"), beds: Some(12), ..Default::default() };

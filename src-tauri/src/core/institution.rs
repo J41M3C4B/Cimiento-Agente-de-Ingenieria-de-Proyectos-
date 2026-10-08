@@ -9,18 +9,18 @@ pub fn kind(conn: &Connection) -> Option<String> {
 }
 
 /// The kind of institution as the staff module understands it (the positions it suggests).
-pub fn hr_flavor(conn: &Connection) -> crate::hr::Flavor {
-    crate::hr::Flavor::from_kind(kind(conn).as_deref())
+pub fn hr_flavor(conn: &Connection) -> crate::modules::hr::Flavor {
+    crate::modules::hr::Flavor::from_kind(kind(conn).as_deref())
 }
 
 /// The kind of institution as the module of the people served understands it (extra data and age bands).
-pub fn care_flavor(conn: &Connection) -> crate::care::Flavor {
-    crate::care::Flavor::from_kind(kind(conn).as_deref())
+pub fn care_flavor(conn: &Connection) -> crate::modules::care::Flavor {
+    crate::modules::care::Flavor::from_kind(kind(conn).as_deref())
 }
 
 /// The kind of institution as the facilities module understands it (the spaces and equipment it suggests first).
-pub fn facilities_flavor(conn: &Connection) -> crate::facilities::Flavor {
-    crate::facilities::Flavor::from_kind(kind(conn).as_deref())
+pub fn facilities_flavor(conn: &Connection) -> crate::modules::facilities::Flavor {
+    crate::modules::facilities::Flavor::from_kind(kind(conn).as_deref())
 }
 
 #[cfg(test)]
@@ -32,10 +32,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let conn = crate::storage::open_encrypted(&dir.path().join("t.db"), "k").unwrap();
         assert_eq!(kind(&conn), None);
-        assert_eq!(hr_flavor(&conn), crate::hr::Flavor::Other);
+        assert_eq!(hr_flavor(&conn), crate::modules::hr::Flavor::Other);
         conn.execute("INSERT INTO institution (id, name, kind, created_at, updated_at) VALUES ('i','Casa','children_home','t','t')", []).unwrap();
         assert_eq!(kind(&conn).as_deref(), Some("children_home"));
-        assert_eq!(care_flavor(&conn), crate::care::Flavor::ChildrenHome);
-        assert_eq!(facilities_flavor(&conn), crate::facilities::Flavor::ChildrenHome);
+        assert_eq!(care_flavor(&conn), crate::modules::care::Flavor::ChildrenHome);
+        assert_eq!(facilities_flavor(&conn), crate::modules::facilities::Flavor::ChildrenHome);
     }
 }

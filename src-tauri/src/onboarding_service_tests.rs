@@ -90,7 +90,7 @@ fn step_by_step_to_a_finished_institution_that_the_ai_knows() {
     d.tenure_documented = Some(true);
     let s = saved(save(&mut c, &rosa, d.clone(), None).unwrap());
     assert!(s.ready && !s.done, "{:?}", missing(&s));
-    let site = crate::facilities::api::summaries(&c).unwrap().remove(0).site;
+    let site = crate::modules::facilities::api::summaries(&c).unwrap().remove(0).site;
     assert_eq!((site.floors, site.tenure.as_deref(), site.tenure_until), (Some(2), Some("loan"), Some(2040)));
 
     let s = finish(&mut c, &rosa).unwrap();
@@ -154,8 +154,8 @@ fn the_records_of_the_modules_count_instead_of_the_quick_figures() {
     d.institution.name = "Asilo Ficticio".into();
     saved(save(&mut c, &rosa, d, None).unwrap());
     for i in 0..3 {
-        let p = crate::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(80), status: "active".into(), ..Default::default() };
-        crate::care::service::save_person(&mut c, crate::care::domain::catalog::Flavor::ElderlyHome, None, p).unwrap();
+        let p = crate::modules::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(80), status: "active".into(), ..Default::default() };
+        crate::modules::care::service::save_person(&mut c, crate::modules::care::domain::catalog::Flavor::ElderlyHome, None, p).unwrap();
     }
     let s = status(&c, &rosa).unwrap();
     assert_eq!(s.records.served, 3);

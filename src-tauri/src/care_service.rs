@@ -2,10 +2,10 @@
 //! After every change the profile gets the new anonymous lines (people served and stay fees), and the board crosses
 //! the indicators of the module with the rest of «Mi institución».
 
-use crate::care::domain::person::{BeneficiaryData, Issue};
-use crate::care::domain::waitlist::WaitlistInput;
-use crate::care::service::{self as care, Overview, PersonView, SaveOutcome};
-use crate::care::service::{CustomField, Group, WaitlistRow};
+use crate::modules::care::domain::person::{BeneficiaryData, Issue};
+use crate::modules::care::domain::waitlist::WaitlistInput;
+use crate::modules::care::service::{self as care, Overview, PersonView, SaveOutcome};
+use crate::modules::care::service::{CustomField, Group, WaitlistRow};
 use crate::domain::insights::{self, Board, Context};
 use crate::domain::profile::ProfileTotals;
 use crate::core::institution::care_flavor;
@@ -47,18 +47,18 @@ pub enum WaitlistOutcome {
 
 /// The board: the indicators crossed with capacity, spaces, money and staff.
 pub fn board(conn: &Connection) -> Result<Board, ServiceError> {
-    use crate::care::domain::catalog::Flavor;
+    use crate::modules::care::domain::catalog::Flavor;
     let flavor = care_flavor(conn);
-    let indicators = crate::care::api::indicators(conn, flavor)?;
-    let waiting = crate::care::api::waiting(conn)?;
+    let indicators = crate::modules::care::api::indicators(conn, flavor)?;
+    let waiting = crate::modules::care::api::waiting(conn)?;
     let profile = profile_store::load_current(conn)?;
     let (capacity, expenses) = match &profile {
         Some(p) => (p.input.capacity_total, p.input.finances(p.as_of_year).expenses_annual_mxn),
         None => (None, None),
     };
     // the spaces live in their module (ADR-030)
-    let blocked = crate::facilities::api::indicators(conn)?.not_accessible;
-    let staff = crate::hr::api::ai_summary(conn)?;
+    let blocked = crate::modules::facilities::api::indicators(conn)?.not_accessible;
+    let staff = crate::modules::hr::api::ai_summary(conn)?;
     let carers = staff.positions.iter().filter(|p| matches!(p.area.as_deref(), Some("care" | "health"))).map(|p| p.people).sum();
     let cx = Context {
         capacity,
@@ -74,7 +74,7 @@ pub fn board(conn: &Connection) -> Result<Board, ServiceError> {
 }
 
 pub fn overview(conn: &Connection) -> Result<CareOverview, ServiceError> {
-    use crate::care::domain::catalog::Flavor;
+    use crate::modules::care::domain::catalog::Flavor;
     let flavor = care_flavor(conn);
     Ok(CareOverview {
         care: care::overview(conn, flavor)?,

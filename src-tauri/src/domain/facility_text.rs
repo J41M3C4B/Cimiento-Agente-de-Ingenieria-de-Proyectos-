@@ -1,9 +1,9 @@
 //! The words of the facilities (ADR-030) for the sheet of the AI and the guide in Word: the module keeps codes, this
 //! says them in plain Spanish. The screen has its own words in `es-MX.ts`.
 
-use crate::facilities::api::{GroupRef, States};
-use crate::facilities::domain::group::{EquipmentData, SpaceData};
-use crate::facilities::domain::site::SiteData;
+use crate::modules::facilities::api::{GroupRef, States};
+use crate::modules::facilities::domain::group::{EquipmentData, SpaceData};
+use crate::modules::facilities::domain::site::SiteData;
 
 fn pick<'a>(n: i64, one: &'a str, many: &'a str) -> &'a str {
     if n == 1 {

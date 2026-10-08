@@ -4,7 +4,7 @@
 use super::*;
 use crate::domain::access::{Need, Permission};
 use crate::domain::profile::{InstitutionInput, InstitutionKind, ProfileInput};
-use crate::hr::domain::person::PersonData;
+use crate::modules::hr::domain::person::PersonData;
 use crate::storage::open_encrypted;
 
 const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
@@ -174,7 +174,7 @@ fn a_person_who_leaves_the_institution_loses_access() {
     let (_d, mut c) = conn();
     let (s, _) = with_admin(&mut c);
     let (person, _) = manager(&mut c, &s);
-    let mut data = crate::hr::service::get_person(&c, &person).unwrap().unwrap().data;
+    let mut data = crate::modules::hr::service::get_person(&c, &person).unwrap().unwrap().data;
     data.status = "left".into();
     data.left_date = Some("2026-10-01".into());
     crate::staff_service::save_person(&mut c, Some(&person), data).unwrap();
@@ -237,7 +237,7 @@ fn a_deletion_asked_by_direction_hides_the_person_until_the_administrator_decide
     let id = admin_overview(&c).unwrap().pending[0].id.clone();
     let after = resolve_request(&mut c, &a, &id, true).unwrap();
     assert!(after.pending.is_empty() && after.resolved.iter().any(|r| r.status == "approved"));
-    assert!(crate::hr::service::get_person(&c, &person.id).unwrap().is_none());
+    assert!(crate::modules::hr::service::get_person(&c, &person.id).unwrap().is_none());
     let kinds: Vec<String> = events(&c).into_iter().map(|e| e.0).collect();
     for k in ["request.created", "request.rejected", "request.approved", "hr.person_deleted"] {
         assert!(kinds.iter().any(|e| e == k), "{k}");
@@ -246,7 +246,7 @@ fn a_deletion_asked_by_direction_hides_the_person_until_the_administrator_decide
 
 #[test]
 fn a_hidden_field_keeps_its_values_and_a_document_hides_too() {
-    use crate::care::domain::person::BeneficiaryData;
+    use crate::modules::care::domain::person::BeneficiaryData;
     let (_d, mut c) = conn();
     let (s, _) = with_admin(&mut c);
     let (_, rosa_session) = manager(&mut c, &s);
@@ -262,7 +262,7 @@ fn a_hidden_field_keeps_its_values_and_a_document_hides_too() {
     let mut again = person.data.clone();
     again.extra.remove(&key);
     crate::care_service::save_person(&mut c, Some(&person.id), again).unwrap();
-    let stored = crate::care::storage::person(&c, &person.id).unwrap().unwrap();
+    let stored = crate::modules::care::storage::person(&c, &person.id).unwrap().unwrap();
     assert_eq!(stored.data.extra.get(&key).map(String::as_str), Some("nueces"));
 
     let doc = crate::storage::documents::add_text_document(&mut c, "internal", "Reglamento", "Texto del reglamento interno.", 0).unwrap();

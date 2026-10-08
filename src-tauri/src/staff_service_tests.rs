@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::domain::profile::{InstitutionInput, InstitutionKind, ProfileInput};
-use crate::hr::domain::person::EmergencyContact;
+use crate::modules::hr::domain::person::EmergencyContact;
 use crate::storage::open_encrypted;
 use crate::storage::profile as profile_store;
 
@@ -115,7 +115,7 @@ fn identifiers_are_covered_shown_only_on_purpose_and_kept_unless_changed() {
     assert!(after.secrets.curp && !after.secrets.clabe);
     assert_eq!(reveal(&c, &view.id, "curp").unwrap(), "HEGG560427MVZRRL04");
     assert!(matches!(reveal(&c, &view.id, "clabe"), Err(ServiceError::NotFound)));
-    assert!(matches!(reveal(&c, &view.id, "first_names"), Err(ServiceError::Hr(crate::hr::HrError::UnknownField))));
+    assert!(matches!(reveal(&c, &view.id, "first_names"), Err(ServiceError::Hr(crate::modules::hr::HrError::UnknownField))));
 }
 
 #[test]
@@ -131,7 +131,7 @@ fn deleting_a_person_removes_everything_and_updates_the_payroll() {
     assert_eq!(gone.overview.totals.payroll_monthly_mxn, 0);
     let left: i64 = c.query_row("SELECT (SELECT count(*) FROM hr_job) + (SELECT count(*) FROM hr_emergency_contact)", [], |r| r.get(0)).unwrap();
     assert_eq!(left, 0);
-    assert!(matches!(delete_person(&mut c, &view.id), Err(ServiceError::Hr(crate::hr::HrError::NotFound))));
+    assert!(matches!(delete_person(&mut c, &view.id), Err(ServiceError::Hr(crate::modules::hr::HrError::NotFound))));
     let ev: i64 = c.query_row("SELECT count(*) FROM audit_log WHERE event='hr.person_deleted'", [], |r| r.get(0)).unwrap();
     assert_eq!(ev, 1);
 }
@@ -152,7 +152,7 @@ fn modalities_decide_where_the_money_counts() {
     let t = change.overview.totals;
     assert_eq!((t.payroll_monthly_mxn, t.payroll_benefits_annual_mxn), (3_000, 0), "fees: payroll without benefits");
     assert_eq!((t.staff_support_annual_mxn, t.external_staff_annual_mxn), (12_000, 108_000));
-    assert!(matches!(create_modality(&c, "Otra", "nothing"), Err(ServiceError::Hr(crate::hr::HrError::UnknownModality))));
+    assert!(matches!(create_modality(&c, "Otra", "nothing"), Err(ServiceError::Hr(crate::modules::hr::HrError::UnknownModality))));
 }
 
 #[test]
@@ -172,10 +172,10 @@ fn a_duplicate_title_or_an_archive_in_use_is_refused() {
     let kitchen = position(&c, "Cocina");
     assert!(matches!(
         save_position(&mut c, None, PositionInput { title: "cocina".into(), ..Default::default() }, None),
-        Err(ServiceError::Hr(crate::hr::HrError::DuplicateTitle))
+        Err(ServiceError::Hr(crate::modules::hr::HrError::DuplicateTitle))
     ));
     saved(save_person(&mut c, None, person("Ana", &kitchen, "indefinite", None)).unwrap());
-    assert!(matches!(set_position_active(&mut c, &kitchen, false), Err(ServiceError::Hr(crate::hr::HrError::PositionInUse))));
+    assert!(matches!(set_position_active(&mut c, &kitchen, false), Err(ServiceError::Hr(crate::modules::hr::HrError::PositionInUse))));
     let laundry = position(&c, "Lavandería");
     let change = set_position_active(&mut c, &laundry, false).unwrap();
     assert!(!change.overview.hr.positions.iter().find(|p| p.position.id == laundry).unwrap().position.active);

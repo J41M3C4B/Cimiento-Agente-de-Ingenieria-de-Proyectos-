@@ -39,16 +39,16 @@ fn after(version: i64, tx: &Transaction) -> rusqlite::Result<()> {
     Ok(())
 }
 
-fn hr_failure(e: crate::hr::HrError) -> rusqlite::Error {
+fn hr_failure(e: crate::modules::hr::HrError) -> rusqlite::Error {
     match e {
-        crate::hr::HrError::Db(e) => e,
+        crate::modules::hr::HrError::Db(e) => e,
         other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
     }
 }
 
-fn care_failure(e: crate::care::CareError) -> rusqlite::Error {
+fn care_failure(e: crate::modules::care::CareError) -> rusqlite::Error {
     match e {
-        crate::care::CareError::Db(e) => e,
+        crate::modules::care::CareError::Db(e) => e,
         other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
     }
 }
@@ -56,18 +56,18 @@ fn care_failure(e: crate::care::CareError) -> rusqlite::Error {
 /// The people served of the old roster (ADR-020) move into their module (ADR-029), keeping their ids (a deletion
 /// that was waiting still finds them) and their hiding. Then the roster, empty, goes away.
 fn move_roster_people(tx: &Transaction) -> rusqlite::Result<()> {
-    let rows: Vec<crate::care::legacy::LegacyRow> = tx
+    let rows: Vec<crate::modules::care::legacy::LegacyRow> = tx
         .prepare("SELECT id, data, hidden FROM roster_entry WHERE entity = 'beneficiary' ORDER BY created_at, rowid")?
         .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?)))?
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
-        .map(|(id, data, hidden)| crate::care::legacy::LegacyRow { id, data: serde_json::from_str(&data).unwrap_or_default(), hidden: hidden != 0 })
+        .map(|(id, data, hidden)| crate::modules::care::legacy::LegacyRow { id, data: serde_json::from_str(&data).unwrap_or_default(), hidden: hidden != 0 })
         .collect();
-    let own: Vec<crate::care::legacy::LegacyField> = tx
+    let own: Vec<crate::modules::care::legacy::LegacyField> = tx
         .prepare("SELECT key, title, kind, options FROM roster_field WHERE entity = 'beneficiary' AND builtin = 0 ORDER BY position")?
         .query_map([], |r| {
             let options: Vec<serde_json::Value> = serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default();
-            Ok(crate::care::legacy::LegacyField {
+            Ok(crate::modules::care::legacy::LegacyField {
                 key: r.get(0)?,
                 title: r.get(1)?,
                 kind: r.get(2)?,
@@ -77,7 +77,7 @@ fn move_roster_people(tx: &Transaction) -> rusqlite::Result<()> {
         .collect::<Result<Vec<_>, _>>()?;
     let hidden_fields: Vec<String> = tx.prepare("SELECT key FROM roster_field WHERE entity = 'beneficiary' AND hidden = 1")?.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     let year: i64 = tx.query_row("SELECT CAST(strftime('%Y','now') AS INTEGER)", [], |r| r.get(0))?;
-    let moved = crate::care::legacy::import(tx, year, &rows, &own).map_err(care_failure)?;
+    let moved = crate::modules::care::legacy::import(tx, year, &rows, &own).map_err(care_failure)?;
     for key in hidden_fields {
         tx.execute("UPDATE care_custom_field SET hidden = 1 WHERE key = ?1", [key])?;
     }
@@ -93,11 +93,11 @@ fn move_roster_people(tx: &Transaction) -> rusqlite::Result<()> {
 /// The old table goes away with the copies of the earlier versions: the module keeps the facilities now.
 fn move_profile_facilities(tx: &Transaction) -> rusqlite::Result<()> {
     let latest: Option<String> = tx.query_row("SELECT id FROM institution_profile ORDER BY version DESC LIMIT 1", [], |r| r.get(0)).optional()?;
-    let rows: Vec<crate::facilities::legacy::LegacyFacility> = match latest {
+    let rows: Vec<crate::modules::facilities::legacy::LegacyFacility> = match latest {
         Some(pid) => tx
             .prepare("SELECT kind, count, condition, accessible, notes, origin, source_ref FROM facility WHERE profile_id = ?1 ORDER BY rowid")?
             .query_map([pid], |r| {
-                Ok(crate::facilities::legacy::LegacyFacility {
+                Ok(crate::modules::facilities::legacy::LegacyFacility {
                     kind: r.get(0)?,
                     count: r.get(1)?,
                     condition: r.get(2)?,
@@ -110,8 +110,8 @@ fn move_profile_facilities(tx: &Transaction) -> rusqlite::Result<()> {
             .collect::<Result<Vec<_>, _>>()?,
         None => Vec::new(),
     };
-    let moved = crate::facilities::legacy::import(tx, &rows).map_err(|e| match e {
-        crate::facilities::FacilitiesError::Db(e) => e,
+    let moved = crate::modules::facilities::legacy::import(tx, &rows).map_err(|e| match e {
+        crate::modules::facilities::FacilitiesError::Db(e) => e,
         other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
     })?;
     if moved > 0 {
@@ -136,11 +136,11 @@ fn move_roster_staff(tx: &Transaction) -> rusqlite::Result<()> {
         tx.execute("DELETE FROM roster_field WHERE entity = 'staff'", [])?;
         return Ok(());
     }
-    let own: Vec<crate::hr::legacy::LegacyField> = tx
+    let own: Vec<crate::modules::hr::legacy::LegacyField> = tx
         .prepare("SELECT key, title, kind, options FROM roster_field WHERE entity = 'staff' AND builtin = 0 ORDER BY position")?
         .query_map([], |r| {
             let options: Vec<serde_json::Value> = serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default();
-            Ok(crate::hr::legacy::LegacyField {
+            Ok(crate::modules::hr::legacy::LegacyField {
                 key: r.get(0)?,
                 title: r.get(1)?,
                 kind: r.get(2)?,
@@ -149,8 +149,8 @@ fn move_roster_staff(tx: &Transaction) -> rusqlite::Result<()> {
         })?
         .collect::<Result<Vec<_>, _>>()?;
     let kind: Option<String> = tx.query_row("SELECT kind FROM institution LIMIT 1", [], |r| r.get(0)).optional()?;
-    let flavor = crate::hr::Flavor::from_kind(kind.as_deref());
-    let moved = crate::hr::legacy::import(tx, flavor, &rows, &own).map_err(hr_failure)?;
+    let flavor = crate::modules::hr::Flavor::from_kind(kind.as_deref());
+    let moved = crate::modules::hr::legacy::import(tx, flavor, &rows, &own).map_err(hr_failure)?;
     tx.execute("DELETE FROM roster_entry WHERE entity = 'staff'", [])?;
     tx.execute("DELETE FROM roster_field WHERE entity = 'staff'", [])?;
     // written by hand: at this version the audit log has no author yet (ADR-028 adds it in 0016)

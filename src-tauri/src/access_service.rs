@@ -390,7 +390,7 @@ pub struct AdminOverview {
 pub fn admin_overview(conn: &Connection) -> Result<AdminOverview, ServiceError> {
     let now = store::now_secs(conn)?;
     let users = store::users(conn)?;
-    let staff = crate::hr::service::overview(conn)?;
+    let staff = crate::modules::hr::service::overview(conn)?;
     let people = staff
         .people
         .into_iter()
@@ -449,7 +449,7 @@ pub fn create_user(conn: &Connection, actor: &CurrentUser, a: &NewAccount) -> Re
     }
     let display = match a.person_id {
         Some(pid) => {
-            let person = crate::hr::service::get_person(conn, pid)?.ok_or(ServiceError::NotFound)?;
+            let person = crate::modules::hr::service::get_person(conn, pid)?.ok_or(ServiceError::NotFound)?;
             if store::user_by_person(conn, pid)?.is_some() {
                 return Err(ServiceError::Access("person_has_account"));
             }
@@ -514,10 +514,10 @@ fn hide(conn: &Connection, kind: DeletionKind, target: &str, hidden: bool) -> Re
     let label = match kind {
         DeletionKind::Document => store::set_hidden(conn, "document", target, hidden)?,
         DeletionKind::Project => store::set_hidden(conn, "project", target, hidden)?,
-        DeletionKind::HrPerson => Some(crate::hr::service::set_person_hidden(conn, target, hidden)?),
-        DeletionKind::HrField => Some(crate::hr::service::set_field_hidden(conn, target, hidden)?),
-        DeletionKind::Beneficiary => Some(crate::care::service::set_person_hidden(conn, target, hidden)?),
-        DeletionKind::CareField => Some(crate::care::service::set_field_hidden(conn, target, hidden)?),
+        DeletionKind::HrPerson => Some(crate::modules::hr::service::set_person_hidden(conn, target, hidden)?),
+        DeletionKind::HrField => Some(crate::modules::hr::service::set_field_hidden(conn, target, hidden)?),
+        DeletionKind::Beneficiary => Some(crate::modules::care::service::set_person_hidden(conn, target, hidden)?),
+        DeletionKind::CareField => Some(crate::modules::care::service::set_field_hidden(conn, target, hidden)?),
     };
     label.ok_or(ServiceError::NotFound)
 }
@@ -558,13 +558,13 @@ fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str) -> R
             store::deactivate_for_person(conn, target)?;
         }
         DeletionKind::HrField => {
-            crate::hr::service::delete_custom_field(conn, target)?;
+            crate::modules::hr::service::delete_custom_field(conn, target)?;
         }
         DeletionKind::Beneficiary => {
             crate::care_service::delete_person(conn, target)?;
         }
         DeletionKind::CareField => {
-            crate::care::service::delete_custom_field(conn, target)?;
+            crate::modules::care::service::delete_custom_field(conn, target)?;
         }
     }
     Ok(())

@@ -69,19 +69,19 @@ impl From<ServiceError> for UiError {
                 UiError::new("nothing_to_confirm", "No hay cambios pendientes por confirmar.")
             }
             ServiceError::NotFound => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
-            ServiceError::Hr(crate::hr::HrError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
-            ServiceError::Hr(crate::hr::HrError::DuplicateTitle) => UiError::new("duplicate_position", "Ya existe un puesto con ese nombre."),
-            ServiceError::Hr(crate::hr::HrError::PositionInUse) => {
+            ServiceError::Hr(crate::modules::hr::HrError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Hr(crate::modules::hr::HrError::DuplicateTitle) => UiError::new("duplicate_position", "Ya existe un puesto con ese nombre."),
+            ServiceError::Hr(crate::modules::hr::HrError::PositionInUse) => {
                 UiError::new("position_in_use", "Hay personas en este puesto. Cámbielas de puesto antes de archivarlo.")
             }
-            ServiceError::Hr(crate::hr::HrError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
-            ServiceError::Hr(crate::hr::HrError::UnknownModality) => UiError::new("unknown_modality", "Elija a cuál modalidad se parece."),
+            ServiceError::Hr(crate::modules::hr::HrError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
+            ServiceError::Hr(crate::modules::hr::HrError::UnknownModality) => UiError::new("unknown_modality", "Elija a cuál modalidad se parece."),
             ServiceError::Access(code) => UiError::new(code, access_message(code)),
-            ServiceError::Facilities(crate::facilities::FacilitiesError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
-            ServiceError::Care(crate::care::CareError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
-            ServiceError::Care(crate::care::CareError::DuplicateTitle) => UiError::new("duplicate_group", "Ya existe un grupo con ese nombre."),
-            ServiceError::Care(crate::care::CareError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
-            ServiceError::Care(crate::care::CareError::AgeNeeded) => {
+            ServiceError::Facilities(crate::modules::facilities::FacilitiesError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Care(crate::modules::care::CareError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Care(crate::modules::care::CareError::DuplicateTitle) => UiError::new("duplicate_group", "Ya existe un grupo con ese nombre."),
+            ServiceError::Care(crate::modules::care::CareError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
+            ServiceError::Care(crate::modules::care::CareError::AgeNeeded) => {
                 UiError::new("age_needed", "Escriba la edad aproximada en la solicitud antes de darle ingreso.")
             }
             ServiceError::OnboardingIncomplete => UiError::new("onboarding_incomplete", "Todavía faltan datos de la institución. Revise los pasos marcados."),

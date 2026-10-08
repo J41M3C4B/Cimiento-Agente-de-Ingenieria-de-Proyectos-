@@ -3,10 +3,10 @@
 use super::guard;
 use crate::access_service::Session;
 use crate::error::UiError;
-use crate::hr::domain::person::PersonData;
-use crate::hr::domain::position::PositionInput;
-use crate::hr::service::{ModalityInfo, PersonView};
-use crate::hr::storage::CustomField;
+use crate::modules::hr::domain::person::PersonData;
+use crate::modules::hr::domain::position::PositionInput;
+use crate::modules::hr::service::{ModalityInfo, PersonView};
+use crate::modules::hr::storage::CustomField;
 use crate::scanner::guard::Decision;
 use crate::staff_service::{self as svc, PersonOutcome, PositionOutcome, StaffChange, StaffOverview};
 use crate::Db;
@@ -92,7 +92,7 @@ pub fn hr_field_delete(session: State<'_, Session>, db: State<'_, Db>, key: Stri
     let mut conn = lock(&db)?;
     if !gate.may_delete() {
         crate::access_service::request_deletion(&mut conn, gate.user()?, crate::domain::access::DeletionKind::HrField, &key)?;
-        return Ok(crate::hr::storage::custom_fields(&conn).map_err(crate::service::ServiceError::from)?);
+        return Ok(crate::modules::hr::storage::custom_fields(&conn).map_err(crate::service::ServiceError::from)?);
     }
     Ok(svc::delete_field(&conn, &key)?)
 }

@@ -37,17 +37,17 @@ pub fn profile_db() -> (tempfile::TempDir, SharedDb) {
     };
     // the 18 people served live in their module (ADR-029): the sheet of the AI counts them from there
     for i in 0..18 {
-        let d = crate::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(80), status: "active".into(), ..Default::default() };
-        crate::care::service::save_person(&mut conn, crate::care::domain::catalog::Flavor::Other, None, d).unwrap();
+        let d = crate::modules::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(80), status: "active".into(), ..Default::default() };
+        crate::modules::care::service::save_person(&mut conn, crate::modules::care::domain::catalog::Flavor::Other, None, d).unwrap();
     }
     // three bathrooms in poor state, in the facilities module (ADR-030)
-    let bathrooms = crate::facilities::domain::group::SpaceData {
+    let bathrooms = crate::modules::facilities::domain::group::SpaceData {
         kind: "bathroom".into(),
         count: 3,
-        states: crate::facilities::domain::group::States::all(3, "poor"),
+        states: crate::modules::facilities::domain::group::States::all(3, "poor"),
         ..Default::default()
     };
-    crate::facilities::service::save_space(&conn, None, bathrooms).unwrap();
+    crate::modules::facilities::service::save_space(&conn, None, bathrooms).unwrap();
     profile::save(&mut conn, &input).unwrap();
     profile::confirm(&mut conn).unwrap();
     (dir, Arc::new(Mutex::new(conn)))
