@@ -1,7 +1,7 @@
 //! Institution profile: only aggregated data (how many, never who). Staff are one anonymous line per position
 //! (role, pay, contract; never a name), and people served are grouped, never one by one.
 
-use super::finances;
+use crate::modules::finance::domain::money::MAX_MXN;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -88,61 +88,6 @@ impl ContractKind {
     }
 }
 
-/// Whether an amount is written per month or per year. The code turns it into a year.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum Period {
-    Monthly,
-    #[default]
-    Annual,
-}
-
-impl Period {
-    pub fn as_db(self) -> &'static str {
-        match self {
-            Period::Monthly => "monthly",
-            Period::Annual => "annual",
-        }
-    }
-    pub fn from_db(s: &str) -> Self {
-        if s == "monthly" { Period::Monthly } else { Period::Annual }
-    }
-}
-
-/// Where an income written by the person comes from. The stay fees of the roster are not one of these: the app
-/// computes them (`finances`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum IncomeKind {
-    /// What the people served pay, written by hand while the roster has no fees.
-    FeeEstimate,
-    /// People or companies that give the same amount every month or year.
-    RecurringDonor,
-    /// People or companies that give when they want.
-    OccasionalDonation,
-    /// Money won with a project (a call, a foundation).
-    ProjectGrant,
-    #[default]
-    Other,
-}
-
-impl IncomeKind {
-    pub const ALL: [IncomeKind; 5] =
-        [IncomeKind::FeeEstimate, IncomeKind::RecurringDonor, IncomeKind::OccasionalDonation, IncomeKind::ProjectGrant, IncomeKind::Other];
-    pub fn as_db(self) -> &'static str {
-        match self {
-            IncomeKind::FeeEstimate => "fee_estimate",
-            IncomeKind::RecurringDonor => "recurring_donor",
-            IncomeKind::OccasionalDonation => "occasional_donation",
-            IncomeKind::ProjectGrant => "project_grant",
-            IncomeKind::Other => "other",
-        }
-    }
-    pub fn from_db(s: &str) -> Self {
-        IncomeKind::ALL.into_iter().find(|k| k.as_db() == s).unwrap_or_default()
-    }
-}
-
 /// Institutional data. Contact fields are institutional, never sent to the AI,
 /// and the scanner does not look at them (see `03-gobernanza-datos.md`).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -210,33 +155,9 @@ pub struct StaffGroupInput {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct IncomeSourceInput {
-    pub label: String,
-    #[serde(default)]
-    pub kind: IncomeKind,
-    /// As the person wrote it, per `period`.
-    pub amount_mxn: Option<i64>,
-    #[serde(default)]
-    pub period: Period,
-}
-
-/// One concept of what the institution spends (food, utilities…). The payroll is not written here: the app
-/// computes it from the roster.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ExpenseItemInput {
-    pub label: String,
-    pub amount_mxn: Option<i64>,
-    #[serde(default)]
-    pub period: Period,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProfileInput {
     pub institution: InstitutionInput,
     pub capacity_total: Option<i64>,
-    /// «Gasto anual aproximado»: what the institution spends in a year, all included, as one approximate figure.
-    /// It is the quick way to start; once the list of expenses has a line, the list is the total (ADR-026).
-    pub annual_budget_mxn: Option<i64>,
     pub notes: Option<String>,
     /// Quick figures said by the person (ADR-031): how many people are served and work there while their records
     /// are not in the modules yet. The records win when they exist.
@@ -250,10 +171,6 @@ pub struct ProfileInput {
     pub population: Vec<PopulationGroupInput>,
     #[serde(default)]
     pub staff: Vec<StaffGroupInput>,
-    #[serde(default)]
-    pub income: Vec<IncomeSourceInput>,
-    #[serde(default)]
-    pub expenses: Vec<ExpenseItemInput>,
 }
 
 /// Something the person should look at. The UI turns `code` into friendly text.
@@ -270,7 +187,6 @@ pub struct ProfileTotals {
     pub population: i64,
     pub staff_paid: i64,
     pub staff_volunteer: i64,
-    pub income_annual_mxn: i64,
     /// Sum of the monthly pay of the people who receive a salary.
     pub payroll_monthly_mxn: i64,
     /// The pay of twelve months, without benefits.
@@ -291,8 +207,13 @@ pub struct ProfileTotals {
     pub fees_annual_mxn: i64,
 }
 
-fn normalized(s: &str) -> String {
-    s.to_lowercase().replace(['á', 'à'], "a").replace('é', "e").replace('í', "i").replace('ó', "o").replace(['ú', 'ü'], "u")
+/// The pay rules of the law live in the staff module (ADR-027).
+pub use crate::modules::hr::api::annual_benefits;
+
+/// Whether a contract carries the benefits of the law. Fees (honorarios) do not; an unknown contract is taken as
+/// a job with benefits, which is the safe side for a budget.
+pub fn has_benefits(contract: Option<ContractKind>) -> bool {
+    !matches!(contract, Some(ContractKind::Fees))
 }
 
 /// A Mexican RFC: three letters (moral person) or four (physical), six digits of the date and a three-character
@@ -336,11 +257,11 @@ impl ProfileInput {
         let mut payroll_benefits_annual_mxn = 0;
         let mut benefits_assumed = 0;
         for s in self.staff.iter().filter(|s| s.paid && s.monthly_salary_mxn.unwrap_or(0) > 0) {
-            if !finances::has_benefits(s.contract) {
+            if !has_benefits(s.contract) {
                 continue;
             }
             let years = s.start_year.map_or(1, |y| year - y);
-            payroll_benefits_annual_mxn += s.count * finances::annual_benefits(s.monthly_salary_mxn.unwrap_or(0), years);
+            payroll_benefits_annual_mxn += s.count * annual_benefits(s.monthly_salary_mxn.unwrap_or(0), years);
             if s.contract.is_none() || s.start_year.is_none() {
                 benefits_assumed += s.count;
             }
@@ -351,7 +272,6 @@ impl ProfileInput {
             population: self.population.iter().map(|g| g.count).sum(),
             staff_paid: self.staff.iter().filter(|s| s.paid).map(|s| s.count).sum(),
             staff_volunteer: self.staff.iter().filter(|s| !s.paid).map(|s| s.count).sum(),
-            income_annual_mxn: self.income_annual(fees_monthly_mxn * 12),
             payroll_monthly_mxn,
             payroll_annual_mxn: payroll_monthly_mxn * 12,
             payroll_benefits_annual_mxn,
@@ -374,18 +294,6 @@ impl ProfileInput {
             .sum()
     }
 
-    /// Counted income in a year: the roster fees, and the written lines (a fee estimate only while the roster has no
-    /// fees). The same rule as `finances`, which also gives the detail.
-    fn income_annual(&self, roster_fees_annual: i64) -> i64 {
-        let written: i64 = self
-            .income
-            .iter()
-            .filter(|i| !(roster_fees_annual > 0 && i.kind == IncomeKind::FeeEstimate))
-            .filter_map(|i| i.amount_mxn.map(|a| finances::annual(a, i.period)))
-            .sum();
-        roster_fees_annual + written
-    }
-
     /// People served counted by group (the same group may come in several lines when its fees differ).
     pub fn population_by_label(&self) -> Vec<(String, i64)> {
         let mut out: Vec<(String, i64)> = Vec::new();
@@ -402,7 +310,7 @@ impl ProfileInput {
     pub fn validate(&self, year: i64) -> Vec<ProfileIssue> {
         let mut v = Vec::new();
         let mut add = |code, field: String, blocking| v.push(ProfileIssue { code, field, blocking });
-        let too_large = |n: Option<i64>| n.map_or(false, |x| x > finances::MAX_MXN);
+        let too_large = |n: Option<i64>| n.map_or(false, |x| x > MAX_MXN);
 
         if self.institution.name.trim().is_empty() {
             add("name_missing", "institution.name".into(), true);
@@ -410,12 +318,6 @@ impl ProfileInput {
         let neg = |n: Option<i64>| n.map_or(false, |x| x < 0);
         if neg(self.capacity_total) {
             add("negative_number", "capacity_total".into(), true);
-        }
-        if neg(self.annual_budget_mxn) {
-            add("negative_number", "annual_budget_mxn".into(), true);
-        }
-        if too_large(self.annual_budget_mxn) {
-            add("amount_too_large", "annual_budget_mxn".into(), true);
         }
         for (field, n) in [("served_estimate", self.served_estimate), ("staff_paid_estimate", self.staff_paid_estimate), ("staff_volunteer_estimate", self.staff_volunteer_estimate)] {
             if neg(n) {
@@ -486,28 +388,6 @@ impl ProfileInput {
                 add("year_invalid", format!("staff[{i}].start_year"), true);
             }
         }
-        for (i, inc) in self.income.iter().enumerate() {
-            if inc.label.trim().is_empty() {
-                add("label_missing", format!("income[{i}].label"), true);
-            }
-            if neg(inc.amount_mxn) {
-                add("negative_number", format!("income[{i}].amount_mxn"), true);
-            }
-            if too_large(inc.amount_mxn) {
-                add("amount_too_large", format!("income[{i}].amount_mxn"), true);
-            }
-        }
-        for (i, e) in self.expenses.iter().enumerate() {
-            if e.label.trim().is_empty() {
-                add("label_missing", format!("expenses[{i}].label"), true);
-            }
-            if neg(e.amount_mxn) {
-                add("negative_number", format!("expenses[{i}].amount_mxn"), true);
-            }
-            if too_large(e.amount_mxn) {
-                add("amount_too_large", format!("expenses[{i}].amount_mxn"), true);
-            }
-        }
         for (i, s) in self.staff.iter().enumerate() {
             if too_large(s.monthly_salary_mxn) {
                 add("amount_too_large", format!("staff[{i}].monthly_salary_mxn"), true);
@@ -528,24 +408,6 @@ impl ProfileInput {
         if let Some(cap) = self.capacity_total {
             if t.population > cap {
                 add("population_over_capacity", "population".into(), false);
-            }
-        }
-        if t.fees_annual_mxn > 0 {
-            if let Some(i) = self.income.iter().position(|i| i.kind == IncomeKind::FeeEstimate) {
-                add("fee_estimate_ignored", format!("income[{i}]"), false);
-            }
-        }
-        if self.expenses.is_empty() {
-            if let Some(estimate) = self.annual_budget_mxn {
-                if t.payroll_cost_annual_mxn > estimate {
-                    add("payroll_over_estimate", "annual_budget_mxn".into(), false);
-                }
-            }
-        }
-        if t.payroll_cost_annual_mxn > 0 {
-            let payroll_words = ["nomina", "sueldo", "salario", "aguinaldo"];
-            if let Some(i) = self.expenses.iter().position(|e| payroll_words.iter().any(|w| normalized(&e.label).contains(w))) {
-                add("expense_looks_like_payroll", format!("expenses[{i}].label"), false);
             }
         }
         let filled = |o: &Option<String>| o.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
@@ -581,12 +443,6 @@ impl ProfileInput {
             opt(&format!("staff[{i}].shift"), &mut s.shift, f);
             opt(&format!("staff[{i}].notes"), &mut s.notes, f);
         }
-        for (i, inc) in self.income.iter_mut().enumerate() {
-            f(&format!("income[{i}].label"), &mut inc.label);
-        }
-        for (i, e) in self.expenses.iter_mut().enumerate() {
-            f(&format!("expenses[{i}].label"), &mut e.label);
-        }
     }
 }
 
@@ -598,7 +454,6 @@ mod tests {
         ProfileInput {
             institution: InstitutionInput { name: "Casa Hogar Ficticia".into(), ..Default::default() },
             capacity_total: Some(25),
-            annual_budget_mxn: Some(1_000_000),
             population: vec![
                 PopulationGroupInput { label: "Adultos mayores".into(), count: 18, ..Default::default() },
                 PopulationGroupInput { label: "Con dependencia alta".into(), count: 4, ..Default::default() },
@@ -606,10 +461,6 @@ mod tests {
             staff: vec![
                 StaffGroupInput { role: "Enfermería".into(), count: 3, paid: true, ..Default::default() },
                 StaffGroupInput { role: "Voluntariado".into(), count: 5, paid: false, ..Default::default() },
-            ],
-            income: vec![
-                IncomeSourceInput { label: "Cuotas".into(), kind: IncomeKind::FeeEstimate, amount_mxn: Some(600_000), period: Period::Annual },
-                IncomeSourceInput { label: "Donativos".into(), kind: IncomeKind::OccasionalDonation, amount_mxn: Some(400_000), period: Period::Annual },
             ],
             ..Default::default()
         }
@@ -624,7 +475,6 @@ mod tests {
                 population: 22,
                 staff_paid: 3,
                 staff_volunteer: 5,
-                income_annual_mxn: 1_000_000,
                 payroll_monthly_mxn: 0,
                 payroll_annual_mxn: 0,
                 payroll_benefits_annual_mxn: 0,
@@ -688,43 +538,20 @@ mod tests {
     fn heads_up_when_numbers_do_not_add_up() {
         let mut p = base();
         p.capacity_total = Some(20); // 22 people, 20 beds
-        p.staff[0].monthly_salary_mxn = Some(30_000); // 3 x 30,000 x 12 = 1,080,000 + benefits: over the estimate
         let issues = p.validate(2026);
         assert!(issues.iter().all(|i| !i.blocking));
         let codes: Vec<_> = issues.iter().map(|i| i.code).collect();
-        assert_eq!(codes, vec!["population_over_capacity", "payroll_over_estimate"]);
-        // income that differs from what is spent is not «something wrong»: it is the balance
-        p.income[1].amount_mxn = Some(1);
-        p.staff[0].monthly_salary_mxn = None;
+        assert_eq!(codes, vec!["population_over_capacity"]);
         p.capacity_total = None;
         assert!(p.validate(2026).is_empty());
     }
 
     #[test]
-    fn heads_up_for_fees_counted_twice_and_payroll_written_as_an_expense() {
+    fn amounts_out_of_reason_are_blocked() {
         let mut p = base();
-        p.population[0].paying_count = Some(10);
-        p.population[0].monthly_fee_mxn = Some(2_000);
-        p.staff[0].monthly_salary_mxn = Some(9_000);
-        p.annual_budget_mxn = None;
-        p.expenses = vec![
-            ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(10_000), period: Period::Monthly },
-            ExpenseItemInput { label: "Nómina y aguinaldos".into(), amount_mxn: Some(300_000), period: Period::Annual },
-        ];
-        let issues = p.validate(2026);
-        let found: Vec<_> = issues.iter().map(|i| (i.code, i.field.as_str(), i.blocking)).collect();
-        assert_eq!(found, vec![("fee_estimate_ignored", "income[0]", false), ("expense_looks_like_payroll", "expenses[1].label", false)]);
-    }
-
-    #[test]
-    fn amounts_out_of_reason_and_expenses_without_name_are_blocked() {
-        let mut p = base();
-        p.income[0].amount_mxn = Some(finances::MAX_MXN + 1);
-        p.expenses = vec![ExpenseItemInput { label: " ".into(), amount_mxn: Some(-5), period: Period::Annual }];
+        p.staff[0].monthly_salary_mxn = Some(MAX_MXN + 1);
         let codes: Vec<_> = p.validate(2026).into_iter().filter(|i| i.blocking).map(|i| (i.code, i.field)).collect();
-        assert!(codes.contains(&("amount_too_large", "income[0].amount_mxn".into())));
-        assert!(codes.contains(&("label_missing", "expenses[0].label".into())));
-        assert!(codes.contains(&("negative_number", "expenses[0].amount_mxn".into())));
+        assert!(codes.contains(&("amount_too_large", "staff[0].monthly_salary_mxn".into())));
     }
 
     #[test]
@@ -756,11 +583,48 @@ mod tests {
         ];
         let t = p.totals(2026);
         assert_eq!((t.payroll_cost_annual_mxn, t.staff_support_annual_mxn, t.external_staff_annual_mxn), (0, 48_000, 192_000));
-        p.expenses = vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(1_000), period: Period::Annual }];
-        let f = p.finances(2026);
-        let kinds: Vec<_> = f.expenses.iter().map(|l| (l.kind, l.annual_mxn, l.counted)).collect();
-        assert_eq!(kinds, vec![("staff_support", Some(48_000), true), ("external_staff", Some(192_000), true), ("expense", Some(1_000), true)]);
-        assert_eq!(f.expenses_annual_mxn, Some(241_000));
+    }
+
+    #[test]
+    fn only_fees_carry_no_benefits() {
+        assert!(has_benefits(Some(ContractKind::Permanent)) && has_benefits(Some(ContractKind::Temporary)) && has_benefits(None));
+        assert!(!has_benefits(Some(ContractKind::Fees)));
+    }
+
+    fn payroll() -> ProfileInput {
+        ProfileInput {
+            staff: vec![
+                StaffGroupInput { role: "Cocina".into(), count: 1, paid: true, monthly_salary_mxn: Some(9_000), contract: Some(ContractKind::Permanent), start_year: Some(2018), ..Default::default() },
+                StaffGroupInput { role: "Psicología".into(), count: 1, paid: true, monthly_salary_mxn: Some(6_000), contract: Some(ContractKind::Fees), ..Default::default() },
+                StaffGroupInput { role: "Voluntariado".into(), count: 2, paid: false, ..Default::default() },
+            ],
+            ..base()
+        }
+    }
+
+    #[test]
+    fn payroll_cost_adds_the_benefits_only_to_jobs_that_carry_them() {
+        let t = payroll().totals(2026);
+        assert_eq!(t.payroll_monthly_mxn, 15_000);
+        assert_eq!(t.payroll_annual_mxn, 180_000);
+        // cook: 8 years in 2026 -> 6,150; the psychologist works for fees: nothing
+        assert_eq!(t.payroll_benefits_annual_mxn, 6_150);
+        assert_eq!(t.payroll_cost_annual_mxn, 186_150);
+        assert_eq!(t.benefits_assumed, 0);
+    }
+
+    #[test]
+    fn missing_contract_or_start_year_is_counted_with_benefits_and_flagged_as_assumed() {
+        let mut p = payroll();
+        p.staff[0].contract = None;
+        p.staff[0].start_year = None;
+        let t = p.totals(2026);
+        assert_eq!(t.payroll_benefits_annual_mxn, 5_400, "first year, with benefits");
+        assert_eq!(t.benefits_assumed, 1);
+        // a group of several people with the same line counts once per person
+        p.staff[0].count = 3;
+        assert_eq!(p.totals(2026).payroll_benefits_annual_mxn, 16_200);
+        assert_eq!(p.totals(2026).benefits_assumed, 3);
     }
 
     #[test]

@@ -3,7 +3,9 @@
 
 use super::*;
 use crate::modules::care::domain::person::ResponsibleContact;
-use crate::domain::profile::{ExpenseItemInput, InstitutionInput, InstitutionKind, Period, ProfileInput};
+use crate::domain::profile::{InstitutionInput, InstitutionKind, ProfileInput};
+use crate::modules::finance::domain::lines::{ExpenseItemInput, FinanceInput};
+use crate::modules::finance::domain::money::Period;
 use crate::storage::open_encrypted;
 
 const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
@@ -18,10 +20,11 @@ fn with_profile(c: &mut Connection, kind: InstitutionKind) {
     let input = ProfileInput {
         institution: InstitutionInput { name: "Casa Ficticia".into(), kind, ..Default::default() },
         capacity_total: Some(4),
-        expenses: vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(24_000), period: Period::Monthly }],
         ..Default::default()
     };
     crate::storage::profile::save(c, &input).unwrap();
+    let money = FinanceInput { expenses: vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(24_000), period: Period::Monthly }], ..Default::default() };
+    crate::modules::finance::storage::save(c, &money).unwrap();
     // two bathrooms a wheelchair cannot use, in the facilities module (ADR-030)
     let bathrooms = crate::modules::facilities::domain::group::SpaceData { kind: "bathroom".into(), count: 2, accessible: Some(false), ..Default::default() };
     crate::modules::facilities::service::save_space(c, None, bathrooms).unwrap();

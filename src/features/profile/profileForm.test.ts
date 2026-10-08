@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ProfileInput, ProfileView } from "../../lib/types";
-import { emptyForm, formSchema, fromView, parsePesos, toInput } from "./profileForm";
+import type { FinanceInput, ProfileInput, ProfileView } from "../../lib/types";
+import { emptyForm, formSchema, fromView, parsePesos, toFinance, toInput } from "./profileForm";
 
 const input: ProfileInput = {
   institution: {
@@ -19,13 +19,16 @@ const input: ProfileInput = {
     cluni: "in_progress",
   },
   capacity_total: 40,
-  annual_budget_mxn: null,
   notes: null,
   served_estimate: 30,
   staff_paid_estimate: null,
   staff_volunteer_estimate: 4,
   population: [],
   staff: [],
+};
+
+const money: FinanceInput = {
+  annual_budget_mxn: null,
   income: [{ label: "Donativos", kind: "occasional_donation", amount_mxn: 1000, period: "monthly" }],
   expenses: [{ label: "Alimentos", amount_mxn: 8000, period: "monthly" }],
 };
@@ -37,20 +40,17 @@ const view = (i: ProfileInput): ProfileView => ({
   is_draft: true,
   input: i,
   totals: {
-    population: 14, staff_paid: 1, staff_volunteer: 0, income_annual_mxn: 1000,
+    population: 14, staff_paid: 1, staff_volunteer: 0,
     payroll_monthly_mxn: 8500, payroll_annual_mxn: 102000, payroll_benefits_annual_mxn: 5100, payroll_cost_annual_mxn: 107100,
     benefits_assumed: 0, staff_support_annual_mxn: 0, external_staff_annual_mxn: 0, fee_payers: 4, fees_monthly_mxn: 6000, fees_annual_mxn: 72000,
-  },
-  finances: {
-    income: [], income_by_kind: [], income_fixed_annual_mxn: 0, income_variable_annual_mxn: 0, income_annual_mxn: 0,
-    income_known: false, expenses: [], expenses_basis: "unknown", expenses_annual_mxn: null, balance_annual_mxn: null,
   },
   issues: [],
 });
 
 describe("profile form conversion", () => {
   it("round-trips what the app sends", () => {
-    expect(toInput(fromView(view(input)))).toEqual(input);
+    expect(toInput(fromView(view(input), money))).toEqual(input);
+    expect(toFinance(fromView(view(input), money))).toEqual(money);
   });
 
   it("never sends staff or people served: they come from the roster", () => {
@@ -69,10 +69,11 @@ describe("profile form conversion", () => {
     expect(out.capacity_total).toBeNull();
   });
 
-  it("keeps the expenses when another card is saved", () => {
-    const f = fromView(view(input));
+  it("keeps the expenses when another card is saved, and never sends money with the profile", () => {
+    const f = fromView(view(input), money);
     f.name = "Otro nombre";
-    expect(toInput(f).expenses).toEqual(input.expenses);
+    expect(toFinance(f).expenses).toEqual(money.expenses);
+    expect(toInput(f)).not.toHaveProperty("expenses");
   });
 
   it("reads amounts as people write them, like Rust does", () => {
@@ -80,12 +81,12 @@ describe("profile form conversion", () => {
       expect(parsePesos(text)).toBe(n);
     }
     for (const text of ["abc", "9 mil", "1,80,000", "1800,000", "-5", "12.50", "$"]) expect(parsePesos(text)).toBeNull();
-    const f = fromView(view(input));
+    const f = fromView(view(input), money);
     f.annual_budget_mxn = "$1,800,000";
-    f.income[0].amount_mxn = "12,500";
+    f.income[0]!.amount_mxn = "12,500";
     expect(formSchema.safeParse(f).success).toBe(true);
-    expect(toInput(f).annual_budget_mxn).toBe(1800000);
-    expect(toInput(f).income[0].amount_mxn).toBe(12500);
+    expect(toFinance(f).annual_budget_mxn).toBe(1800000);
+    expect(toFinance(f).income[0]!.amount_mxn).toBe(12500);
   });
 
   it("accepts only whole numbers in number fields", () => {

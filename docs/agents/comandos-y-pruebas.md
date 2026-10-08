@@ -19,7 +19,7 @@ cargo test card                                        # la ficha de la convocat
 #   $env:CIMIENTO_CANON_FILE="D:\...\x.canonico.json"; cargo test print_card_of_a_real_call -- --ignored --nocapture
 cargo test jobs                                        # un proceso de IA por proyecto a la vez (ADR-023)
 cargo test institution_context                         # la ficha de «Mi institución» que lee la IA: qué lleva, qué nunca (ADR-023)
-cargo test finances                                    # ingresos por tipo, egresos, nómina con prestaciones y balance (ADR-026)
+cargo test finance                                     # módulo de Finanzas (ADR-026, ADR-032): ingresos por tipo, egresos, balance, escáner y guardado; la nómina con prestaciones está en `cargo test profile`
 cargo test hr::                                        # módulo de Personal (ADR-027): modalidades, CURP/RFC/NSS/CLABE, avance, agregados y su frontera
 cargo test access                                      # perfiles de acceso (ADR-028): roles, permiso de cada comando, cuentas, bloqueo, recuperación y solicitudes de borrado
 cargo test care                                        # módulo de Beneficiarios (ADR-029): ficha, grupos, lista de espera, indicadores, tablero y lo que llega a la IA

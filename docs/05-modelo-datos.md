@@ -361,3 +361,22 @@ Esta especificación se escribió antes de varias decisiones; el código vive en
 - **0006:** `conversation_turn` y `conversation_root` (la conversación del diagnóstico, ADR-017) y `call_reading.confirmed_at`. Las tablas `diagnosis_answer`, `diagnosis_dimension` y `diagnosis_pending` ya no se escriben.
 - **0007:** `project.asks_for_proposal` y `budget_item.administrative` (ADR-018).
 - Las etapas de `project.stage` ahora van en el orden `PROFILE → CALL_SELECTION → DIAGNOSIS → PRIORITIZATION → DRAFTING → REVIEW → READY`.
+
+## Dueño de cada tabla (ADR-032)
+
+Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás le piden datos por su `api`.
+
+| Dueño | Tablas |
+|---|---|
+| Base | `schema_migrations`, `app_settings`, `audit_log`, `ai_usage` |
+| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
+| Personal (`hr_*`) | `hr_modality`, `hr_position`, `hr_person`, `hr_job`, `hr_emergency_contact`, `hr_custom_field` |
+| Beneficiarios (`care_*`) | `care_group`, `care_person`, `care_contact`, `care_custom_field`, `care_waitlist` |
+| Instalaciones (`fac_*`) | `fac_site`, `fac_space`, `fac_equipment` |
+| Finanzas (`fin_*`) | `fin_income`, `fin_expense`, `fin_settings` |
+| Proyectos | `project`, `call_reading`, `call_reading_file`, `conversation_turn`, `conversation_root`, `diagnosis_summary`, `need`, `project_section`, `budget_item`, `schedule_activity`, `drafting_plan`, y las de la primera especificación: `grant_call`, `call_template`, `requirement`, `diagnosis_answer`, `diagnosis_pending`, `diagnosis_dimension`, `questionnaire`, `questionnaire_field` (conservan su nombre) |
+
+- **0020 `fin_income`, `fin_expense`, `fin_settings`:** el dinero sale de las versiones del perfil y pasa al módulo de Finanzas (ADR-032).
+  - La migración copia las líneas de la versión vigente del perfil y su «gasto anual aproximado» (`fin_settings.annual_budget_mxn`, una sola fila).
+  - Cada línea conserva su `origin`, su `source_ref` y su confirmación.
+  - `income_source`, `expense_item` e `institution_profile.annual_budget_mxn` quedan como historia de las versiones anteriores y ya no se escriben.

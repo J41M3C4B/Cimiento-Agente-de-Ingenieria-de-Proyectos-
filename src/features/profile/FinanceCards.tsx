@@ -2,7 +2,7 @@ import { Icon } from "../../components/icons";
 import { Bar, Button, Card, Inset, RowActions, RowActionsSlot, Tag } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import type { FinanceLine, ProfileView } from "../../lib/types";
+import type { FinanceLine, FinanceView, ProfileTotals } from "../../lib/types";
 import { balanceMissing, balanceState, incomeShares, isEditable, kindTone, TONE_BG } from "./finance";
 
 const t = es.profile;
@@ -58,15 +58,15 @@ function MoneyRow({
   );
 }
 
-const periodOf = (view: ProfileView, list: "income" | "expenses", line: FinanceLine) => {
+const periodOf = (money: FinanceView, list: "income" | "expenses", line: FinanceLine) => {
   if (line.index === null) return undefined;
-  const item = view.input[list][line.index];
+  const item = money.input[list][line.index];
   return item && item.period === "monthly" && item.amount_mxn !== null ? f.perMonth(peso(item.amount_mxn)) : undefined;
 };
 
 /** Income by kind: the total, what is fixed and what varies, the bar of where it comes from and every line. */
-export function IncomeCard({ view, busy, onAdd, onEdit, onRemove }: { view: ProfileView } & Actions) {
-  const fin = view.finances;
+export function IncomeCard({ money, busy, onAdd, onEdit, onRemove }: { money: FinanceView } & Actions) {
+  const fin = money.finances;
   const shares = incomeShares(fin);
   return (
     <Card className="flex flex-col gap-4">
@@ -110,7 +110,7 @@ export function IncomeCard({ view, busy, onAdd, onEdit, onRemove }: { view: Prof
                 key={i}
                 mark={kindTone(l.kind)}
                 label={l.label}
-                detail={[f.kindShort[l.kind], periodOf(view, "income", l)].filter(Boolean).join(" · ")}
+                detail={[f.kindShort[l.kind], periodOf(money, "income", l)].filter(Boolean).join(" · ")}
                 tag={l.index === null ? f.fromRoster : !l.counted ? f.notCounted : undefined}
                 amount={l.annual_mxn}
                 dim={!l.counted}
@@ -129,11 +129,10 @@ export function IncomeCard({ view, busy, onAdd, onEdit, onRemove }: { view: Prof
  * Expenses: the list by concept plus the payroll the program computes. To start, the approximate yearly expense
  * (`annual_budget_mxn`) is a quick way in; the list replaces it as soon as it has one line.
  */
-export function ExpensesCard({ view, busy, onAdd, onEdit, onRemove, onEditEstimate }: { view: ProfileView; onEditEstimate: () => void } & Actions) {
-  const fin = view.finances;
-  const totals = view.totals;
-  const estimate = view.input.annual_budget_mxn;
-  const listed = view.input.expenses.length > 0;
+export function ExpensesCard({ money, totals, busy, onAdd, onEdit, onRemove, onEditEstimate }: { money: FinanceView; totals: ProfileTotals; onEditEstimate: () => void } & Actions) {
+  const fin = money.finances;
+  const estimate = money.input.annual_budget_mxn;
+  const listed = money.input.expenses.length > 0;
   return (
     <Card className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -174,7 +173,7 @@ export function ExpensesCard({ view, busy, onAdd, onEdit, onRemove, onEditEstima
               <MoneyRow
                 key={i}
                 label={payroll ? f.expenses.payroll : computed ? computed[0]! : l.label}
-                detail={payroll ? f.expenses.payrollCalc : computed ? computed[1] : periodOf(view, "expenses", l)}
+                detail={payroll ? f.expenses.payrollCalc : computed ? computed[1] : periodOf(money, "expenses", l)}
                 tag={payroll || computed ? f.fromRoster : undefined}
                 amount={l.annual_mxn}
                 dim={!l.counted}
@@ -209,8 +208,8 @@ const BALANCE_TAG: Record<string, { tone: Tone; icon: "check" | "warn" | "info" 
 };
 
 /** Income minus expenses in a year, as Rust computed it: surplus, deficit or a missing piece; and where the expense comes from. */
-export function BalanceCard({ view }: { view: ProfileView }) {
-  const fin = view.finances;
+export function BalanceCard({ money }: { money: FinanceView }) {
+  const fin = money.finances;
   const state = balanceState(fin);
   const b = fin.balance_annual_mxn;
   const tag = BALANCE_TAG[state]!;

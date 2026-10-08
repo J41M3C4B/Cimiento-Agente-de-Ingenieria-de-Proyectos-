@@ -11,6 +11,7 @@ mod diagnosis_service;
 mod documents;
 mod domain;
 mod facilities_service;
+mod finance_service;
 mod drafting_service;
 mod error;
 mod guide_service;
@@ -105,6 +106,8 @@ pub fn run() {
             commands::facilities::facilities_space_delete,
             commands::facilities::facilities_equipment_save,
             commands::facilities::facilities_equipment_delete,
+            commands::finance::finance_get,
+            commands::finance::finance_save,
             commands::hr::hr_overview,
             commands::hr::hr_person_get,
             commands::hr::hr_person_save,

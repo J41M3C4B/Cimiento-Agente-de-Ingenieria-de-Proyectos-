@@ -1,7 +1,6 @@
 //! Use cases: validate -> scan -> quarantine -> save -> audit. Commands call these.
 
 use crate::audit::{self, AuditKind};
-use crate::domain::finances::Finances;
 use crate::domain::profile::{ProfileInput, ProfileIssue, ProfileTotals};
 use crate::scanner::guard::{counts_json, guard_fields, screen_texts, Decision, GuardError, GuardOutcome, QuarantineReport, ScreenError};
 use crate::scanner::{RegexScanner, SensitiveScanner};
@@ -66,6 +65,8 @@ pub enum ServiceError {
     Care(#[from] crate::modules::care::CareError),
     #[error("facilities module: {0}")]
     Facilities(#[from] crate::modules::facilities::FacilitiesError),
+    #[error("finance module: {0}")]
+    Finance(#[from] crate::modules::finance::FinanceError),
     /// The onboarding cannot be closed while a required datum is missing (ADR-031).
     #[error("the onboarding is not complete")]
     OnboardingIncomplete,
@@ -93,8 +94,6 @@ pub struct ProfileView {
     pub is_draft: bool,
     pub input: ProfileInput,
     pub totals: ProfileTotals,
-    /// Income by kind, expenses and the balance, made by code (ADR-026).
-    pub finances: Finances,
     /// Only heads-ups ("algo no cuadra"); blocking problems stop the save.
     pub issues: Vec<ProfileIssue>,
 }
@@ -107,7 +106,6 @@ impl From<StoredProfile> for ProfileView {
             is_draft: p.confirmed_at.is_none(),
             confirmed_at: p.confirmed_at,
             totals: p.input.totals(p.as_of_year),
-            finances: p.input.finances(p.as_of_year),
             issues: p.input.validate(p.as_of_year),
             input: p.input,
         }

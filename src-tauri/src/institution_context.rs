@@ -10,8 +10,10 @@
 //! It carries no incidental numbers either (versions, dates): the figure check treats every number of this text
 //! as something the person said.
 
-use crate::domain::finances::{ExpenseBasis, BENEFICIARY_FEES, EXPENSE};
-use crate::domain::profile::{InstitutionKind, IncomeKind, Period};
+use crate::domain::profile::InstitutionKind;
+use crate::modules::finance::domain::balance::{self, ExpenseBasis, BENEFICIARY_FEES, EXPENSE};
+use crate::modules::finance::domain::lines::FinanceInput;
+use crate::modules::finance::domain::money::{IncomeKind, Period};
 use crate::modules::care::domain::aggregate::CareSummary;
 use crate::domain::facility_insights::FacilityBoard;
 use crate::domain::facility_text;
@@ -51,7 +53,13 @@ pub fn facilities_sheet(conn: &Connection) -> Result<FacilitiesSheet, ServiceErr
 /// served (ADR-029) and the facilities (ADR-030) as their modules tell them now.
 pub fn profile_context(conn: &Connection) -> Result<String, ServiceError> {
     Ok(match profile_store::load_current(conn)? {
-        Some(p) => render(&p, &crate::modules::hr::api::ai_summary(conn)?, &people_sheet(conn)?, &facilities_sheet(conn)?),
+        Some(p) => render(
+            &p,
+            &crate::modules::finance::api::lines(conn)?,
+            &crate::modules::hr::api::ai_summary(conn)?,
+            &people_sheet(conn)?,
+            &facilities_sheet(conn)?,
+        ),
         None => "Perfil: sin datos. Todavía no hay nada capturado en «Mi institución»; de la institución solo se sabe lo que la persona diga.".into(),
     })
 }
@@ -496,10 +504,10 @@ fn render_identity(s: &mut String, inst: &crate::domain::profile::InstitutionInp
     }
 }
 
-pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> String {
+pub fn render(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> String {
     let i = &p.input;
     let t = i.totals(p.as_of_year);
-    let money = i.finances(p.as_of_year);
+    let money = balance::finances(fin, &crate::finance_service::derived_from(&t));
     let mut s = String::new();
     let mut missing: Vec<&str> = Vec::new();
 
@@ -530,7 +538,7 @@ pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet, fac
     }
     let written: Vec<_> = money.income.iter().filter(|l| l.counted && l.index.is_some()).collect();
     for l in &written {
-        let inc = &i.income[l.index.unwrap_or_default()];
+        let inc = &fin.income[l.index.unwrap_or_default()];
         s.push_str(&format!("Ingreso — {}: {} — {}.\n", income_kind_text(inc.kind), inc.label, amount_text(inc.amount_mxn, inc.period)));
     }
     let written_sum: i64 = written.iter().filter_map(|l| l.annual_mxn).sum();
@@ -546,12 +554,12 @@ pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet, fac
     }
 
     // expenses: the approximate figure, the list, and the payroll only as words
-    if let Some(b) = i.annual_budget_mxn {
+    if let Some(b) = fin.annual_budget_mxn {
         s.push_str(&format!("Gasto anual aproximado (cifra a ojo de la persona, todo incluido): {} pesos.\n", mxn(b)));
     }
     let listed: Vec<_> = money.expenses.iter().filter(|l| l.kind == EXPENSE).collect();
     for l in &listed {
-        let e = &i.expenses[l.index.unwrap_or_default()];
+        let e = &fin.expenses[l.index.unwrap_or_default()];
         s.push_str(&format!("Egreso: {} — {}.\n", e.label, amount_text(e.amount_mxn, e.period)));
     }
     if t.payroll_cost_annual_mxn > 0 {
@@ -612,6 +620,7 @@ pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet, fac
 pub(crate) mod tests {
     use super::*;
     use crate::domain::profile::*;
+    use crate::modules::finance::domain::lines::{ExpenseItemInput, IncomeSourceInput};
     use crate::storage::open_encrypted;
 
     const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
@@ -641,7 +650,6 @@ pub(crate) mod tests {
                 ..Default::default()
             },
             capacity_total: Some(25),
-            annual_budget_mxn: Some(1_800_000),
             notes: Some("Perfil ficticio para pruebas.".into()),
             // the records of the modules are there: these figures are not used
             served_estimate: Some(40),
@@ -656,6 +664,13 @@ pub(crate) mod tests {
                 StaffGroupInput { role: "Cuidadora".into(), count: 4, paid: true, monthly_salary_mxn: Some(7_777), shift: Some("noche".into()), contract: Some(ContractKind::Permanent), start_year: Some(2019), ..Default::default() },
                 StaffGroupInput { role: "Voluntaria".into(), count: 3, paid: false, ..Default::default() },
             ],
+        }
+    }
+
+    /// The money of `rich()`, in the finance module (ADR-032).
+    pub(crate) fn rich_money() -> FinanceInput {
+        FinanceInput {
+            annual_budget_mxn: Some(1_800_000),
             income: vec![
                 IncomeSourceInput { label: "Padrinos".into(), kind: IncomeKind::RecurringDonor, amount_mxn: Some(10_000), period: Period::Monthly },
                 IncomeSourceInput { label: "Donativos".into(), kind: IncomeKind::OccasionalDonation, amount_mxn: Some(680_000), period: Period::Annual },
@@ -748,11 +763,16 @@ pub(crate) mod tests {
     }
 
     fn saved(input: &ProfileInput, confirm: bool) -> (tempfile::TempDir, Connection) {
+        saved_with(input, &rich_money(), confirm)
+    }
+
+    fn saved_with(input: &ProfileInput, money: &FinanceInput, confirm: bool) -> (tempfile::TempDir, Connection) {
         let (d, mut c) = db();
         seed_rich_staff(&mut c);
         seed_rich_people(&mut c);
         seed_rich_facilities(&c);
         profile_store::save(&mut c, input).unwrap();
+        crate::modules::finance::storage::save(&mut c, money).unwrap();
         if confirm {
             profile_store::confirm(&mut c).unwrap();
         }
@@ -835,7 +855,7 @@ pub(crate) mod tests {
         // not even added up: payroll, its benefits, its cost, and the fees of the roster; nor the exact balance
         let stored = profile_store::load_current(&c).unwrap().unwrap();
         let t = stored.input.totals(stored.as_of_year);
-        let f = stored.input.finances(stored.as_of_year);
+        let f = crate::finance_service::finances(&c).unwrap();
         let numbers = crate::domain::figures::digit_numbers(&ctx);
         for hidden in [t.payroll_monthly_mxn, t.payroll_annual_mxn, t.payroll_benefits_annual_mxn, t.payroll_cost_annual_mxn,
                        t.fees_monthly_mxn, t.fees_annual_mxn, f.income_annual_mxn, f.expenses_annual_mxn.unwrap(), f.balance_annual_mxn.unwrap()] {
@@ -868,19 +888,19 @@ pub(crate) mod tests {
 
     #[test]
     fn with_only_the_approximate_expense_the_payroll_goes_inside_it_and_a_deficit_is_said_in_words() {
-        let mut p = rich();
-        p.expenses.clear();
-        p.annual_budget_mxn = Some(900_000); // income is the roster fees plus 800,000 written: more than this
-        let (_d, c) = saved(&p, true);
+        let mut m = rich_money();
+        m.expenses.clear();
+        m.annual_budget_mxn = Some(900_000); // income is the roster fees plus 800,000 written: more than this
+        let (_d, c) = saved_with(&rich(), &m, true);
         let ctx = profile_context(&c).unwrap();
         assert!(ctx.contains("La nómina del personal (con aguinaldo y prima vacacional) va dentro del gasto aproximado; el monto no se comparte."), "{ctx}");
         assert!(ctx.contains("Balance del año, calculado con lo capturado y el gasto anual aproximado: los ingresos alcanzan a cubrir los egresos y sobra algo."), "{ctx}");
         assert!(!ctx.contains("Egreso:"), "{ctx}");
 
-        let mut p = rich();
-        p.expenses.clear();
-        p.annual_budget_mxn = Some(5_000_000);
-        let (_d, c) = saved(&p, true);
+        let mut m = rich_money();
+        m.expenses.clear();
+        m.annual_budget_mxn = Some(5_000_000);
+        let (_d, c) = saved_with(&rich(), &m, true);
         let ctx = profile_context(&c).unwrap();
         assert!(ctx.contains("los ingresos NO alcanzan a cubrir los egresos: hay déficit."), "{ctx}");
     }
@@ -914,9 +934,11 @@ pub(crate) mod tests {
         crate::profile_sync::seed_examples(&mut c, include_str!("../../fixtures/padron-asilo.json")).unwrap();
         crate::service::save_profile(&mut c, input, None).unwrap();
         crate::facilities_service::seed_example(&mut c, include_str!("../../fixtures/instalaciones-asilo.json")).unwrap();
+        let money: FinanceInput = serde_json::from_str(include_str!("../../fixtures/institucion-asilo.json")).unwrap();
+        crate::modules::finance::storage::save(&mut c, &money).unwrap();
 
         let stored = profile_store::load_current(&c).unwrap().unwrap();
-        let ctx = render(&stored, &crate::modules::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap(), &facilities_sheet(&c).unwrap());
+        let ctx = render(&stored, &money, &crate::modules::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap(), &facilities_sheet(&c).unwrap());
         assert!(ctx.contains("Personal: "), "{ctx}");
         assert!(ctx.contains("Población: "), "{ctx}");
         assert!(ctx.contains("Total de personas atendidas: "), "{ctx}");

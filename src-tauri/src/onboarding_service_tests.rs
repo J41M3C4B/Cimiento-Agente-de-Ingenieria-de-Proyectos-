@@ -2,7 +2,8 @@
 //! scanner, the checks, the records of the modules counting instead of the quick figures, and what the AI reads.
 
 use super::*;
-use crate::domain::profile::{IncomeKind, InstitutionKind, Period};
+use crate::domain::profile::InstitutionKind;
+use crate::modules::finance::domain::money::{IncomeKind, Period};
 use crate::storage::open_encrypted;
 
 const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";

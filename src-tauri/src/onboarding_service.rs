@@ -8,7 +8,9 @@ use crate::access_service::CurrentUser;
 use crate::audit::{self, AuditKind};
 use crate::domain::access::Role;
 use crate::domain::onboarding::{self, Facts, StepStatus};
-use crate::domain::profile::{IncomeSourceInput, InstitutionInput, ProfileInput};
+use crate::domain::profile::{InstitutionInput, ProfileInput};
+use crate::finance_service::FinanceOutcome;
+use crate::modules::finance::domain::lines::IncomeSourceInput;
 use crate::modules::facilities::domain::site::SiteData;
 use crate::scanner::guard::{Decision, QuarantineReport};
 use crate::service::{self, SaveProfileOutcome, ServiceError};
@@ -108,9 +110,10 @@ fn main_site(conn: &Connection) -> Result<Option<SiteData>, ServiceError> {
 
 pub fn status(conn: &Connection, user: &CurrentUser) -> Result<OnboardingStatus, ServiceError> {
     let input = profile_store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
+    let money = crate::modules::finance::api::lines(conn)?;
     let site = main_site(conn)?;
     let r = records(conn)?;
-    let steps = onboarding::steps(&Facts { input: &input, served_in_module: r.served, staff_in_module: r.staff, fee_payers: r.fee_payers, site: site.as_ref() });
+    let steps = onboarding::steps(&Facts { input: &input, money: &money, served_in_module: r.served, staff_in_module: r.staff, fee_payers: r.fee_payers, site: site.as_ref() });
     let welcomed = conn.query_row("SELECT welcomed_at FROM app_user WHERE id = ?1", [&user.id], |r| r.get::<_, Option<String>>(0)).optional()?.flatten().is_some();
     let admin = user.role == Role::Admin;
     let s = site.unwrap_or_default();
@@ -124,8 +127,8 @@ pub fn status(conn: &Connection, user: &CurrentUser) -> Result<OnboardingStatus,
             served_estimate: input.served_estimate,
             staff_paid_estimate: input.staff_paid_estimate,
             staff_volunteer_estimate: input.staff_volunteer_estimate,
-            annual_budget_mxn: input.annual_budget_mxn,
-            income: input.income,
+            annual_budget_mxn: money.annual_budget_mxn,
+            income: money.income,
             floors: s.floors,
             built_m2: s.built_m2,
             tenure: s.tenure,
@@ -149,14 +152,25 @@ pub fn save(conn: &mut Connection, user: &CurrentUser, data: OnboardingData, dec
     input.served_estimate = data.served_estimate;
     input.staff_paid_estimate = data.staff_paid_estimate;
     input.staff_volunteer_estimate = data.staff_volunteer_estimate;
-    input.annual_budget_mxn = data.annual_budget_mxn;
-    input.income = data.income;
     match service::save_profile(conn, input, decision)? {
         SaveProfileOutcome::Saved { .. } => {}
         SaveProfileOutcome::Invalid { issues } => {
             return Ok(OnboardingOutcome::Invalid { issues: issues.into_iter().map(|i| OnboardingIssue { code: i.code, field: i.field }).collect() })
         }
         SaveProfileOutcome::Quarantine { report } => return Ok(OnboardingOutcome::Quarantine { report }),
+    }
+
+    // the money goes to its module (ADR-032): the step writes the approximate figure and the income; the list of
+    // expenses, if there is one, stays
+    let mut money = crate::modules::finance::api::lines(conn)?;
+    money.annual_budget_mxn = data.annual_budget_mxn;
+    money.income = data.income;
+    match crate::finance_service::save(conn, money, decision)? {
+        FinanceOutcome::Saved { .. } => {}
+        FinanceOutcome::Invalid { issues } => {
+            return Ok(OnboardingOutcome::Invalid { issues: issues.into_iter().map(|i| OnboardingIssue { code: i.code, field: i.field }).collect() })
+        }
+        FinanceOutcome::Quarantine { report } => return Ok(OnboardingOutcome::Quarantine { report }),
     }
 
     // the site: only its main data change; the rest of what the facilities module has stays

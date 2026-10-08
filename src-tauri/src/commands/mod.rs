@@ -6,6 +6,7 @@ pub mod care;
 pub mod diagnosis;
 pub mod drafting;
 pub mod facilities;
+pub mod finance;
 pub mod hr;
 pub mod onboarding;
 pub mod security;
@@ -161,6 +162,8 @@ pub fn dev_load_fixture(session: State<'_, Session>, db: State<Db>, name: String
         crate::facilities_service::seed_example(&mut conn, facilities)?;
         // an example is a finished institution: it does not go through the first start (ADR-031)
         crate::onboarding_service::mark_done(&conn)?;
+        let money: crate::modules::finance::domain::lines::FinanceInput = serde_json::from_str(raw).map_err(|_| UiError::internal())?;
+        crate::modules::finance::storage::save(&mut conn, &money).map_err(crate::service::ServiceError::from)?;
         return match service::save_profile(&mut conn, input, None)? {
             SaveProfileOutcome::Saved { profile } => Ok(profile),
             _ => Err(UiError::internal()),

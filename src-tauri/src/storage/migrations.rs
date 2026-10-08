@@ -23,6 +23,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (17, include_str!("../../migrations/0017_care.sql")),
     (18, include_str!("../../migrations/0018_facilities.sql")),
     (19, include_str!("../../migrations/0019_onboarding.sql")),
+    (20, include_str!("../../migrations/0020_finance.sql")),
 ];
 
 /// Code that runs right after the SQL of a version, inside the same transaction (moves of data that need rules).
@@ -437,5 +438,52 @@ mod tests {
         assert_eq!(rows, vec![("fee_estimate".into(), 720_000, "annual".into()), ("other".into(), 680_000, "annual".into())]);
         assert!(conn.execute("UPDATE income_source SET kind='gift' WHERE id='a'", []).is_err());
         assert!(conn.execute("INSERT INTO expense_item (id,profile_id,label,amount_mxn,period,origin) VALUES ('e','p','Luz',-1,'annual','user')", []).is_err());
+    }
+
+    /// The money of the current profile moves into the finance module (ADR-032): its lines in order, with their
+    /// origin, and the approximate figure; the earlier versions keep theirs as history.
+    #[test]
+    fn the_money_of_the_current_profile_moves_into_the_finance_module() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);").unwrap();
+        for (version, sql) in &MIGRATIONS[..19] {
+            conn.execute_batch(sql).unwrap();
+            conn.execute("INSERT INTO schema_migrations VALUES (?1, 'then')", [version]).unwrap();
+        }
+        conn.execute_batch(
+            "INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','Asilo','other','t','t');
+             INSERT INTO institution_profile (id,institution_id,version,annual_budget_mxn,confirmed_at,created_at) VALUES ('p1','i',1,500000,'c1','t');
+             INSERT INTO institution_profile (id,institution_id,version,annual_budget_mxn,created_at) VALUES ('p2','i',2,900000,'t');
+             INSERT INTO income_source (id,profile_id,label,kind,amount_mxn,period,origin) VALUES ('old','p1','Antes','other',1,'annual','user');
+             INSERT INTO income_source (id,profile_id,label,kind,amount_mxn,period,origin) VALUES ('z','p2','Padrinos','recurring_donor',10000,'monthly','user');
+             INSERT INTO income_source (id,profile_id,label,kind,amount_mxn,period,origin,source_ref) VALUES ('a','p2','Colecta','occasional_donation',40000,'annual','document','{\"document_id\":\"d\"}');
+             INSERT INTO expense_item (id,profile_id,label,amount_mxn,period,origin) VALUES ('e','p2','Alimentos',8000,'monthly','user');",
+        )
+        .unwrap();
+
+        run(&mut conn).unwrap();
+
+        let income: Vec<(String, String, i64, String, Option<String>)> = conn
+            .prepare("SELECT label, kind, amount_mxn, origin, source_ref FROM fin_income ORDER BY rowid")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            income,
+            vec![
+                ("Padrinos".into(), "recurring_donor".into(), 10_000, "user".into(), None),
+                ("Colecta".into(), "occasional_donation".into(), 40_000, "document".into(), Some("{\"document_id\":\"d\"}".into())),
+            ],
+            "the lines of the latest version, in the order they were written"
+        );
+        let expense: (String, i64, String) = conn.query_row("SELECT label, amount_mxn, period FROM fin_expense", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        assert_eq!(expense, ("Alimentos".into(), 8_000, "monthly".into()));
+        let estimate: i64 = conn.query_row("SELECT annual_budget_mxn FROM fin_settings WHERE id = 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(estimate, 900_000);
+        let history: i64 = conn.query_row("SELECT count(*) FROM income_source", [], |r| r.get(0)).unwrap();
+        assert_eq!(history, 3, "the old versions keep their lines");
+        assert!(conn.execute("INSERT INTO fin_settings (id) VALUES (2)", []).is_err(), "one row of settings");
     }
 }

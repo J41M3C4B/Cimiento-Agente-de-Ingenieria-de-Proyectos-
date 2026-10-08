@@ -61,6 +61,7 @@ pub fn rich_profile_db() -> (tempfile::TempDir, SharedDb) {
     crate::institution_context::tests::seed_rich_people(&mut conn);
     crate::institution_context::tests::seed_rich_facilities(&conn);
     profile::save(&mut conn, &crate::institution_context::tests::rich()).unwrap();
+    crate::modules::finance::storage::save(&mut conn, &crate::institution_context::tests::rich_money()).unwrap();
     profile::confirm(&mut conn).unwrap();
     (dir, Arc::new(Mutex::new(conn)))
 }

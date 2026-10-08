@@ -44,6 +44,7 @@ const PLACES: &[(&str, Layer)] = &[
     ("access_service", Core),
     ("care_service", Core),
     ("facilities_service", Core),
+    ("finance_service", Core),
     ("institution_context", Core),
     ("onboarding_service", Core),
     ("profile_sync", Core),

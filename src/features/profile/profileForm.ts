@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type {
+  FinanceInput,
   IncomeKind,
   InstitutionKind,
   Period,
@@ -82,8 +83,10 @@ const textOrNull = (v: string) => (v.trim() === "" ? null : v.trim());
 const numOrNull = (v: string) => (v.trim() === "" ? null : Number(v.trim()));
 const pesosOrNull = (v: string) => (v.trim() === "" ? null : parsePesos(v));
 
-export function fromView(view: ProfileView | null): FormValues {
-  if (!view) return emptyForm();
+/** The fields of the profile and of the money (it lives in its own module, ADR-032), as one form. */
+export function fromView(view: ProfileView | null, money: FinanceInput | null = null): FormValues {
+  const m = money ?? { annual_budget_mxn: null, income: [], expenses: [] };
+  if (!view) return { ...emptyForm(), ...moneyFields(m) };
   const p = view.input;
   return {
     name: p.institution.name,
@@ -103,15 +106,16 @@ export function fromView(view: ProfileView | null): FormValues {
     staff_paid_estimate: numStr(p.staff_paid_estimate),
     staff_volunteer_estimate: numStr(p.staff_volunteer_estimate),
     capacity_total: numStr(p.capacity_total),
-    annual_budget_mxn: numStr(p.annual_budget_mxn),
     notes: str(p.notes),
-    income: p.income.map((i) => ({
-      label: i.label,
-      kind: i.kind,
-      amount_mxn: numStr(i.amount_mxn),
-      period: i.period,
-    })),
-    expenses: p.expenses.map((e) => ({ label: e.label, amount_mxn: numStr(e.amount_mxn), period: e.period })),
+    ...moneyFields(m),
+  };
+}
+
+function moneyFields(m: FinanceInput): Pick<FormValues, "annual_budget_mxn" | "income" | "expenses"> {
+  return {
+    annual_budget_mxn: numStr(m.annual_budget_mxn),
+    income: m.income.map((i) => ({ label: i.label, kind: i.kind, amount_mxn: numStr(i.amount_mxn), period: i.period })),
+    expenses: m.expenses.map((e) => ({ label: e.label, amount_mxn: numStr(e.amount_mxn), period: e.period })),
   };
 }
 
@@ -136,11 +140,17 @@ export function toInput(v: FormValues): ProfileInput {
     served_estimate: numOrNull(v.served_estimate),
     staff_paid_estimate: numOrNull(v.staff_paid_estimate),
     staff_volunteer_estimate: numOrNull(v.staff_volunteer_estimate),
-    annual_budget_mxn: pesosOrNull(v.annual_budget_mxn),
     notes: textOrNull(v.notes),
     // staff and people served come from the roster (ADR-020): the profile adds them up by itself
     population: [],
     staff: [],
+  };
+}
+
+/** The money of the form, as the finance module keeps it. */
+export function toFinance(v: FormValues): FinanceInput {
+  return {
+    annual_budget_mxn: pesosOrNull(v.annual_budget_mxn),
     income: v.income.map((i) => ({
       label: i.label,
       kind: i.kind as IncomeKind,

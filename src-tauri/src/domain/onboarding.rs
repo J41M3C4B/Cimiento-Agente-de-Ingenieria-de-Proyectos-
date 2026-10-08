@@ -4,6 +4,7 @@
 //! screen only shows what is missing.
 
 use super::profile::ProfileInput;
+use crate::modules::finance::domain::lines::FinanceInput;
 use crate::modules::facilities::domain::site::SiteData;
 use serde::Serialize;
 
@@ -62,6 +63,8 @@ pub fn state_name(code: &str) -> Option<&'static str> {
 /// What the steps look at, besides the profile: the records of the modules and the main site.
 pub struct Facts<'a> {
     pub input: &'a ProfileInput,
+    /// What the finance module has (ADR-032).
+    pub money: &'a FinanceInput,
     /// People served with a record in their module.
     pub served_in_module: i64,
     /// People of the staff with a record in their module.
@@ -137,10 +140,10 @@ pub fn steps(f: &Facts) -> Vec<StepStatus> {
                     }
                 }
                 "money" => {
-                    if i.annual_budget_mxn.is_none() && !i.expenses.iter().any(|e| e.amount_mxn.is_some()) {
+                    if f.money.annual_budget_mxn.is_none() && !f.money.expenses.iter().any(|e| e.amount_mxn.is_some()) {
                         m.push("expenses");
                     }
-                    if f.fee_payers == 0 && !i.income.iter().any(|x| x.amount_mxn.is_some()) {
+                    if f.fee_payers == 0 && !f.money.income.iter().any(|x| x.amount_mxn.is_some()) {
                         m.push("income");
                     }
                 }
@@ -167,7 +170,9 @@ pub fn complete(steps: &[StepStatus]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::profile::{IncomeKind, IncomeSourceInput, InstitutionInput, Period};
+    use crate::domain::profile::InstitutionInput;
+    use crate::modules::finance::domain::lines::IncomeSourceInput;
+    use crate::modules::finance::domain::money::{IncomeKind, Period};
 
     fn full() -> ProfileInput {
         ProfileInput {
@@ -187,6 +192,12 @@ mod tests {
             served_estimate: Some(22),
             staff_paid_estimate: Some(6),
             staff_volunteer_estimate: Some(0),
+            ..Default::default()
+        }
+    }
+
+    fn money() -> FinanceInput {
+        FinanceInput {
             annual_budget_mxn: Some(1_800_000),
             income: vec![IncomeSourceInput { label: "Donativos".into(), kind: IncomeKind::OccasionalDonation, amount_mxn: Some(500_000), period: Period::Annual }],
             ..Default::default()
@@ -203,15 +214,15 @@ mod tests {
 
     #[test]
     fn a_full_institution_is_complete() {
-        let (p, s) = (full(), site());
-        let f = Facts { input: &p, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: Some(&s) };
+        let (p, m, s) = (full(), money(), site());
+        let f = Facts { input: &p, money: &m, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: Some(&s) };
         assert!(complete(&steps(&f)), "{:?}", missing(&f));
     }
 
     #[test]
     fn an_empty_start_names_everything_it_needs() {
-        let p = ProfileInput::default();
-        let f = Facts { input: &p, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: None };
+        let (p, m) = (ProfileInput::default(), FinanceInput::default());
+        let f = Facts { input: &p, money: &m, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: None };
         assert_eq!(missing(&f), vec![
             ("institution", vec!["name", "mission"]),
             ("location", vec!["state", "municipality", "contact", "legal_form", "founded_year", "authorized_donee", "cluni"]),
@@ -227,11 +238,12 @@ mod tests {
         let mut p = full();
         p.served_estimate = None;
         p.staff_paid_estimate = None;
-        p.income.clear();
+        let mut m = money();
+        m.income.clear();
         let s = site();
-        let f = Facts { input: &p, served_in_module: 18, staff_in_module: 7, fee_payers: 5, site: Some(&s) };
+        let f = Facts { input: &p, money: &m, served_in_module: 18, staff_in_module: 7, fee_payers: 5, site: Some(&s) };
         assert!(complete(&steps(&f)), "{:?}", missing(&f));
-        let f = Facts { input: &p, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: Some(&s) };
+        let f = Facts { input: &p, money: &m, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: Some(&s) };
         assert_eq!(missing(&f), vec![("people", vec!["served"]), ("team", vec!["staff"]), ("money", vec!["income"])]);
     }
 
@@ -239,8 +251,8 @@ mod tests {
     fn zero_volunteers_is_an_answer_but_blank_text_is_not() {
         let mut p = full();
         p.institution.municipality = Some("   ".into());
-        let s = site();
-        let f = Facts { input: &p, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: Some(&s) };
+        let (m, s) = (money(), site());
+        let f = Facts { input: &p, money: &m, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: Some(&s) };
         assert_eq!(missing(&f), vec![("location", vec!["municipality"])]);
         assert_eq!(state_name("qroo"), Some("Quintana Roo"));
         assert_eq!(STATES.len(), 32);

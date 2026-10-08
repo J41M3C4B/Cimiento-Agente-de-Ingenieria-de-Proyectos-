@@ -142,6 +142,8 @@ const SCANNED: &[(&str, &[&str])] = &[
     ("institution_profile", &["notes"]),
     ("income_source", &["label"]),
     ("expense_item", &["label"]),
+    ("fin_income", &["label"]),
+    ("fin_expense", &["label"]),
     ("hr_position", &["title", "duties"]),
 ];
 

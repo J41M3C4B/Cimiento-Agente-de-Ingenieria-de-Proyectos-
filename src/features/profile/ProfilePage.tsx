@@ -5,11 +5,12 @@ import { Alert, Button, Card, Dock, Eyebrow, FactRow, Facts, Inset, Metric, TabP
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileConfirm, profileGet, profileSave, toAppError } from "../../lib/tauri";
-import type { Decision, ProfileInput, ProfileIssue, ProfileTotals, ProfileView, QuarantineReport } from "../../lib/types";
+import type { Decision, FinanceInput, ProfileInput, ProfileIssue, ProfileTotals, ProfileView, QuarantineReport } from "../../lib/types";
 import { BalanceCard, ExpensesCard, IncomeCard } from "./FinanceCards";
-import { ProfileEdit } from "./ProfileEdit";
+import { isMoney, ProfileEdit } from "./ProfileEdit";
 import type { Edit } from "./ProfileEdit";
-import { fromView, toInput } from "./profileForm";
+import { toFinance, toInput } from "./profileForm";
+import { FINANCE_KEY, financeGet, financeSave } from "../finance/api";
 import { careOverview } from "../care/api";
 import { facilitiesOverview } from "../facilities/api";
 import { FACILITIES_KEY, FacilitiesTab } from "../facilities/FacilitiesTab";
@@ -19,13 +20,13 @@ import { HR_KEY, StaffTab } from "../hr/StaffTab";
 import { useSession } from "../access/session";
 
 const t = es.profile;
-const money = (n: number) => n.toLocaleString("es-MX");
-const peso = (n: number) => `$${money(n)}`;
+const count = (n: number) => n.toLocaleString("es-MX");
+const peso = (n: number) => `$${count(n)}`;
 export type ProfileTab = "general" | "staff" | "population" | "facilities";
 type Tab = ProfileTab;
 
 const ZERO: ProfileTotals = {
-  population: 0, staff_paid: 0, staff_volunteer: 0, income_annual_mxn: 0,
+  population: 0, staff_paid: 0, staff_volunteer: 0,
   payroll_monthly_mxn: 0, payroll_annual_mxn: 0, payroll_benefits_annual_mxn: 0, payroll_cost_annual_mxn: 0, benefits_assumed: 0,
   staff_support_annual_mxn: 0, external_staff_annual_mxn: 0,
   fee_payers: 0, fees_monthly_mxn: 0, fees_annual_mxn: 0,
@@ -41,6 +42,8 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
   // the example data replaces records: only the administrator, in development (ADR-028)
   const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
+  // the money lives in its own module (ADR-032)
+  const finance = useQuery({ queryKey: FINANCE_KEY, queryFn: financeGet });
   // the staff and the people served live in their own modules (ADR-027, ADR-029)
   const staffModule = useQuery({ queryKey: HR_KEY, queryFn: hrOverview });
   const peopleModule = useQuery({ queryKey: CARE_KEY, queryFn: careOverview });
@@ -52,9 +55,14 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [issues, setIssues] = useState<ProfileIssue[]>([]);
-  const [quarantine, setQuarantine] = useState<{ input: ProfileInput; report: QuarantineReport; onSaved?: () => void } | null>(null);
+  const [quarantine, setQuarantine] = useState<
+    | { target: "profile"; input: ProfileInput; report: QuarantineReport; onSaved?: () => void }
+    | { target: "money"; input: FinanceInput; report: QuarantineReport; onSaved?: () => void }
+    | null
+  >(null);
 
   const view = profile.data ?? null;
+  const money = finance.data ?? null;
   const inst = view?.input.institution;
 
   // the notice goes away by itself
@@ -78,7 +86,31 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
         return true;
       }
       if (out.status === "invalid") setIssues(out.issues);
-      else setQuarantine({ input, report: out.report, onSaved });
+      else setQuarantine({ target: "profile", input, report: out.report, onSaved });
+      return false;
+    } catch (e) {
+      setToast({ tone: "error", text: toAppError(e).message });
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Saves the whole money with a change, in its module. Returns whether it was saved. */
+  async function commitMoney(input: FinanceInput, decision?: Decision, onSaved?: () => void): Promise<boolean> {
+    setBusy(true);
+    setIssues([]);
+    try {
+      const out = await financeSave(input, decision);
+      if (out.status === "saved") {
+        setQuarantine(null);
+        qc.setQueryData(FINANCE_KEY, out.finance);
+        setToast({ tone: "ok", text: es.common.saved });
+        onSaved?.();
+        return true;
+      }
+      if (out.status === "invalid") setIssues(out.issues);
+      else setQuarantine({ target: "money", input, report: out.report, onSaved });
       return false;
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
@@ -107,6 +139,7 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
       await qc.invalidateQueries({ queryKey: CARE_KEY });
       await qc.invalidateQueries({ queryKey: HR_KEY });
       await qc.invalidateQueries({ queryKey: FACILITIES_KEY });
+      await qc.invalidateQueries({ queryKey: FINANCE_KEY });
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
     } finally {
@@ -115,10 +148,18 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
   }
 
   function removeItem(kind: "income" | "expenses", index: number) {
-    if (!view) return;
-    const f = fromView(view);
-    f[kind].splice(index, 1);
-    void commit(toInput(f));
+    if (!money) return;
+    const m: FinanceInput = { ...money.input, income: [...money.input.income], expenses: [...money.input.expenses] };
+    m[kind].splice(index, 1);
+    void commitMoney(m);
+  }
+
+  /** The person decided what to do with what the scanner found: the same save again, with the decision. */
+  function resolveQuarantine(decision: Decision) {
+    if (!quarantine) return;
+    return quarantine.target === "money"
+      ? commitMoney(quarantine.input, decision, quarantine.onSaved)
+      : commit(quarantine.input, decision, quarantine.onSaved);
   }
 
   const open = (e: Edit) => {
@@ -127,13 +168,17 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
   };
 
   const notify = (text: string) => setToast({ tone: "ok", text });
-  const onRosterProfile = (p: ProfileView) => qc.setQueryData(["profile"], p);
+  const onRosterProfile = (p: ProfileView) => {
+    qc.setQueryData(["profile"], p);
+    // the payroll and the fees of the balance come from the staff and the people served
+    void qc.invalidateQueries({ queryKey: FINANCE_KEY });
+  };
 
   const totals = staffModule.data?.totals ?? view?.totals ?? ZERO;
   const staffCount = staffModule.data?.people.filter((p) => p.status !== "left").length ?? 0;
   const peopleCount = peopleModule.data?.board.indicators.served ?? 0;
   const spacesCount = facilitiesModule.data?.indicators.spaces ?? 0;
-  const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
+  const headsUp = [...(view?.issues ?? []), ...(money?.issues ?? [])].filter((i) => !i.blocking);
 
   // what is still missing, each one leading to where it is filled in
   const todo: { text: string; go: () => void }[] = [];
@@ -207,17 +252,17 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
               icon="heart"
               tone="violet"
               label={t.kpi.people}
-              value={peopleApprox ? `≈ ${money(servedEstimate!)}` : money(totals.population)}
+              value={peopleApprox ? `≈ ${count(servedEstimate!)}` : count(totals.population)}
               approx={peopleApprox ? t.kpi.approx : undefined}
               hint={peopleApprox ? t.kpi.approxNote : undefined}
-              sub={capacity ? t.kpi.peopleOf(money(capacity)) : undefined}
+              sub={capacity ? t.kpi.peopleOf(count(capacity)) : undefined}
               fill={capacity ? ((peopleApprox ? servedEstimate! : totals.population) / capacity) * 100 : undefined}
             />
             <Metric
               icon="briefcase"
               tone="teal"
               label={t.kpi.staff}
-              value={staffApprox ? `≈ ${money(paidEstimate + volunteerEstimate)}` : money(staffModule.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)}
+              value={staffApprox ? `≈ ${count(paidEstimate + volunteerEstimate)}` : count(staffModule.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)}
               approx={staffApprox ? t.kpi.approx : undefined}
               hint={staffApprox ? t.kpi.approxNote : undefined}
               sub={t.kpi.staffPaid(staffApprox ? paidEstimate : totals.staff_paid)}
@@ -299,29 +344,29 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
                   <Facts
                     columns={2}
                     items={[
-                      [t.fields.capacity, view.input.capacity_total !== null ? `${money(view.input.capacity_total)} personas` : null],
-                      [t.fields.annualBudget, view.input.annual_budget_mxn !== null ? peso(view.input.annual_budget_mxn) : null],
-                      [es.institution.servedEstimate, view.input.served_estimate !== null ? `${money(view.input.served_estimate)} ${es.institution.approx}` : null],
-                      [es.institution.staffPaidEstimate, view.input.staff_paid_estimate !== null ? `${money(view.input.staff_paid_estimate)} ${es.institution.approx}` : null],
-                      [es.institution.staffVolunteerEstimate, view.input.staff_volunteer_estimate !== null ? `${money(view.input.staff_volunteer_estimate)} ${es.institution.approx}` : null],
+                      [t.fields.capacity, view.input.capacity_total !== null ? `${count(view.input.capacity_total)} personas` : null],
+                      [es.institution.servedEstimate, view.input.served_estimate !== null ? `${count(view.input.served_estimate)} ${es.institution.approx}` : null],
+                      [es.institution.staffPaidEstimate, view.input.staff_paid_estimate !== null ? `${count(view.input.staff_paid_estimate)} ${es.institution.approx}` : null],
+                      [es.institution.staffVolunteerEstimate, view.input.staff_volunteer_estimate !== null ? `${count(view.input.staff_volunteer_estimate)} ${es.institution.approx}` : null],
                       [t.fields.notes, view.input.notes],
                     ]}
                   />
                 </FactRow>
               </Card>
 
-              <BalanceCard view={view} />
+              {money && <BalanceCard money={money} />}
             </div>
             <div className="mt-4 grid items-start gap-4 min-[1000px]:grid-cols-2">
-              <IncomeCard view={view} busy={busy} onAdd={() => open({ kind: "income", index: null })} onEdit={(index) => open({ kind: "income", index })} onRemove={(index) => removeItem("income", index)} />
-              <ExpensesCard
-                view={view}
+              {money && <IncomeCard money={money} busy={busy} onAdd={() => open({ kind: "income", index: null })} onEdit={(index) => open({ kind: "income", index })} onRemove={(index) => removeItem("income", index)} />}
+              {money && <ExpensesCard
+                money={money}
+                totals={totals}
                 busy={busy}
                 onAdd={() => open({ kind: "expense", index: null })}
                 onEdit={(index) => open({ kind: "expense", index })}
                 onRemove={(index) => removeItem("expenses", index)}
-                onEditEstimate={() => open({ kind: "capacity" })}
-              />
+                onEditEstimate={() => open({ kind: "estimate" })}
+              />}
             </div>
           </TabPanel>
           <TabPanel id="staff" active={tab === "staff"}>
@@ -354,14 +399,24 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
         </p>
       )}
 
-      {edit && <ProfileEdit edit={edit} view={view} issues={issues} busy={busy} onCommit={(input, onSaved) => void commit(input, undefined, onSaved)} onClose={() => setEdit(null)} />}
+      {edit && (
+        <ProfileEdit
+          edit={edit}
+          view={view}
+          money={money?.input ?? null}
+          issues={issues}
+          busy={busy}
+          onCommit={(values, onSaved) => void (isMoney(edit) ? commitMoney(toFinance(values), undefined, onSaved) : commit(toInput(values), undefined, onSaved))}
+          onClose={() => setEdit(null)}
+        />
+      )}
 
       {quarantine && (
         <QuarantineDialog
           report={quarantine.report}
           busy={busy}
-          onRedact={() => void commit(quarantine.input, "redact", quarantine.onSaved)}
-          onNotPersonal={() => void commit(quarantine.input, "not_personal", quarantine.onSaved)}
+          onRedact={() => void resolveQuarantine("redact")}
+          onNotPersonal={() => void resolveQuarantine("not_personal")}
           onCancel={() => setQuarantine(null)}
         />
       )}

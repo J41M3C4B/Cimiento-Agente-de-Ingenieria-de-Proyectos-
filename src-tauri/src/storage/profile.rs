@@ -31,8 +31,9 @@ pub fn current_year(conn: &Connection) -> Result<i64, StorageError> {
     Ok(conn.query_row("SELECT CAST(strftime('%Y','now') AS INTEGER)", [], |r| r.get(0))?)
 }
 
-/// The lists that hang from a version of the profile.
-const PROFILE_LISTS: [&str; 4] = ["population_group", "staff_group", "income_source", "expense_item"];
+/// The lists that hang from a version of the profile. `income_source` and `expense_item` hang from the versions
+/// written before the money became a module of its own (migration 0020); they are history and not written any more.
+const PROFILE_LISTS: [&str; 2] = ["population_group", "staff_group"];
 
 fn text(o: &Option<String>) -> Option<&str> {
     o.as_deref().map(str::trim).filter(|s| !s.is_empty())
@@ -43,7 +44,7 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
     let head = conn
         .query_row(
             "SELECT i.id, i.name, i.kind, i.mission, i.legal_rfc, i.contact_phone, i.contact_email, i.legal_rep_name,
-                    p.id, p.version, p.confirmed_at, p.capacity_total, p.annual_budget_mxn, p.notes,
+                    p.id, p.version, p.confirmed_at, p.capacity_total, p.notes,
                     i.state, i.municipality, i.founded_year, i.legal_form, i.authorized_donee, i.cluni,
                     p.served_estimate, p.staff_paid_estimate, p.staff_volunteer_estimate
              FROM institution i JOIN institution_profile p ON p.institution_id = i.id
@@ -60,25 +61,24 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
                         contact_phone: r.get(5)?,
                         contact_email: r.get(6)?,
                         legal_rep_name: r.get(7)?,
-                        state: r.get(14)?,
-                        municipality: r.get(15)?,
-                        founded_year: r.get(16)?,
-                        legal_form: r.get(17)?,
-                        authorized_donee: r.get(18)?,
-                        cluni: r.get(19)?,
+                        state: r.get(13)?,
+                        municipality: r.get(14)?,
+                        founded_year: r.get(15)?,
+                        legal_form: r.get(16)?,
+                        authorized_donee: r.get(17)?,
+                        cluni: r.get(18)?,
                     },
                     r.get::<_, String>(8)?,
                     r.get::<_, i64>(9)?,
                     r.get::<_, Option<String>>(10)?,
                     r.get::<_, Option<i64>>(11)?,
-                    r.get::<_, Option<i64>>(12)?,
-                    r.get::<_, Option<String>>(13)?,
-                    [r.get::<_, Option<i64>>(20)?, r.get::<_, Option<i64>>(21)?, r.get::<_, Option<i64>>(22)?],
+                    r.get::<_, Option<String>>(12)?,
+                    [r.get::<_, Option<i64>>(19)?, r.get::<_, Option<i64>>(20)?, r.get::<_, Option<i64>>(21)?],
                 ))
             },
         )
         .optional()?;
-    let Some((institution_id, institution, profile_id, version, confirmed_at, capacity_total, annual_budget_mxn, notes, [served_estimate, staff_paid_estimate, staff_volunteer_estimate])) =
+    let Some((institution_id, institution, profile_id, version, confirmed_at, capacity_total, notes, [served_estimate, staff_paid_estimate, staff_volunteer_estimate])) =
         head
     else {
         return Ok(None);
@@ -115,24 +115,6 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
-    let income = conn
-        .prepare("SELECT label, kind, amount_mxn, period FROM income_source WHERE profile_id = ?1 ORDER BY rowid")?
-        .query_map([&profile_id], |r| {
-            Ok(IncomeSourceInput {
-                label: r.get(0)?,
-                kind: IncomeKind::from_db(&r.get::<_, String>(1)?),
-                amount_mxn: r.get(2)?,
-                period: Period::from_db(&r.get::<_, String>(3)?),
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    let expenses = conn
-        .prepare("SELECT label, amount_mxn, period FROM expense_item WHERE profile_id = ?1 ORDER BY rowid")?
-        .query_map([&profile_id], |r| {
-            Ok(ExpenseItemInput { label: r.get(0)?, amount_mxn: r.get(1)?, period: Period::from_db(&r.get::<_, String>(2)?) })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-
     Ok(Some(StoredProfile {
         institution_id,
         profile_id,
@@ -141,15 +123,12 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
         input: ProfileInput {
             institution,
             capacity_total,
-            annual_budget_mxn,
             notes,
             served_estimate,
             staff_paid_estimate,
             staff_volunteer_estimate,
             population,
             staff,
-            income,
-            expenses,
         },
         as_of_year: current_year(conn)?,
     }))
@@ -202,9 +181,9 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
         Some((pid, _, None)) => {
             // current draft: update in place
             tx.execute(
-                "UPDATE institution_profile SET capacity_total=?2, annual_budget_mxn=?3, notes=?4, served_estimate=?5,
-                        staff_paid_estimate=?6, staff_volunteer_estimate=?7 WHERE id=?1",
-                params![pid, input.capacity_total, input.annual_budget_mxn, text(&input.notes), input.served_estimate,
+                "UPDATE institution_profile SET capacity_total=?2, notes=?3, served_estimate=?4,
+                        staff_paid_estimate=?5, staff_volunteer_estimate=?6 WHERE id=?1",
+                params![pid, input.capacity_total, text(&input.notes), input.served_estimate,
                         input.staff_paid_estimate, input.staff_volunteer_estimate],
             )?;
             for t in PROFILE_LISTS {
@@ -216,10 +195,10 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
             let version = other.map_or(1, |(_, v, _)| v + 1);
             let pid = id("prof");
             tx.execute(
-                "INSERT INTO institution_profile (id,institution_id,version,capacity_total,annual_budget_mxn,notes,served_estimate,
+                "INSERT INTO institution_profile (id,institution_id,version,capacity_total,notes,served_estimate,
                         staff_paid_estimate,staff_volunteer_estimate,created_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
-                params![pid, institution_id, version, input.capacity_total, input.annual_budget_mxn, text(&input.notes),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
+                params![pid, institution_id, version, input.capacity_total, text(&input.notes),
                         input.served_estimate, input.staff_paid_estimate, input.staff_volunteer_estimate],
             )?;
             pid
@@ -240,18 +219,6 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,'computed')",
             params![id("staff"), profile_id, s.role.trim(), s.count, text(&s.shift), s.paid as i64,
                     s.monthly_salary_mxn, s.contract.map(|c| c.as_db()), s.start_year, text(&s.notes), text(&s.relation)],
-        )?;
-    }
-    for i in &input.income {
-        tx.execute(
-            "INSERT INTO income_source (id,profile_id,label,kind,amount_mxn,period,origin) VALUES (?1,?2,?3,?4,?5,?6,'user')",
-            params![id("inc"), profile_id, i.label.trim(), i.kind.as_db(), i.amount_mxn, i.period.as_db()],
-        )?;
-    }
-    for e in &input.expenses {
-        tx.execute(
-            "INSERT INTO expense_item (id,profile_id,label,amount_mxn,period,origin) VALUES (?1,?2,?3,?4,?5,'user')",
-            params![id("exp"), profile_id, e.label.trim(), e.amount_mxn, e.period.as_db()],
         )?;
     }
     tx.commit()?;
@@ -325,13 +292,10 @@ mod tests {
                 ..Default::default()
             },
             capacity_total: Some(25),
-            annual_budget_mxn: Some(1_000_000),
             population: vec![PopulationGroupInput {
                 label: "Adultos mayores".into(), count: 18, dependency_level: Some(DependencyLevel::High), ..Default::default()
             }],
             staff: vec![StaffGroupInput { role: "Enfermería".into(), count: 3, paid: true, ..Default::default() }],
-            income: vec![IncomeSourceInput { label: "Cuotas".into(), kind: IncomeKind::FeeEstimate, amount_mxn: Some(50_000), period: Period::Monthly }],
-            expenses: vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(30_000), period: Period::Monthly }],
             ..Default::default()
         }
     }
@@ -345,25 +309,21 @@ mod tests {
         assert!(saved.confirmed_at.is_none());
         assert_eq!(saved.input.population[0].count, 18);
         assert_eq!(saved.input.institution.kind, InstitutionKind::ElderlyHome);
-        let inc = &saved.input.income[0];
-        assert_eq!((inc.kind, inc.amount_mxn, inc.period), (IncomeKind::FeeEstimate, Some(50_000), Period::Monthly));
-        let exp = &saved.input.expenses[0];
-        assert_eq!((exp.label.as_str(), exp.amount_mxn, exp.period), ("Alimentos", Some(30_000), Period::Monthly));
         assert!((2026..2200).contains(&saved.as_of_year));
     }
 
     #[test]
-    fn expenses_are_frozen_with_the_version_and_editing_starts_a_new_list() {
+    fn the_lists_are_frozen_with_the_version_and_editing_starts_a_new_one() {
         let (_d, mut c) = conn();
         save(&mut c, &sample()).unwrap();
         confirm(&mut c).unwrap();
-        let open: i64 = c.query_row("SELECT count(*) FROM expense_item WHERE confirmed_at IS NULL", [], |r| r.get(0)).unwrap();
+        let open: i64 = c.query_row("SELECT count(*) FROM population_group WHERE confirmed_at IS NULL", [], |r| r.get(0)).unwrap();
         assert_eq!(open, 0);
         let mut p = sample();
-        p.expenses.push(ExpenseItemInput { label: "Luz".into(), amount_mxn: Some(4_000), period: Period::Monthly });
+        p.population.push(PopulationGroupInput { label: "Hombres".into(), count: 2, ..Default::default() });
         let v2 = save(&mut c, &p).unwrap();
-        assert_eq!((v2.version, v2.input.expenses.len()), (2, 2));
-        let all: i64 = c.query_row("SELECT count(*) FROM expense_item", [], |r| r.get(0)).unwrap();
+        assert_eq!((v2.version, v2.input.population.len()), (2, 2));
+        let all: i64 = c.query_row("SELECT count(*) FROM population_group", [], |r| r.get(0)).unwrap();
         assert_eq!(all, 3, "version 1 keeps its own list");
     }
 

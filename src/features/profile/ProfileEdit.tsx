@@ -4,17 +4,20 @@ import type { UseFormRegister } from "react-hook-form";
 import { Alert, Button, Choice, Modal, RadioCard, Select, TextArea, TextInput } from "../../components/ui";
 import { INCOME_KINDS } from "./finance";
 import { es } from "../../i18n/es-MX";
-import type { ProfileInput, ProfileIssue, ProfileView } from "../../lib/types";
-import { emptyForm, formSchema, fromView, toInput, type FormValues } from "./profileForm";
+import type { FinanceInput, ProfileIssue, ProfileView } from "../../lib/types";
+import { formSchema, fromView, type FormValues } from "./profileForm";
 
 const t = es.profile;
 const ins = es.institution;
 const options = (labels: Record<string, string>): [string, string][] => [["", es.facilities.select], ...Object.entries(labels)];
 
-/** What is being edited: one card of the profile, or one item of a list (income, expense). */
+/** What is being edited: one card of the profile, the approximate expense, or one item of a list (income, expense). */
 export type Edit =
-  | { kind: "institution" | "contact" | "legal" | "capacity" }
+  | { kind: "institution" | "contact" | "legal" | "capacity" | "estimate" }
   | { kind: "income" | "expense"; index: number | null };
+
+/** The money is saved in its own module (ADR-032); the rest, in the profile. */
+export const isMoney = (e: Edit) => e.kind === "income" || e.kind === "expense" || e.kind === "estimate";
 
 const kindOptions = Object.entries(t.kinds) as [string, string][];
 
@@ -42,20 +45,21 @@ function PeriodChoice({ name, register }: { name: `income.${number}.period` | `e
 
 /**
  * One window for each card of the profile: it holds the fields of that card only, starts from what is saved and
- * saves the whole profile with that change. The page does not keep a form of its own: what is on screen is what
- * is saved.
+ * hands back the whole form; the page saves the profile or the money (`isMoney`) with that change. The page does
+ * not keep a form of its own: what is on screen is what is saved.
  */
 export function ProfileEdit({
-  edit, view, issues, busy, onCommit, onClose,
+  edit, view, money, issues, busy, onCommit, onClose,
 }: {
   edit: Edit;
   view: ProfileView | null;
+  money: FinanceInput | null;
   issues: ProfileIssue[];
   busy: boolean;
-  onCommit: (input: ProfileInput, onSaved: () => void) => void;
+  onCommit: (values: FormValues, onSaved: () => void) => void;
   onClose: () => void;
 }) {
-  const start = view ? fromView(view) : emptyForm();
+  const start = fromView(view, money);
   // a new item goes at the end of its list, and that is the one the window edits
   if (edit.kind === "income" && edit.index === null) start.income = [...start.income, { label: "", kind: "other", amount_mxn: "", period: "annual" }];
   if (edit.kind === "expense" && edit.index === null) start.expenses = [...start.expenses, { label: "", amount_mxn: "", period: "annual" }];
@@ -81,7 +85,7 @@ export function ProfileEdit({
         </>
       }
     >
-      <form id="profile-edit" onSubmit={handleSubmit((v) => onCommit(toInput(v), onClose))} noValidate className="space-y-4">
+      <form id="profile-edit" onSubmit={handleSubmit((v) => onCommit(v, onClose))} noValidate className="space-y-4">
         {edit.kind === "institution" && (
           <>
             <TextInput label={t.fields.name} required autoFocus {...register("name")} />
@@ -120,10 +124,7 @@ export function ProfileEdit({
         )}
         {edit.kind === "capacity" && (
           <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <TextInput label={t.fields.capacity} suffix="personas" inputMode="numeric" autoFocus error={err(fe.capacity_total)} {...register("capacity_total")} />
-              <TextInput label={t.fields.annualBudget} hint={t.finance.expenses.estimateHelp} prefix="$" suffix="al año" error={err(fe.annual_budget_mxn)} {...register("annual_budget_mxn")} />
-            </div>
+            <TextInput label={t.fields.capacity} suffix="personas" inputMode="numeric" autoFocus error={err(fe.capacity_total)} {...register("capacity_total")} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <TextInput label={ins.servedEstimate} inputMode="numeric" error={err(fe.served_estimate)} {...register("served_estimate")} />
               <TextInput label={ins.staffPaidEstimate} inputMode="numeric" error={err(fe.staff_paid_estimate)} {...register("staff_paid_estimate")} />
@@ -131,6 +132,9 @@ export function ProfileEdit({
             </div>
             <TextArea label={t.fields.notes} {...register("notes")} />
           </>
+        )}
+        {edit.kind === "estimate" && (
+          <TextInput label={t.fields.annualBudget} hint={t.finance.expenses.estimateHelp} prefix="$" suffix="al año" autoFocus error={err(fe.annual_budget_mxn)} {...register("annual_budget_mxn")} />
         )}
         {edit.kind === "income" && (
           <>

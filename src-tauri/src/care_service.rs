@@ -52,10 +52,8 @@ pub fn board(conn: &Connection) -> Result<Board, ServiceError> {
     let indicators = crate::modules::care::api::indicators(conn, flavor)?;
     let waiting = crate::modules::care::api::waiting(conn)?;
     let profile = profile_store::load_current(conn)?;
-    let (capacity, expenses) = match &profile {
-        Some(p) => (p.input.capacity_total, p.input.finances(p.as_of_year).expenses_annual_mxn),
-        None => (None, None),
-    };
+    let capacity = profile.as_ref().and_then(|p| p.input.capacity_total);
+    let expenses = crate::finance_service::finances(conn)?.expenses_annual_mxn;
     // the spaces live in their module (ADR-030)
     let blocked = crate::modules::facilities::api::indicators(conn)?.not_accessible;
     let staff = crate::modules::hr::api::ai_summary(conn)?;
