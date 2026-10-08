@@ -6,12 +6,13 @@ import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileConfirm, profileGet, profileSave, toAppError } from "../../lib/tauri";
 import type { Decision, ProfileInput, ProfileIssue, ProfileTotals, ProfileView, QuarantineReport } from "../../lib/types";
-import { FacilitiesTab } from "./FacilitiesTab";
 import { BalanceCard, ExpensesCard, IncomeCard } from "./FinanceCards";
 import { ProfileEdit } from "./ProfileEdit";
 import type { Edit } from "./ProfileEdit";
 import { fromView, toInput } from "./profileForm";
 import { careOverview } from "../care/api";
+import { facilitiesOverview } from "../facilities/api";
+import { FACILITIES_KEY, FacilitiesTab } from "../facilities/FacilitiesTab";
 import { CARE_KEY, CareTab } from "../care/CareTab";
 import { hrOverview } from "../hr/api";
 import { HR_KEY, StaffTab } from "../hr/StaffTab";
@@ -42,6 +43,8 @@ export function ProfilePage() {
   // the staff and the people served live in their own modules (ADR-027, ADR-029)
   const staffModule = useQuery({ queryKey: HR_KEY, queryFn: hrOverview });
   const peopleModule = useQuery({ queryKey: CARE_KEY, queryFn: careOverview });
+  // and the facilities in theirs (ADR-030)
+  const facilitiesModule = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
 
   const [tab, setTab] = useState<Tab>("general");
   const [edit, setEdit] = useState<Edit | null>(null);
@@ -102,6 +105,7 @@ export function ProfilePage() {
       qc.setQueryData(["profile"], await devLoadFixture(name));
       await qc.invalidateQueries({ queryKey: CARE_KEY });
       await qc.invalidateQueries({ queryKey: HR_KEY });
+      await qc.invalidateQueries({ queryKey: FACILITIES_KEY });
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
     } finally {
@@ -109,7 +113,7 @@ export function ProfilePage() {
     }
   }
 
-  function removeItem(kind: "income" | "expenses" | "facilities", index: number) {
+  function removeItem(kind: "income" | "expenses", index: number) {
     if (!view) return;
     const f = fromView(view);
     f[kind].splice(index, 1);
@@ -127,7 +131,7 @@ export function ProfilePage() {
   const totals = staffModule.data?.totals ?? view?.totals ?? ZERO;
   const staffCount = staffModule.data?.people.filter((p) => p.status !== "left").length ?? 0;
   const peopleCount = peopleModule.data?.board.indicators.served ?? 0;
-  const facilities = view?.input.facilities ?? [];
+  const spacesCount = facilitiesModule.data?.indicators.spaces ?? 0;
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
 
   // what is still missing, each one leading to where it is filled in
@@ -136,7 +140,7 @@ export function ProfilePage() {
     if (!inst?.contact_phone && !inst?.contact_email) todo.push({ text: t.todo.contact, go: () => open({ kind: "contact" }) });
     if (staffModule.isSuccess && staffCount === 0) todo.push({ text: t.todo.staff, go: () => setTab("staff") });
     if (peopleModule.isSuccess && peopleCount === 0) todo.push({ text: t.todo.population, go: () => setTab("population") });
-    if (facilities.length === 0) todo.push({ text: t.todo.facilities, go: () => setTab("facilities") });
+    if (facilitiesModule.isSuccess && spacesCount === 0) todo.push({ text: t.todo.facilities, go: () => setTab("facilities") });
   }
 
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
@@ -234,7 +238,7 @@ export function ProfilePage() {
             { id: "general", label: t.tabs.general },
             { id: "staff", label: t.tabs.staff, count: staffCount },
             { id: "population", label: t.tabs.population, count: peopleCount },
-            { id: "facilities", label: t.tabs.facilities, count: facilities.length },
+            { id: "facilities", label: t.tabs.facilities, count: spacesCount },
           ]}
         >
           <TabPanel id="general" active={tab === "general"}>
@@ -287,13 +291,7 @@ export function ProfilePage() {
           </TabPanel>
           <TabPanel id="facilities" active={tab === "facilities"}>
             <Card className="dock-attach">
-              <FacilitiesTab
-                facilities={facilities}
-                busy={busy}
-                onAdd={() => open({ kind: "facility", index: null })}
-                onEdit={(i) => open({ kind: "facility", index: i })}
-                onRemove={(i) => removeItem("facilities", i)}
-              />
+              <FacilitiesTab onNotice={notify} />
             </Card>
           </TabPanel>
         </Dock>

@@ -78,16 +78,8 @@ CREATE TABLE staff_group (
   origin TEXT NOT NULL, source_ref TEXT, confirmed_at TEXT, confirmed_by TEXT
 );
 
-CREATE TABLE facility (
-  id TEXT PRIMARY KEY,
-  profile_id TEXT NOT NULL REFERENCES institution_profile(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL,              -- "dormitorio", "baño", "cocina", "enfermería"
-  count INTEGER NOT NULL DEFAULT 1,
-  condition TEXT CHECK (condition IN ('good','fair','poor','critical')),
-  accessible INTEGER,              -- 0/1/NULL
-  notes TEXT,
-  origin TEXT NOT NULL, source_ref TEXT, confirmed_at TEXT, confirmed_by TEXT
-);
+-- La tabla `facility` (lista de espacios del perfil) se eliminó en la migración 0018: las instalaciones viven en su
+-- módulo (ADR-030, tablas fac_*; ver más abajo).
 
 -- Ingresos escritos a mano (ADR-026). Las cuotas de los beneficiarios del padrón NO se guardan aquí: se calculan.
 CREATE TABLE income_source (
@@ -126,6 +118,19 @@ CREATE TABLE income_source (
 -- care_custom_field   datos propios del formulario (hidden mientras su borrado espera)
 -- care_waitlist       solicitudes de ingreso: requested_on, name/phone opcionales, sex, approx_age, dependency, reason,
 --                     status waiting|admitted|declined|withdrawn, person_id
+
+-- Módulo de Instalaciones (ADR-030, migración 0018; elimina facility).
+-- fac_site       un inmueble (la pantalla maneja uno): name, land_m2, built_m2, floors, floor_access JSON
+--                (ramp|elevator|stair_lift|none), built_year, tenure (own|loan|rent|borrowed|other), tenure_until,
+--                tenure_documented; servicios (water_sources JSON, water_shortage never|sometimes|often,
+--                water_storage_liters, power_outages, gas, drainage, internet); seguridad (extinguishers,
+--                extinguishers_current, smoke_detectors, marked_exits, emergency_lights, first_aid_kit,
+--                internal_program yes|in_progress|no, civil_protection_opinion, opinion_year, drills_per_year), notes
+-- fac_space      un grupo de espacios de un tipo en un piso: kind (catálogo), label, floor (-1 sótano, 0 planta baja…),
+--                count, good, fair, poor, unusable (suman count o menos: el resto está «sin revisar»), problems JSON,
+--                accessible, beds, hospital_beds (dormitorio y enfermería), grab_bars, accessible_shower (baño), notes,
+--                origin, source_ref
+-- fac_equipment  un grupo de equipo: kind (catálogo), label, count, good, fair, poor, unusable, notes, origin, source_ref
 
 -- Perfiles de acceso (ADR-028, migración 0016).
 -- app_user        cuentas: username (único, minúsculas), display_name, person_id (ficha del personal), role (admin|manager),

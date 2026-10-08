@@ -1,27 +1,24 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { UseFormRegister } from "react-hook-form";
-import { Alert, Button, Choice, Modal, RadioCard, TextArea, TextInput, FormSection } from "../../components/ui";
+import { Alert, Button, Choice, Modal, RadioCard, TextArea, TextInput } from "../../components/ui";
 import { INCOME_KINDS } from "./finance";
-import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { ProfileInput, ProfileIssue, ProfileView } from "../../lib/types";
 import { emptyForm, formSchema, fromView, toInput, type FormValues } from "./profileForm";
 
 const t = es.profile;
 
-/** What is being edited: one card of the profile, or one item of a list (income, space). */
+/** What is being edited: one card of the profile, or one item of a list (income, expense). */
 export type Edit =
   | { kind: "institution" | "contact" | "legal" | "capacity" }
-  | { kind: "income" | "expense" | "facility"; index: number | null };
+  | { kind: "income" | "expense"; index: number | null };
 
-const conditionTone: Record<string, Tone> = { good: "green", fair: "amber", poor: "red", critical: "red" };
 const kindOptions = Object.entries(t.kinds) as [string, string][];
 
 const titleOf = (e: Edit) =>
   e.kind === "income" ? (e.index === null ? t.modal.incomeAdd : t.modal.incomeEdit)
   : e.kind === "expense" ? (e.index === null ? t.modal.expenseAdd : t.modal.expenseEdit)
-  : e.kind === "facility" ? (e.index === null ? t.modal.facilityAdd : t.modal.facilityEdit)
   : t.modal[e.kind];
 
 /** «Al mes» or «Al año»: Rust turns the amount into a year, so the person writes it the way they know it. */
@@ -60,11 +57,9 @@ export function ProfileEdit({
   // a new item goes at the end of its list, and that is the one the window edits
   if (edit.kind === "income" && edit.index === null) start.income = [...start.income, { label: "", kind: "other", amount_mxn: "", period: "annual" }];
   if (edit.kind === "expense" && edit.index === null) start.expenses = [...start.expenses, { label: "", amount_mxn: "", period: "annual" }];
-  if (edit.kind === "facility" && edit.index === null) start.facilities = [...start.facilities, { kind: "", count: "1", condition: "", accessible: "", notes: "" }];
   const i =
     edit.kind === "income" ? (edit.index ?? start.income.length - 1)
     : edit.kind === "expense" ? (edit.index ?? start.expenses.length - 1)
-    : edit.kind === "facility" ? (edit.index ?? start.facilities.length - 1)
     : 0;
 
   const { register, handleSubmit, formState } = useForm<FormValues>({ resolver: zodResolver(formSchema), defaultValues: start });
@@ -143,46 +138,6 @@ export function ProfileEdit({
               <TextInput label={t.finance.amountLabel} prefix="$" error={err(fe.expenses?.[i]?.amount_mxn)} {...register(`expenses.${i}.amount_mxn`)} />
               <PeriodChoice name={`expenses.${i}.period`} register={register} />
             </div>
-          </>
-        )}
-        {edit.kind === "facility" && (
-          <>
-            <FormSection title={t.modal.facilitySpace}>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_160px]">
-                <TextInput label={t.fields.facilityKind} required autoFocus placeholder={t.modal.facilityPlaceholder} {...register(`facilities.${i}.kind`)} />
-                <TextInput label={t.fields.count} inputMode="numeric" error={err(fe.facilities?.[i]?.count)} {...register(`facilities.${i}.count`)} />
-              </div>
-            </FormSection>
-            <FormSection title={t.modal.facilityToday}>
-              <fieldset>
-                <legend className="field-label">{t.fields.condition}</legend>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(t.condition).map(([value, label]) => (
-                    <Choice key={value} value={value} tone={conditionTone[value]} {...register(`facilities.${i}.condition`)}>
-                      {label}
-                    </Choice>
-                  ))}
-                  <Choice value="" tone="neutral" {...register(`facilities.${i}.condition`)}>
-                    {t.fields.optionNone}
-                  </Choice>
-                </div>
-              </fieldset>
-              <fieldset>
-                <legend className="field-label">{t.fields.accessible}</legend>
-                <div className="flex flex-wrap gap-2">
-                  <Choice value="yes" tone="green" {...register(`facilities.${i}.accessible`)}>
-                    {es.common.yes}
-                  </Choice>
-                  <Choice value="no" tone="amber" {...register(`facilities.${i}.accessible`)}>
-                    {es.common.no}
-                  </Choice>
-                  <Choice value="" tone="neutral" {...register(`facilities.${i}.accessible`)}>
-                    {t.fields.optionNone}
-                  </Choice>
-                </div>
-              </fieldset>
-              <TextArea label={t.fields.facilityNotes} rows={3} {...register(`facilities.${i}.notes`)} />
-            </FormSection>
           </>
         )}
         {issues.length > 0 && (

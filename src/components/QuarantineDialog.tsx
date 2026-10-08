@@ -9,7 +9,6 @@ function fieldName(path: string): string {
   if (q.fieldNames[path]) return q.fieldNames[path];
   if (path.startsWith("population")) return es.profile.sections.population;
   if (path.startsWith("staff")) return es.profile.sections.staff;
-  if (path.startsWith("facilities")) return es.profile.sections.facilities;
   if (path.startsWith("income")) return es.profile.sections.income;
   return es.profile.sections.general;
 }

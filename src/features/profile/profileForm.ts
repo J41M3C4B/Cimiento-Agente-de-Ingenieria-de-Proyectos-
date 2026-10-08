@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type {
-  Condition,
   IncomeKind,
   InstitutionKind,
   Period,
@@ -38,15 +37,6 @@ export const formSchema = z.object({
   capacity_total: wholeNumber,
   annual_budget_mxn: pesos,
   notes: z.string(),
-  facilities: z.array(
-    z.object({
-      kind: z.string(),
-      count: wholeNumber,
-      condition: z.string(),
-      accessible: z.enum(["", "yes", "no"]),
-      notes: z.string(),
-    }),
-  ),
   income: z.array(z.object({ label: z.string(), kind: z.string(), amount_mxn: pesos, period: z.enum(["monthly", "annual"]) })),
   expenses: z.array(z.object({ label: z.string(), amount_mxn: pesos, period: z.enum(["monthly", "annual"]) })),
 });
@@ -64,7 +54,6 @@ export const emptyForm = (): FormValues => ({
   capacity_total: "",
   annual_budget_mxn: "",
   notes: "",
-  facilities: [],
   income: [],
   expenses: [],
 });
@@ -73,7 +62,6 @@ const str = (v: string | null | undefined) => v ?? "";
 const numStr = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v));
 const textOrNull = (v: string) => (v.trim() === "" ? null : v.trim());
 const numOrNull = (v: string) => (v.trim() === "" ? null : Number(v.trim()));
-const numOrZero = (v: string) => (v.trim() === "" ? 0 : Number(v.trim()));
 const pesosOrNull = (v: string) => (v.trim() === "" ? null : parsePesos(v));
 
 export function fromView(view: ProfileView | null): FormValues {
@@ -90,13 +78,6 @@ export function fromView(view: ProfileView | null): FormValues {
     capacity_total: numStr(p.capacity_total),
     annual_budget_mxn: numStr(p.annual_budget_mxn),
     notes: str(p.notes),
-    facilities: p.facilities.map((f) => ({
-      kind: f.kind,
-      count: String(f.count),
-      condition: f.condition ?? "",
-      accessible: f.accessible === null ? "" : f.accessible ? "yes" : "no",
-      notes: str(f.notes),
-    })),
     income: p.income.map((i) => ({
       label: i.label,
       kind: i.kind,
@@ -124,13 +105,6 @@ export function toInput(v: FormValues): ProfileInput {
     // staff and people served come from the roster (ADR-020): the profile adds them up by itself
     population: [],
     staff: [],
-    facilities: v.facilities.map((f) => ({
-      kind: f.kind,
-      count: numOrZero(f.count),
-      condition: f.condition === "" ? null : (f.condition as Condition),
-      accessible: f.accessible === "" ? null : f.accessible === "yes",
-      notes: textOrNull(f.notes),
-    })),
     income: v.income.map((i) => ({
       label: i.label,
       kind: i.kind as IncomeKind,

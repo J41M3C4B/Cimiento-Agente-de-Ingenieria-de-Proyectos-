@@ -51,16 +51,19 @@ pub fn board(conn: &Connection) -> Result<Board, ServiceError> {
     let indicators = crate::care::api::indicators(conn, flavor)?;
     let waiting = crate::care::api::waiting(conn)?;
     let profile = profile_store::load_current(conn)?;
-    let (capacity, facilities, expenses) = match &profile {
-        Some(p) => (p.input.capacity_total, p.input.facilities.clone(), p.input.finances(p.as_of_year).expenses_annual_mxn),
-        None => (None, Vec::new(), None),
+    let (capacity, expenses) = match &profile {
+        Some(p) => (p.input.capacity_total, p.input.finances(p.as_of_year).expenses_annual_mxn),
+        None => (None, None),
     };
+    // the spaces live in their module (ADR-030)
+    let blocked = crate::facilities::api::indicators(conn)?.not_accessible;
     let staff = crate::hr::api::ai_summary(conn)?;
     let carers = staff.positions.iter().filter(|p| matches!(p.area.as_deref(), Some("care" | "health"))).map(|p| p.people).sum();
-    let not_accessible: Vec<&str> = facilities.iter().filter(|f| f.accessible == Some(false)).map(|f| f.kind.as_str()).collect();
     let cx = Context {
         capacity,
-        not_accessible,
+        not_accessible: blocked.iter().map(|g| format!("{} {} ({})", g.count, crate::domain::facility_text::group_name(&g.kind, g.label.as_deref(), g.count, true), crate::domain::facility_text::floor(g.floor))).collect(),
+        not_accessible_spaces: blocked.iter().map(|g| g.count).sum(),
+
         expenses_annual: expenses,
         carers,
         elderly_home: flavor == Flavor::ElderlyHome,

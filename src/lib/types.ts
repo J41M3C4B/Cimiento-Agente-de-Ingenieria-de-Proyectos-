@@ -2,7 +2,6 @@
 
 export type InstitutionKind = "elderly_home" | "children_home" | "other";
 export type DependencyLevel = "low" | "medium" | "high" | "total";
-export type Condition = "good" | "fair" | "poor" | "critical";
 
 export interface InstitutionInput {
   name: string;
@@ -34,13 +33,6 @@ export interface StaffGroupInput {
   start_year: number | null;
   notes: string | null;
 }
-export interface FacilityInput {
-  kind: string;
-  count: number;
-  condition: Condition | null;
-  accessible: boolean | null;
-  notes: string | null;
-}
 /** Whether an amount is written per month or per year; Rust turns it into a year (ADR-026). */
 export type Period = "monthly" | "annual";
 export type IncomeKind = "fee_estimate" | "recurring_donor" | "occasional_donation" | "project_grant" | "other";
@@ -62,7 +54,6 @@ export interface ProfileInput {
   notes: string | null;
   population: PopulationGroupInput[];
   staff: StaffGroupInput[];
-  facilities: FacilityInput[];
   income: IncomeSourceInput[];
   expenses: ExpenseItemInput[];
 }

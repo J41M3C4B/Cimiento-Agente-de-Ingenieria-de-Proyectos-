@@ -21,6 +21,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (15, include_str!("../../migrations/0015_hr_staff.sql")),
     (16, include_str!("../../migrations/0016_access.sql")),
     (17, include_str!("../../migrations/0017_care.sql")),
+    (18, include_str!("../../migrations/0018_facilities.sql")),
 ];
 
 /// Code that runs right after the SQL of a version, inside the same transaction (moves of data that need rules).
@@ -30,6 +31,9 @@ fn after(version: i64, tx: &Transaction) -> rusqlite::Result<()> {
     }
     if version == 17 {
         move_roster_people(tx)?;
+    }
+    if version == 18 {
+        move_profile_facilities(tx)?;
     }
     Ok(())
 }
@@ -81,6 +85,39 @@ fn move_roster_people(tx: &Transaction) -> rusqlite::Result<()> {
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     }
     tx.execute_batch("DROP TABLE roster_entry; DROP TABLE roster_field;")?;
+    Ok(())
+}
+
+/// The spaces of the latest profile version move into the facilities module (ADR-030), with their origin and source.
+/// The old table goes away with the copies of the earlier versions: the module keeps the facilities now.
+fn move_profile_facilities(tx: &Transaction) -> rusqlite::Result<()> {
+    let latest: Option<String> = tx.query_row("SELECT id FROM institution_profile ORDER BY version DESC LIMIT 1", [], |r| r.get(0)).optional()?;
+    let rows: Vec<crate::facilities::legacy::LegacyFacility> = match latest {
+        Some(pid) => tx
+            .prepare("SELECT kind, count, condition, accessible, notes, origin, source_ref FROM facility WHERE profile_id = ?1 ORDER BY rowid")?
+            .query_map([pid], |r| {
+                Ok(crate::facilities::legacy::LegacyFacility {
+                    kind: r.get(0)?,
+                    count: r.get(1)?,
+                    condition: r.get(2)?,
+                    accessible: r.get::<_, Option<i64>>(3)?.map(|a| a != 0),
+                    notes: r.get(4)?,
+                    origin: r.get(5)?,
+                    source_ref: r.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?,
+        None => Vec::new(),
+    };
+    let moved = crate::facilities::legacy::import(tx, &rows).map_err(|e| match e {
+        crate::facilities::FacilitiesError::Db(e) => e,
+        other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
+    })?;
+    if moved > 0 {
+        crate::audit::record(tx, crate::audit::AuditKind::FacilitiesImported, Some("fac_space"), None, serde_json::json!({ "groups": moved }))
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    }
+    tx.execute_batch("DROP TABLE facility;")?;
     Ok(())
 }
 
@@ -315,6 +352,59 @@ mod tests {
         let target: String = conn.query_row("SELECT target_id FROM access_request WHERE id='r'", [], |r| r.get(0)).unwrap();
         let found: i64 = conn.query_row("SELECT count(*) FROM care_person WHERE id=?1", [target], |r| r.get(0)).unwrap();
         assert_eq!(found, 1, "the waiting request still finds its person");
+    }
+
+    /// The spaces of the latest profile version move into the facilities module (ADR-030): the written kind becomes a
+    /// code, the one old state goes to every space of the group, origin and source stay; the old table goes away.
+    #[test]
+    fn the_spaces_of_the_profile_move_into_the_facilities_module() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON; CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);").unwrap();
+        for (version, sql) in &MIGRATIONS[..17] {
+            conn.execute_batch(sql).unwrap();
+            conn.execute("INSERT INTO schema_migrations VALUES (?1, 'then')", [version]).unwrap();
+        }
+        conn.execute_batch(
+            r#"INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','Asilo','elderly_home','t','t');
+             INSERT INTO institution_profile (id,institution_id,version,created_at,confirmed_at) VALUES ('p1','i',1,'t','t');
+             INSERT INTO institution_profile (id,institution_id,version,created_at) VALUES ('p2','i',2,'t');
+             INSERT INTO facility (id,profile_id,kind,count,condition,accessible,notes,origin) VALUES ('old','p1','Cocina',1,'good',NULL,NULL,'user');
+             INSERT INTO facility (id,profile_id,kind,count,condition,accessible,notes,origin) VALUES
+               ('a','p2','Baño',3,'poor',0,'Piso resbaloso.','user'),
+               ('b','p2','Sala de usos múltiples',1,NULL,1,NULL,'user'),
+               ('c','p2','Taller de costura',2,'critical',NULL,NULL,'document');"#,
+        )
+        .unwrap();
+
+        run(&mut conn).unwrap();
+
+        let rows: Vec<(String, Option<String>, i64, i64, i64, i64, Option<i64>, Option<String>, String)> = conn
+            .prepare("SELECT kind, label, count, good, poor, unusable, accessible, notes, origin FROM fac_space ORDER BY rowid")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(rows, vec![
+            ("bathroom".into(), None, 3, 0, 3, 0, Some(0), Some("Piso resbaloso.".into()), "user".into()),
+            ("living".into(), Some("Sala de usos múltiples".into()), 1, 0, 0, 0, Some(1), None, "user".into()),
+            ("other".into(), Some("Taller de costura".into()), 2, 0, 0, 2, None, None, "document".into()),
+        ], "only the latest version moves; a state nobody said stays unchecked");
+        let site: String = conn.query_row("SELECT name FROM fac_site", [], |r| r.get(0)).unwrap();
+        assert_eq!(site, "Inmueble principal");
+        let gone: i64 = conn.query_row("SELECT count(*) FROM sqlite_master WHERE name = 'facility'", [], |r| r.get(0)).unwrap();
+        assert_eq!(gone, 0);
+        let event: String = conn.query_row("SELECT details_json FROM audit_log WHERE event='facilities.imported'", [], |r| r.get(0)).unwrap();
+        assert_eq!(event, "{\"groups\":3}");
+    }
+
+    /// Without spaces there is no site to make and nothing to log.
+    #[test]
+    fn a_profile_without_spaces_moves_nothing() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        run(&mut conn).unwrap();
+        let sites: i64 = conn.query_row("SELECT count(*) FROM fac_site", [], |r| r.get(0)).unwrap();
+        assert_eq!(sites, 0);
     }
 
     /// Income written before ADR-026 keeps its amount as a yearly one; what said «cuota» becomes a fee estimate.

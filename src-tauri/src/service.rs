@@ -66,6 +66,8 @@ pub enum ServiceError {
     Hr(#[from] crate::hr::HrError),
     #[error("people served module: {0}")]
     Care(#[from] crate::care::CareError),
+    #[error("facilities module: {0}")]
+    Facilities(#[from] crate::facilities::FacilitiesError),
     #[error("the staff is kept in its own module now")]
     StaffMoved,
     /// An account or session rule (ADR-028); the code says which.

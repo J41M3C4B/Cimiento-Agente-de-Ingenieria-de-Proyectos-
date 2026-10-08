@@ -20,6 +20,7 @@ cargo test finances                                    # ingresos por tipo, egre
 cargo test hr::                                        # módulo de Personal (ADR-027): modalidades, CURP/RFC/NSS/CLABE, avance, agregados y su frontera
 cargo test access                                      # perfiles de acceso (ADR-028): roles, permiso de cada comando, cuentas, bloqueo, recuperación y solicitudes de borrado
 cargo test care                                        # módulo de Beneficiarios (ADR-029): ficha, grupos, lista de espera, indicadores, tablero y lo que llega a la IA
+cargo test facilit                                     # módulo de Instalaciones (ADR-030): inmueble, grupos con conteo por estado, traslado, tablero, escáner y lo que llega a la IA
 cargo test staff_service                               # el personal con la base real: lo que llega al perfil y a la IA, identificadores tapados, puestos con escáner
 cargo test drafting_service                            # redacción, presupuesto y cronograma (ADR-018), con modelo simulado
 cargo test guide_service                               # revisión y guía en Word (ADR-018): escribe archivos en carpetas temporales

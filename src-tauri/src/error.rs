@@ -77,6 +77,7 @@ impl From<ServiceError> for UiError {
             ServiceError::Hr(crate::hr::HrError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
             ServiceError::Hr(crate::hr::HrError::UnknownModality) => UiError::new("unknown_modality", "Elija a cuál modalidad se parece."),
             ServiceError::Access(code) => UiError::new(code, access_message(code)),
+            ServiceError::Facilities(crate::facilities::FacilitiesError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
             ServiceError::Care(crate::care::CareError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
             ServiceError::Care(crate::care::CareError::DuplicateTitle) => UiError::new("duplicate_group", "Ya existe un grupo con ese nombre."),
             ServiceError::Care(crate::care::CareError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),

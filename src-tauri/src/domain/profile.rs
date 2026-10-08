@@ -61,35 +61,6 @@ impl DependencyLevel {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Condition {
-    Good,
-    Fair,
-    Poor,
-    Critical,
-}
-
-impl Condition {
-    pub fn as_db(self) -> &'static str {
-        match self {
-            Condition::Good => "good",
-            Condition::Fair => "fair",
-            Condition::Poor => "poor",
-            Condition::Critical => "critical",
-        }
-    }
-    pub fn from_db(s: &str) -> Option<Self> {
-        Some(match s {
-            "good" => Condition::Good,
-            "fair" => Condition::Fair,
-            "poor" => Condition::Poor,
-            "critical" => Condition::Critical,
-            _ => return None,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum ContractKind {
     /// Fixed position with benefits.
     Permanent,
@@ -224,15 +195,6 @@ pub struct StaffGroupInput {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct FacilityInput {
-    pub kind: String,
-    pub count: i64,
-    pub condition: Option<Condition>,
-    pub accessible: Option<bool>,
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct IncomeSourceInput {
     pub label: String,
     #[serde(default)]
@@ -265,8 +227,6 @@ pub struct ProfileInput {
     pub population: Vec<PopulationGroupInput>,
     #[serde(default)]
     pub staff: Vec<StaffGroupInput>,
-    #[serde(default)]
-    pub facilities: Vec<FacilityInput>,
     #[serde(default)]
     pub income: Vec<IncomeSourceInput>,
     #[serde(default)]
@@ -474,14 +434,6 @@ impl ProfileInput {
                 add("year_invalid", format!("staff[{i}].start_year"), true);
             }
         }
-        for (i, f) in self.facilities.iter().enumerate() {
-            if f.kind.trim().is_empty() {
-                add("label_missing", format!("facilities[{i}].kind"), true);
-            }
-            if f.count < 0 {
-                add("negative_number", format!("facilities[{i}].count"), true);
-            }
-        }
         for (i, inc) in self.income.iter().enumerate() {
             if inc.label.trim().is_empty() {
                 add("label_missing", format!("income[{i}].label"), true);
@@ -575,10 +527,6 @@ impl ProfileInput {
             f(&format!("staff[{i}].role"), &mut s.role);
             opt(&format!("staff[{i}].shift"), &mut s.shift, f);
             opt(&format!("staff[{i}].notes"), &mut s.notes, f);
-        }
-        for (i, fa) in self.facilities.iter_mut().enumerate() {
-            f(&format!("facilities[{i}].kind"), &mut fa.kind);
-            opt(&format!("facilities[{i}].notes"), &mut fa.notes, f);
         }
         for (i, inc) in self.income.iter_mut().enumerate() {
             f(&format!("income[{i}].label"), &mut inc.label);

@@ -32,7 +32,7 @@ pub fn current_year(conn: &Connection) -> Result<i64, StorageError> {
 }
 
 /// The lists that hang from a version of the profile.
-const PROFILE_LISTS: [&str; 5] = ["population_group", "staff_group", "facility", "income_source", "expense_item"];
+const PROFILE_LISTS: [&str; 4] = ["population_group", "staff_group", "income_source", "expense_item"];
 
 fn text(o: &Option<String>) -> Option<&str> {
     o.as_deref().map(str::trim).filter(|s| !s.is_empty())
@@ -106,18 +106,6 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
-    let facilities = conn
-        .prepare("SELECT kind, count, condition, accessible, notes FROM facility WHERE profile_id = ?1 ORDER BY rowid")?
-        .query_map([&profile_id], |r| {
-            Ok(FacilityInput {
-                kind: r.get(0)?,
-                count: r.get(1)?,
-                condition: r.get::<_, Option<String>>(2)?.and_then(|s| Condition::from_db(&s)),
-                accessible: r.get::<_, Option<i64>>(3)?.map(|v| v != 0),
-                notes: r.get(4)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
     let income = conn
         .prepare("SELECT label, kind, amount_mxn, period FROM income_source WHERE profile_id = ?1 ORDER BY rowid")?
         .query_map([&profile_id], |r| {
@@ -141,7 +129,7 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
         profile_id,
         version,
         confirmed_at,
-        input: ProfileInput { institution, capacity_total, annual_budget_mxn, notes, population, staff, facilities, income, expenses },
+        input: ProfileInput { institution, capacity_total, annual_budget_mxn, notes, population, staff, income, expenses },
         as_of_year: current_year(conn)?,
     }))
 }
@@ -221,13 +209,6 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,'computed')",
             params![id("staff"), profile_id, s.role.trim(), s.count, text(&s.shift), s.paid as i64,
                     s.monthly_salary_mxn, s.contract.map(|c| c.as_db()), s.start_year, text(&s.notes), text(&s.relation)],
-        )?;
-    }
-    for f in &input.facilities {
-        tx.execute(
-            "INSERT INTO facility (id,profile_id,kind,count,condition,accessible,notes,origin) VALUES (?1,?2,?3,?4,?5,?6,?7,'user')",
-            params![id("fac"), profile_id, f.kind.trim(), f.count, f.condition.map(|c| c.as_db()),
-                    f.accessible.map(|a| a as i64), text(&f.notes)],
         )?;
     }
     for i in &input.income {
@@ -318,9 +299,6 @@ mod tests {
                 label: "Adultos mayores".into(), count: 18, dependency_level: Some(DependencyLevel::High), ..Default::default()
             }],
             staff: vec![StaffGroupInput { role: "Enfermería".into(), count: 3, paid: true, ..Default::default() }],
-            facilities: vec![FacilityInput {
-                kind: "Baño".into(), count: 2, condition: Some(Condition::Poor), accessible: Some(false), notes: None,
-            }],
             income: vec![IncomeSourceInput { label: "Cuotas".into(), kind: IncomeKind::FeeEstimate, amount_mxn: Some(50_000), period: Period::Monthly }],
             expenses: vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(30_000), period: Period::Monthly }],
             ..Default::default()
@@ -335,7 +313,6 @@ mod tests {
         assert_eq!(saved.version, 1);
         assert!(saved.confirmed_at.is_none());
         assert_eq!(saved.input.population[0].count, 18);
-        assert_eq!(saved.input.facilities[0].accessible, Some(false));
         assert_eq!(saved.input.institution.kind, InstitutionKind::ElderlyHome);
         let inc = &saved.input.income[0];
         assert_eq!((inc.kind, inc.amount_mxn, inc.period), (IncomeKind::FeeEstimate, Some(50_000), Period::Monthly));

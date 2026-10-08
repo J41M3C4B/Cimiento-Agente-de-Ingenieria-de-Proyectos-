@@ -11,36 +11,6 @@
   "capacity_total": 25,
   "annual_budget_mxn": 1800000,
   "notes": "Perfil ficticio para desarrollo y pruebas.",
-  "facilities": [
-    {
-      "kind": "Dormitorio",
-      "count": 8,
-      "condition": "fair",
-      "accessible": true,
-      "notes": null
-    },
-    {
-      "kind": "Baño",
-      "count": 3,
-      "condition": "poor",
-      "accessible": false,
-      "notes": "Piso resbaloso, sin barras de apoyo ni regaderas con asiento."
-    },
-    {
-      "kind": "Cocina",
-      "count": 1,
-      "condition": "good",
-      "accessible": null,
-      "notes": null
-    },
-    {
-      "kind": "Enfermería",
-      "count": 1,
-      "condition": "fair",
-      "accessible": true,
-      "notes": null
-    }
-  ],
   "income": [
     {
       "label": "Padrinos que dan cada mes",

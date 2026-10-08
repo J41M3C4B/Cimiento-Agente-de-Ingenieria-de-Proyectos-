@@ -11,9 +11,12 @@
 //! as something the person said.
 
 use crate::domain::finances::{ExpenseBasis, BENEFICIARY_FEES, EXPENSE};
-use crate::domain::profile::{Condition, InstitutionKind, IncomeKind, Period};
+use crate::domain::profile::{InstitutionKind, IncomeKind, Period};
 use crate::care::domain::aggregate::CareSummary;
+use crate::domain::facility_insights::FacilityBoard;
+use crate::domain::facility_text;
 use crate::domain::insights::Insight;
+use crate::facilities::domain::aggregate::SiteSummary;
 use crate::hr::api::{Count, MIN_GROUP};
 use crate::hr::domain::aggregate::StaffSummary;
 use crate::service::ServiceError;
@@ -33,11 +36,22 @@ pub fn people_sheet(conn: &Connection) -> Result<PeopleSheet, ServiceError> {
     Ok(PeopleSheet { summary, findings })
 }
 
-/// The sheet of the current profile (the latest version, confirmed or draft), with the staff (ADR-027) and the people
-/// served (ADR-029) as their modules tell them now.
+/// The facilities as their module tells them now (ADR-030): the building, its services and safety, every group of
+/// spaces and equipment, and the findings of their board that may reach the AI.
+pub struct FacilitiesSheet {
+    pub sites: Vec<SiteSummary>,
+    pub board: FacilityBoard,
+}
+
+pub fn facilities_sheet(conn: &Connection) -> Result<FacilitiesSheet, ServiceError> {
+    Ok(FacilitiesSheet { sites: crate::facilities::api::summaries(conn)?, board: crate::facilities_service::board(conn)? })
+}
+
+/// The sheet of the current profile (the latest version, confirmed or draft), with the staff (ADR-027), the people
+/// served (ADR-029) and the facilities (ADR-030) as their modules tell them now.
 pub fn profile_context(conn: &Connection) -> Result<String, ServiceError> {
     Ok(match profile_store::load_current(conn)? {
-        Some(p) => render(&p, &crate::hr::api::ai_summary(conn)?, &people_sheet(conn)?),
+        Some(p) => render(&p, &crate::hr::api::ai_summary(conn)?, &people_sheet(conn)?, &facilities_sheet(conn)?),
         None => "Perfil: sin datos. Todavía no hay nada capturado en «Mi institución»; de la institución solo se sabe lo que la persona diga.".into(),
     })
 }
@@ -47,15 +61,6 @@ fn kind_text(k: InstitutionKind) -> &'static str {
         InstitutionKind::ElderlyHome => "asilo",
         InstitutionKind::ChildrenHome => "casa hogar",
         InstitutionKind::Other => "institución de asistencia",
-    }
-}
-
-fn condition_text(c: Condition) -> &'static str {
-    match c {
-        Condition::Good => "bueno",
-        Condition::Fair => "regular",
-        Condition::Poor => "malo",
-        Condition::Critical => "crítico",
     }
 }
 
@@ -269,8 +274,8 @@ fn finding_text(i: &Insight) -> Option<String> {
         "mobility_vs_access" => format!(
             "{} personas usan silla de ruedas o están en cama, y {}: {}.",
             v("people"),
-            if v("spaces") == 1 { "1 espacio no es accesible".to_string() } else { format!("{} espacios no son accesibles", v("spaces")) },
-            i.items.join(", ")
+            if v("spaces") == 1 { "1 espacio no se puede usar en silla de ruedas".to_string() } else { format!("{} espacios no se pueden usar en silla de ruedas", v("spaces")) },
+            i.items.join("; ")
         ),
         "waitlist_vs_seats" if v("free") >= 0 => format!("Hay {} solicitudes en lista de espera y {} plazas libres.", v("waiting"), v("free")),
         "waitlist_vs_seats" => format!("Hay {} solicitudes en lista de espera.", v("waiting")),
@@ -344,7 +349,96 @@ fn render_people(s: &mut String, people: &PeopleSheet, fee_payers: i64, missing:
     }
 }
 
-pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet) -> String {
+/// A finding of the board of the facilities in one sentence (only those that may reach the AI come here).
+fn facility_finding_text(i: &Insight) -> Option<String> {
+    let v = |k: &str| i.values.get(k).copied().unwrap_or(0);
+    let often = |k: &str| if v(k) == 1 { "seguido" } else { "a veces" };
+    Some(match i.code {
+        "broken_spaces" => format!("Espacios en mal estado o que no se pueden usar: {}.", i.items.join("; ")),
+        "broken_equipment" => format!("Equipo en mal estado o que no se puede usar: {}.", i.items.join("; ")),
+        "structural" if v("groups") == 1 => "1 grupo de espacios tiene grietas o fallas en la instalación eléctrica: conviene revisar la seguridad del edificio.".to_string(),
+        "structural" => format!("{} grupos de espacios tienen grietas o fallas en la instalación eléctrica: conviene revisar la seguridad del edificio.", v("groups")),
+        "only_stairs" if v("people") > 0 => format!(
+            "El inmueble tiene varios pisos y solo escaleras entre ellos; hay {} espacios arriba y {} personas usan silla de ruedas o están en cama.",
+            v("spaces"),
+            v("people")
+        ),
+        "only_stairs" => format!("El inmueble tiene varios pisos y solo escaleras entre ellos; hay {} espacios arriba.", v("spaces")),
+        "bathrooms_without_bars" => format!("{} de {} baños no tienen barras de apoyo.", v("without"), v("bathrooms")),
+        "beds_short" if v("capacity") >= 0 => format!("Hay {} camas para {} personas atendidas y una capacidad de {}.", v("beds"), v("served"), v("capacity")),
+        "beds_short" => format!("Hay {} camas para {} personas atendidas.", v("beds"), v("served")),
+        "tenure_weak" => "El inmueble no es propio ni está en comodato: muchas convocatorias de obra piden que lo sea.".to_string(),
+        "tenure_ending" => format!("El comodato del inmueble termina en {} (faltan {} años).", v("until"), v("years")),
+        "tenure_undocumented" => "No hay papeles que acrediten la posesión del inmueble (escritura o contrato).".to_string(),
+        "civil_protection_gap" => {
+            let parts: Vec<&str> = i
+                .items
+                .iter()
+                .map(|x| match x.as_str() {
+                    "internal_program_no" => "no tiene programa interno de protección civil",
+                    "internal_program_in_progress" => "el programa interno de protección civil está en trámite",
+                    _ => "no tiene dictamen o visto bueno de protección civil",
+                })
+                .collect();
+            format!("Protección civil: {}.", parts.join("; "))
+        }
+        "fire_safety_gap" => {
+            let parts: Vec<&str> = i
+                .items
+                .iter()
+                .map(|x| match x.as_str() {
+                    "no_extinguishers" => "no hay extintores",
+                    "extinguishers_expired" => "los extintores no tienen la recarga al día",
+                    _ => "no hay detectores de humo",
+                })
+                .collect();
+            format!("Seguridad contra incendios: {}.", parts.join("; "))
+        }
+        "water_shortage" => format!("Falta el agua {}.", often("often")),
+        "power_without_backup" => format!("Se va la luz {} y no hay una planta de luz de emergencia que funcione.", often("often")),
+        _ => return None,
+    })
+}
+
+/// The facilities: the building, its services and safety, each group of spaces and equipment with how many are in
+/// each state, a few ratios made by code, and the findings of their board.
+fn render_facilities(s: &mut String, f: &FacilitiesSheet, missing: &mut Vec<&str>) {
+    for site in &f.sites {
+        for line in facility_text::site_lines(&site.site) {
+            s.push_str(&format!("{line}\n"));
+        }
+        for g in &site.spaces {
+            s.push_str(&format!("Espacio: {}\n", facility_text::space_line(g)));
+        }
+        for g in &site.equipment {
+            s.push_str(&format!("Equipo: {}\n", facility_text::equipment_line(g)));
+        }
+    }
+    if !f.sites.iter().any(|x| !x.spaces.is_empty()) {
+        missing.push("las instalaciones");
+        return;
+    }
+    let b = &f.board;
+    let mut ratios = Vec::new();
+    if let Some(m) = b.built_m2_per_person {
+        ratios.push(format!("{m} m² construidos por persona atendida"));
+    }
+    if let Some(p) = b.people_per_bathroom {
+        // «4 personas por baño», «4.5 personas por baño»: no «.0» the figure check would read as a 0
+        ratios.push(if p.fract() == 0.0 { format!("{p:.0} personas por baño") } else { format!("{p:.1} personas por baño") });
+    }
+    if let Some(beds) = b.indicators.beds {
+        ratios.push(format!("{beds} camas en total"));
+    }
+    if !ratios.is_empty() {
+        s.push_str(&format!("Instalaciones, calculado: {}.\n", ratios.join("; ")));
+    }
+    for line in b.insights.iter().filter(|i| i.for_ai).filter_map(facility_finding_text) {
+        s.push_str(&format!("Hallazgo: {line}\n"));
+    }
+}
+
+pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> String {
     let i = &p.input;
     let t = i.totals(p.as_of_year);
     let money = i.finances(p.as_of_year);
@@ -440,22 +534,8 @@ pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet) -> 
     // staff: from the staff module, as positions and counts; never a person, a pay or a date (ADR-027)
     render_staff(&mut s, staff, &mut missing);
 
-    if i.facilities.is_empty() {
-        missing.push("las instalaciones");
-    } else {
-        for f in &i.facilities {
-            let mut details = vec![format!("estado: {}", f.condition.map(condition_text).unwrap_or("sin indicar"))];
-            match f.accessible {
-                Some(true) => details.push("accesible: sí".into()),
-                Some(false) => details.push("accesible: no".into()),
-                None => {}
-            }
-            if let Some(n) = text(&f.notes) {
-                details.push(format!("nota: {n}"));
-            }
-            s.push_str(&format!("Instalación: {} ×{} ({}).\n", f.kind, f.count, details.join("; ")));
-        }
-    }
+    // facilities: from their module, as groups that count how many are in each state (ADR-030)
+    render_facilities(&mut s, facilities, &mut missing);
 
     if let Some(n) = text(&i.notes) {
         s.push_str(&format!("Notas de la institución: {n}\n"));
@@ -506,10 +586,6 @@ pub(crate) mod tests {
             staff: vec![
                 StaffGroupInput { role: "Cuidadora".into(), count: 4, paid: true, monthly_salary_mxn: Some(7_777), shift: Some("noche".into()), contract: Some(ContractKind::Permanent), start_year: Some(2019), ..Default::default() },
                 StaffGroupInput { role: "Voluntaria".into(), count: 3, paid: false, ..Default::default() },
-            ],
-            facilities: vec![
-                FacilityInput { kind: "Baño".into(), count: 3, condition: Some(Condition::Poor), accessible: Some(false), notes: Some("Piso resbaloso, sin barras.".into()) },
-                FacilityInput { kind: "Cocina".into(), count: 1, condition: Some(Condition::Good), accessible: None, notes: None },
             ],
             income: vec![
                 IncomeSourceInput { label: "Padrinos".into(), kind: IncomeKind::RecurringDonor, amount_mxn: Some(10_000), period: Period::Monthly },
@@ -571,10 +647,42 @@ pub(crate) mod tests {
         }
     }
 
+    /// The facilities of `rich()` in their module: a house of two floors with only stairs, three bathrooms on the
+    /// ground floor (one in poor state, none with grab bars), a kitchen, six bedrooms upstairs and two washers.
+    pub(crate) fn seed_rich_facilities(c: &Connection) {
+        use crate::facilities::domain::group::{EquipmentData, SpaceData, States};
+        use crate::facilities::domain::site::SiteData;
+        use crate::facilities::service::{self as fac, SaveOutcome};
+        let ok = |o: SaveOutcome| assert!(matches!(o, SaveOutcome::Saved), "{o:?}");
+        ok(fac::save_site(c, SiteData {
+            name: "Casa principal".into(),
+            built_m2: Some(600),
+            floors: Some(2),
+            floor_access: vec!["none".into()],
+            tenure: Some("own".into()),
+            tenure_documented: Some(true),
+            water_sources: vec!["network".into()],
+            extinguishers: Some(4),
+            extinguishers_current: Some(true),
+            internal_program: Some("yes".into()),
+            ..Default::default()
+        }).unwrap());
+        ok(fac::save_space(c, None, SpaceData {
+            kind: "bathroom".into(), count: 3, states: States { good: 2, poor: 1, ..Default::default() }, problems: vec!["floor".into(), "grab_bars".into()],
+            accessible: Some(false), grab_bars: Some(false), notes: Some("Piso resbaloso, sin barras.".into()), ..Default::default()
+        }).unwrap());
+        ok(fac::save_space(c, None, SpaceData { kind: "kitchen".into(), count: 1, states: States { good: 1, ..Default::default() }, ..Default::default() }).unwrap());
+        ok(fac::save_space(c, None, SpaceData {
+            kind: "bedroom".into(), floor: 1, count: 6, states: States { good: 6, ..Default::default() }, beds: Some(20), hospital_beds: Some(2), ..Default::default()
+        }).unwrap());
+        ok(fac::save_equipment(c, None, EquipmentData { kind: "washer".into(), count: 2, states: States { good: 1, unusable: 1, ..Default::default() }, ..Default::default() }).unwrap());
+    }
+
     fn saved(input: &ProfileInput, confirm: bool) -> (tempfile::TempDir, Connection) {
         let (d, mut c) = db();
         seed_rich_staff(&mut c);
         seed_rich_people(&mut c);
+        seed_rich_facilities(&c);
         profile_store::save(&mut c, input).unwrap();
         if confirm {
             profile_store::confirm(&mut c).unwrap();
@@ -606,7 +714,7 @@ pub(crate) mod tests {
         "Nivel de apoyo (solo grupos de 3 o más personas): 3 apoyo regular, 8 mucho apoyo.",
         "Movilidad (solo grupos de 3 o más personas): 4 caminan sin ayuda, 4 usan silla de ruedas.",
         "Reciben pocas o ninguna visita: 4.",
-        "Hallazgo: 5 personas usan silla de ruedas o están en cama, y 1 espacio no es accesible: Baño.",
+        "Hallazgo: 5 personas usan silla de ruedas o están en cama, y 3 espacios no se pueden usar en silla de ruedas: 3 baños (planta baja).",
         "Hallazgo: 9 personas necesitan mucho apoyo o apoyo en todo, y hay 4 personas del personal en puestos de cuidado y salud.",
         "Hallazgo: 4 personas reciben pocas o ninguna visita de su familia.",
         "Hallazgo: 12 personas de 65 años o más no tienen pensión ni programa social.",
@@ -616,8 +724,20 @@ pub(crate) mod tests {
         "Total del personal: 7 personas: 4 con sueldo, 3 de voluntariado.",
         "Escolaridad del personal (solo grupos de 3 o más personas): 4 con preparatoria o carrera técnica.",
         "Antigüedad en la institución (solo grupos de 3 o más personas): 4 de 5 a 9 años.",
-        "Instalación: Baño ×3 (estado: malo; accesible: no; nota: Piso resbaloso, sin barras.).",
-        "Instalación: Cocina ×1 (estado: bueno).",
+        "Inmueble «Casa principal»: 2 pisos contando la planta baja; entre pisos: solo escaleras; 600 m² construidos.",
+        "El inmueble es propio; tiene papeles que lo acreditan (escritura o contrato).",
+        "Servicios: agua de red municipal.",
+        "Seguridad y protección civil: 4 extintores con la recarga al día; programa interno de protección civil: sí.",
+        "Espacio: Baños, planta baja: 3 (2 bien, 1 mal). Fallas: piso dañado o resbaloso, faltan barras de apoyo o pasamanos. No se pueden usar en silla de ruedas. Sin barras de apoyo. Nota: Piso resbaloso, sin barras.",
+        "Espacio: Cocina, planta baja: 1 (1 bien).",
+        "Espacio: Dormitorios, primer piso: 6 (6 bien). 20 camas, 2 de hospital.",
+        "Equipo: Lavadoras: 2 (1 bien, 1 no se puede usar).",
+        "Instalaciones, calculado: 50 m² construidos por persona atendida; 4 personas por baño; 20 camas en total.",
+        "Hallazgo: Espacios en mal estado o que no se pueden usar: 1 de 3 baños (planta baja).",
+        "Hallazgo: Equipo en mal estado o que no se puede usar: 1 de 2 lavadoras.",
+        "Hallazgo: El inmueble tiene varios pisos y solo escaleras entre ellos; hay 6 espacios arriba y 5 personas usan silla de ruedas o están en cama.",
+        "Hallazgo: 3 de 3 baños no tienen barras de apoyo.",
+        "Hallazgo: Hay 20 camas para 12 personas atendidas y una capacidad de 25.",
         "Notas de la institución: Perfil ficticio para pruebas.",
     ];
 
@@ -704,7 +824,7 @@ pub(crate) mod tests {
         let (_d, c) = saved(&rich(), true);
         let ctx = profile_context(&c).unwrap();
         // every number of the sheet is a fact of the profile or a sum made by code
-        let allowed = ["25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9", "89", "79", "60", "69", "90", "65", "77"];
+        let allowed = ["25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9", "89", "79", "60", "69", "90", "65", "77", "2", "6", "20", "50", "600"];
         for n in crate::domain::figures::digit_numbers(&ctx) {
             assert!(allowed.contains(&n.as_str()), "unexpected number {n} in the sheet:\n{ctx}");
         }
@@ -718,9 +838,10 @@ pub(crate) mod tests {
         crate::service::save_profile(&mut c, input.clone(), None).unwrap();
         crate::profile_sync::seed_examples(&mut c, include_str!("../../fixtures/padron-asilo.json")).unwrap();
         crate::service::save_profile(&mut c, input, None).unwrap();
+        crate::facilities_service::seed_example(&mut c, include_str!("../../fixtures/instalaciones-asilo.json")).unwrap();
 
         let stored = profile_store::load_current(&c).unwrap().unwrap();
-        let ctx = render(&stored, &crate::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap());
+        let ctx = render(&stored, &crate::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap(), &facilities_sheet(&c).unwrap());
         assert!(ctx.contains("Personal: "), "{ctx}");
         assert!(ctx.contains("Población: "), "{ctx}");
         assert!(ctx.contains("Total de personas atendidas: "), "{ctx}");

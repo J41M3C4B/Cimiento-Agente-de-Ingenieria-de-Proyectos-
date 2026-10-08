@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::care::domain::person::ResponsibleContact;
-use crate::domain::profile::{ExpenseItemInput, FacilityInput, InstitutionInput, InstitutionKind, Period, ProfileInput};
+use crate::domain::profile::{ExpenseItemInput, InstitutionInput, InstitutionKind, Period, ProfileInput};
 use crate::storage::open_encrypted;
 
 const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
@@ -18,11 +18,13 @@ fn with_profile(c: &mut Connection, kind: InstitutionKind) {
     let input = ProfileInput {
         institution: InstitutionInput { name: "Casa Ficticia".into(), kind, ..Default::default() },
         capacity_total: Some(4),
-        facilities: vec![FacilityInput { kind: "Baño".into(), count: 2, accessible: Some(false), ..Default::default() }],
         expenses: vec![ExpenseItemInput { label: "Alimentos".into(), amount_mxn: Some(24_000), period: Period::Monthly }],
         ..Default::default()
     };
     crate::storage::profile::save(c, &input).unwrap();
+    // two bathrooms a wheelchair cannot use, in the facilities module (ADR-030)
+    let bathrooms = crate::facilities::domain::group::SpaceData { kind: "bathroom".into(), count: 2, accessible: Some(false), ..Default::default() };
+    crate::facilities::service::save_space(c, None, bathrooms).unwrap();
 }
 
 fn person(first: &str, sex: &str, age: i64) -> BeneficiaryData {
@@ -147,11 +149,11 @@ fn the_board_crosses_the_people_with_the_spaces_and_the_money() {
     let b = board(&c).unwrap();
     assert_eq!((b.free_seats, b.occupancy_percent, b.cost_per_person_monthly), (Some(1), Some(75), Some(8_000)));
     let access = b.insights.iter().find(|i| i.code == "mobility_vs_access").unwrap();
-    assert_eq!((access.values["people"], access.items.clone(), access.for_ai), (3, vec!["Baño".to_string()], true));
+    assert_eq!((access.values["people"], access.items.clone(), access.for_ai), (3, vec!["2 baños (planta baja)".to_string()], true));
     let gap = b.insights.iter().find(|i| i.code == "cost_gap").unwrap();
     assert_eq!((gap.values["gap"], gap.for_ai), (6_000, false), "money never goes to the AI");
     let sheet = crate::diagnosis_service::profile_summary_for_tests(&c).unwrap();
-    assert!(sheet.contains("Hallazgo: 3 personas usan silla de ruedas o están en cama, y 1 espacio no es accesible: Baño."), "{sheet}");
+    assert!(sheet.contains("Hallazgo: 3 personas usan silla de ruedas o están en cama, y 2 espacios no se pueden usar en silla de ruedas: 2 baños (planta baja)."), "{sheet}");
     let numbers = crate::domain::figures::digit_numbers(&sheet);
     assert!(!numbers.contains("8000") && !numbers.contains("6000"), "{sheet}");
 }

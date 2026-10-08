@@ -17,7 +17,6 @@ const input: ProfileInput = {
   notes: null,
   population: [],
   staff: [],
-  facilities: [{ kind: "Baño", count: 4, condition: "poor", accessible: false, notes: "Humedad" }],
   income: [{ label: "Donativos", kind: "occasional_donation", amount_mxn: 1000, period: "monthly" }],
   expenses: [{ label: "Alimentos", amount_mxn: 8000, period: "monthly" }],
 };
@@ -85,7 +84,7 @@ describe("profile form conversion", () => {
     expect(ok.success).toBe(true);
     const f = fromView(view(input));
     f.capacity_total = "abc";
-    f.facilities[0].count = "-3";
+    f.annual_budget_mxn = "-3";
     const bad = formSchema.safeParse(f);
     expect(bad.success).toBe(false);
     expect(bad.error!.issues.map((i) => i.message)).toEqual(["not_a_number", "not_a_number"]);

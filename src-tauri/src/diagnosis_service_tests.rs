@@ -73,7 +73,7 @@ async fn the_summary_waits_for_the_confirmed_root_cause_and_reads_the_whole_conv
     let out = generate_summary(&db, Some(&p), &pid).await.unwrap();
     assert_eq!(out.ai, AiStatus::Used);
     let ctx = p.requests()[0].context.join("\n");
-    assert!(ctx.contains("Baño ×3"), "the profile");
+    assert!(ctx.contains("Espacio: Baños, planta baja: 3 (3 mal)."), "the profile: {ctx}");
     assert!(ctx.contains("Quién convoca: Fundación Ficticia"), "the call");
     assert!(ctx.contains("Persona: No hay quien se encargue"), "what the person said");
     assert!(ctx.contains(&format!("Causa de fondo que la persona confirmó:\n{ROOT}")), "the root cause");

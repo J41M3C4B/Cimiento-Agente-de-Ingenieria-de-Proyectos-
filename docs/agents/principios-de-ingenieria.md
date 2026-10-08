@@ -41,6 +41,7 @@ src-tauri/src/
   audit/             # Bitácora
   hr/                # Módulo de Personal (ADR-027): aparte, tablas hr_*, solo agregados hacia fuera
   care/              # Módulo de Beneficiarios (ADR-029): aparte, tablas care_*, solo agregados hacia fuera
+  facilities/        # Módulo de Instalaciones (ADR-030): aparte, tablas fac_*; inmueble, espacios y equipo por grupo
   common/            # Validadores compartidos por los módulos (CURP, RFC, NSS, CLABE, fechas); no depende de nada
 docs/                # Especificaciones (fuente de verdad)
 fixtures/            # Datos ficticios

@@ -37,6 +37,9 @@ Objetivo: proyecto que compila, base cifrada y las pruebas técnicas de riesgo r
 - [x] Diseño fino de las pantallas de acceso y del panel de administración (sesión de diseño).
 - [x] **«Mi institución», bloque 3: Beneficiarios e inteligencia de datos (2026-10-07, ADR-029).** Módulo aparte (`care/`, tablas `care_*`, migración 0017 con traslado del padrón, que desaparece), ficha en 5 pasos según asilo o casa hogar, salud solo por categorías, lista de espera, tablero con indicadores y hallazgos que cruzan beneficiarios con espacios, dinero y personal, aviso de privacidad por persona; a la IA solo conteos y hallazgos sin dinero. `common/` con los validadores compartidos.
 - [ ] Diseño fino del módulo de Beneficiarios y su tablero (sesión de diseño).
+- [x] **«Mi institución», bloque 4: Instalaciones (2026-10-07, ADR-030).** Módulo aparte (`facilities/`, tablas `fac_*`, migración 0018 con traslado de la lista del perfil, que desaparece). El inmueble con m², pisos y cómo se sube, tenencia y papeles, servicios, y seguridad y protección civil. Espacios y equipo por grupo con conteo por estado y lo no contado «sin revisar», fallas de una lista, camas, barras y regadera accesible. Tablero con indicadores (m² por persona, personas por baño, camas) y hallazgos que cruzan la casa con las personas atendidas; a la IA todo, salvo conteos de personas con atributos de menos de 3.
+- [ ] Diseño fino del módulo de Instalaciones y su tablero (sesión de diseño).
+- [ ] Umbrales de la NOM-031-SSA3 y la NOM-032-SSA3 para calificar las proporciones de Instalaciones (confirmar en el texto oficial).
 - [ ] Módulo remoto para aprobar solicitudes a distancia (sobre `access_request`).
 
 - [x] Prueba manual en la app: cargar un ejemplo, pegar una CURP ficticia en las notas, ver la cuarentena y tapar; agregar un documento de texto y borrarlo con el botón de emergencia.

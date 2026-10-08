@@ -45,6 +45,8 @@ pub enum AuditKind {
     CarePersonDeleted,
     /// The people served of the old roster moved into their module (counts only).
     CareImported,
+    /// The spaces of the old profile list moved into the facilities module (counts only).
+    FacilitiesImported,
 }
 
 impl AuditKind {
@@ -81,6 +83,7 @@ impl AuditKind {
             AuditKind::CareSensitiveViewed => "care.sensitive_viewed",
             AuditKind::CarePersonDeleted => "care.person_deleted",
             AuditKind::CareImported => "care.imported",
+            AuditKind::FacilitiesImported => "facilities.imported",
         }
     }
 }

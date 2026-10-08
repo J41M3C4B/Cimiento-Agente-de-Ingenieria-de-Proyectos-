@@ -10,6 +10,8 @@ mod conversation_service;
 mod diagnosis_service;
 mod documents;
 mod domain;
+mod facilities;
+mod facilities_service;
 mod drafting_service;
 mod error;
 mod guide_service;
@@ -85,6 +87,12 @@ pub fn run() {
             commands::care::care_waitlist_save,
             commands::care::care_waitlist_admit,
             commands::care::care_waitlist_delete,
+            commands::facilities::facilities_overview,
+            commands::facilities::facilities_site_save,
+            commands::facilities::facilities_space_save,
+            commands::facilities::facilities_space_delete,
+            commands::facilities::facilities_equipment_save,
+            commands::facilities::facilities_equipment_delete,
             commands::hr::hr_overview,
             commands::hr::hr_person_get,
             commands::hr::hr_person_save,
