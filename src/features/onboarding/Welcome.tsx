@@ -9,6 +9,12 @@ import type { OnboardingStatus } from "./api";
 const o = es.onboarding;
 
 const POINT_ICONS: IconName[] = ["building", "sparkles", "check"];
+/** the icon of each fact of each welcome screen */
+const FACT_ICONS: IconName[][] = [
+  ["building", "folder", "file"],
+  ["lock", "shield", "users"],
+  ["help", "check", "user"],
+];
 
 /**
  * The frame of the first start, split in two: on the left the flat blue of the brand with the logo, the isotipo as a
@@ -101,15 +107,17 @@ export function Welcome({ onDone, busy }: { onDone: () => void; busy?: boolean }
       <div key={n} className="anim-rise flex flex-1 flex-col gap-8">
         <div className="my-auto space-y-6 py-4">
           <span className="block text-heading font-extrabold tracking-tight text-brand">{`0${n + 1}`}</span>
-          <h1 className="break-words text-hero font-extrabold leading-none tracking-tight sm:text-display">
+          <h1 className="onb-hero break-words text-hero font-extrabold tracking-tight sm:text-headline">
             <Hero title={step.title} highlight={step.highlight} />
           </h1>
-          <p className="max-w-[46ch] text-heading font-medium text-ink-2">{step.text}</p>
+          <p className="max-w-[52ch] text-body font-medium text-ink-2">{step.text}</p>
         </div>
-        <ul className="grid gap-3 sm:grid-cols-3">
-          {step.items.map(([head, line]) => (
-            <li key={head} className="space-y-2 rounded-inset border border-line bg-card p-5">
-              <i aria-hidden="true" className="block h-1 w-8 rounded-pill bg-brand" />
+        <ul className="onb-facts">
+          {step.items.map(([head, line], i) => (
+            <li key={head} className="onb-fact">
+              <span className="onb-fact-icon">
+                <Icon name={FACT_ICONS[n]?.[i] ?? "check"} size={18} strokeWidth={2.2} />
+              </span>
               <b className="block text-ui font-extrabold">{head}</b>
               <span className="block text-small text-ink-2">{line}</span>
             </li>

@@ -39,6 +39,7 @@
   /* el azul de la marca SociAI (el del logotipo), liso, y la letra blanca encima; solo de identidad, no un acento de estado */
   --color-brand: #0a76fc;
   --color-on-brand: #ffffff;
+  --color-brand-ink: #000c25;
   --color-white: #ffffff;
 
   /* tipografía (docs/13 §4) */
@@ -58,6 +59,8 @@
   --text-title--line-height: 1.15;
   --text-hero: 32px;
   --text-hero--line-height: 1.1;
+  --text-headline: 46px;
+  --text-headline--line-height: 1.08;
   --text-display: 72px;
   --text-display--line-height: 1;
 
@@ -496,6 +499,18 @@ h1, h2, h3 {
   }
   .onb-copy { margin-top: auto; max-width: 34ch; }
   .onb .btn--primary { background: var(--color-brand); color: var(--color-on-brand); }
+  /* the sentence of the hero is in the navy of the brand (in the dark theme, the ordinary ink); the key word goes in the brand blue */
+  .onb-hero { color: var(--color-brand-ink); }
+  :root[data-theme="dark"] .onb-hero { color: var(--ink); }
+  /* one soft block with three facts, split by hairlines (not three loose cards) */
+  .onb-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-radius: var(--radius-inset); background: color-mix(in srgb, var(--color-brand) 8%, var(--card)); }
+  .onb-fact { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 20px; }
+  .onb-fact + .onb-fact { border-left: 1px solid color-mix(in srgb, var(--color-brand) 20%, transparent); }
+  .onb-fact-icon { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 8px; border-radius: 50%; background: var(--color-brand); color: var(--color-on-brand); }
+  @media (max-width: 639px) {
+    .onb-facts { grid-template-columns: minmax(0, 1fr); }
+    .onb-fact + .onb-fact { border-left: 0; border-top: 1px solid color-mix(in srgb, var(--color-brand) 20%, transparent); }
+  }
   .onb-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .onb-bars > i { display: block; height: 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-brand) 16%, var(--card)); transition: background-color 0.2s; }
   .onb-bars > i.on { background: var(--color-brand); }
