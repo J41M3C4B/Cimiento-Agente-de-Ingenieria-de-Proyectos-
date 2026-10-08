@@ -189,11 +189,11 @@ Objetivo: proyecto que compila, base cifrada y las pruebas técnicas de riesgo r
 Objetivo: tratar la app como un ERP de la institución. «Inicio» y «Mi institución» forman el núcleo; Personal, Beneficiarios, Instalaciones, Finanzas y Proyectos son módulos independientes que se conectan solo por su `api`. Un bloque por commit, con las pruebas en verde. Proyectos se separa sin lógica nueva (su desarrollo queda en pausa).
 
 - [x] **B0** ADR-032, arquitectura, principios y glosario; prueba de fronteras (`cargo test architecture`) con la lista de deuda de hoy (28 dependencias que van al revés).
-- [ ] **B1** Ayudantes del escáner a la base; `core::institution::kind` y `Flavor::from_kind`; `api::delete_person` y los ejemplos por el `api` de cada módulo.
-- [ ] **B2** `hr`, `care` y `facilities` a `modules/`.
-- [ ] **B3** Módulo de Finanzas (`modules/finance/`, tablas `fin_*`, migración, comandos `finance_*`, paso «Dinero» y ficha de la IA).
-- [ ] **B4** `core/` con `core::api`; lo que cruza núcleo y Proyectos (borrados aprobados, escaneo de la base) lo arman los comandos.
-- [ ] **B5** Proyectos a `modules/projects/` con `ProjectsError`. La lista de deuda queda vacía.
-- [ ] **B6** Frontend en `src/core/` y `src/modules/`, módulos en el riel, «Mi institución» con resúmenes; notas «Para cloud».
+- [x] **B1** Revisar textos y anotarlo en la bitácora pasa a la base (`scanner::guard::screen_texts`); `core::institution::kind` y `Flavor::from_kind` (nadie más lee el tipo de la tabla); los ejemplos y los tipos de las pantallas por el `api` y el `service` de cada módulo. Quedan 21 dependencias en la lista de deuda.
+- [x] **B2** `hr`, `care` y `facilities` a `src-tauri/src/modules/`; la prueba de frontera de cada módulo revisa su nueva carpeta.
+- [x] **B3** Módulo de Finanzas (`modules/finance/`, tablas `fin_*`, migración 0020, comandos `finance_get` y `finance_save`); el núcleo le pasa la nómina y las cuotas ya sumadas (`finance_service`), el paso «Dinero» del primer inicio y la ficha de la IA leen el módulo y dicen lo mismo que antes; en «Mi institución» las tarjetas de dinero guardan en el módulo y el gasto aproximado tiene su propia ventana.
+- [x] **B4** `core/` (acceso, primer inicio, perfil, documentos, seguridad, puentes con cada módulo, tableros, ficha de la IA, `error`, `screen` y `core::api`); la conexión compartida y el escáner de documentos públicos pasan a la base; el borrado aprobado de un proyecto lo hace el comando. Quedan 12 dependencias en la lista, todas de Proyectos (B5).
+- [x] **B5** Proyectos a `modules/projects/` (llamadas, conversación, diagnóstico, redacción, guía, revisión, procesos, sus reglas y sus tablas) con `ProjectsError`; solo pide al núcleo por `core::api` (ficha de la IA, escáner, nombre y cifras de la institución, instalaciones en palabras, archivo de documentos). `figures` pasa a `ai/` y `domain/` desaparece. **La lista de deuda queda vacía.**
+- [x] **B6** Frontend en `src/core/` (Inicio, Mi institución, primer inicio, acceso, documentos, ajustes, ayuda) y `src/modules/` (Personal, Beneficiarios, Instalaciones, Finanzas y Proyectos con sus convocatorias). El riel muestra el núcleo y una entrada por módulo; cada módulo tiene su página (`components/ModulePage.tsx`); Finanzas tiene su propia ventana de edición; «Mi institución» deja las pestañas y muestra una línea por módulo que lo abre. El diseño fino queda para la sesión de diseño.
 
 **Terminado cuando:** la lista de deuda de `architecture_tests.rs` está vacía, todas las pruebas pasan y cada módulo se abre desde el riel.

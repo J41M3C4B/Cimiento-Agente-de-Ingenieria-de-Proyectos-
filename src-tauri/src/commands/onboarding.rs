@@ -1,9 +1,9 @@
-//! Commands of the first start (ADR-031): thin, they call `onboarding_service`.
+//! Commands of the first start (ADR-031): thin, they call `core::onboarding`.
 
 use super::guard;
-use crate::access_service::Session;
+use crate::core::access::service::Session;
 use crate::error::UiError;
-use crate::onboarding_service::{self as svc, OnboardingData, OnboardingOutcome, OnboardingStatus};
+use crate::core::onboarding::service::{self as svc, OnboardingData, OnboardingOutcome, OnboardingStatus};
 use crate::scanner::guard::Decision;
 use crate::Db;
 use tauri::State;

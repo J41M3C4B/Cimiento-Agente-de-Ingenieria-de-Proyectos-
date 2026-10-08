@@ -1,16 +1,16 @@
-//! Commands of the people served (ADR-029): thin, they call `care_service`.
+//! Commands of the people served (ADR-029): thin, they call `core::bridge::care`.
 
 use super::guard;
-use crate::access_service::{request_deletion, Session};
-use crate::care::domain::person::BeneficiaryData;
-use crate::care::domain::waitlist::WaitlistInput;
-use crate::care::service::PersonView;
-use crate::care::storage::{CustomField, Group};
-use crate::care_service::{self as svc, CareChange, CareOverview, PersonOutcome, WaitlistOutcome};
-use crate::domain::access::DeletionKind;
+use crate::core::access::service::{request_deletion, Session};
+use crate::modules::care::domain::person::BeneficiaryData;
+use crate::modules::care::domain::waitlist::WaitlistInput;
+use crate::modules::care::service::PersonView;
+use crate::modules::care::storage::{CustomField, Group};
+use crate::core::bridge::care::{self as svc, CareChange, CareOverview, PersonOutcome, WaitlistOutcome};
+use crate::core::access::domain::DeletionKind;
 use crate::error::UiError;
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
 use crate::Db;
 use serde::Serialize;
 use tauri::State;
@@ -90,7 +90,7 @@ pub fn care_field_delete(session: State<'_, Session>, db: State<'_, Db>, key: St
     let mut conn = lock(&db)?;
     if !gate.may_delete() {
         request_deletion(&mut conn, gate.user()?, DeletionKind::CareField, &key)?;
-        return Ok(crate::care::storage::custom_fields(&conn).map_err(ServiceError::from)?);
+        return Ok(crate::modules::care::storage::custom_fields(&conn).map_err(ServiceError::from)?);
     }
     Ok(svc::delete_field(&conn, &key)?)
 }

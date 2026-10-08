@@ -1,14 +1,14 @@
-//! Commands of the calls (convocatorias). Thin: decode what the screen sends, call `call_service`.
+//! Commands of the calls (convocatorias). Thin: decode what the screen sends, call `modules::projects::calls`.
 //! A call belongs to the project born from it. The reading runs in the background and the screen asks how it is going.
 
 use super::guard;
-use crate::access_service::Session;
-use crate::call_service::{self as svc, NewProjectOutcome, PackageFile, ReadingDetail, UploadedFile};
+use crate::core::access::service::Session;
+use crate::modules::projects::calls::{self as svc, NewProjectOutcome, PackageFile, ReadingDetail, UploadedFile};
 use crate::commands::diagnosis::{as_dyn, make_provider};
 use crate::error::UiError;
-use crate::jobs::{JobKind, Jobs};
+use crate::modules::projects::jobs::{JobKind, Jobs};
 use crate::scanner::guard::Decision;
-use crate::storage::calls::FileRole;
+use crate::modules::projects::storage::calls::FileRole;
 use crate::Db;
 use base64::Engine;
 use serde::Deserialize;
@@ -51,7 +51,7 @@ pub async fn project_create_from_call(session: State<'_, Session>, db: State<'_,
 }
 
 /// Reads the call in the background: the screen does not wait for it.
-fn start(db: crate::diagnosis_service::SharedDb, id: String) {
+fn start(db: crate::modules::projects::diagnosis::SharedDb, id: String) {
     tauri::async_runtime::spawn(async move {
         let plan = svc::reading_plan(&db);
         svc::read_call(&db, &plan, &id).await;

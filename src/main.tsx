@@ -2,9 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
-import { AccessGate } from "./features/access/AccessGate";
-import { notifyIfAccessLost } from "./features/access/session";
-import { OnboardingGate } from "./features/onboarding/OnboardingGate";
+import { AccessGate } from "./core/access/AccessGate";
+import { notifyIfAccessLost } from "./core/access/session";
+import { OnboardingGate } from "./core/onboarding/OnboardingGate";
 import "@fontsource-variable/plus-jakarta-sans";
 import "./index.css";
 

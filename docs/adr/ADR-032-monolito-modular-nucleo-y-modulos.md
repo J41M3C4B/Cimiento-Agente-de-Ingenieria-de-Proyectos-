@@ -61,7 +61,7 @@ modules/<módulo>/
 
 - **Tipo de institución:** el núcleo lo dice en un solo lugar (`core::institution::kind`). Cada módulo convierte ese texto en su `Flavor` (`Flavor::from_kind`). Así nadie vuelve a leer `institution` con SQL.
 - **Después de guardar en un módulo**, el núcleo pasa los textos por el escáner y actualiza lo que se deriva: las líneas anónimas del perfil (`profile_sync`) y el balance.
-- **Borrados que aprobó el administrador** (ADR-028): el acceso llama a `api::delete_person` del módulo y luego vuelve a derivar. Ya no llama a servicios de pantalla.
+- **Borrados que aprobó el administrador** (ADR-028): el núcleo borra con el `service` del módulo y vuelve a derivar. Los de Proyectos (un proyecto) los reparten los comandos, porque el núcleo no conoce a Proyectos (B4).
 - **IA:** ningún módulo arma prompts sobre otro. Todo lo que la IA sabe de la institución sale de la ficha del núcleo (`core::ai_sheet`), que lee el `api::ai_summary` de cada módulo. Las reglas de qué llega a la IA (ADR-020, 026, 027, 029 y 030) no cambian.
 - **Permisos:** solo en `commands/` (ADR-028). Los módulos no saben quién está usando la app.
 - **Sin registro dinámico ni bus de eventos.** El núcleo nombra a cada módulo en un `match` que el compilador revisa. Con cinco módulos, la indirección no paga.
@@ -108,7 +108,7 @@ Cada bloque es un commit propio y termina con `cargo test`, `pnpm test` y `pnpm 
 | Bloque | Qué | Terminado cuando |
 |---|---|---|
 | **B0** | Este ADR, la documentación y la prueba de fronteras con la lista de deuda | La prueba pasa y la lista nombra cada violación de hoy |
-| **B1** | Ayudantes del escáner a la base; `core::institution::kind` y `Flavor::from_kind`; `api::delete_person` en los módulos | Salen de la lista las violaciones del escáner, del tipo de institución y de los borrados |
+| **B1** | Revisar textos y anotarlo en la bitácora pasa a la base (`scanner::guard::screen_texts`); `core::institution::kind` y `Flavor::from_kind`; los ejemplos y los tipos de las pantallas por el `api` y el `service` de cada módulo | Salen de la lista las violaciones del escáner, del tipo de institución, de los ejemplos y de los tipos |
 | **B2** | `hr`, `care` y `facilities` a `modules/`. Mecánico | Las pruebas de frontera de cada módulo pasan desde su nueva carpeta |
 | **B3** | Módulo de Finanzas: tablas `fin_*`, migración, comandos, el paso «Dinero» y la ficha de la IA | Las pruebas de `finances` pasan desde el módulo; el balance y la ficha dicen lo mismo que antes con los ejemplos |
 | **B4** | `core/`: institución, primer inicio, acceso, seguridad, documentos, tableros, ficha de la IA y la unión con los módulos; `core::api` | En la lista no queda nada del núcleo |

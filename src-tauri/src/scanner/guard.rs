@@ -102,6 +102,44 @@ pub fn guard_fields(
     }
 }
 
+/// What `screen_texts` can fail with: a decision that is not allowed, or an audit log that could not be written.
+#[derive(Debug, thiserror::Error)]
+pub enum ScreenError {
+    #[error(transparent)]
+    Guard(#[from] GuardError),
+    #[error(transparent)]
+    Audit(#[from] crate::audit::AuditError),
+}
+
+/// The counts of a decision as the audit log keeps them (never the text).
+pub fn counts_json(counts: &BTreeMap<&'static str, usize>, decision: &str) -> serde_json::Value {
+    serde_json::json!({ "findings": counts, "decision": decision })
+}
+
+/// Scans free texts and writes the decision to the audit log. `Ok(Err(report))` means "quarantine: show it, save
+/// nothing"; `Ok(Ok(texts))` are the texts to save (covered if the person chose so).
+pub fn screen_texts(
+    conn: &rusqlite::Connection,
+    scanner: &dyn SensitiveScanner,
+    entity: &str,
+    fields: &[(String, String)],
+    decision: Option<Decision>,
+) -> Result<Result<Vec<String>, QuarantineReport>, ScreenError> {
+    use crate::audit::{self, AuditKind};
+    match guard_fields(scanner, fields, decision)? {
+        GuardOutcome::Clean => Ok(Ok(fields.iter().map(|(_, t)| t.clone()).collect())),
+        GuardOutcome::Quarantine(r) => Ok(Err(r)),
+        GuardOutcome::Redacted { texts, counts } => {
+            audit::record(conn, AuditKind::ScannerQuarantine, Some(entity), None, counts_json(&counts, "redacted"))?;
+            Ok(Ok(texts))
+        }
+        GuardOutcome::Overridden { counts } => {
+            audit::record(conn, AuditKind::ScannerOverride, Some(entity), None, counts_json(&counts, "not_personal"))?;
+            Ok(Ok(fields.iter().map(|(_, t)| t.clone()).collect()))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

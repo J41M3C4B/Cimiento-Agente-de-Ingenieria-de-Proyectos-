@@ -30,57 +30,17 @@ const PLACES: &[(&str, Layer)] = &[
     ("documents", Base),
     ("scanner", Base),
     ("storage", Base),
-    ("domain", Base),
-    ("domain::figures", Base),
     // modules
-    ("hr", Module("hr")),
-    ("care", Module("care")),
-    ("facilities", Module("facilities")),
+    // only its mod.rs, which declares them; a new module needs its own line
+    ("modules", Base),
     ("modules::hr", Module("hr")),
     ("modules::care", Module("care")),
     ("modules::facilities", Module("facilities")),
     ("modules::finance", Module("finance")),
     // core
     ("core", Core),
-    ("access_service", Core),
-    ("care_service", Core),
-    ("facilities_service", Core),
-    ("institution_context", Core),
-    ("onboarding_service", Core),
-    ("profile_sync", Core),
-    ("security_service", Core),
-    ("service", Core),
-    ("staff_service", Core),
-    ("domain::access", Core),
-    ("domain::facility_insights", Core),
-    ("domain::facility_text", Core),
-    ("domain::finances", Core),
-    ("domain::insights", Core),
-    ("domain::onboarding", Core),
-    ("domain::profile", Core),
-    ("storage::access", Core),
-    ("storage::documents", Core),
-    ("storage::profile", Core),
     // projects
     ("modules::projects", Projects),
-    ("call_service", Projects),
-    ("conversation_service", Projects),
-    ("diagnosis_service", Projects),
-    ("drafting_service", Projects),
-    ("guide_service", Projects),
-    ("jobs", Projects),
-    ("review_service", Projects),
-    ("domain::budget", Projects),
-    ("domain::checklist", Projects),
-    ("domain::conversation", Projects),
-    ("domain::priority", Projects),
-    ("domain::requirements", Projects),
-    ("domain::schedule", Projects),
-    ("domain::sections", Projects),
-    ("domain::stage", Projects),
-    ("storage::calls", Projects),
-    ("storage::drafting", Projects),
-    ("storage::projects", Projects),
     // shell
     ("", Shell),
     ("commands", Shell),
@@ -89,41 +49,7 @@ const PLACES: &[(&str, Layer)] = &[
 ];
 
 /// What breaks the rule today: (the file, as a module path; what it uses). Each block of ADR-032 empties its part.
-const DEBT: &[(&str, &str)] = &[
-    // B1: the scanner helpers go to the base, the kind of institution is said by the core, the examples and the
-    // types of the screens come through the `api` and `service` of each module
-    ("facilities_service", "diagnosis_service"),
-    ("storage::migrations", "profile_sync"),
-    ("profile_sync", "care::legacy"),
-    ("profile_sync", "care::storage"),
-    ("profile_sync", "hr::legacy"),
-    ("care_service", "care::storage"),
-    ("staff_service", "hr::storage"),
-    // B4: the core stops reaching into the projects; what crosses both (approved deletions, the scan of the whole
-    // base) is put together by the commands
-    ("access_service", "diagnosis_service"),
-    ("access_service", "storage::projects"),
-    ("security_service", "call_service"),
-    ("security_service", "diagnosis_service"),
-    // B5: the projects get their own error and read the institution only through `core::api`
-    ("service", "domain::stage"),
-    ("call_service", "service"),
-    ("call_service", "storage::profile"),
-    ("conversation_service", "service"),
-    ("diagnosis_service", "institution_context"),
-    ("diagnosis_service", "service"),
-    ("diagnosis_service", "storage::profile"),
-    ("documents::canonical::requirements", "domain::requirements"),
-    ("drafting_service", "service"),
-    ("guide_service", "domain::facility_text"),
-    ("guide_service", "domain::profile"),
-    ("guide_service", "facilities::api"),
-    ("guide_service", "facilities::domain"),
-    ("guide_service", "service"),
-    ("guide_service", "storage::profile"),
-    ("jobs", "service"),
-    ("review_service", "service"),
-];
+const DEBT: &[(&str, &str)] = &[];
 
 fn segments(path: &str) -> Vec<&str> {
     path.split("::").filter(|s| !s.is_empty()).collect()
@@ -305,8 +231,8 @@ fn every_layer_only_looks_down() {
 
 #[test]
 fn paths_are_read_from_a_line() {
-    assert_eq!(paths_in("use crate::hr::api::{Count, MIN_GROUP};"), vec!["hr::api::Count", "hr::api::MIN_GROUP", "hr::api"]);
-    assert_eq!(paths_in("let x = crate::care::api::waiting(conn)?;"), vec!["care::api::waiting"]);
+    assert_eq!(paths_in("use crate::modules::hr::api::{Count, MIN_GROUP};"), vec!["modules::hr::api::Count", "modules::hr::api::MIN_GROUP", "modules::hr::api"]);
+    assert_eq!(paths_in("let x = crate::modules::care::api::waiting(conn)?;"), vec!["modules::care::api::waiting"]);
     assert_eq!(paths_in("use crate::domain::{stage, profile::ProfileInput as P};"), vec!["domain::stage", "domain::profile::ProfileInput", "domain"]);
     assert!(paths_in("let a = 1;").is_empty());
 }
@@ -327,7 +253,7 @@ fn the_layer_rules() {
     assert!(allowed("storage::migrations", Base, Module("hr"), &rest("legacy")));
     assert!(!allowed("storage::backup", Base, Module("hr"), &rest("legacy")));
     assert!(allowed("commands::hr", Shell, Module("hr"), &rest("storage")));
-    assert_eq!(place("storage::profile::load_current").map(|p| p.0), Some(Core));
+    assert_eq!(place("core::profile::storage::load_current").map(|p| p.0), Some(Core));
     assert_eq!(place("storage::open_encrypted").map(|p| p.0), Some(Base));
     assert_eq!(place("modules::finance::api").map(|p| p.0), Some(Module("finance")));
 }

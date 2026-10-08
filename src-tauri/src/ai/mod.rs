@@ -4,6 +4,7 @@
 //! It never calculates and never writes files: it returns JSON, code validates it.
 
 pub mod anthropic;
+pub mod figures;
 pub mod gemini;
 pub mod metrics;
 #[cfg(test)]

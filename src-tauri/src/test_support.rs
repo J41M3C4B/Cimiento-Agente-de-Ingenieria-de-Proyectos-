@@ -3,12 +3,13 @@
 
 use crate::ai::mock::MockProvider;
 use crate::ai::{AiError, AiProvider, AiResponse, Usage};
-use crate::call_service::{create_project_from_call, NewProjectOutcome, PackageFile, UploadedFile};
-use crate::conversation_service::{send_message, start_conversation, AnswerOutcome, ConversationView};
-use crate::diagnosis_service::{advance, SharedDb};
-use crate::domain::profile::*;
-use crate::storage::calls::{self, FileRole, ReadingStatus};
-use crate::storage::{open_encrypted, profile};
+use crate::modules::projects::calls::{create_project_from_call, NewProjectOutcome, PackageFile, UploadedFile};
+use crate::modules::projects::conversation::{send_message, start_conversation, AnswerOutcome, ConversationView};
+use crate::modules::projects::diagnosis::{advance, SharedDb};
+use crate::core::profile::domain::*;
+use crate::modules::projects::storage::calls::{self, FileRole, ReadingStatus};
+use crate::storage::open_encrypted;
+use crate::core::profile::storage as profile;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 
@@ -37,30 +38,31 @@ pub fn profile_db() -> (tempfile::TempDir, SharedDb) {
     };
     // the 18 people served live in their module (ADR-029): the sheet of the AI counts them from there
     for i in 0..18 {
-        let d = crate::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(80), status: "active".into(), ..Default::default() };
-        crate::care::service::save_person(&mut conn, crate::care::domain::catalog::Flavor::Other, None, d).unwrap();
+        let d = crate::modules::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(80), status: "active".into(), ..Default::default() };
+        crate::modules::care::service::save_person(&mut conn, crate::modules::care::domain::catalog::Flavor::Other, None, d).unwrap();
     }
     // three bathrooms in poor state, in the facilities module (ADR-030)
-    let bathrooms = crate::facilities::domain::group::SpaceData {
+    let bathrooms = crate::modules::facilities::domain::group::SpaceData {
         kind: "bathroom".into(),
         count: 3,
-        states: crate::facilities::domain::group::States::all(3, "poor"),
+        states: crate::modules::facilities::domain::group::States::all(3, "poor"),
         ..Default::default()
     };
-    crate::facilities::service::save_space(&conn, None, bathrooms).unwrap();
+    crate::modules::facilities::service::save_space(&conn, None, bathrooms).unwrap();
     profile::save(&mut conn, &input).unwrap();
     profile::confirm(&mut conn).unwrap();
     (dir, Arc::new(Mutex::new(conn)))
 }
 
-/// Like `profile_db`, with a profile that has every kind of datum (see `institution_context::tests`).
+/// Like `profile_db`, with a profile that has every kind of datum (see `core::ai_sheet::tests`).
 pub fn rich_profile_db() -> (tempfile::TempDir, SharedDb) {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
-    crate::institution_context::tests::seed_rich_staff(&mut conn);
-    crate::institution_context::tests::seed_rich_people(&mut conn);
-    crate::institution_context::tests::seed_rich_facilities(&conn);
-    profile::save(&mut conn, &crate::institution_context::tests::rich()).unwrap();
+    crate::core::ai_sheet::tests::seed_rich_staff(&mut conn);
+    crate::core::ai_sheet::tests::seed_rich_people(&mut conn);
+    crate::core::ai_sheet::tests::seed_rich_facilities(&conn);
+    profile::save(&mut conn, &crate::core::ai_sheet::tests::rich()).unwrap();
+    crate::modules::finance::storage::save(&mut conn, &crate::core::ai_sheet::tests::rich_money()).unwrap();
     profile::confirm(&mut conn).unwrap();
     (dir, Arc::new(Mutex::new(conn)))
 }
@@ -97,7 +99,7 @@ pub fn project_in_diagnosis(db: &SharedDb) -> String {
     let pid = project_in_call_selection(db);
     {
         let conn = db.lock().unwrap();
-        let reading = crate::storage::projects::get_project(&conn, &pid).unwrap().unwrap().call_reading_id.unwrap();
+        let reading = crate::modules::projects::storage::projects::get_project(&conn, &pid).unwrap().unwrap().call_reading_id.unwrap();
         assert!(calls::confirm(&conn, &reading).unwrap());
     }
     advance(db, &pid).unwrap();
@@ -173,16 +175,16 @@ pub async fn reach_confirmed_root(db: &SharedDb, pid: &str) -> MockProvider {
     say(db, &p, pid, WHY1_ANSWER).await;
     say(db, &p, pid, WHY2_ANSWER).await;
     let v = say(db, &p, pid, WHY3_ANSWER).await;
-    assert_eq!(v.phase, crate::domain::conversation::Phase::RootProposed);
+    assert_eq!(v.phase, crate::modules::projects::domain::conversation::Phase::RootProposed);
     let v = view_of(send_message(db, Some(&p), pid, "", true, None).await.unwrap());
-    assert_eq!(v.phase, crate::domain::conversation::Phase::Closed);
+    assert_eq!(v.phase, crate::modules::projects::domain::conversation::Phase::Closed);
     p
 }
 
 /// A project in the drafting stage: its call is confirmed, the conversation ended in a confirmed root cause, the
 /// summary is confirmed and a goal was chosen.
 pub async fn project_in_drafting(db: &SharedDb) -> String {
-    use crate::diagnosis_service::{add_need, confirm_summary, generate_summary, select_need, AddNeedOutcome};
+    use crate::modules::projects::diagnosis::{add_need, confirm_summary, generate_summary, select_need, AddNeedOutcome};
     let pid = project_in_diagnosis(db);
     reach_confirmed_root(db, &pid).await;
     let p = MockProvider::new(vec![summary_ok(summary_value(""))]);
@@ -191,16 +193,16 @@ pub async fn project_in_drafting(db: &SharedDb) -> String {
     advance(db, &pid).unwrap();
     let AddNeedOutcome::Saved { view } = add_need(db, &pid, "Un sistema de mantenimiento preventivo", "Con responsable, agenda y fondo propio", None).unwrap() else { panic!() };
     select_need(db, &pid, &view.needs[0].id).unwrap();
-    assert_eq!(advance(db, &pid).unwrap().stage, crate::domain::stage::Stage::Drafting);
+    assert_eq!(advance(db, &pid).unwrap().stage, crate::modules::projects::domain::stage::Stage::Drafting);
     pid
 }
 
 /// A project with everything drafted and confirmed (every required text, the budget and the schedule), waiting in
 /// the drafting stage to move on.
 pub async fn project_fully_drafted(db: &SharedDb) -> String {
-    use crate::domain::budget::Funder;
-    use crate::domain::sections::SectionKind;
-    use crate::drafting_service::{confirm_budget, confirm_schedule, confirm_text, drafting_view, save_activity, save_budget_item, save_text, BudgetItemInput};
+    use crate::modules::projects::domain::budget::Funder;
+    use crate::modules::projects::domain::sections::SectionKind;
+    use crate::modules::projects::drafting::{confirm_budget, confirm_schedule, confirm_text, drafting_view, save_activity, save_budget_item, save_text, BudgetItemInput};
     let pid = project_in_drafting(db).await;
     save_budget_item(
         db,
@@ -234,13 +236,13 @@ pub async fn project_fully_drafted(db: &SharedDb) -> String {
 /// A project that already passed to the review stage.
 pub async fn project_in_review(db: &SharedDb) -> String {
     let pid = project_fully_drafted(db).await;
-    assert_eq!(advance(db, &pid).unwrap().stage, crate::domain::stage::Stage::Review);
+    assert_eq!(advance(db, &pid).unwrap().stage, crate::modules::projects::domain::stage::Stage::Review);
     pid
 }
 
 /// A project whose review is clean and that is ready to give its guide.
 pub async fn project_ready(db: &SharedDb) -> String {
     let pid = project_in_review(db).await;
-    assert_eq!(advance(db, &pid).unwrap().stage, crate::domain::stage::Stage::Ready);
+    assert_eq!(advance(db, &pid).unwrap().stage, crate::modules::projects::domain::stage::Stage::Ready);
     pid
 }

@@ -3,19 +3,29 @@ import { es } from "../i18n/es-MX";
 import { projectTone } from "../lib/palette";
 import { useTheme } from "../lib/theme";
 import type { ProjectRow } from "../lib/types";
-import { PersonMenu } from "../features/access/PersonMenu";
-import type { SessionApi } from "../features/access/session";
-import { PROJECT_STEPS, stepIndex } from "../features/projects/steps";
+import { PersonMenu } from "../core/access/PersonMenu";
+import type { SessionApi } from "../core/access/session";
+import { PROJECT_STEPS, stepIndex } from "../modules/projects/steps";
 import type { IconName } from "./icons";
+import { MODULE_META } from "./modules";
+import type { ModuleId } from "./modules";
 import { Avatar, IconButton, Logo, StepDots } from "./ui";
 
-export type Page = "home" | "projects" | "profile" | "documents" | "ai" | "security" | "admin" | "help";
+/** The sections of the rail: the core (Inicio, Mi institución, Documentos), the modules (ADR-032) and the settings. */
+export type Page = "home" | "profile" | "documents" | "projects" | "staff" | "people" | "facilities" | "finance" | "ai" | "security" | "admin" | "help";
 
-const TOP: [Page, string, IconName][] = [
+const CORE: [Page, string, IconName][] = [
   ["home", es.nav.home, "home"],
-  ["projects", es.nav.projects, "folder"],
-  ["profile", es.nav.profile, "building"],
+  ["profile", es.nav.profile, "idcard"],
   ["documents", es.nav.documents, "file"],
+];
+/** One button per module of the institution (ADR-032), each in its own color (components/modules.ts). */
+const MODULES: [ModuleId, string][] = [
+  ["projects", es.nav.projects],
+  ["staff", es.nav.staff],
+  ["people", es.nav.people],
+  ["facilities", es.nav.facilities],
+  ["finance", es.nav.finance],
 ];
 /** The sections below the line; some only for whoever may use them (ADR-028). */
 const MORE: [Page, string, IconName, "settings" | "administer" | null][] = [
@@ -50,6 +60,9 @@ export function Shell({
   const [theme, toggleTheme] = useTheme();
   const rail = ([id, label, icon]: [Page, string, IconName]) => (
     <IconButton key={id} icon={icon} label={label} tip={label} aria-current={page === id ? "page" : undefined} onClick={() => onNavigate(id)} />
+  );
+  const moduleButton = ([id, label]: [ModuleId, string]) => (
+    <IconButton key={id} icon={MODULE_META[id].icon} label={label} tip={label} tone={MODULE_META[id].tone} aria-current={page === id ? "page" : undefined} onClick={() => onNavigate(id)} />
   );
   const done = focus?.stage === "READY";
   const at = focus ? stepIndex(focus.stage) : -1;
@@ -89,7 +102,12 @@ export function Shell({
           </div>
         </header>
         <nav aria-label={es.nav.mainSections} className="rail">
-          {TOP.map(rail)}
+          <div role="group" aria-label={es.nav.coreGroup} className="rail-core">
+            {CORE.map(rail)}
+          </div>
+          <div role="group" aria-label={es.nav.modulesGroup} className="rail-group">
+            {MODULES.map(moduleButton)}
+          </div>
           <span className="rail-sep" aria-hidden="true" />
           {MORE.filter(([, , , needs]) => !needs || access?.can(needs)).map(([id, label, icon]) => rail([id, label, icon]))}
           <span className="rail-gap" aria-hidden="true" />

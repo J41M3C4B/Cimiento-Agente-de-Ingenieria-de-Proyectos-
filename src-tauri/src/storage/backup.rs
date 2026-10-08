@@ -71,8 +71,9 @@ pub fn restore_to(backup: &Path, password: &str, target: &Path, key_hex: &str) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::profile::*;
-    use crate::storage::{profile, projects};
+    use crate::core::profile::domain::*;
+    use crate::core::profile::storage as profile;
+    use crate::modules::projects::storage::projects;
 
     const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
     const OTHER_KEY: &str = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
@@ -85,7 +86,7 @@ mod tests {
         projects::create_project(&mut c, "Proyecto de prueba", Some("Cambiar las tuberías de la cocina")).unwrap();
         // a page of a call, searchable like any other
         c.execute("INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,created_at) VALUES ('d','call','a.pdf','application/pdf','green','h','x',0,'t')", []).unwrap();
-        crate::storage::documents::add_call_document(&c, "bases.pdf", "application/pdf", &["Convocatoria zanahoria 2027.".to_string()], 0).unwrap();
+        crate::core::archive::storage::add_call_document(&c, "bases.pdf", "application/pdf", &["Convocatoria zanahoria 2027.".to_string()], 0).unwrap();
         c
     }
 

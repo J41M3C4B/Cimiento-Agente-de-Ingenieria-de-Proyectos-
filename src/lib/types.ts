@@ -57,7 +57,6 @@ export interface ExpenseItemInput {
 export interface ProfileInput {
   institution: InstitutionInput;
   capacity_total: number | null;
-  annual_budget_mxn: number | null;
   notes: string | null;
   /** Quick figures while the records are not in the modules yet (ADR-031). */
   served_estimate: number | null;
@@ -65,6 +64,12 @@ export interface ProfileInput {
   staff_volunteer_estimate: number | null;
   population: PopulationGroupInput[];
   staff: StaffGroupInput[];
+}
+
+/** Everything the person writes about the money; it lives in the finance module (ADR-032). */
+export interface FinanceInput {
+  /** «Gasto anual aproximado»: the quick way to start; once the list has a line, the list is the total. */
+  annual_budget_mxn: number | null;
   income: IncomeSourceInput[];
   expenses: ExpenseItemInput[];
 }
@@ -78,7 +83,6 @@ export interface ProfileTotals {
   population: number;
   staff_paid: number;
   staff_volunteer: number;
-  income_annual_mxn: number;
   payroll_monthly_mxn: number;
   payroll_annual_mxn: number;
   payroll_benefits_annual_mxn: number;
@@ -100,11 +104,17 @@ export interface ProfileView {
   is_draft: boolean;
   input: ProfileInput;
   totals: ProfileTotals;
+  issues: ProfileIssue[];
+}
+
+/** The money as the finance module shows it: what was written, the sums made by Rust and the heads-ups. */
+export interface FinanceView {
+  input: FinanceInput;
   finances: Finances;
   issues: ProfileIssue[];
 }
 
-/** One line of money, as Rust computed it. `index` points into `input.income` / `input.expenses`; `null` is a line
+/** One line of money, as Rust computed it. `index` points into `FinanceInput.income` / `.expenses`; `null` is a line
  * the app computes from the roster (`beneficiary_fees`, `payroll`) and nobody edits. */
 export interface FinanceLine {
   label: string;
@@ -143,6 +153,11 @@ export interface QuarantineReport {
 
 export type SaveProfileOutcome =
   | { status: "saved"; profile: ProfileView }
+  | { status: "quarantine"; report: QuarantineReport }
+  | { status: "invalid"; issues: ProfileIssue[] };
+
+export type FinanceOutcome =
+  | { status: "saved"; finance: FinanceView }
   | { status: "quarantine"; report: QuarantineReport }
   | { status: "invalid"; issues: ProfileIssue[] };
 

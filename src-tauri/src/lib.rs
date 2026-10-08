@@ -1,30 +1,12 @@
-mod access_service;
 mod ai;
 mod audit;
-mod call_service;
-mod care;
-mod care_service;
 mod commands;
 mod common;
-mod conversation_service;
-mod diagnosis_service;
+mod core;
 mod documents;
-mod domain;
-mod facilities;
-mod facilities_service;
-mod drafting_service;
 mod error;
-mod guide_service;
-mod hr;
-mod institution_context;
-mod onboarding_service;
-mod jobs;
-mod review_service;
-mod profile_sync;
+mod modules;
 mod scanner;
-mod security_service;
-mod service;
-mod staff_service;
 mod storage;
 #[cfg(test)]
 mod architecture_tests;
@@ -52,13 +34,13 @@ pub fn run() {
             let key = storage::get_or_create_db_key()?;
             let conn = storage::open_encrypted(&dir.join("cimiento.db"), &key)?;
             // a reading that was running when the program was closed waits to be resumed
-            let _ = storage::calls::mark_interrupted(&conn);
+            let _ = modules::projects::storage::calls::mark_interrupted(&conn);
             let db = Arc::new(Mutex::new(conn));
             // who is using the app (ADR-028): nobody until they enter
-            app.manage(access_service::Session::new(db.clone()));
+            app.manage(core::access::service::Session::new(db.clone()));
             app.manage(Db(db));
-            app.manage(security_service::Attempts::default());
-            app.manage(jobs::Jobs::default());
+            app.manage(core::security::Attempts::default());
+            app.manage(modules::projects::jobs::Jobs::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -106,6 +88,8 @@ pub fn run() {
             commands::facilities::facilities_space_delete,
             commands::facilities::facilities_equipment_save,
             commands::facilities::facilities_equipment_delete,
+            commands::finance::finance_get,
+            commands::finance::finance_save,
             commands::hr::hr_overview,
             commands::hr::hr_person_get,
             commands::hr::hr_person_save,

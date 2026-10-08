@@ -23,6 +23,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (17, include_str!("../../migrations/0017_care.sql")),
     (18, include_str!("../../migrations/0018_facilities.sql")),
     (19, include_str!("../../migrations/0019_onboarding.sql")),
+    (20, include_str!("../../migrations/0020_finance.sql")),
 ];
 
 /// Code that runs right after the SQL of a version, inside the same transaction (moves of data that need rules).
@@ -39,16 +40,16 @@ fn after(version: i64, tx: &Transaction) -> rusqlite::Result<()> {
     Ok(())
 }
 
-fn hr_failure(e: crate::hr::HrError) -> rusqlite::Error {
+fn hr_failure(e: crate::modules::hr::HrError) -> rusqlite::Error {
     match e {
-        crate::hr::HrError::Db(e) => e,
+        crate::modules::hr::HrError::Db(e) => e,
         other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
     }
 }
 
-fn care_failure(e: crate::care::CareError) -> rusqlite::Error {
+fn care_failure(e: crate::modules::care::CareError) -> rusqlite::Error {
     match e {
-        crate::care::CareError::Db(e) => e,
+        crate::modules::care::CareError::Db(e) => e,
         other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
     }
 }
@@ -56,18 +57,18 @@ fn care_failure(e: crate::care::CareError) -> rusqlite::Error {
 /// The people served of the old roster (ADR-020) move into their module (ADR-029), keeping their ids (a deletion
 /// that was waiting still finds them) and their hiding. Then the roster, empty, goes away.
 fn move_roster_people(tx: &Transaction) -> rusqlite::Result<()> {
-    let rows: Vec<crate::care::legacy::LegacyRow> = tx
+    let rows: Vec<crate::modules::care::legacy::LegacyRow> = tx
         .prepare("SELECT id, data, hidden FROM roster_entry WHERE entity = 'beneficiary' ORDER BY created_at, rowid")?
         .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?)))?
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
-        .map(|(id, data, hidden)| crate::care::legacy::LegacyRow { id, data: serde_json::from_str(&data).unwrap_or_default(), hidden: hidden != 0 })
+        .map(|(id, data, hidden)| crate::modules::care::legacy::LegacyRow { id, data: serde_json::from_str(&data).unwrap_or_default(), hidden: hidden != 0 })
         .collect();
-    let own: Vec<crate::care::legacy::LegacyField> = tx
+    let own: Vec<crate::modules::care::legacy::LegacyField> = tx
         .prepare("SELECT key, title, kind, options FROM roster_field WHERE entity = 'beneficiary' AND builtin = 0 ORDER BY position")?
         .query_map([], |r| {
             let options: Vec<serde_json::Value> = serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default();
-            Ok(crate::care::legacy::LegacyField {
+            Ok(crate::modules::care::legacy::LegacyField {
                 key: r.get(0)?,
                 title: r.get(1)?,
                 kind: r.get(2)?,
@@ -77,7 +78,7 @@ fn move_roster_people(tx: &Transaction) -> rusqlite::Result<()> {
         .collect::<Result<Vec<_>, _>>()?;
     let hidden_fields: Vec<String> = tx.prepare("SELECT key FROM roster_field WHERE entity = 'beneficiary' AND hidden = 1")?.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     let year: i64 = tx.query_row("SELECT CAST(strftime('%Y','now') AS INTEGER)", [], |r| r.get(0))?;
-    let moved = crate::care::legacy::import(tx, year, &rows, &own).map_err(care_failure)?;
+    let moved = crate::modules::care::legacy::import(tx, year, &rows, &own).map_err(care_failure)?;
     for key in hidden_fields {
         tx.execute("UPDATE care_custom_field SET hidden = 1 WHERE key = ?1", [key])?;
     }
@@ -93,11 +94,11 @@ fn move_roster_people(tx: &Transaction) -> rusqlite::Result<()> {
 /// The old table goes away with the copies of the earlier versions: the module keeps the facilities now.
 fn move_profile_facilities(tx: &Transaction) -> rusqlite::Result<()> {
     let latest: Option<String> = tx.query_row("SELECT id FROM institution_profile ORDER BY version DESC LIMIT 1", [], |r| r.get(0)).optional()?;
-    let rows: Vec<crate::facilities::legacy::LegacyFacility> = match latest {
+    let rows: Vec<crate::modules::facilities::legacy::LegacyFacility> = match latest {
         Some(pid) => tx
             .prepare("SELECT kind, count, condition, accessible, notes, origin, source_ref FROM facility WHERE profile_id = ?1 ORDER BY rowid")?
             .query_map([pid], |r| {
-                Ok(crate::facilities::legacy::LegacyFacility {
+                Ok(crate::modules::facilities::legacy::LegacyFacility {
                     kind: r.get(0)?,
                     count: r.get(1)?,
                     condition: r.get(2)?,
@@ -110,8 +111,8 @@ fn move_profile_facilities(tx: &Transaction) -> rusqlite::Result<()> {
             .collect::<Result<Vec<_>, _>>()?,
         None => Vec::new(),
     };
-    let moved = crate::facilities::legacy::import(tx, &rows).map_err(|e| match e {
-        crate::facilities::FacilitiesError::Db(e) => e,
+    let moved = crate::modules::facilities::legacy::import(tx, &rows).map_err(|e| match e {
+        crate::modules::facilities::FacilitiesError::Db(e) => e,
         other => rusqlite::Error::ToSqlConversionFailure(Box::new(other)),
     })?;
     if moved > 0 {
@@ -136,11 +137,11 @@ fn move_roster_staff(tx: &Transaction) -> rusqlite::Result<()> {
         tx.execute("DELETE FROM roster_field WHERE entity = 'staff'", [])?;
         return Ok(());
     }
-    let own: Vec<crate::hr::legacy::LegacyField> = tx
+    let own: Vec<crate::modules::hr::legacy::LegacyField> = tx
         .prepare("SELECT key, title, kind, options FROM roster_field WHERE entity = 'staff' AND builtin = 0 ORDER BY position")?
         .query_map([], |r| {
             let options: Vec<serde_json::Value> = serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default();
-            Ok(crate::hr::legacy::LegacyField {
+            Ok(crate::modules::hr::legacy::LegacyField {
                 key: r.get(0)?,
                 title: r.get(1)?,
                 kind: r.get(2)?,
@@ -149,8 +150,8 @@ fn move_roster_staff(tx: &Transaction) -> rusqlite::Result<()> {
         })?
         .collect::<Result<Vec<_>, _>>()?;
     let kind: Option<String> = tx.query_row("SELECT kind FROM institution LIMIT 1", [], |r| r.get(0)).optional()?;
-    let flavor = crate::profile_sync::flavor_of(kind.as_deref());
-    let moved = crate::hr::legacy::import(tx, flavor, &rows, &own).map_err(hr_failure)?;
+    let flavor = crate::modules::hr::Flavor::from_kind(kind.as_deref());
+    let moved = crate::modules::hr::legacy::import(tx, flavor, &rows, &own).map_err(hr_failure)?;
     tx.execute("DELETE FROM roster_entry WHERE entity = 'staff'", [])?;
     tx.execute("DELETE FROM roster_field WHERE entity = 'staff'", [])?;
     // written by hand: at this version the audit log has no author yet (ADR-028 adds it in 0016)
@@ -437,5 +438,52 @@ mod tests {
         assert_eq!(rows, vec![("fee_estimate".into(), 720_000, "annual".into()), ("other".into(), 680_000, "annual".into())]);
         assert!(conn.execute("UPDATE income_source SET kind='gift' WHERE id='a'", []).is_err());
         assert!(conn.execute("INSERT INTO expense_item (id,profile_id,label,amount_mxn,period,origin) VALUES ('e','p','Luz',-1,'annual','user')", []).is_err());
+    }
+
+    /// The money of the current profile moves into the finance module (ADR-032): its lines in order, with their
+    /// origin, and the approximate figure; the earlier versions keep theirs as history.
+    #[test]
+    fn the_money_of_the_current_profile_moves_into_the_finance_module() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);").unwrap();
+        for (version, sql) in &MIGRATIONS[..19] {
+            conn.execute_batch(sql).unwrap();
+            conn.execute("INSERT INTO schema_migrations VALUES (?1, 'then')", [version]).unwrap();
+        }
+        conn.execute_batch(
+            "INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','Asilo','other','t','t');
+             INSERT INTO institution_profile (id,institution_id,version,annual_budget_mxn,confirmed_at,created_at) VALUES ('p1','i',1,500000,'c1','t');
+             INSERT INTO institution_profile (id,institution_id,version,annual_budget_mxn,created_at) VALUES ('p2','i',2,900000,'t');
+             INSERT INTO income_source (id,profile_id,label,kind,amount_mxn,period,origin) VALUES ('old','p1','Antes','other',1,'annual','user');
+             INSERT INTO income_source (id,profile_id,label,kind,amount_mxn,period,origin) VALUES ('z','p2','Padrinos','recurring_donor',10000,'monthly','user');
+             INSERT INTO income_source (id,profile_id,label,kind,amount_mxn,period,origin,source_ref) VALUES ('a','p2','Colecta','occasional_donation',40000,'annual','document','{\"document_id\":\"d\"}');
+             INSERT INTO expense_item (id,profile_id,label,amount_mxn,period,origin) VALUES ('e','p2','Alimentos',8000,'monthly','user');",
+        )
+        .unwrap();
+
+        run(&mut conn).unwrap();
+
+        let income: Vec<(String, String, i64, String, Option<String>)> = conn
+            .prepare("SELECT label, kind, amount_mxn, origin, source_ref FROM fin_income ORDER BY rowid")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            income,
+            vec![
+                ("Padrinos".into(), "recurring_donor".into(), 10_000, "user".into(), None),
+                ("Colecta".into(), "occasional_donation".into(), 40_000, "document".into(), Some("{\"document_id\":\"d\"}".into())),
+            ],
+            "the lines of the latest version, in the order they were written"
+        );
+        let expense: (String, i64, String) = conn.query_row("SELECT label, amount_mxn, period FROM fin_expense", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        assert_eq!(expense, ("Alimentos".into(), 8_000, "monthly".into()));
+        let estimate: i64 = conn.query_row("SELECT annual_budget_mxn FROM fin_settings WHERE id = 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(estimate, 900_000);
+        let history: i64 = conn.query_row("SELECT count(*) FROM income_source", [], |r| r.get(0)).unwrap();
+        assert_eq!(history, 3, "the old versions keep their lines");
+        assert!(conn.execute("INSERT INTO fin_settings (id) VALUES (2)", []).is_err(), "one row of settings");
     }
 }

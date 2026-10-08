@@ -84,11 +84,14 @@ export function StepNav({
   current,
   onSelect,
   label,
+  brand,
 }: {
   steps: { key: string; label: string; /** the one word under the circle */ short?: string; filled?: number; total?: number; na?: boolean; caption?: string; naLabel?: string; /** how many things this step asks to review */ warn?: number; warnLabel?: string }[];
   current: number;
   onSelect: (index: number) => void;
   label: string;
+  /** the first start: done in the blue of the brand and the current one in its navy */
+  brand?: boolean;
 }) {
   const here = steps[current];
   const state = (s: (typeof steps)[number]) => {
@@ -104,17 +107,17 @@ export function StepNav({
           const prevDone = i > 0 && state(steps[i - 1]!).done;
           const name = [s.label, s.na ? s.naLabel : known ? s.caption : null, s.warn ? s.warnLabel : null].filter(Boolean).join(", ");
           // the ring: a track, with the part that is filled in green; done and current are solid
-          const ring = done ? "bg-green" : now ? "bg-ink" : "bg-line";
+          const ring = done ? (brand ? "bg-brand" : "bg-green") : now ? (brand ? "bg-brand-ink" : "bg-ink") : "bg-line";
           return (
             <li key={s.key} className="relative min-w-0">
-              {i > 0 && <span aria-hidden="true" className={`absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2 ${prevDone ? "bg-green" : "bg-line"}`} />}
+              {i > 0 && <span aria-hidden="true" className={`absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2 ${prevDone ? (brand ? "bg-brand" : "bg-green") : "bg-line"}`} />}
               <button type="button" aria-current={now ? "step" : undefined} aria-label={name} title={name} onClick={() => onSelect(i)} className="relative flex w-full min-w-0 flex-col items-center gap-2 rounded-field px-1 py-0.5">
                 <span
                   aria-hidden="true"
                   className={`relative z-10 grid h-8 w-8 place-items-center rounded-pill p-[3px] ${ring}`}
-                  style={!done && !now && percent > 0 ? { background: `conic-gradient(var(--color-green) ${percent}%, var(--line) 0)` } : undefined}
+                  style={!done && !now && percent > 0 ? { background: `conic-gradient(var(${brand ? "--color-brand" : "--color-green"}) ${percent}%, var(--line) 0)` } : undefined}
                 >
-                  <span className={`grid h-full w-full place-items-center rounded-pill text-caption font-extrabold ${done ? "bg-green text-onc" : now ? "bg-ink text-on-ink" : "bg-card text-ink-2"}`}>
+                  <span className={`grid h-full w-full place-items-center rounded-pill text-caption font-extrabold ${done ? (brand ? "bg-brand text-on-brand" : "bg-green text-onc") : now ? (brand ? "bg-brand-ink text-on-brand" : "bg-ink text-on-ink") : "bg-card text-ink-2"}`}>
                     {done ? <Icon name="check" size={14} strokeWidth={3} /> : s.na ? "–" : i + 1}
                   </span>
                   {s.warn ? <span className="absolute -right-1 -top-1 z-20 h-3.5 w-3.5 rounded-pill border-2 border-card bg-amber" /> : null}
