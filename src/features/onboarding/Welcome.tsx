@@ -2,25 +2,60 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
-import { Alert, Button, Card, Inset, Steps, Tag, Tile } from "../../components/ui";
+import { Alert, Button, Inset, Steps, Tag, Tile } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { OnboardingStatus } from "./api";
 
 const o = es.onboarding;
 
-/** The frame of the first start: the name of the program over a card. */
-export function StartFrame({ children, wide }: { children: ReactNode; wide?: boolean }) {
+const POINT_ICONS: IconName[] = ["check", "lock", "smile"];
+
+/**
+ * The frame of the first start: a dark side with the name of the program and what it promises, and the card with
+ * the steps. On a narrow window the side shrinks to the name and the title.
+ */
+export function StartFrame({ children, top, footer, title, text }: { children: ReactNode; /** what stays at the top while the rest scrolls: the steps */ top?: ReactNode; /** the buttons: always at the bottom of the card */ footer: ReactNode; title?: string; text?: string }) {
+  const a = o.aside;
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-canvas p-4 text-body text-ink">
-      <div className="flex items-center gap-3">
-        <span className="grid h-ctl w-ctl place-items-center rounded-field bg-ink text-on-ink">
-          <Icon name="logo" size={22} />
-        </span>
-        <b className="text-heading font-extrabold tracking-tight">{es.app.name}</b>
+    <div className="grid min-h-screen place-items-center bg-canvas p-4 text-body text-ink">
+      <div className="flex w-full max-w-[1080px] flex-col items-center gap-5">
+        <div className="grid w-full overflow-hidden rounded-card bg-card shadow-float lg:h-[min(46rem,calc(100vh-7rem))] lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+          <aside className="relative flex flex-col gap-8 overflow-hidden bg-ink p-8 text-on-ink lg:p-10">
+            <span aria-hidden="true" className="absolute -bottom-28 -right-24 h-64 w-64 rounded-pill bg-violet/20" />
+            <span aria-hidden="true" className="absolute -right-8 top-8 h-24 w-24 rounded-pill bg-teal/20 max-lg:hidden" />
+            <div className="relative flex items-center gap-3">
+              <span className="grid h-ctl w-ctl place-items-center rounded-field bg-on-ink text-ink">
+                <Icon name="logo" size={22} />
+              </span>
+              <b className="text-heading font-extrabold tracking-tight">{es.app.name}</b>
+            </div>
+            <div className="relative space-y-3">
+              <h2 className="text-subtitle font-bold leading-tight tracking-tight">{title ?? a.title}</h2>
+              <p className="text-ui text-on-ink/70 max-lg:hidden">{text ?? a.text}</p>
+            </div>
+            <ul className="relative mt-auto flex flex-col gap-4 max-lg:hidden">
+              {a.points.map(([head, line], i) => (
+                <li key={head} className="flex items-start gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-field bg-on-ink/15">
+                    <Icon name={POINT_ICONS[i] ?? "check"} size={16} strokeWidth={2.4} />
+                  </span>
+                  <span className="min-w-0">
+                    <b className="block text-ui font-bold">{head}</b>
+                    <span className="block text-small text-on-ink/70">{line}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </aside>
+          <div className="flex min-h-0 min-w-0 flex-col">
+            {top && <div className="space-y-6 px-6 pt-6 sm:px-10 sm:pt-10">{top}</div>}
+            <div className={`flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6 sm:px-10 ${top ? "pt-6" : "pt-6 sm:pt-10"}`}>{children}</div>
+            <div className="border-t border-line px-6 py-4 sm:px-10">{footer}</div>
+          </div>
+        </div>
+        <p className="text-small text-ink-3">{es.access.footer}</p>
       </div>
-      <Card className={`w-full !p-8 ${wide ? "max-w-[860px]" : "max-w-[560px]"}`}>{children}</Card>
-      <p className="text-small text-ink-3">{es.access.footer}</p>
     </div>
   );
 }
@@ -34,16 +69,9 @@ export function Welcome({ onDone, busy }: { onDone: () => void; busy?: boolean }
   const steps = o.welcome.steps;
   const last = n === steps.length - 1;
   return (
-    <StartFrame>
-      <div className="space-y-8">
-        <Steps steps={steps.map((x, i) => ({ key: String(i), label: x.title }))} current={n} tone={TONES[n] ?? "violet"} compact />
-        <div key={n} className="anim-rise space-y-5">
-          <Tile icon={ICONS[n] ?? "sparkles"} tone={TONES[n] ?? "violet"} />
-          <div className="space-y-2">
-            <h1 className="text-title font-bold leading-tight tracking-tight">{steps[n]!.title}</h1>
-            <p className="max-w-[48ch] text-body text-ink-2">{steps[n]!.text}</p>
-          </div>
-        </div>
+    <StartFrame
+      top={<Steps steps={steps.map((x, i) => ({ key: String(i), label: x.title }))} current={n} tone={TONES[n] ?? "violet"} compact />}
+      footer={
         <div className="flex items-center justify-between gap-3">
           <span className="text-small font-semibold text-ink-3">{o.stepOf(n + 1, steps.length)}</span>
           <div className="flex gap-2">
@@ -52,6 +80,14 @@ export function Welcome({ onDone, busy }: { onDone: () => void; busy?: boolean }
               {last ? o.welcome.start : o.welcome.next}
             </Button>
           </div>
+        </div>
+      }
+    >
+      <div key={n} className="anim-rise my-auto space-y-6 py-6">
+        <Tile icon={ICONS[n] ?? "sparkles"} tone={TONES[n] ?? "violet"} />
+        <div className="space-y-3">
+          <h1 className="text-title font-bold leading-tight tracking-tight">{steps[n]!.title}</h1>
+          <p className="max-w-[52ch] text-body text-ink-2">{steps[n]!.text}</p>
         </div>
       </div>
     </StartFrame>
@@ -96,13 +132,22 @@ export function Setup({
   ];
   const done = rows.filter((r) => r.ok).length;
   return (
-    <StartFrame>
+    <StartFrame
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button onClick={onLater}>{o.setup.later}</Button>
+          <Button variant="primary" onClick={onFill}>
+            {o.setup.fillNow}
+          </Button>
+        </div>
+      }
+    >
       <div className="space-y-6">
-        <div className="space-y-4">
+        <div className="flex items-start gap-4">
           <Tile icon="sliders" tone="ink" />
-          <div className="space-y-1.5">
-            <h1 className="text-subtitle font-bold leading-tight tracking-tight">{o.setup.title}</h1>
-            <p className="text-ui text-ink-2">{o.setup.help}</p>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <h1 className="text-title font-bold leading-tight tracking-tight">{o.setup.title}</h1>
+            <p className="max-w-[60ch] text-ui text-ink-2">{o.setup.help}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -117,12 +162,6 @@ export function Setup({
           ))}
         </ul>
         {error && <Alert tone="error">{error}</Alert>}
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button onClick={onLater}>{o.setup.later}</Button>
-          <Button variant="primary" onClick={onFill}>
-            {o.setup.fillNow}
-          </Button>
-        </div>
         {examples && <Inset className="!p-4">{examples}</Inset>}
       </div>
     </StartFrame>

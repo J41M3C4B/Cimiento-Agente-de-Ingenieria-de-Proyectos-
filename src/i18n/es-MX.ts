@@ -307,6 +307,8 @@ export const es = {
     added: "Persona agregada.",
     removed: "Ficha borrada.",
     steps: { personal: "Datos personales", job: "Trabajo y puesto", emergency: "Contacto de emergencia", pay: "Pago y datos fiscales" },
+    /** one word under each circle of the steps */
+    stepsShort: { personal: "Datos", job: "Trabajo", emergency: "Emergencia", pay: "Pago" } as Record<string, string>,
     stepOf: (n: number, total: number) => `Paso ${n} de ${total}`,
     stepsLabel: "Pasos de la ficha",
     stepIntro: {
@@ -557,6 +559,7 @@ export const es = {
     years: (n: number) => `${n} años`,
     added: "Persona agregada.",
     steps: { identification: "Identificación", stay: "Ingreso y estancia", care: "Atención y salud", family: "Familia y responsable", contribution: "Aportación y apoyos" },
+    stepsShort: { identification: "Identidad", stay: "Estancia", care: "Salud", family: "Familia", contribution: "Aportación" } as Record<string, string>,
     minimum: "Para guardar basta con el nombre y la fecha de nacimiento (o la edad aproximada). Lo demás puede llenarlo después.",
     healthNote: "Solo categorías: no escriba diagnósticos, medicinas ni nombres de médicos.",
     approxBirth: "Solo se sabía la edad: revise la fecha cuando la tenga.",
@@ -836,6 +839,15 @@ export const es = {
       ready: "Lista",
       stepsDone: (done: number, total: number) => `${done} de ${total} pasos`,
     },
+    aside: {
+      title: "Dejemos lista su institución",
+      text: "Unos minutos ahora y el asistente trabaja con lo que ya sabe de ustedes, sin volver a preguntarles.",
+      points: [
+        ["Se guarda cada paso", "Puede salir y seguir después."],
+        ["Sus datos se quedan aquí", "En esta computadora. La ayuda automática no ve nombres."],
+        ["Usted responde con sus palabras", "Nosotros nos encargamos del formato y las cuentas."],
+      ] as [string, string][],
+    },
     title: "Datos de su institución",
     intro: "Con estos datos la ayuda automática conoce a su institución y las convocatorias la pueden tomar en cuenta. Se guarda cada paso: puede salir y seguir después.",
     steps: {
@@ -847,6 +859,7 @@ export const es = {
       building: "Su casa",
       review: "Revisar",
     } as Record<string, string>,
+    stepsShort: { institution: "Institución", location: "Ubicación", people: "Personas", team: "Equipo", money: "Dinero", building: "Casa", review: "Revisar" } as Record<string, string>,
     help: {
       institution: "Cómo se llama, qué tipo de institución es y a qué se dedica, en pocas líneas.",
       location: "Muchas convocatorias son solo para ciertos estados, piden años de operación o que sea donataria autorizada.",

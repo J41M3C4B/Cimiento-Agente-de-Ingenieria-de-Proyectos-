@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
+import type { IconName } from "../../components/icons";
 import { Alert, Button, Choice, Eyebrow, Facts, FormSection, RadioCard, Select, StepNav, Tag, TextArea, TextButton, TextInput, Tile } from "../../components/ui";
+import type { Tone } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
@@ -17,6 +19,8 @@ const o = es.onboarding;
 const ins = es.institution;
 const p = es.profile;
 const REVIEW = "review";
+const STEP_ICON: Record<string, IconName> = { institution: "building", location: "idcard", people: "heart", team: "briefcase", money: "banknote", building: "home", review: "check" };
+const STEP_TONE: Record<string, Tone> = { institution: "violet", location: "sky", people: "rose", team: "teal", money: "amber", building: "cyan", review: "green" };
 
 const num = (v: string) => (v.trim() === "" || !/^\d+$/.test(v.trim()) ? null : Number(v.trim()));
 const options = (labels: Record<string, string>): [string, string][] => [["", es.facilities.select], ...Object.entries(labels)];
@@ -108,30 +112,52 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
   };
 
   return (
-    <StartFrame wide>
-      <div className="space-y-6">
-        <div className="flex items-start gap-4">
-          <Tile icon="building" tone="ink" />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <h1 className="text-subtitle font-bold leading-tight tracking-tight">{o.title}</h1>
-            <p className="max-w-[70ch] text-ui text-ink-2">{o.intro}</p>
+    <StartFrame
+      top={
+        <>
+          <StepNav
+            label={o.title}
+            current={n}
+            onSelect={go}
+            steps={keys.map((k) => {
+              const s = status.steps.find((x) => x.key === k);
+              const done = k === REVIEW ? status.ready : !!s?.complete;
+              return { key: k, label: o.steps[k] ?? k, short: o.stepsShort[k], filled: done ? 1 : 0, total: 1, caption: done ? o.stepDone : o.stepPending };
+            })}
+          />
+          <div className="flex items-start gap-4 border-t border-line pt-6">
+            <Tile icon={STEP_ICON[key] ?? "building"} tone={STEP_TONE[key] ?? "ink"} />
+            <div className="min-w-0 flex-1 space-y-1">
+              <Eyebrow>{o.stepOf(n + 1, keys.length)}</Eyebrow>
+              <h1 className="text-subtitle font-bold leading-tight tracking-tight">{o.steps[key]}</h1>
+              <p className="max-w-[64ch] text-ui text-ink-2">{o.help[key]}</p>
+              {key !== REVIEW && <p className="pt-1 text-caption text-ink-3">{o.requiredNote}</p>}
+            </div>
           </div>
+        </>
+      }
+      title={o.title}
+      text={o.intro}
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2">
+            {n > 0 && <Button onClick={() => go(n - 1)}>{o.back}</Button>}
+            {n === 0 && onBack && <TextButton onClick={onBack}>{o.back}</TextButton>}
+          </div>
+          {key === REVIEW ? (
+            <Button variant="primary" disabled={busy || !status.ready} onClick={finish}>
+              <Icon name="check" size={16} strokeWidth={2.4} />
+              {busy ? o.finishing : o.finish}
+            </Button>
+          ) : (
+            <Button variant="primary" disabled={busy} onClick={() => save()}>
+              {busy ? es.common.saving : o.next}
+            </Button>
+          )}
         </div>
-        <StepNav
-          label={o.title}
-          current={n}
-          onSelect={go}
-          steps={keys.map((k) => {
-            const s = status.steps.find((x) => x.key === k);
-            const done = k === REVIEW ? status.ready : !!s?.complete;
-            return { key: k, label: o.steps[k] ?? k, filled: done ? 1 : 0, total: 1, caption: done ? o.stepDone : o.stepPending };
-          })}
-        />
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-3">
-          <Eyebrow>{o.stepOf(n + 1, keys.length)}</Eyebrow>
-          <span className="min-w-0 flex-1 text-ui text-ink-2">{o.help[key]}</span>
-          {key !== REVIEW && <span className="text-caption text-ink-3">{o.requiredNote}</span>}
-        </div>
+      }
+    >
+      <div className="space-y-6">
         <div key={key} className="anim-rise min-h-[14rem] space-y-6">
 
         {key === "institution" && (
@@ -254,22 +280,6 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
         {issues.length > 0 && !issues.some((i) => issue(i.field)) && <Alert tone="error">{issues.map((i) => es.issues[i.code] ?? es.errors.generic).join(" ")}</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
-          <div className="flex gap-2">
-            {n > 0 && <Button onClick={() => go(n - 1)}>{o.back}</Button>}
-            {n === 0 && onBack && <TextButton onClick={onBack}>{o.back}</TextButton>}
-          </div>
-          {key === REVIEW ? (
-            <Button variant="primary" disabled={busy || !status.ready} onClick={finish}>
-              <Icon name="check" size={16} strokeWidth={2.4} />
-              {busy ? o.finishing : o.finish}
-            </Button>
-          ) : (
-            <Button variant="primary" disabled={busy} onClick={() => save()}>
-              {busy ? es.common.saving : o.next}
-            </Button>
-          )}
-        </div>
       </div>
       {quarantine && <QuarantineDialog report={quarantine} busy={busy} onRedact={() => save("redact")} onNotPersonal={() => save("not_personal")} onCancel={() => setQuarantine(null)} />}
     </StartFrame>

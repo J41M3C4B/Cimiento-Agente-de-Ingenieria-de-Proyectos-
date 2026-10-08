@@ -75,8 +75,9 @@ export function Segmented<T extends string>({
 }
 
 /**
- * The steps of a long form as buttons the person can jump between. Each one shows how much of it is filled in
- * (a bar and «9 de 12»), or that it does not apply; a step that is complete turns green with a check.
+ * The steps of a long form as round buttons on a line, each with one word under it: the person can jump between
+ * them. A circle that is full green with a check is done; a ring that fills shows how much of the step is filled in;
+ * the one the person is in is black. A small amber dot says the step asks to review something.
  */
 export function StepNav({
   steps,
@@ -84,50 +85,54 @@ export function StepNav({
   onSelect,
   label,
 }: {
-  steps: { key: string; label: string; filled?: number; total?: number; na?: boolean; caption?: string; naLabel?: string; /** how many things this step asks to review */ warn?: number; warnLabel?: string }[];
+  steps: { key: string; label: string; /** the one word under the circle */ short?: string; filled?: number; total?: number; na?: boolean; caption?: string; naLabel?: string; /** how many things this step asks to review */ warn?: number; warnLabel?: string }[];
   current: number;
   onSelect: (index: number) => void;
   label: string;
 }) {
   const here = steps[current];
+  const state = (s: (typeof steps)[number]) => {
+    const known = s.filled !== undefined && s.total !== undefined && s.total > 0 && !s.na;
+    return { known, done: known && s.filled === s.total, percent: known ? (s.filled! / s.total!) * 100 : 0 };
+  };
   return (
-    <div className="space-y-2">
-    <ol aria-label={label} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
-      {steps.map((s, i) => {
-        const now = i === current;
-        const known = s.filled !== undefined && s.total !== undefined && s.total > 0 && !s.na;
-        const done = known && s.filled === s.total;
-        const percent = known ? (s.filled! / s.total!) * 100 : 0;
-        return (
-          <li key={s.key} className="min-w-0">
-            <button type="button" aria-current={now ? "step" : undefined} onClick={() => onSelect(i)} className="flex w-full min-w-0 flex-col gap-1.5 rounded-field text-left">
-              <span className={`bar ${done ? "tone-green" : "tone-ink"} ${now ? "" : "opacity-70"}`}>
-                <i style={{ width: `${percent}%` }} />
-              </span>
-              <span className={`flex items-center gap-2 text-small max-sm:sr-only ${now ? "font-extrabold text-ink" : "font-bold text-ink-2"}`}>
-                <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-pill text-caption font-extrabold ${done ? "bg-green text-onc" : now ? "bg-ink text-on-ink" : "bg-inset text-ink-2"}`}>
-                  {done ? <Icon name="check" size={12} strokeWidth={3} /> : s.na ? "–" : i + 1}
-                </span>
-                <span className="line-clamp-2 min-w-0 break-words leading-tight">{s.label}</span>
-                {s.warn ? (
-                  <span className="shrink-0 text-amber-ink" title={s.warnLabel}>
-                    <Icon name="warn" size={14} strokeWidth={2.4} />
-                    <span className="sr-only">{s.warnLabel}</span>
+    <div className="space-y-3">
+      <ol aria-label={label} className="grid" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+        {steps.map((s, i) => {
+          const now = i === current;
+          const { known, done, percent } = state(s);
+          const prevDone = i > 0 && state(steps[i - 1]!).done;
+          const name = [s.label, s.na ? s.naLabel : known ? s.caption : null, s.warn ? s.warnLabel : null].filter(Boolean).join(", ");
+          // the ring: a track, with the part that is filled in green; done and current are solid
+          const ring = done ? "bg-green" : now ? "bg-ink" : "bg-line";
+          return (
+            <li key={s.key} className="relative min-w-0">
+              {i > 0 && <span aria-hidden="true" className={`absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2 ${prevDone ? "bg-green" : "bg-line"}`} />}
+              <button type="button" aria-current={now ? "step" : undefined} aria-label={name} title={name} onClick={() => onSelect(i)} className="relative flex w-full min-w-0 flex-col items-center gap-2 rounded-field px-1 py-0.5">
+                <span
+                  aria-hidden="true"
+                  className={`relative z-10 grid h-8 w-8 place-items-center rounded-pill p-[3px] ${ring}`}
+                  style={!done && !now && percent > 0 ? { background: `conic-gradient(var(--color-green) ${percent}%, var(--line) 0)` } : undefined}
+                >
+                  <span className={`grid h-full w-full place-items-center rounded-pill text-caption font-extrabold ${done ? "bg-green text-onc" : now ? "bg-ink text-on-ink" : "bg-card text-ink-2"}`}>
+                    {done ? <Icon name="check" size={14} strokeWidth={3} /> : s.na ? "–" : i + 1}
                   </span>
-                ) : null}
-              </span>
-              <span className="truncate text-caption text-ink-3 max-sm:sr-only">{s.na ? s.naLabel : known ? s.caption : "\u00a0"}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
-    {here && (
-      <p className="text-small font-extrabold sm:hidden">
-        {here.label}
-        <span className="font-medium text-ink-3">{here.na ? ` · ${here.naLabel}` : here.caption ? ` · ${here.caption}` : ""}</span>
-      </p>
-    )}
+                  {s.warn ? <span className="absolute -right-1 -top-1 z-20 h-3.5 w-3.5 rounded-pill border-2 border-card bg-amber" /> : null}
+                </span>
+                <span aria-hidden="true" className={`max-w-full truncate text-small max-sm:sr-only ${now ? "font-extrabold text-ink" : "font-bold text-ink-2"}`}>
+                  {s.short ?? s.label}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      {here && (
+        <p className="text-small font-extrabold sm:hidden">
+          {here.label}
+          <span className="font-medium text-ink-3">{here.na ? ` · ${here.naLabel}` : here.caption ? ` · ${here.caption}` : ""}</span>
+        </p>
+      )}
     </div>
   );
 }

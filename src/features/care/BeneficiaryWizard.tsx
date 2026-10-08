@@ -123,7 +123,7 @@ export function BeneficiaryWizard({
   const stepItems = STEPS.map((s) => {
     const p = progress?.[s];
     const warn = issues.filter((i) => stepOf(i.field) === s).length;
-    return { key: s, label: c.steps[s], filled: p?.filled, total: p?.total, na: p !== undefined && p.total === 0, caption: p ? c.stepCaption(p.filled, p.total) : undefined, naLabel: c.stepNotApplicable, warn, warnLabel: warn > 0 ? es.common.review.title(warn) : undefined };
+    return { key: s, label: c.steps[s], short: c.stepsShort[s], filled: p?.filled, total: p?.total, na: p !== undefined && p.total === 0, caption: p ? c.stepCaption(p.filled, p.total) : undefined, naLabel: c.stepNotApplicable, warn, warnLabel: warn > 0 ? es.common.review.title(warn) : undefined };
   });
   const fullName = [d.first_names, d.last_name_1, d.last_name_2].filter(Boolean).join(" ");
   const curpStored = current?.curp_stored ?? false;

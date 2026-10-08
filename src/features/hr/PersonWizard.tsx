@@ -221,7 +221,7 @@ export function PersonWizard({
     const p = progress?.[s];
     const na = (s === "pay" && !pays) || (p !== undefined && p.total === 0);
     const warn = issues.filter((i) => stepOf(i.field) === s).length;
-    return { key: s, label: h.steps[s], filled: p?.filled, total: p?.total, na, caption: p ? h.stepCaption(p.filled, p.total) : undefined, naLabel: h.stepNotApplicable, warn, warnLabel: warn > 0 ? es.common.review.title(warn) : undefined };
+    return { key: s, label: h.steps[s], short: h.stepsShort[s], filled: p?.filled, total: p?.total, na, caption: p ? h.stepCaption(p.filled, p.total) : undefined, naLabel: h.stepNotApplicable, warn, warnLabel: warn > 0 ? es.common.review.title(warn) : undefined };
   });
 
   const grid = (children: ReactNode) => <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>;
