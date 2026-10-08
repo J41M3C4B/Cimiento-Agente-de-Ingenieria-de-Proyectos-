@@ -9,22 +9,39 @@ import type { Decision, QuarantineReport } from "../../lib/types";
 import { facilitiesEquipmentDelete, facilitiesEquipmentSave, facilitiesOverview, facilitiesSiteSave, facilitiesSpaceDelete, facilitiesSpaceSave } from "./api";
 import { BuildingPanel } from "./BuildingPanel";
 import { FacilitiesBoard } from "./FacilitiesBoard";
-import { EquipmentDialog, SpaceDialog, STATE_KEYS, STATE_TONE, emptyEquipment, emptySpace } from "./GroupDialog";
+import { EquipmentDialog, SpaceDialog, emptyEquipment, emptySpace } from "./GroupDialog";
+import { StateBar } from "./StateBar";
 import type { EquipmentData, EquipmentRow, FacilitiesOutcome, FacilitiesOverview, FacilityIssue, SpaceData, SpaceRow, States } from "./types";
 
 const f = es.facilities;
 export const FACILITIES_KEY = ["facilities"] as const;
 type View = "spaces" | "building" | "equipment" | "board";
 
-/** «3 bien · 1 mal · 2 sin revisar», as tags with the color of each state. */
-function StateTags({ s, count }: { s: States; count: number }) {
-  const rest = count - (s.good + s.fair + s.poor + s.unusable);
+/** The whole of something at a glance: how many there are and how they are, in one bar. */
+function Summary({ title, total, s, count }: { title: string; total: string; s: States; count: number }) {
+  if (count === 0) return null;
+  return (
+    <Inset className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+        <h3 className="text-ui font-bold">{title}</h3>
+        <span className="text-small text-ink-3">{total}</span>
+      </div>
+      <StateBar s={s} count={count} thick />
+    </Inset>
+  );
+}
+
+/** What fails, as soft tags: the first two and how many more. */
+function Problems({ list }: { list: string[] }) {
+  if (list.length === 0) return <span className="text-ink-3">—</span>;
   return (
     <span className="flex flex-wrap gap-1.5">
-      {STATE_KEYS.filter((k) => s[k] > 0).map((k) => (
-        <Tag key={k} tone={STATE_TONE[k]} variant="soft">{`${s[k]} ${f.states[k].toLowerCase()}`}</Tag>
+      {list.slice(0, 2).map((p) => (
+        <Tag key={p} tone="amber" variant="soft">
+          {f.problems[p] ?? p}
+        </Tag>
       ))}
-      {rest > 0 && <Tag variant="line">{f.unchecked(rest)}</Tag>}
+      {list.length > 2 && <Tag variant="line">{`+${list.length - 2}`}</Tag>}
     </span>
   );
 }
@@ -132,6 +149,7 @@ export function FacilitiesTab({ onNotice }: { onNotice?: (text: string) => void 
       {view !== "board" && <p className="max-w-[80ch] text-ui text-ink-2">{f.help}</p>}
       {error && <Alert tone="error">{error}</Alert>}
 
+      {view === "spaces" && <Summary title={f.board.spacesState} total={f.spaces.total(total)} s={data.indicators.spaces_states} count={total} />}
       {view === "spaces" &&
         (spaces.length === 0 ? (
           <Inset className="flex flex-col items-center gap-4 !px-6 !py-12 text-center">
@@ -164,12 +182,12 @@ export function FacilitiesTab({ onNotice }: { onNotice?: (text: string) => void 
                           </span>
                         </button>
                       </td>
-                      <td className="tabular">{r.count}</td>
-                      <td className="min-w-[180px]">
-                        <StateTags s={r} count={r.count} />
+                      <td className="tabular font-bold">{r.count}</td>
+                      <td className="min-w-[220px]">
+                        <StateBar s={r} count={r.count} />
                       </td>
-                      <td className="max-w-[260px]">
-                        {r.problems.length > 0 ? <span className="line-clamp-2 text-small">{r.problems.map((p) => f.problems[p] ?? p).join(", ")}</span> : <span className="text-ink-3">—</span>}
+                      <td className="max-w-[280px]">
+                        <Problems list={r.problems} />
                       </td>
                       <td className="w-24 !pr-0 text-right">
                         <RowActions onEdit={() => setSpace({ id: r.id, start: { ...r } })} onRemove={() => remove(() => facilitiesSpaceDelete(r.id))} busy={busy} />
@@ -186,6 +204,7 @@ export function FacilitiesTab({ onNotice }: { onNotice?: (text: string) => void 
 
       {view === "building" && <BuildingPanel site={data.site.data} issues={data.site.issues} onSave={(d) => submit((decision) => facilitiesSiteSave(d, decision))} />}
 
+      {view === "equipment" && <Summary title={f.board.equipmentState} total={f.equipment.total(data.indicators.equipment)} s={data.indicators.equipment_states} count={data.indicators.equipment} />}
       {view === "equipment" &&
         (equipment.length === 0 ? (
           <Inset className="flex flex-col items-center gap-4 !px-6 !py-12 text-center">
@@ -214,9 +233,9 @@ export function FacilitiesTab({ onNotice }: { onNotice?: (text: string) => void 
                         {r.kind !== "other" && r.label && <span className="block text-small text-ink-3">{r.label}</span>}
                       </button>
                     </td>
-                    <td className="tabular">{r.count}</td>
-                    <td>
-                      <StateTags s={r} count={r.count} />
+                    <td className="tabular font-bold">{r.count}</td>
+                    <td className="min-w-[220px]">
+                      <StateBar s={r} count={r.count} />
                     </td>
                     <td className="w-24 !pr-0 text-right">
                       <RowActions onEdit={() => setItem({ id: r.id, start: { ...r } })} onRemove={() => remove(() => facilitiesEquipmentDelete(r.id))} busy={busy} />
@@ -228,7 +247,7 @@ export function FacilitiesTab({ onNotice }: { onNotice?: (text: string) => void 
           </div>
         ))}
 
-      {view === "board" && <FacilitiesBoard board={data.board} />}
+      {view === "board" && <FacilitiesBoard board={data.board} onGo={setView} />}
 
       {space && (
         <SpaceDialog

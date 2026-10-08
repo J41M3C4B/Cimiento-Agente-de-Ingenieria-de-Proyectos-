@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Alert, Button, Choice, FormSection, Modal, Select, TextArea, TextInput } from "../../components/ui";
+import { Icon } from "../../components/icons";
+import { Alert, Button, Choice, FormSection, Modal, Select, Stepper, TextArea, TextInput } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { STATE_KEYS, STATE_TONE, StateBar } from "./StateBar";
 import type { EquipmentData, FacilityIssue, SpaceData, States } from "./types";
 
 const f = es.facilities;
-export const STATE_KEYS = ["good", "fair", "poor", "unusable"] as const;
-export const STATE_TONE: Record<string, Tone> = { good: "green", fair: "amber", poor: "red", unusable: "red" };
 
 const num = (v: string) => (v.trim() === "" ? null : Number(v.replace(/[,\s]/g, "")));
 const yesNo = (v: boolean | null) => (v === null ? "" : v ? "yes" : "no");
@@ -51,30 +51,38 @@ export function Many({ label, labels, value, onChange }: { label: string; labels
   );
 }
 
-/** How many are in each state, and how many are left without checking. */
+/**
+ * How many are in each state: a counter per state in its color, and the bar that fills as they are counted. What is
+ * left over stays «sin revisar», so nobody has to answer what they do not know.
+ */
 function StatesField({ count, value, onChange, error }: { count: number; value: States; onChange: (s: States) => void; error?: string }) {
   const rest = count - checked(value);
   return (
-    <FormSection title={f.spaces.stateTitle}>
+    <FormSection title={f.spaces.stateTitle} icon="check">
       <p className="text-small text-ink-2">{f.spaces.stateHelp}</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {STATE_KEYS.map((k) => (
-          <TextInput
+          <Stepper
             key={k}
-            label={f.states[k]}
+            label={f.states[k]!}
             hint={f.statesHelp[k]}
-            inputMode="numeric"
-            value={value[k] === 0 ? "" : String(value[k])}
-            placeholder="0"
-            onChange={(e) => onChange({ ...value, [k]: num(e.target.value) ?? 0 })}
+            tone={STATE_TONE[k]}
+            value={value[k]}
+            canAdd={rest > 0}
+            less={f.stepper.less}
+            more={f.stepper.more}
+            onChange={(n) => onChange({ ...value, [k]: n })}
           />
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button size="sm" variant="plain" onClick={() => onChange({ good: count, fair: 0, poor: 0, unusable: 0 })}>
-          {f.allGood}
-        </Button>
-        {rest > 0 && <span className="text-small text-ink-3">{f.unchecked(rest)}</span>}
+      <div className="flex flex-col gap-3 rounded-inset bg-inset p-4">
+        <StateBar s={value} count={count} thick />
+        <div>
+          <Button size="sm" variant="secondary" onClick={() => onChange({ good: count, fair: 0, poor: 0, unusable: 0 })}>
+            <Icon name="check" size={16} strokeWidth={2.6} />
+            {f.allGood}
+          </Button>
+        </div>
       </div>
       {error && <Alert tone="error">{error}</Alert>}
     </FormSection>

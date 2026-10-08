@@ -4,6 +4,7 @@ import type { SVGProps } from "react";
 const PATHS = {
   check: "M20 6 9 17l-5-5",
   plus: "M5 12h14M12 5v14",
+  minus: "M5 12h14",
   back: "m15 18-6-6 6-6",
   next: "m9 18 6-6-6-6",
   down: "m6 9 6 6 6-6",

@@ -1,6 +1,7 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Choice, FactRow, Facts, Modal, TextArea, TextInput } from "../../components/ui";
+import { Alert, Button, Choice, FactRow, Facts, FormSection, Modal, Tag, TextArea, TextInput } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { Many, YesNo } from "./GroupDialog";
@@ -11,7 +12,13 @@ const t = f.building;
 type Section = "building" | "services" | "safety";
 
 const num = (v: string) => (v.trim() === "" ? null : Number(v.replace(/[,\s]/g, "")));
-const yes = (v: boolean | null) => (v === null ? null : v ? es.common.yes : es.common.no);
+/** Yes is green and no is amber: a missing safeguard is something to look at, not an error. */
+const yes = (v: boolean | null): ReactNode =>
+  v === null ? null : (
+    <Tag tone={v ? "green" : "amber"} variant="soft">
+      {v ? es.common.yes : es.common.no}
+    </Tag>
+  );
 const word = (labels: Record<string, string>, v: string | null) => (v ? (labels[v] ?? v) : null);
 const words = (labels: Record<string, string>, v: string[]) => (v.length ? v.map((x) => labels[x] ?? x).join(", ") : null);
 const n = (v: number | null) => (v === null ? null : v.toLocaleString("es-MX"));
@@ -33,64 +40,81 @@ function OneOf({ label, labels, value, onChange, name, tone }: { label: string; 
 }
 
 const FREQ_TONE: Record<string, Tone> = { never: "green", sometimes: "amber", often: "red" };
+const PROGRAM_TONE: Record<string, Tone> = { yes: "green", in_progress: "amber", no: "amber" };
+/** A short answer from a list, as a soft tag in the color of how good it is. */
+const tagged = (labels: Record<string, string>, v: string | null, tone: Record<string, Tone>): ReactNode =>
+  v ? (
+    <Tag tone={tone[v] ?? "neutral"} variant="soft">
+      {labels[v] ?? v}
+    </Tag>
+  ) : null;
 
 /** The building, its services and its safety: three blocks to read, each one edited in its own window. */
 export function BuildingPanel({ site, issues, onSave }: { site: SiteData; issues: FacilityIssue[]; onSave: (d: SiteData) => Promise<FacilityIssue[] | null> }) {
   const [open, setOpen] = useState<Section | null>(null);
-  const edit = (s: Section) => (
-    <Button size="sm" variant="plain" onClick={() => setOpen(s)}>
-      <Icon name="pencil" size={16} />
-      {f.edit}
-    </Button>
-  );
   const heads = issues.filter((i) => !i.blocking);
+  const sections: Record<Section, [string, ReactNode][]> = {
+    building: [
+      [t.name, site.name],
+      [t.built_m2, site.built_m2 !== null ? t.m2(site.built_m2) : null],
+      [t.land_m2, site.land_m2 !== null ? t.m2(site.land_m2) : null],
+      [t.floors, n(site.floors)],
+      [t.floor_access, site.floors !== null && site.floors > 1 ? words(t.floorAccess, site.floor_access) : null],
+      [t.built_year, site.built_year?.toString() ?? null],
+      [t.tenure, word(t.tenures, site.tenure) && `${word(t.tenures, site.tenure)}${site.tenure_until ? ` · ${site.tenure_until}` : ""}`],
+      [t.tenure_documented, yes(site.tenure_documented)],
+    ],
+    services: [
+      [t.water_sources, words(t.waterSources, site.water_sources)],
+      [t.water_shortage, tagged(t.frequency, site.water_shortage, FREQ_TONE)],
+      [t.water_storage_liters, site.water_storage_liters !== null ? t.liters(site.water_storage_liters) : null],
+      [t.power_outages, tagged(t.frequency, site.power_outages, FREQ_TONE)],
+      [t.gas, word(t.gasKinds, site.gas)],
+      [t.drainage, word(t.drainageKinds, site.drainage)],
+      [t.internet, yes(site.internet)],
+    ],
+    safety: [
+      [t.extinguishers, n(site.extinguishers)],
+      [t.extinguishers_current, yes(site.extinguishers_current)],
+      [t.smoke_detectors, n(site.smoke_detectors)],
+      [t.marked_exits, yes(site.marked_exits)],
+      [t.emergency_lights, yes(site.emergency_lights)],
+      [t.first_aid_kit, yes(site.first_aid_kit)],
+      [t.internal_program, tagged(t.programs, site.internal_program, PROGRAM_TONE)],
+      [t.civil_protection_opinion, site.civil_protection_opinion === null ? null : <span className="inline-flex items-center gap-2">{yes(site.civil_protection_opinion)}{site.opinion_year ? <span>{site.opinion_year}</span> : null}</span>],
+      [t.drills_per_year, n(site.drills_per_year)],
+    ],
+  };
+  const row = (s: Section) => {
+    const items = sections[s];
+    // a zero is an answer too (no extinguishers), so only the empty ones count as missing
+    const filled = items.filter(([, v]) => v !== null && v !== "").length;
+    return (
+      <FactRow
+        title={t.sections[s]}
+        note={t.help[s]}
+        action={
+          <div className="flex flex-col items-start gap-2 md:items-end">
+            <Tag tone={filled === items.length ? "green" : "neutral"} variant="soft" icon={filled === items.length ? "check" : undefined}>
+              {t.captured(filled, items.length)}
+            </Tag>
+            <Button size="sm" variant="plain" onClick={() => setOpen(s)}>
+              <Icon name="pencil" size={16} />
+              {f.edit}
+            </Button>
+          </div>
+        }
+      >
+        <Facts items={items} />
+      </FactRow>
+    );
+  };
   return (
     <div>
-      {heads.length > 0 && (
-        <Alert tone="info">{heads.map((i) => f.issues[i.code] ?? i.code).join(" ")}</Alert>
-      )}
-      <FactRow title={t.sections.building} note={t.help.building} action={edit("building")}>
-        <Facts
-          items={[
-            [t.name, site.name],
-            [t.built_m2, site.built_m2 !== null ? t.m2(site.built_m2) : null],
-            [t.land_m2, site.land_m2 !== null ? t.m2(site.land_m2) : null],
-            [t.floors, n(site.floors)],
-            [t.floor_access, site.floors !== null && site.floors > 1 ? words(t.floorAccess, site.floor_access) : null],
-            [t.built_year, site.built_year?.toString() ?? null],
-            [t.tenure, word(t.tenures, site.tenure) && `${word(t.tenures, site.tenure)}${site.tenure_until ? ` · ${site.tenure_until}` : ""}`],
-            [t.tenure_documented, yes(site.tenure_documented)],
-          ]}
-        />
-      </FactRow>
-      <FactRow title={t.sections.services} note={t.help.services} action={edit("services")}>
-        <Facts
-          items={[
-            [t.water_sources, words(t.waterSources, site.water_sources)],
-            [t.water_shortage, word(t.frequency, site.water_shortage)],
-            [t.water_storage_liters, site.water_storage_liters !== null ? t.liters(site.water_storage_liters) : null],
-            [t.power_outages, word(t.frequency, site.power_outages)],
-            [t.gas, word(t.gasKinds, site.gas)],
-            [t.drainage, word(t.drainageKinds, site.drainage)],
-            [t.internet, yes(site.internet)],
-          ]}
-        />
-      </FactRow>
-      <FactRow title={t.sections.safety} note={t.help.safety} action={edit("safety")}>
-        <Facts
-          items={[
-            [t.extinguishers, n(site.extinguishers)],
-            [t.extinguishers_current, yes(site.extinguishers_current)],
-            [t.smoke_detectors, n(site.smoke_detectors)],
-            [t.marked_exits, yes(site.marked_exits)],
-            [t.emergency_lights, yes(site.emergency_lights)],
-            [t.first_aid_kit, yes(site.first_aid_kit)],
-            [t.internal_program, word(t.programs, site.internal_program)],
-            [t.civil_protection_opinion, yes(site.civil_protection_opinion) && `${yes(site.civil_protection_opinion)}${site.opinion_year ? ` · ${site.opinion_year}` : ""}`],
-            [t.drills_per_year, n(site.drills_per_year)],
-          ]}
-        />
-      </FactRow>
+      {heads.length > 0 && <Alert tone="info">{heads.map((i) => f.issues[i.code] ?? i.code).join(" ")}</Alert>}
+      {row("building")}
+      {row("services")}
+      {row("safety")}
       {open && <SiteDialog section={open} start={site} onSave={onSave} onClose={() => setOpen(null)} />}
     </div>
   );
@@ -131,6 +155,7 @@ function SiteDialog({ section, start, onSave, onClose }: { section: Section; sta
       <p className="text-ui text-ink-2">{t.help[section]}</p>
       {section === "building" && (
         <>
+          <FormSection title={t.groups.structure} icon="building">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <TextInput label={t.name} value={d.name} onChange={(e) => set({ name: e.target.value })} error={err("name")} />
             <TextInput label={t.built_year} inputMode="numeric" value={d.built_year?.toString() ?? ""} onChange={(e) => set({ built_year: num(e.target.value) })} error={err("built_year")} />
@@ -139,41 +164,54 @@ function SiteDialog({ section, start, onSave, onClose }: { section: Section; sta
             <TextInput label={t.floors} inputMode="numeric" value={d.floors?.toString() ?? ""} onChange={(e) => set({ floors: num(e.target.value) })} error={err("floors")} />
           </div>
           {d.floors !== null && d.floors > 1 && <Many label={t.floor_access} labels={t.floorAccess} value={d.floor_access} onChange={(floor_access) => set({ floor_access })} />}
+          </FormSection>
+          <FormSection title={t.groups.tenure} icon="file">
           <OneOf name="tenure" label={t.tenure} labels={t.tenures} value={d.tenure} onChange={(tenure) => set({ tenure })} />
           {(d.tenure === "loan" || d.tenure === "rent") && (
             <TextInput label={t.tenure_until} inputMode="numeric" value={d.tenure_until?.toString() ?? ""} onChange={(e) => set({ tenure_until: num(e.target.value) })} error={err("tenure_until")} />
           )}
           <YesNo name="tenure_documented" label={t.tenure_documented} value={d.tenure_documented} onChange={(tenure_documented) => set({ tenure_documented })} />
+          </FormSection>
           <TextArea label={t.notes} hint={f.spaces.notesHint} rows={3} value={d.notes ?? ""} onChange={(e) => set({ notes: e.target.value || null })} />
         </>
       )}
       {section === "services" && (
         <>
+          <FormSection title={t.groups.water} icon="home">
           <Many label={t.water_sources} labels={t.waterSources} value={d.water_sources} onChange={(water_sources) => set({ water_sources })} />
           <OneOf name="water_shortage" label={t.water_shortage} labels={t.frequency} tone={FREQ_TONE} value={d.water_shortage} onChange={(water_shortage) => set({ water_shortage })} />
           <TextInput label={t.water_storage_liters} inputMode="numeric" suffix="L" value={d.water_storage_liters?.toString() ?? ""} onChange={(e) => set({ water_storage_liters: num(e.target.value) })} error={err("water_storage_liters")} />
+          </FormSection>
+          <FormSection title={t.groups.utilities} icon="sliders">
           <OneOf name="power_outages" label={t.power_outages} labels={t.frequency} tone={FREQ_TONE} value={d.power_outages} onChange={(power_outages) => set({ power_outages })} />
           <OneOf name="gas" label={t.gas} labels={t.gasKinds} value={d.gas} onChange={(gas) => set({ gas })} />
           <OneOf name="drainage" label={t.drainage} labels={t.drainageKinds} value={d.drainage} onChange={(drainage) => set({ drainage })} />
           <YesNo name="internet" label={t.internet} value={d.internet} onChange={(internet) => set({ internet })} />
+          </FormSection>
         </>
       )}
       {section === "safety" && (
         <>
+          <FormSection title={t.groups.fire} icon="alert">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <TextInput label={t.extinguishers} inputMode="numeric" value={d.extinguishers?.toString() ?? ""} onChange={(e) => set({ extinguishers: num(e.target.value) })} error={err("extinguishers")} />
             <TextInput label={t.smoke_detectors} inputMode="numeric" value={d.smoke_detectors?.toString() ?? ""} onChange={(e) => set({ smoke_detectors: num(e.target.value) })} error={err("smoke_detectors")} />
           </div>
           {d.extinguishers !== 0 && <YesNo name="extinguishers_current" label={t.extinguishers_current} value={d.extinguishers_current} onChange={(extinguishers_current) => set({ extinguishers_current })} />}
+          </FormSection>
+          <FormSection title={t.groups.exits} icon="shield">
           <YesNo name="marked_exits" label={t.marked_exits} value={d.marked_exits} onChange={(marked_exits) => set({ marked_exits })} />
           <YesNo name="emergency_lights" label={t.emergency_lights} value={d.emergency_lights} onChange={(emergency_lights) => set({ emergency_lights })} />
           <YesNo name="first_aid_kit" label={t.first_aid_kit} value={d.first_aid_kit} onChange={(first_aid_kit) => set({ first_aid_kit })} />
+          </FormSection>
+          <FormSection title={t.groups.civil} icon="file">
           <OneOf name="internal_program" label={t.internal_program} labels={t.programs} value={d.internal_program} onChange={(internal_program) => set({ internal_program })} />
           <YesNo name="civil_protection_opinion" label={t.civil_protection_opinion} value={d.civil_protection_opinion} onChange={(civil_protection_opinion) => set({ civil_protection_opinion })} />
           {d.civil_protection_opinion && (
             <TextInput label={t.opinion_year} inputMode="numeric" value={d.opinion_year?.toString() ?? ""} onChange={(e) => set({ opinion_year: num(e.target.value) })} error={err("opinion_year")} />
           )}
           <TextInput label={t.drills_per_year} inputMode="numeric" value={d.drills_per_year?.toString() ?? ""} onChange={(e) => set({ drills_per_year: num(e.target.value) })} error={err("drills_per_year")} />
+          </FormSection>
         </>
       )}
       {issues.length > 0 && <Alert tone="error">{issues.map((i) => f.issues[i.code] ?? es.errors.generic).join(" ")}</Alert>}

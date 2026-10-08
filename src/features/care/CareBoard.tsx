@@ -1,4 +1,5 @@
-import { Alert, Bar, Figures, Inset, Tag, Tile } from "../../components/ui";
+import { Findings } from "../../components/Findings";
+import { Alert, Bar, Figures, Inset, Tag } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { Board, CareOverview, Count } from "./types";
@@ -105,35 +106,6 @@ function Pyramid({ rows, withoutAge, averageAge }: { rows: [string, string, numb
   );
 }
 
-/** What the data say: each finding with a mark that tells whether the automatic help also knows it or it stays with the person. */
-function Findings({ insights }: { insights: Board["insights"] }) {
-  return (
-    <Inset className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-heading font-bold">{b.findings}</h3>
-        <p className="max-w-[80ch] text-small text-ink-2">{b.findingsHelp}</p>
-      </div>
-      {insights.length === 0 ? (
-        <p className="text-ui text-ink-3">{b.noFindings}</p>
-      ) : (
-        <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {insights.map((x) => (
-            <li key={x.code} className="flex min-w-0 gap-3 rounded-inset bg-card p-4">
-              <Tile small icon={x.for_ai ? "sparkles" : "lock"} tone={x.for_ai ? "violet" : "neutral"} />
-              <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-                <p className="text-ui">{c.insights[x.code]?.(x.values, x.items) ?? x.code}</p>
-                <Tag tone={x.for_ai ? "violet" : "neutral"} variant="soft">
-                  {x.for_ai ? b.forAi : b.internal}
-                </Tag>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Inset>
-  );
-}
-
 /**
  * The board (ADR-029): four figures, what the data say and how the people are made up. It is what shows the value of
  * capturing the records: small data turned into arguments for a project.
@@ -164,7 +136,7 @@ export function CareBoard({ board, flavor }: { board: Board; flavor: CareOvervie
   return (
     <div className="flex flex-col gap-4">
       <Figures items={figures} />
-      <Findings insights={board.insights} />
+      <Findings insights={board.insights} describe={(code, values, items) => c.insights[code]?.(values, items) ?? code} />
       <h3 className="pt-2 text-heading font-bold">{b.charts}</h3>
       <div className="grid items-start gap-4 lg:grid-cols-2">
         {[0, 1].map((col) => (
