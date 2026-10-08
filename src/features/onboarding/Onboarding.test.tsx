@@ -61,7 +61,7 @@ describe("the first start", () => {
   it("a person who has not seen the welcome sees it first", async () => {
     vi.mocked(api.onboardingStatus).mockResolvedValue(status({ welcomed: false, done: true }));
     gate();
-    expect(await screen.findByText("Le damos la bienvenida a Cimiento")).toBeInTheDocument();
+    expect(await screen.findByText("Le damos la bienvenida a SociAI")).toBeInTheDocument();
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
   });
 

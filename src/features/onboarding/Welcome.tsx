@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Icon } from "../../components/icons";
 import type { IconName } from "../../components/icons";
 import { Alert, Button, Inset, Logo, Steps, Tag, Tile } from "../../components/ui";
+import { BrandArt } from "./BrandArt";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { OnboardingStatus } from "./api";
@@ -12,45 +13,45 @@ const o = es.onboarding;
 const POINT_ICONS: IconName[] = ["check", "lock", "smile"];
 
 /**
- * The frame of the first start: a dark side with the name of the program and what it promises, and the card with
- * the steps. On a narrow window the side shrinks to the name and the title.
+ * The frame of the first start, split in two: on the left the flat blue of the brand with the logo, a picture and
+ * what the program promises; on the right the forms, with the steps at the top, the content that scrolls and the
+ * buttons always at the bottom. On a narrow window the blue shrinks to a band with the logo.
  */
-export function StartFrame({ children, top, footer, title, text }: { children: ReactNode; /** what stays at the top while the rest scrolls: the steps */ top?: ReactNode; /** the buttons: always at the bottom of the card */ footer: ReactNode; title?: string; text?: string }) {
+export function StartFrame({ children, top, footer, title, text }: { children: ReactNode; /** what stays at the top while the rest scrolls: the steps */ top?: ReactNode; /** the buttons: always at the bottom */ footer: ReactNode; title?: string; text?: string }) {
   const a = o.aside;
   return (
-    <div className="grid min-h-screen place-items-center bg-canvas p-4 text-body text-ink">
-      <div className="flex w-full max-w-[1080px] flex-col items-center gap-5">
-        <div className="grid w-full overflow-hidden rounded-card bg-card shadow-float lg:h-[min(46rem,calc(100vh-7rem))] lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
-          <aside className="relative flex flex-col gap-8 overflow-hidden bg-ink p-8 text-on-ink lg:p-10">
-            <span aria-hidden="true" className="absolute -bottom-28 -right-24 h-64 w-64 rounded-pill bg-violet/20" />
-            <span aria-hidden="true" className="absolute -right-8 top-8 h-24 w-24 rounded-pill bg-teal/20 max-lg:hidden" />
-            <Logo inverse className="relative h-10" />
-            <div className="relative space-y-3">
-              <h2 className="text-subtitle font-bold leading-tight tracking-tight">{title ?? a.title}</h2>
-              <p className="text-ui text-on-ink/70 max-lg:hidden">{text ?? a.text}</p>
-            </div>
-            <ul className="relative mt-auto flex flex-col gap-4 max-lg:hidden">
-              {a.points.map(([head, line], i) => (
-                <li key={head} className="flex items-start gap-3">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-field bg-on-ink/15">
-                    <Icon name={POINT_ICONS[i] ?? "check"} size={16} strokeWidth={2.4} />
-                  </span>
-                  <span className="min-w-0">
-                    <b className="block text-ui font-bold">{head}</b>
-                    <span className="block text-small text-on-ink/70">{line}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </aside>
-          <div className="flex min-h-0 min-w-0 flex-col">
-            {top && <div className="space-y-6 px-6 pt-6 sm:px-10 sm:pt-10">{top}</div>}
-            <div className={`flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6 sm:px-10 ${top ? "pt-6" : "pt-6 sm:pt-10"}`}>{children}</div>
-            <div className="border-t border-line px-6 py-4 sm:px-10">{footer}</div>
-          </div>
+    <div className="onb text-body">
+      <aside className="onb-brand">
+        <Logo onBrand className="h-10 self-start" />
+        <BrandArt className="onb-art" />
+        <div className="onb-copy space-y-3">
+          <h2 className="text-title font-bold leading-tight tracking-tight">{title ?? a.title}</h2>
+          <p className="text-body font-semibold">{text ?? a.text}</p>
         </div>
-        <p className="text-small text-ink-3">{es.access.footer}</p>
-      </div>
+        <ul className="hidden flex-col gap-4 lg:flex">
+          {a.points.map(([head, line], i) => (
+            <li key={head} className="flex items-start gap-3">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-field bg-on-brand text-brand">
+                <Icon name={POINT_ICONS[i] ?? "check"} size={16} strokeWidth={2.4} />
+              </span>
+              <span className="min-w-0">
+                <b className="block text-ui font-bold">{head}</b>
+                <span className="block text-small font-semibold">{line}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </aside>
+      <main className="onb-side">
+        {top && <div className="onb-in space-y-6 pt-8 lg:pt-10">{top}</div>}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div className={`onb-in flex flex-1 flex-col gap-6 pb-6 ${top ? "pt-6" : "pt-8 lg:pt-10"}`}>{children}</div>
+        </div>
+        <div className="border-t border-line">
+          <div className="onb-in py-4">{footer}</div>
+          <p className="onb-in pb-3 text-caption text-ink-3">{es.access.footer}</p>
+        </div>
+      </main>
     </div>
   );
 }
@@ -58,7 +59,7 @@ export function StartFrame({ children, top, footer, title, text }: { children: R
 const ICONS: IconName[] = ["sparkles", "shield", "help"];
 const TONES: Tone[] = ["violet", "green", "sky"];
 
-/** Three short screens, once per person: what Cimiento does, how the data are cared for, and where to ask. */
+/** Three short screens, once per person: what SociAI does, how the data are cared for, and where to ask. */
 export function Welcome({ onDone, busy }: { onDone: () => void; busy?: boolean }) {
   const [n, setN] = useState(0);
   const steps = o.welcome.steps;
