@@ -4,8 +4,8 @@ import { projectTone } from "../lib/palette";
 import { useTheme } from "../lib/theme";
 import type { ProjectRow } from "../lib/types";
 import { PROJECT_STEPS, stepIndex } from "../features/projects/steps";
-import { Icon } from "./icons";
 import type { IconName } from "./icons";
+import { SociaiTile } from "./Logo";
 import { Avatar, IconButton, StepDots } from "./ui";
 
 export type Page = "home" | "projects" | "profile" | "documents" | "ai" | "security" | "help";
@@ -58,9 +58,7 @@ export function Shell({
     <div className="shell">
       <div className="frame">
         <header className="topbar">
-          <span className="grid h-ctl w-ctl place-items-center rounded-field bg-ink text-on-ink" title={es.app.name}>
-            <Icon name="logo" size={22} />
-          </span>
+          <SociaiTile />
           <div className="capsule" aria-label={es.nav.openProject}>
             {focus ? (
               <>

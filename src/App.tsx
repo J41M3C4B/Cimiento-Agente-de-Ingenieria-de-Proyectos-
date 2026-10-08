@@ -8,6 +8,7 @@ import { DocumentsPage } from "./features/documents/DocumentsPage";
 import { HelpPage } from "./features/help/HelpPage";
 import { ProfilePage } from "./features/profile/ProfilePage";
 import { ProjectsPage } from "./features/projects/ProjectsPage";
+import { Onboarding } from "./features/onboarding/Onboarding";
 import { LockScreen } from "./features/security/LockScreen";
 import { SecurityPage } from "./features/security/SecurityPage";
 import { es } from "./i18n/es-MX";
@@ -25,6 +26,9 @@ export default function App() {
 
   if (pin.isLoading) return <p className="p-6 text-heading">{es.common.loading}</p>;
   if (pin.data === true && !unlocked) return <LockScreen onUnlock={() => setUnlocked(true)} />;
+
+  // the first time, before the institution is registered, the person is welcomed instead of landing in an empty program
+  if (profile.isSuccess && profile.data === null) return <Onboarding />;
 
   const institution = profile.data?.input.institution.name?.trim() || es.nav.profile;
 

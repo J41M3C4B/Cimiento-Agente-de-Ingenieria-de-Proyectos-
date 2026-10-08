@@ -5,10 +5,25 @@ type Plural = { one: string; other: string };
 
 export const es = {
   app: {
-    name: "Cimiento",
+    name: "SociAI",
     tagline: "Le ayudamos a preparar sus proyectos para pedir donativos.",
     welcome:
       "¡Hola! Vamos a armar su proyecto paso a paso. Usted solo responda; nosotros nos encargamos del formato y las cuentas.",
+  },
+  onboarding: {
+    headline: "Sus proyectos, listos para pedir apoyo",
+    lead: "Usted nos cuenta de su institución y nosotros nos encargamos del formato y las cuentas.",
+    points: ["Paso a paso", "Sus datos se quedan en este equipo", "Sin tecnicismos"],
+    stepOf: (n: number, total: number) => `Paso ${n} de ${total}`,
+    steps: [
+      { title: "¿Cómo se llama su institución?", help: "Con esto empezamos. Lo demás lo puede completar después." },
+      { title: "¿Cómo la contactan?", help: "Es opcional. Estos datos no se comparten con la ayuda automática." },
+      { title: "¿Cuántas personas atienden?", help: "Un cálculo aproximado nos basta. Lo puede cambiar cuando quiera." },
+    ],
+    next: "Continuar",
+    back: "Atrás",
+    finish: "Empezar",
+    skip: "Omitir por ahora",
   },
   nav: {
     home: "Inicio",
@@ -1263,7 +1278,7 @@ export const es = {
     saveEdits: "Guardar cambios",
   },
   lock: {
-    title: "Cimiento está bloqueado",
+    title: "SociAI está bloqueado",
     help: "Escriba su PIN para entrar.",
     label: "PIN",
     enter: "Entrar",

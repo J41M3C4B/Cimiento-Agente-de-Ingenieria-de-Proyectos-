@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
+import { SociaiTile } from "../../components/Logo";
 import { Alert, Button, Card, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { pinVerify, toAppError } from "../../lib/tauri";
@@ -37,9 +38,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           }}
         >
           <div>
-            <span className="grid h-ctl w-ctl place-items-center rounded-field bg-ink text-on-ink" title={es.app.name}>
-              <Icon name="logo" size={22} />
-            </span>
+            <SociaiTile />
           </div>
           <div className="space-y-1.5">
             <h1 className="flex items-center gap-2 text-subtitle font-bold leading-tight tracking-tight">

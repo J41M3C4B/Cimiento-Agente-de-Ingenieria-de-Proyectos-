@@ -38,6 +38,10 @@
   --color-onc: #121216;
   --color-white: #ffffff;
 
+  /* la marca SociAI: el azul de la identidad y la letra blanca que va encima (6:1); solo para la identidad, no para estados */
+  --color-brand: #2350e8;
+  --color-on-brand: #ffffff;
+
   /* tipografía (docs/13 §4) */
   --text-caption: 12.5px;
   --text-caption--line-height: 1.3;
@@ -501,4 +505,46 @@ h1, h2, h3 {
     .rail .icon-btn[data-tip]::after { display: none; }
     .frame-main { order: 2; }
   }
+
+  /* Marca SociAI: la ficha del logo y la bienvenida a pantalla dividida (azul de la marca a la izquierda, formulario a la derecha) */
+  .brand-tile { display: inline-grid; place-items: center; flex: none; border-radius: var(--radius-field); background: var(--color-brand); color: var(--color-on-brand); }
+  .onb { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); min-height: 100vh; background: var(--canvas); }
+  .onb-brand {
+    position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; gap: 32px;
+    padding: 48px 56px; color: var(--color-on-brand);
+    background:
+      radial-gradient(120% 80% at 85% 110%, color-mix(in srgb, var(--color-cyan) 38%, transparent), transparent 60%),
+      radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--color-white) 16%, transparent), transparent 55%),
+      linear-gradient(155deg, color-mix(in srgb, var(--color-brand) 88%, var(--color-white)) 0%, var(--color-brand) 45%, color-mix(in srgb, var(--color-brand) 62%, var(--color-onc)) 100%);
+  }
+  .onb-art { position: absolute; z-index: -1; top: 6%; right: -20%; width: min(100%, 660px); aspect-ratio: 1; opacity: 0.95; pointer-events: none; }
+  /* the copy at the foot rests on a deeper blue so the picture fades under it */
+  .onb-brand::after { content: ""; position: absolute; z-index: -1; inset: auto 0 0 0; height: 52%; background: linear-gradient(to top, color-mix(in srgb, var(--color-brand) 55%, var(--color-onc)) 8%, transparent); pointer-events: none; }
+  .onb-art-spin { transform-origin: 200px 200px; animation: orbit 140s linear infinite; }
+  .onb-art-core { transform-origin: 200px 200px; animation: breathe 5s ease-in-out infinite; }
+  .onb-copy { max-width: 30ch; }
+  .onb-dots { display: flex; align-items: center; gap: 10px; font-size: var(--text-small); font-weight: 700; opacity: 0.85; }
+  .onb-dots > i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.55; }
+  .onb-form { display: flex; align-items: flex-start; justify-content: center; padding: max(40px, 11vh) 40px 40px; }
+  .onb-panel { width: 100%; max-width: 480px; }
+  .onb-progress { display: flex; gap: 6px; }
+  .onb-progress > i { flex: 1; height: 6px; border-radius: var(--radius-pill); background: var(--line); transition: background-color 0.2s; }
+  .onb-progress > i.on { background: var(--color-brand); }
+  @media (max-width: 900px) {
+    .onb { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+    .onb-brand { flex-direction: row; align-items: center; padding: 20px 24px; }
+    .onb-brand .onb-foot, .onb-art, .onb-brand::after { display: none; }
+    .onb-form { align-items: flex-start; padding: 28px 20px 40px; }
+  }
+}
+
+@keyframes orbit {
+  to { transform: rotate(360deg); }
+}
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onb-art-spin, .onb-art-core { animation: none; }
 }
