@@ -59,7 +59,7 @@ fn the_profile_and_the_ai_only_get_counts_never_names_curp_or_responsible_people
     assert_eq!((profile.totals.population, profile.totals.fees_monthly_mxn), (2, 3_000));
 
     let everything = serde_json::to_string(&profile.input).unwrap();
-    let sheet = crate::diagnosis_service::profile_summary_for_tests(&c).unwrap();
+    let sheet = crate::modules::projects::diagnosis::profile_summary_for_tests(&c).unwrap();
     for secret in ["Secreta", "Reservada", "HEGG", "Oculto", "8765"] {
         assert!(!everything.contains(secret), "{secret} leaked into the profile");
         assert!(!sheet.contains(secret), "{secret} leaked into what the AI reads");
@@ -155,9 +155,9 @@ fn the_board_crosses_the_people_with_the_spaces_and_the_money() {
     assert_eq!((access.values["people"], access.items.clone(), access.for_ai), (3, vec!["2 baños (planta baja)".to_string()], true));
     let gap = b.insights.iter().find(|i| i.code == "cost_gap").unwrap();
     assert_eq!((gap.values["gap"], gap.for_ai), (6_000, false), "money never goes to the AI");
-    let sheet = crate::diagnosis_service::profile_summary_for_tests(&c).unwrap();
+    let sheet = crate::modules::projects::diagnosis::profile_summary_for_tests(&c).unwrap();
     assert!(sheet.contains("Hallazgo: 3 personas usan silla de ruedas o están en cama, y 2 espacios no se pueden usar en silla de ruedas: 2 baños (planta baja)."), "{sheet}");
-    let numbers = crate::domain::figures::digit_numbers(&sheet);
+    let numbers = crate::ai::figures::digit_numbers(&sheet);
     assert!(!numbers.contains("8000") && !numbers.contains("6000"), "{sheet}");
 }
 

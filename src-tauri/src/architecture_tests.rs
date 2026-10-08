@@ -30,8 +30,6 @@ const PLACES: &[(&str, Layer)] = &[
     ("documents", Base),
     ("scanner", Base),
     ("storage", Base),
-    ("domain", Base),
-    ("domain::figures", Base),
     // modules
     // only its mod.rs, which declares them; a new module needs its own line
     ("modules", Base),
@@ -43,24 +41,6 @@ const PLACES: &[(&str, Layer)] = &[
     ("core", Core),
     // projects
     ("modules::projects", Projects),
-    ("call_service", Projects),
-    ("conversation_service", Projects),
-    ("diagnosis_service", Projects),
-    ("drafting_service", Projects),
-    ("guide_service", Projects),
-    ("jobs", Projects),
-    ("review_service", Projects),
-    ("domain::budget", Projects),
-    ("domain::checklist", Projects),
-    ("domain::conversation", Projects),
-    ("domain::priority", Projects),
-    ("domain::requirements", Projects),
-    ("domain::schedule", Projects),
-    ("domain::sections", Projects),
-    ("domain::stage", Projects),
-    ("storage::calls", Projects),
-    ("storage::drafting", Projects),
-    ("storage::projects", Projects),
     // shell
     ("", Shell),
     ("commands", Shell),
@@ -69,21 +49,7 @@ const PLACES: &[(&str, Layer)] = &[
 ];
 
 /// What breaks the rule today: (the file, as a module path; what it uses). Each block of ADR-032 empties its part.
-const DEBT: &[(&str, &str)] = &[
-    // B5: the projects get their own error and read the institution only through `core::api`
-    ("call_service", "core"),
-    ("conversation_service", "core"),
-    ("core::error", "domain::stage"),
-    ("diagnosis_service", "core"),
-    ("documents::canonical::requirements", "domain::requirements"),
-    ("drafting_service", "core"),
-    ("guide_service", "core"),
-    ("guide_service", "modules::facilities::api"),
-    ("guide_service", "modules::facilities::domain"),
-    ("jobs", "core"),
-    ("review_service", "core"),
-    ("storage::calls", "core"),
-];
+const DEBT: &[(&str, &str)] = &[];
 
 fn segments(path: &str) -> Vec<&str> {
     path.split("::").filter(|s| !s.is_empty()).collect()

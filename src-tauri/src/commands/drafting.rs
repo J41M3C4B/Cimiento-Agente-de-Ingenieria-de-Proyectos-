@@ -3,10 +3,10 @@
 use super::guard;
 use crate::core::access::service::Session;
 use super::diagnosis::{as_dyn, make_provider, shared};
-use crate::drafting_service::{self as svc, BudgetItemInput, DraftMode, DraftOutcome, DraftingView, EditOutcome};
+use crate::modules::projects::drafting::{self as svc, BudgetItemInput, DraftMode, DraftOutcome, DraftingView, EditOutcome};
 use crate::error::UiError;
-use crate::guide_service::{self, Exported};
-use crate::review_service::{self, ReviewView};
+use crate::modules::projects::guide::{self as guide_service, Exported};
+use crate::modules::projects::review::{self as review_service, ReviewView};
 use crate::scanner::guard::Decision;
 use crate::Db;
 use tauri::{AppHandle, Manager, State};

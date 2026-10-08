@@ -9,10 +9,10 @@
 use crate::ai::pipeline::{self, AiCall, SqliteLedger};
 use crate::ai::settings::{self, ProviderKind};
 use crate::ai::{self, AiProvider, AiTask, ModelTier};
-use crate::diagnosis_service::{AiStatus, SharedDb};
-use crate::core::screen::guard_texts;
-use crate::domain::figures;
-use crate::domain::stage::{self, Stage};
+use crate::modules::projects::diagnosis::{AiStatus, SharedDb};
+use crate::core::api::guard_texts;
+use crate::ai::figures;
+use crate::modules::projects::domain::stage::{self, Stage};
 use crate::documents::canonical::assemble::{assemble, Reading};
 use crate::documents::canonical::card::{card_of, CallCard};
 use crate::documents::canonical::package::{read_pieces, Package};
@@ -22,11 +22,10 @@ use crate::documents::canonical::summary::{summarize, CallSummary};
 use crate::documents::text::{clean_text, norm, same_statement};
 use crate::scanner::guard::{Decision, QuarantineReport};
 use crate::scanner::{PublicDocScanner, RegexScanner, SensitiveScanner};
-use crate::core::error::ServiceError;
-use crate::storage::calls::{self, CallMeta, FileRole, NewFile, ReadingRow, ReadingStatus};
-use crate::storage::projects::{self as projects, ProjectRow};
+use crate::modules::projects::ProjectsError;
+use crate::modules::projects::storage::calls::{self, CallMeta, FileRole, NewFile, ReadingRow, ReadingStatus};
+use crate::modules::projects::storage::projects::{self as projects, ProjectRow};
 use crate::storage;
-use crate::core::profile::storage as profile_store;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -40,8 +39,8 @@ const MAX_FILES: usize = 12;
 /// A page with fewer letters than this has no text layer.
 const MIN_LETTERS_PER_PAGE: usize = 20;
 
-fn lock(db: &SharedDb) -> Result<std::sync::MutexGuard<'_, rusqlite::Connection>, ServiceError> {
-    db.lock().map_err(|_| ServiceError::Internal("database lock poisoned".into()))
+fn lock(db: &SharedDb) -> Result<std::sync::MutexGuard<'_, rusqlite::Connection>, ProjectsError> {
+    db.lock().map_err(|_| ProjectsError::Internal("database lock poisoned".into()))
 }
 
 /// A file as the screen sends it.
@@ -160,7 +159,7 @@ fn prepare(file: &UploadedFile, role: FileRole, scanner: &PublicDocScanner) -> R
 
 /// Checks and cleans every file of a package. `Ok(Err(..))` says which file was not taken and why; a call with
 /// a document missing gives a wrong picture, so one bad file stops the whole package.
-fn prepare_package(db: &SharedDb, files: Vec<PackageFile>) -> Result<Result<Vec<NewFile>, (String, Unreadable)>, ServiceError> {
+fn prepare_package(db: &SharedDb, files: Vec<PackageFile>) -> Result<Result<Vec<NewFile>, (String, Unreadable)>, ProjectsError> {
     if files.is_empty() {
         return Ok(Err((String::new(), Unreadable::NoFiles)));
     }
@@ -172,7 +171,7 @@ fn prepare_package(db: &SharedDb, files: Vec<PackageFile>) -> Result<Result<Vec<
     }
     let scanner = {
         let conn = lock(db)?;
-        PublicDocScanner::new(RegexScanner::new(profile_store::scanner_config(&conn)?))
+        PublicDocScanner::new(RegexScanner::new(crate::core::api::scanner_config(&conn)?))
     };
     let mut prepared = Vec::with_capacity(files.len());
     for f in &files {
@@ -213,14 +212,14 @@ pub fn create_project_from_call(
     funder: Option<&str>,
     year: Option<i64>,
     decision: Option<Decision>,
-) -> Result<NewProjectOutcome, ServiceError> {
+) -> Result<NewProjectOutcome, ProjectsError> {
     let name = name.trim();
     let funder = funder.map(str::trim).filter(|f| !f.is_empty());
     if name.is_empty() {
-        return Err(ServiceError::EmptyText);
+        return Err(ProjectsError::EmptyText);
     }
     if year.is_some_and(|y| !(MIN_YEAR..=MAX_YEAR).contains(&y)) {
-        return Err(ServiceError::InvalidYear);
+        return Err(ProjectsError::InvalidYear);
     }
     // what the person typed is scanned like any other text, before anything is saved
     let (name, funder) = {
@@ -248,8 +247,8 @@ pub fn create_project_from_call(
     let mut conn = lock(db)?;
     let (project_id, reading_id) = calls::create_project_with_call(&mut conn, &name, &request, &meta, &prepared)?;
     projects::set_stage(&mut conn, &project_id, Stage::CallSelection, false)?;
-    let project = projects::get_project(&conn, &project_id)?.ok_or(ServiceError::NotFound)?;
-    let reading = calls::get(&conn, &reading_id)?.ok_or(ServiceError::NotFound)?;
+    let project = projects::get_project(&conn, &project_id)?.ok_or(ProjectsError::NotFound)?;
+    let reading = calls::get(&conn, &reading_id)?.ok_or(ProjectsError::NotFound)?;
     Ok(NewProjectOutcome::Created { project, reading })
 }
 
@@ -316,7 +315,7 @@ pub async fn read_call(db: &SharedDb, plan: &ReadPlan, id: &str) {
         let Ok(conn) = lock(db) else { return };
         let Ok(Some(row)) = calls::get(&conn, id) else { return };
         let Ok(pages) = calls::pages_of(&conn, id) else { return };
-        let Ok(cfg) = profile_store::scanner_config(&conn) else { return };
+        let Ok(cfg) = crate::core::api::scanner_config(&conn) else { return };
         let _ = calls::set_status(&conn, id, ReadingStatus::Reading, None);
         (row.name, pages, PublicDocScanner::new(RegexScanner::new(cfg)))
     };
@@ -421,9 +420,9 @@ pub struct Quality {
     pub blocks_total: usize,
 }
 
-pub fn detail(db: &SharedDb, id: &str) -> Result<ReadingDetail, ServiceError> {
+pub fn detail(db: &SharedDb, id: &str) -> Result<ReadingDetail, ProjectsError> {
     let conn = lock(db)?;
-    let reading = calls::get(&conn, id)?.ok_or(ServiceError::NotFound)?;
+    let reading = calls::get(&conn, id)?.ok_or(ProjectsError::NotFound)?;
     let result = calls::result(&conn, id)?;
     let summary = result.as_ref().map(|(doc, _)| summarize(doc));
     let quality = result.as_ref().map(|(_, report)| {
@@ -476,15 +475,15 @@ fn brief_context(doc: &Value) -> String {
 /// its text is kept only if it brings no figure that text does not have. It is asked again once if it did. If it
 /// still does, an empty brief is kept so the same call is not paid for again; if the AI is not available, nothing is
 /// kept and a later visit tries again. The card is complete without it: a failure never blocks the person.
-pub async fn make_brief(db: &SharedDb, provider: Option<&dyn AiProvider>, id: &str) -> Result<(ReadingDetail, AiStatus), ServiceError> {
+pub async fn make_brief(db: &SharedDb, provider: Option<&dyn AiProvider>, id: &str) -> Result<(ReadingDetail, AiStatus), ProjectsError> {
     let (context, scanner) = {
         let conn = lock(db)?;
-        let row = calls::get(&conn, id)?.ok_or(ServiceError::NotFound)?;
+        let row = calls::get(&conn, id)?.ok_or(ProjectsError::NotFound)?;
         if !matches!(row.status, ReadingStatus::Ready | ReadingStatus::Partial) {
-            return Err(ServiceError::WrongStage);
+            return Err(ProjectsError::WrongStage);
         }
-        let (doc, _) = calls::result(&conn, id)?.ok_or(ServiceError::NotFound)?;
-        let cfg = profile_store::scanner_config(&conn)?;
+        let (doc, _) = calls::result(&conn, id)?.ok_or(ProjectsError::NotFound)?;
+        let cfg = crate::core::api::scanner_config(&conn)?;
         // already tried (written, or nothing usable came): nothing is asked again
         let context = if calls::brief_raw(&conn, id)?.is_some() { String::new() } else { brief_context(&doc) };
         (context, PublicDocScanner::new(RegexScanner::new(cfg)))
@@ -526,15 +525,15 @@ pub async fn make_brief(db: &SharedDb, provider: Option<&dyn AiProvider>, id: &s
 /// Puts a call that is not read (waiting, failed or partial) back to be read again. `false` if it is being read
 /// or is already complete: reading it again would only spend the allowance.
 /// The person says this is the right call. `false` if it has not been read yet: there is nothing to confirm.
-pub fn confirm(db: &SharedDb, id: &str) -> Result<bool, ServiceError> {
+pub fn confirm(db: &SharedDb, id: &str) -> Result<bool, ProjectsError> {
     let conn = lock(db)?;
-    calls::get(&conn, id)?.ok_or(ServiceError::NotFound)?;
+    calls::get(&conn, id)?.ok_or(ProjectsError::NotFound)?;
     Ok(calls::confirm(&conn, id)?)
 }
 
-pub fn prepare_retry(db: &SharedDb, id: &str) -> Result<bool, ServiceError> {
+pub fn prepare_retry(db: &SharedDb, id: &str) -> Result<bool, ProjectsError> {
     let conn = lock(db)?;
-    let row = calls::get(&conn, id)?.ok_or(ServiceError::NotFound)?;
+    let row = calls::get(&conn, id)?.ok_or(ProjectsError::NotFound)?;
     if matches!(row.status, ReadingStatus::Reading | ReadingStatus::Ready) {
         return Ok(false);
     }
@@ -575,7 +574,7 @@ mod tests {
 
     /// Saves the files as a reading with no project (the first file is the call, the rest are annexes), named
     /// after the first file unless a name is given.
-    fn ingest(db: &SharedDb, files: Vec<UploadedFile>, name: Option<String>) -> Result<IngestOutcome, ServiceError> {
+    fn ingest(db: &SharedDb, files: Vec<UploadedFile>, name: Option<String>) -> Result<IngestOutcome, ProjectsError> {
         let package = files.into_iter().enumerate().map(|(i, file)| PackageFile { file, role: if i == 0 { FileRole::Main } else { FileRole::Annex } }).collect::<Vec<_>>();
         let first = package.first().map(|f| display_name(&f.file.name)).unwrap_or_default();
         if package.is_empty() {
@@ -587,7 +586,7 @@ mod tests {
                 let title = name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty()).unwrap_or_else(|| first.rsplit_once('.').map_or(first.clone(), |(stem, _)| stem.to_string()));
                 let mut conn = lock(db)?;
                 let id = calls::create(&mut conn, &CallMeta { name: title, funder: None, year: None }, &prepared)?;
-                Ok(IngestOutcome::Saved { reading: calls::get(&conn, &id)?.ok_or(ServiceError::NotFound)? })
+                Ok(IngestOutcome::Saved { reading: calls::get(&conn, &id)?.ok_or(ProjectsError::NotFound)? })
             }
         }
     }
@@ -847,7 +846,7 @@ mod tests {
         assert!(d.card.is_some() && d.brief_pending, "nothing was kept: it can be tried again");
         // a call that has not been read cannot have one
         let waiting = saved(ingest(&db, vec![upload("otra.pdf", fixture("convocatoria-con-tablas.pdf"))], None).unwrap());
-        assert!(matches!(make_brief(&db, None, &waiting.id).await, Err(ServiceError::WrongStage)));
+        assert!(matches!(make_brief(&db, None, &waiting.id).await, Err(ProjectsError::WrongStage)));
     }
 
     #[tokio::test]
@@ -866,6 +865,7 @@ mod tests {
 
     fn setup_with_profile() -> (tempfile::TempDir, SharedDb) {
         use crate::core::profile::domain::*;
+        use crate::core::profile::storage as profile_store;
         let (d, db) = setup();
         {
             let mut c = db.lock().unwrap();
@@ -912,7 +912,7 @@ mod tests {
         let (_d, db) = setup();
         let good = || package(vec![("bases.pdf", fixture("convocatoria-con-tablas.pdf"), FileRole::Main)]);
         // no confirmed profile
-        assert!(matches!(create_project_from_call(&db, good(), "X", None, None, None), Err(ServiceError::Stage(_))));
+        assert!(matches!(create_project_from_call(&db, good(), "X", None, None, None), Err(ProjectsError::Stage(_))));
         let (_d2, db) = setup_with_profile();
         let unreadable = |files: Vec<PackageFile>| match create_project_from_call(&db, files, "X", None, None, None).unwrap() {
             NewProjectOutcome::Unreadable { reason, .. } => reason,
@@ -925,8 +925,8 @@ mod tests {
         assert_eq!(unreadable(package(vec![("a.pdf", fixture("convocatoria-con-tablas.pdf"), FileRole::Main), ("b.pdf", fixture("convocatoria-con-tablas.pdf"), FileRole::Main)])), Unreadable::NoMainFile);
         // a bad file among good ones stops the whole package
         assert_eq!(unreadable(package(vec![("a.pdf", fixture("convocatoria-con-tablas.pdf"), FileRole::Main), ("b.docx", b"x".to_vec(), FileRole::Annex)])), Unreadable::Damaged);
-        assert!(matches!(create_project_from_call(&db, good(), "   ", None, None, None), Err(ServiceError::EmptyText)));
-        assert!(matches!(create_project_from_call(&db, good(), "X", None, Some(26), None), Err(ServiceError::InvalidYear)));
+        assert!(matches!(create_project_from_call(&db, good(), "   ", None, None, None), Err(ProjectsError::EmptyText)));
+        assert!(matches!(create_project_from_call(&db, good(), "X", None, Some(26), None), Err(ProjectsError::InvalidYear)));
         // a name that looks like data of a person is held for the person to decide
         let held = create_project_from_call(&db, good(), "Para LOPM800101MDFRZN09", None, None, None).unwrap();
         assert!(matches!(held, NewProjectOutcome::Quarantine { .. }));

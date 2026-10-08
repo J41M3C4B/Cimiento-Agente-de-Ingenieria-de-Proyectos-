@@ -340,7 +340,7 @@ mod tests {
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };
         crate::core::profile::storage::save(&mut c, &input).unwrap();
         crate::core::profile::storage::confirm(&mut c).unwrap();
-        let p = crate::storage::projects::create_project(&mut c, "Proyecto", None).unwrap();
+        let p = crate::modules::projects::storage::projects::create_project(&mut c, "Proyecto", None).unwrap();
         // data of a person written straight into the database, as a bug or an old version might have left it
         c.execute(
             "INSERT INTO project_section (id,project_id,section_key,content,needs_review,updated_at,origin) VALUES ('s',?1,'what','La señora con CURP LOPM800101MDFRZN09 pidió ayuda.',0,'t','user')",
@@ -367,7 +367,7 @@ mod tests {
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };
         crate::core::profile::storage::save(&mut c, &input).unwrap();
         crate::core::profile::storage::confirm(&mut c).unwrap();
-        crate::storage::projects::create_project(&mut c, title, None).unwrap();
+        crate::modules::projects::storage::projects::create_project(&mut c, title, None).unwrap();
         (path, Arc::new(Mutex::new(c)))
     }
 

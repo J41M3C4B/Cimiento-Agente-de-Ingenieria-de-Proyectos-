@@ -65,7 +65,7 @@ fn the_profile_and_the_ai_only_get_aggregates_never_names_identifiers_or_pay() {
     assert_eq!(change.overview.totals.payroll_monthly_mxn, 14_000);
 
     let everything = serde_json::to_string(&profile.input).unwrap();
-    let sheet = crate::diagnosis_service::profile_summary_for_tests(&c).unwrap();
+    let sheet = crate::modules::projects::diagnosis::profile_summary_for_tests(&c).unwrap();
     for secret in ["Secreta", "Oculta", "Pérez", "HEGG", "55 1234", "Luis Contacto", "55 8765"] {
         assert!(!everything.contains(secret), "{secret} leaked into the profile");
         assert!(!sheet.contains(secret), "{secret} leaked into what the AI reads");

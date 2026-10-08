@@ -73,7 +73,7 @@ mod tests {
     use super::*;
     use crate::core::profile::domain::*;
     use crate::core::profile::storage as profile;
-    use crate::storage::projects;
+    use crate::modules::projects::storage::projects;
 
     const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
     const OTHER_KEY: &str = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";

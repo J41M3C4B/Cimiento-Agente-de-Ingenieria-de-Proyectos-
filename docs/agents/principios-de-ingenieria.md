@@ -47,7 +47,7 @@ fixtures/            # Datos ficticios
 schemas/             # Esquema canónico de convocatorias (JSON Schema)
 ```
 
-Mientras se aplican los bloques del ADR-032 conviven las rutas viejas (`*_service.rs`, `domain/`, `hr/`…). La tabla `PLACES` de `architecture_tests.rs` dice a qué capa pertenece cada archivo. Detalle en `docs/01-arquitectura.md`.
+La tabla `PLACES` de `architecture_tests.rs` dice a qué capa pertenece cada carpeta; un módulo nuevo agrega ahí su línea. `figures` (que la IA no invente cifras) vive en `ai/`. Detalle en `docs/01-arquitectura.md`.
 
 ## Reglas de código
 

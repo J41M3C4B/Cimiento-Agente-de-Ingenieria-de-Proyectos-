@@ -6,15 +6,16 @@
 //! made up in its place.
 
 use crate::ai::{AiProvider, AiTask};
-use crate::diagnosis_service::{ask_ai, lock, profile_context, AiStatus, SharedDb};
-use crate::core::screen::guard_texts;
+use crate::modules::projects::diagnosis::{ask_ai, lock, profile_context, AiStatus, SharedDb};
+use crate::core::api::guard_texts;
 use crate::documents::canonical::summary::summarize;
-use crate::domain::conversation::{self as conv, Cause, Kind, Outcome, Phase, Reply, Role, Step, Tactic, MAX_WHYS};
-use crate::domain::{figures, stage::Stage};
+use crate::modules::projects::domain::conversation::{self as conv, Cause, Kind, Outcome, Phase, Reply, Role, Step, Tactic, MAX_WHYS};
+use crate::ai::figures;
+use crate::modules::projects::domain::stage::Stage;
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::core::error::ServiceError;
-use crate::storage::calls;
-use crate::storage::projects::{self as store, ProjectRow, StoredSummary, TurnRow};
+use crate::modules::projects::ProjectsError;
+use crate::modules::projects::storage::calls;
+use crate::modules::projects::storage::projects::{self as store, ProjectRow, StoredSummary, TurnRow};
 use rusqlite::Connection;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -79,7 +80,7 @@ pub struct ConversationView {
 }
 
 /// What the AI is told about the call: the part of the confirmed reading that says what it is for.
-pub(crate) fn call_context(conn: &Connection, project: &ProjectRow) -> Result<String, ServiceError> {
+pub(crate) fn call_context(conn: &Connection, project: &ProjectRow) -> Result<String, ProjectsError> {
     let Some(reading_id) = &project.call_reading_id else { return Ok("Convocatoria: sin lectura.".into()) };
     let ctx = calls::result(conn, reading_id)?.map(|(doc, _)| summarize(&doc).context_text(CALL_CONTEXT_CHARS)).unwrap_or_default();
     Ok(if ctx.is_empty() { "Convocatoria: sin lectura.".into() } else { ctx })
@@ -107,14 +108,14 @@ pub(crate) fn person_words(turns: &[TurnRow]) -> String {
 }
 
 /// Where a figure written by the AI may come from: what the person said, the profile and the call.
-pub(crate) fn figure_sources(conn: &Connection, project: &ProjectRow, turns: &[TurnRow]) -> Result<Vec<String>, ServiceError> {
+pub(crate) fn figure_sources(conn: &Connection, project: &ProjectRow, turns: &[TurnRow]) -> Result<Vec<String>, ProjectsError> {
     let mut v = vec![profile_context(conn)?, call_context(conn, project)?];
     v.extend(turns.iter().filter(|t| t.role == Role::Person).map(|t| t.text.clone()));
     Ok(v)
 }
 
-pub fn conversation_view(conn: &Connection, project_id: &str) -> Result<ConversationView, ServiceError> {
-    let project = store::get_project(conn, project_id)?.ok_or(ServiceError::NotFound)?;
+pub fn conversation_view(conn: &Connection, project_id: &str) -> Result<ConversationView, ProjectsError> {
+    let project = store::get_project(conn, project_id)?.ok_or(ProjectsError::NotFound)?;
     let rows = store::turns(conn, project_id)?;
     let facts: Vec<_> = rows.iter().map(TurnRow::facts).collect();
     let root = store::get_root(conn, project_id)?;
@@ -129,7 +130,7 @@ pub fn conversation_view(conn: &Connection, project_id: &str) -> Result<Conversa
     };
     let summary = store::get_summary(conn, project_id)?;
     let unsupported_figures = match &summary {
-        Some(s) if s.origin == "ai_assumption" => crate::diagnosis_service::check_summary_figures(&s.summary, &figure_sources(conn, &project, &rows)?),
+        Some(s) if s.origin == "ai_assumption" => crate::modules::projects::diagnosis::check_summary_figures(&s.summary, &figure_sources(conn, &project, &rows)?),
         _ => vec![],
     };
     let legacy = rows.is_empty() && store::has_legacy_answers(conn, project_id)?;
@@ -198,7 +199,7 @@ fn proposal_message(hypothesis: &str) -> String {
     format!("Entonces la causa de fondo parece ser: «{hypothesis}». ¿Es así?")
 }
 
-fn saved(conn: &Connection, project_id: &str, ai: AiStatus) -> Result<AnswerOutcome, ServiceError> {
+fn saved(conn: &Connection, project_id: &str, ai: AiStatus) -> Result<AnswerOutcome, ProjectsError> {
     Ok(AnswerOutcome::Saved { view: conversation_view(conn, project_id)?, ai })
 }
 
@@ -214,13 +215,13 @@ fn last_verified_cause(turns: &[TurnRow]) -> Option<String> {
 
 /// Does what is owed after the turns stored so far: asks the AI for the next message, or closes the
 /// conversation with the person's own words. Safe to call again (a retry): it only acts if something is owed.
-async fn advance(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<AnswerOutcome, ServiceError> {
+async fn advance(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<AnswerOutcome, ProjectsError> {
     // 1. what is owed
     let (step, project, rows, person_text) = {
         let conn = lock(db)?;
-        let project = store::get_project(&conn, project_id)?.ok_or(ServiceError::NotFound)?;
+        let project = store::get_project(&conn, project_id)?.ok_or(ProjectsError::NotFound)?;
         if project.stage != Stage::Diagnosis {
-            return Err(ServiceError::WrongStage);
+            return Err(ProjectsError::WrongStage);
         }
         let rows = store::turns(&conn, project_id)?;
         let facts: Vec<_> = rows.iter().map(TurnRow::facts).collect();
@@ -309,12 +310,12 @@ async fn advance(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &
 
 /// Starts the conversation: asks the AI for the opening question. Idempotent: if the opening exists, nothing
 /// is asked (and nothing is billed) again.
-pub async fn start_conversation(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<AnswerOutcome, ServiceError> {
+pub async fn start_conversation(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<AnswerOutcome, ProjectsError> {
     {
         let conn = lock(db)?;
         let view = conversation_view(&conn, project_id)?;
         if view.project.stage != Stage::Diagnosis {
-            return Err(ServiceError::WrongStage);
+            return Err(ProjectsError::WrongStage);
         }
         if view.phase != Phase::NeedsOpening {
             return Ok(AnswerOutcome::Saved { view, ai: AiStatus::Skipped });
@@ -324,7 +325,7 @@ pub async fn start_conversation(db: &SharedDb, provider: Option<&dyn AiProvider>
 }
 
 /// The AI owes a message (it failed or was interrupted): asks again without the person writing anything.
-pub async fn retry(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<AnswerOutcome, ServiceError> {
+pub async fn retry(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<AnswerOutcome, ProjectsError> {
     advance(db, provider, project_id).await
 }
 
@@ -337,12 +338,12 @@ pub async fn send_message(
     text: &str,
     confirm_root: bool,
     decision: Option<Decision>,
-) -> Result<AnswerOutcome, ServiceError> {
+) -> Result<AnswerOutcome, ProjectsError> {
     {
         let conn = lock(db)?;
         let view = conversation_view(&conn, project_id)?;
         if view.project.stage != Stage::Diagnosis {
-            return Err(ServiceError::WrongStage);
+            return Err(ProjectsError::WrongStage);
         }
         let none: [String; 0] = [];
         match (view.phase, confirm_root) {
@@ -353,13 +354,13 @@ pub async fn send_message(
                 return saved(&conn, project_id, AiStatus::Skipped);
             }
             (Phase::AwaitingAnswer, false) | (Phase::RootProposed, false) => {}
-            _ => return Err(ServiceError::WrongStage),
+            _ => return Err(ProjectsError::WrongStage),
         }
         if text.trim().is_empty() {
-            return Err(ServiceError::EmptyText);
+            return Err(ProjectsError::EmptyText);
         }
         if text.len() > MAX_MESSAGE_BYTES {
-            return Err(ServiceError::TextTooLarge);
+            return Err(ProjectsError::TextTooLarge);
         }
         let fields = vec![("answer".to_string(), text.to_string())];
         let clean = match guard_texts(&conn, "conversation_answer", &fields, decision)? {
@@ -367,7 +368,7 @@ pub async fn send_message(
             Err(report) => return Ok(AnswerOutcome::Quarantine { report }),
         };
         // what is it answering? the opening, a «why», or the proposal of the root cause
-        let last = view.turns.last().ok_or(ServiceError::WrongStage)?;
+        let last = view.turns.last().ok_or(ProjectsError::WrongStage)?;
         let (kind, level) = if last.kind == Kind::RootProposal { (Kind::RootReply, None) } else { (last.kind, last.level) };
         store::add_turn(&conn, project_id, Role::Person, kind, level, &clean, &none, &json!({}))?;
     }
@@ -375,5 +376,5 @@ pub async fn send_message(
 }
 
 #[cfg(test)]
-#[path = "conversation_service_tests.rs"]
+#[path = "conversation_tests.rs"]
 mod tests;

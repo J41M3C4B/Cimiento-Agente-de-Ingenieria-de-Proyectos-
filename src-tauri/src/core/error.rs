@@ -22,16 +22,6 @@ pub enum ServiceError {
     InvalidRoster(&'static str),
     #[error("empty text")]
     EmptyText,
-    #[error("the year of the call is not valid")]
-    InvalidYear,
-    #[error("a budget line needs a quantity above zero and a price that is not negative")]
-    InvalidBudgetItem,
-    #[error("some budget lines have no cost yet")]
-    BudgetIncomplete,
-    #[error("the months of an activity are not valid")]
-    InvalidActivity,
-    #[error("the guide carries data that identifies a person")]
-    GuideHasPersonalData,
     #[error("the PIN is not four to eight digits")]
     InvalidPin,
     #[error("the PIN is not the right one")]
@@ -42,14 +32,6 @@ pub enum ServiceError {
     UnknownKind,
     #[error("not found")]
     NotFound,
-    #[error("not available at this stage")]
-    WrongStage,
-    #[error("the AI is already working on something for this project")]
-    AlreadyRunning,
-    #[error(transparent)]
-    Stage(#[from] crate::domain::stage::StageError),
-    #[error("priority error: {0}")]
-    Priority(String),
     #[error("internal error: {0}")]
     Internal(String),
     #[error("staff module: {0}")]

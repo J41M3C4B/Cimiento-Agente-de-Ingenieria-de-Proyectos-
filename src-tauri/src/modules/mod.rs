@@ -7,3 +7,4 @@ pub mod care;
 pub mod facilities;
 pub mod finance;
 pub mod hr;
+pub mod projects;

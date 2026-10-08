@@ -856,7 +856,7 @@ pub(crate) mod tests {
         let stored = profile_store::load_current(&c).unwrap().unwrap();
         let t = stored.input.totals(stored.as_of_year);
         let f = crate::core::bridge::finance::finances(&c).unwrap();
-        let numbers = crate::domain::figures::digit_numbers(&ctx);
+        let numbers = crate::ai::figures::digit_numbers(&ctx);
         for hidden in [t.payroll_monthly_mxn, t.payroll_annual_mxn, t.payroll_benefits_annual_mxn, t.payroll_cost_annual_mxn,
                        t.fees_monthly_mxn, t.fees_annual_mxn, f.income_annual_mxn, f.expenses_annual_mxn.unwrap(), f.balance_annual_mxn.unwrap()] {
             assert!(!numbers.contains(&hidden.abs().to_string()), "«{hidden}» leaked:\n{ctx}");
@@ -920,7 +920,7 @@ pub(crate) mod tests {
         // the years of operation change with the year the test runs
         let operating = (profile_store::current_year(&c).unwrap() - 1987).to_string();
         let allowed = [operating.as_str(), "1987", "25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9", "89", "79", "60", "69", "90", "65", "77", "2", "6", "20", "50", "600"];
-        for n in crate::domain::figures::digit_numbers(&ctx) {
+        for n in crate::ai::figures::digit_numbers(&ctx) {
             assert!(allowed.contains(&n.as_str()), "unexpected number {n} in the sheet:\n{ctx}");
         }
     }
@@ -947,7 +947,7 @@ pub(crate) mod tests {
         assert!(ctx.contains("Ingreso — cuotas de los beneficiarios (del padrón)"), "{ctx}");
         let t = stored.input.totals(stored.as_of_year);
         for hidden in [t.payroll_monthly_mxn, t.payroll_annual_mxn, t.payroll_cost_annual_mxn, t.fees_monthly_mxn, t.fees_annual_mxn] {
-            assert!(!crate::domain::figures::digit_numbers(&ctx).contains(&hidden.to_string()), "a sum of pay or fees ({hidden}) leaked:\n{ctx}");
+            assert!(!crate::ai::figures::digit_numbers(&ctx).contains(&hidden.to_string()), "a sum of pay or fees ({hidden}) leaked:\n{ctx}");
         }
         assert!(!ctx.contains("Esperanza Robles") && !ctx.contains("Vázquez"), "no name:\n{ctx}");
         for st in &stored.input.staff {

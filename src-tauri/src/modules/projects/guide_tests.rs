@@ -1,6 +1,6 @@
 use super::*;
-use crate::diagnosis_service::advance;
-use crate::domain::checklist::Level;
+use crate::modules::projects::diagnosis::advance;
+use crate::modules::projects::domain::checklist::Level;
 use crate::test_support::*;
 use serde_json::json;
 
@@ -33,7 +33,7 @@ fn a_file_name_is_safe_in_any_folder_and_never_overwrites() {
 async fn the_review_names_everything_that_is_missing_and_a_complete_project_is_clean() {
     let (_d, db) = profile_db();
     let pid = project_in_drafting(&db).await;
-    let rep = crate::review_service::review(&db.lock().unwrap(), &pid).unwrap().report;
+    let rep = crate::modules::projects::review::review(&db.lock().unwrap(), &pid).unwrap().report;
     let codes: Vec<_> = rep.checks.iter().map(|c| c.code).collect();
     assert!(codes.contains(&"no_budget") && codes.contains(&"no_schedule") && codes.contains(&"section_not_confirmed"), "{codes:?}");
     assert!(!rep.clean());
@@ -42,26 +42,26 @@ async fn the_review_names_everything_that_is_missing_and_a_complete_project_is_c
 
     let (_d2, db2) = profile_db();
     let pid2 = project_fully_drafted(&db2).await;
-    let rep = crate::review_service::review(&db2.lock().unwrap(), &pid2).unwrap().report;
+    let rep = crate::modules::projects::review::review(&db2.lock().unwrap(), &pid2).unwrap().report;
     assert!(rep.clean(), "{:?}", rep.checks.iter().map(|c| (&c.code, &c.text)).collect::<Vec<_>>());
     assert!(rep.checks.iter().any(|c| c.code == "docs_to_gather" || c.level == Level::Info) || rep.checks.is_empty());
 }
 
 #[tokio::test]
 async fn a_figure_over_what_the_call_allows_blocks_the_review_with_words_that_say_both_numbers() {
-    use crate::drafting_service::{confirm_budget, save_budget_item, BudgetItemInput};
+    use crate::modules::projects::drafting::{confirm_budget, save_budget_item, BudgetItemInput};
     let (_d, db) = profile_db();
     let pid = project_fully_drafted(&db).await;
     save_budget_item(
         &db,
         &pid,
-        BudgetItemInput { id: None, category: "obra".into(), description: "Remodelación completa".into(), quantity: 1.0, unit: None, unit_price_mxn: 300_000.0, vat_included: true, funded_by: crate::domain::budget::Funder::Requested, administrative: false },
+        BudgetItemInput { id: None, category: "obra".into(), description: "Remodelación completa".into(), quantity: 1.0, unit: None, unit_price_mxn: 300_000.0, vat_included: true, funded_by: crate::modules::projects::domain::budget::Funder::Requested, administrative: false },
         None,
     )
     .unwrap();
     confirm_budget(&db, &pid).unwrap();
     // the text about the cost was marked for review when the budget changed
-    let rep = crate::review_service::review(&db.lock().unwrap(), &pid).unwrap().report;
+    let rep = crate::modules::projects::review::review(&db.lock().unwrap(), &pid).unwrap().report;
     let over = rep.checks.iter().find(|c| c.code == "amount_over_max").expect("over the maximum");
     assert!(over.text.contains("$302,320.00") && over.text.contains("$250,000.00"), "{}", over.text);
     assert!(rep.checks.iter().any(|c| c.code == "section_not_confirmed" && c.target.as_deref() == Some("how_much")));
@@ -75,10 +75,10 @@ async fn data_of_a_person_that_got_past_the_scanner_blocks_the_review() {
     {
         // written straight into the database, as a bug or an old version might have left it
         let conn = db.lock().unwrap();
-        crate::storage::drafting::save_section(&conn, &pid, "what", "La señora con CURP LOPM800101MDFRZN09 pidió la obra.", "user", None).unwrap();
-        crate::storage::drafting::confirm_section(&conn, &pid, "what").unwrap();
+        crate::modules::projects::storage::drafting::save_section(&conn, &pid, "what", "La señora con CURP LOPM800101MDFRZN09 pidió la obra.", "user", None).unwrap();
+        crate::modules::projects::storage::drafting::confirm_section(&conn, &pid, "what").unwrap();
     }
-    let rep = crate::review_service::review(&db.lock().unwrap(), &pid).unwrap().report;
+    let rep = crate::modules::projects::review::review(&db.lock().unwrap(), &pid).unwrap().report;
     let c = rep.checks.iter().find(|c| c.code == "scanner_findings").expect("the scanner found it");
     assert!(c.text.contains("1 datos"), "{}", c.text);
     assert!(!rep.clean() && advance(&db, &pid).is_err());
@@ -140,34 +140,34 @@ async fn the_guide_only_exists_in_the_last_stage_and_when_the_review_is_clean() 
     let (_d, db) = profile_db();
     let pid = project_in_review(&db).await;
     let dir = tempfile::tempdir().unwrap();
-    assert!(matches!(export_guide(&db, &pid, dir.path()), Err(ServiceError::WrongStage)));
+    assert!(matches!(export_guide(&db, &pid, dir.path()), Err(ProjectsError::WrongStage)));
     advance(&db, &pid).unwrap();
     // something changes after the review: the guide is refused until it is fixed
-    crate::storage::drafting::unconfirm_section(&db.lock().unwrap(), &pid, "what").unwrap();
-    assert!(matches!(export_guide(&db, &pid, dir.path()), Err(ServiceError::Stage(_))));
+    crate::modules::projects::storage::drafting::unconfirm_section(&db.lock().unwrap(), &pid, "what").unwrap();
+    assert!(matches!(export_guide(&db, &pid, dir.path()), Err(ProjectsError::Stage(_))));
     assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0, "nothing was written");
     let _ = json!(null);
 }
 
 #[tokio::test]
 async fn when_the_call_asks_for_a_proposal_the_guide_follows_its_structure() {
-    use crate::drafting_service::{confirm_text, save_text};
+    use crate::modules::projects::drafting::{confirm_text, save_text};
     let (_d, db) = profile_db();
     let pid = project_fully_drafted(&db).await;
     // the call lists what the proposal must include; the person confirms that it asks for one
     {
         let conn = db.lock().unwrap();
-        let reading = crate::storage::projects::get_project(&conn, &pid).unwrap().unwrap().call_reading_id.unwrap();
+        let reading = crate::modules::projects::storage::projects::get_project(&conn, &pid).unwrap().unwrap().call_reading_id.unwrap();
         let mut doc = canonical_doc();
         doc["proyecto"] = json!({ "requisitos_del_proyecto": { "estado": "encontrado", "elementos": [
             { "titulo": "Justificación del problema", "evidencias": [{ "cita": "Justificación del problema", "pagina": 7, "documento": "bases.pdf" }], "aplica_a": null, "obligatoriedad": "obligatorio" }
         ] } });
-        crate::storage::calls::finish(&conn, &reading, crate::storage::calls::ReadingStatus::Ready, None, Some(&doc), &json!({})).unwrap();
+        crate::modules::projects::storage::calls::finish(&conn, &reading, crate::modules::projects::storage::calls::ReadingStatus::Ready, None, Some(&doc), &json!({})).unwrap();
     }
-    crate::drafting_service::set_asks_for_proposal(&db, &pid, true).unwrap();
+    crate::modules::projects::drafting::set_asks_for_proposal(&db, &pid, true).unwrap();
     // the new requirement has no text yet, so the project is not ready to move on
     assert!(advance(&db, &pid).is_err());
-    let key = crate::drafting_service::drafting_view(&db.lock().unwrap(), &pid).unwrap().sections.iter().find(|s| s.spec.title == "Justificación del problema").unwrap().spec.key.clone();
+    let key = crate::modules::projects::drafting::drafting_view(&db.lock().unwrap(), &pid).unwrap().sections.iter().find(|s| s.spec.title == "Justificación del problema").unwrap().spec.key.clone();
     save_text(&db, &pid, &key, "La casa necesita un sistema de mantenimiento.", None).unwrap();
     confirm_text(&db, &pid, &key).unwrap();
     // the budget and the schedule keep their confirmation; the call-driven sections are confirmed: the stage moves

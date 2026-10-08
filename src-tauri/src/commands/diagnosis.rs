@@ -1,22 +1,22 @@
 ﻿//! Commands for the AI settings, projects, diagnosis and needs. Thin: they build the
-//! provider (the API key never leaves Rust) and call `diagnosis_service`.
+//! provider (the API key never leaves Rust) and call `modules::projects::diagnosis`.
 
 use super::guard;
 use crate::core::access::service::Session;
 use crate::ai::metrics::{self, UsageReport};
 use crate::ai::settings::{self, AiSettings, ProviderKind};
 use crate::ai::{self, AiError, AiProvider, ModelCheck, ModelTier};
-use crate::conversation_service::{self as convo, AnswerOutcome, ConversationView};
-use crate::diagnosis_service::{
+use crate::modules::projects::conversation::{self as convo, AnswerOutcome, ConversationView};
+use crate::modules::projects::diagnosis::{
     self as svc, AddNeedOutcome, AiStatus, CreateProjectOutcome, EditOutcome, NeedsView, SharedDb, SummaryEdit, SummaryOutcome,
 };
-use crate::domain::priority::Scores;
-use crate::domain::stage::Stage;
+use crate::modules::projects::domain::priority::Scores;
+use crate::modules::projects::domain::stage::Stage;
 use crate::error::UiError;
-use crate::jobs::{JobGuard, JobKind, JobStatus, Jobs};
+use crate::modules::projects::jobs::{JobGuard, JobKind, JobStatus, Jobs};
 use crate::scanner::guard::Decision;
 use crate::core::error::ServiceError;
-use crate::storage::projects::{self as store, ProjectRow};
+use crate::modules::projects::storage::projects::{self as store, ProjectRow};
 use crate::storage::{self, StorageError};
 use crate::Db;
 use serde::Serialize;

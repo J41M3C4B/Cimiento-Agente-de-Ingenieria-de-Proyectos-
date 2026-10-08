@@ -196,7 +196,7 @@ pub fn run(f: &Facts) -> Report {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::requirements::{Line, Sourced};
+    use crate::modules::projects::domain::requirements::{Line, Sourced};
 
     fn sourced<T>(value: T) -> Option<Sourced<T>> {
         Some(Sourced { value, page: Some(2), file: Some("bases.pdf".into()) })

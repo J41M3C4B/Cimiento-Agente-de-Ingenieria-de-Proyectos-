@@ -1,18 +1,17 @@
 //! Use cases of the stages after the conversation: summary, needs, stage moves. The conversation itself is in
-//! `conversation_service`. Code keeps the flow and the numbers; the AI only words text.
+//! `conversation`. Code keeps the flow and the numbers; the AI only words text.
 
 use crate::ai::pipeline::{self, AiCall, SqliteLedger};
 use crate::ai::{prompts, AiError, AiProvider, AiTask};
-use crate::conversation_service::{call_context, conversation_view, figure_sources, person_words, transcript, ConversationView};
-use crate::domain::conversation::Phase;
-use crate::domain::figures;
-use crate::domain::priority::{self, Scores, Weights};
-use crate::domain::stage::{self, Missing, Stage, StageError};
+use crate::modules::projects::conversation::{call_context, conversation_view, figure_sources, person_words, transcript, ConversationView};
+use crate::modules::projects::domain::conversation::Phase;
+use crate::ai::figures;
+use crate::modules::projects::domain::priority::{self, Scores, Weights};
+use crate::modules::projects::domain::stage::{self, Missing, Stage, StageError};
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::core::screen::guard_texts;
-use crate::core::error::ServiceError;
-use crate::core::profile::storage as profile_store;
-use crate::storage::projects::{self as store, NeedRow, ProjectRow};
+use crate::core::api::guard_texts;
+use crate::modules::projects::ProjectsError;
+use crate::modules::projects::storage::projects::{self as store, NeedRow, ProjectRow};
 use crate::scanner::RegexScanner;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -51,20 +50,20 @@ impl From<&AiError> for AiStatus {
     }
 }
 
-pub(crate) fn lock(db: &SharedDb) -> Result<std::sync::MutexGuard<'_, Connection>, ServiceError> {
-    db.lock().map_err(|_| ServiceError::Internal("database lock poisoned".into()))
+pub(crate) fn lock(db: &SharedDb) -> Result<std::sync::MutexGuard<'_, Connection>, ProjectsError> {
+    db.lock().map_err(|_| ProjectsError::Internal("database lock poisoned".into()))
 }
 
 
 // ------------------------------------------------------------------ context for the AI
 
 #[cfg(test)]
-pub fn profile_summary_for_tests(conn: &Connection) -> Result<String, ServiceError> {
-    profile_context(conn)
+pub fn profile_summary_for_tests(conn: &Connection) -> Result<String, ProjectsError> {
+    Ok(profile_context(conn)?)
 }
 
-/// What the AI reads about the institution: the sheet built in `institution_context` (aggregates only).
-pub use crate::core::ai_sheet::profile_context;
+/// What the AI reads about the institution: the sheet the core builds (`core::api::institution_sheet`, aggregates only).
+pub use crate::core::api::institution_sheet as profile_context;
 
 // ------------------------------------------------------------------ views
 
@@ -95,9 +94,9 @@ pub enum CreateProjectOutcome {
     Quarantine { report: QuarantineReport },
 }
 
-pub fn create_project(db: &SharedDb, initial_request: &str, decision: Option<Decision>) -> Result<CreateProjectOutcome, ServiceError> {
+pub fn create_project(db: &SharedDb, initial_request: &str, decision: Option<Decision>) -> Result<CreateProjectOutcome, ProjectsError> {
     if initial_request.trim().is_empty() {
-        return Err(ServiceError::EmptyText);
+        return Err(ProjectsError::EmptyText);
     }
     let mut conn = lock(db)?;
     let facts = store::facts(&conn, "")?;
@@ -110,31 +109,31 @@ pub fn create_project(db: &SharedDb, initial_request: &str, decision: Option<Dec
     let title: String = text.trim().chars().take(80).collect();
     let project = store::create_project(&mut conn, &title, Some(&text))?;
     store::set_stage(&mut conn, &project.id, Stage::Diagnosis, false)?;
-    let project = store::get_project(&conn, &project.id)?.ok_or(ServiceError::NotFound)?;
+    let project = store::get_project(&conn, &project.id)?.ok_or(ProjectsError::NotFound)?;
     Ok(CreateProjectOutcome::Created { project })
 }
 
-pub fn advance(db: &SharedDb, project_id: &str) -> Result<ProjectRow, ServiceError> {
+pub fn advance(db: &SharedDb, project_id: &str) -> Result<ProjectRow, ProjectsError> {
     let mut conn = lock(db)?;
-    let project = store::get_project(&conn, project_id)?.ok_or(ServiceError::NotFound)?;
+    let project = store::get_project(&conn, project_id)?.ok_or(ProjectsError::NotFound)?;
     let mut facts = store::facts(&conn, project_id)?;
     // these two need the plan of sections and the review of the whole project, which the database alone cannot say
     match project.stage {
-        Stage::Drafting => facts.sections_confirmed = crate::drafting_service::sections_confirmed(&conn, project_id)?,
-        Stage::Review => facts.checklist_clean = crate::review_service::review(&conn, project_id)?.report.clean(),
+        Stage::Drafting => facts.sections_confirmed = crate::modules::projects::drafting::sections_confirmed(&conn, project_id)?,
+        Stage::Review => facts.checklist_clean = crate::modules::projects::review::review(&conn, project_id)?.report.clean(),
         _ => {}
     }
     let next = stage::advance(project.stage, &facts)?;
     store::set_stage(&mut conn, project_id, next, false)?;
-    Ok(store::get_project(&conn, project_id)?.ok_or(ServiceError::NotFound)?)
+    Ok(store::get_project(&conn, project_id)?.ok_or(ProjectsError::NotFound)?)
 }
 
-pub fn go_back(db: &SharedDb, project_id: &str, target: Stage) -> Result<ProjectRow, ServiceError> {
+pub fn go_back(db: &SharedDb, project_id: &str, target: Stage) -> Result<ProjectRow, ProjectsError> {
     let mut conn = lock(db)?;
-    let project = store::get_project(&conn, project_id)?.ok_or(ServiceError::NotFound)?;
+    let project = store::get_project(&conn, project_id)?.ok_or(ProjectsError::NotFound)?;
     let out = stage::go_back(project.stage, target)?;
     store::set_stage(&mut conn, project_id, out.new_stage, !out.needs_review.is_empty())?;
-    Ok(store::get_project(&conn, project_id)?.ok_or(ServiceError::NotFound)?)
+    Ok(store::get_project(&conn, project_id)?.ok_or(ProjectsError::NotFound)?)
 }
 
 // ------------------------------------------------------------------ the AI
@@ -150,7 +149,7 @@ pub(crate) async fn ask_ai(
     let provider = provider.ok_or(AiError::NoApiKey)?;
     let scanner = {
         let conn = db.lock().map_err(|_| AiError::Internal("lock".into()))?;
-        let cfg = profile_store::scanner_config(&conn).map_err(|e| AiError::Internal(e.to_string()))?;
+        let cfg = crate::core::api::scanner_config(&conn).map_err(|e| AiError::Internal(e.to_string()))?;
         RegexScanner::new(cfg)
     };
     let ledger = SqliteLedger(db.clone());
@@ -172,12 +171,12 @@ pub async fn generate_summary(
     db: &SharedDb,
     provider: Option<&dyn AiProvider>,
     project_id: &str,
-) -> Result<SummaryOutcome, ServiceError> {
+) -> Result<SummaryOutcome, ProjectsError> {
     let (context, sources) = {
         let conn = lock(db)?;
         let view = conversation_view(&conn, project_id)?;
         if view.phase != Phase::Closed {
-            return Err(ServiceError::WrongStage);
+            return Err(ProjectsError::WrongStage);
         }
         // what the person confirmed or corrected is theirs: a late or repeated request never writes over it
         if view.summary.as_ref().is_some_and(|s| s.confirmed_at.is_some() || s.origin != "ai_assumption") {
@@ -241,9 +240,9 @@ pub enum EditOutcome {
     Quarantine { report: QuarantineReport },
 }
 
-pub fn edit_summary(db: &SharedDb, project_id: &str, edit: SummaryEdit, decision: Option<Decision>) -> Result<EditOutcome, ServiceError> {
+pub fn edit_summary(db: &SharedDb, project_id: &str, edit: SummaryEdit, decision: Option<Decision>) -> Result<EditOutcome, ProjectsError> {
     let conn = lock(db)?;
-    let current = store::get_summary(&conn, project_id)?.ok_or(ServiceError::NotFound)?;
+    let current = store::get_summary(&conn, project_id)?.ok_or(ProjectsError::NotFound)?;
     let mut fields: Vec<(String, String)> = vec![
         ("problem_statement".into(), edit.problem_statement.clone()),
         ("reframed_need".into(), edit.reframed_need.clone()),
@@ -281,10 +280,10 @@ pub fn edit_summary(db: &SharedDb, project_id: &str, edit: SummaryEdit, decision
     Ok(EditOutcome::Saved { view: conversation_view(&conn, project_id)? })
 }
 
-pub fn confirm_summary(db: &SharedDb, project_id: &str) -> Result<ConversationView, ServiceError> {
+pub fn confirm_summary(db: &SharedDb, project_id: &str) -> Result<ConversationView, ProjectsError> {
     let conn = lock(db)?;
     if !store::confirm_summary(&conn, project_id)? {
-        return Err(ServiceError::NotFound);
+        return Err(ProjectsError::NotFound);
     }
     conversation_view(&conn, project_id)
 }
@@ -302,18 +301,18 @@ pub struct NeedsView {
     pub weights: Weights,
 }
 
-pub fn needs_view(conn: &Connection, project_id: &str) -> Result<NeedsView, ServiceError> {
-    let project = store::get_project(conn, project_id)?.ok_or(ServiceError::NotFound)?;
+pub fn needs_view(conn: &Connection, project_id: &str) -> Result<NeedsView, ProjectsError> {
+    let project = store::get_project(conn, project_id)?.ok_or(ProjectsError::NotFound)?;
     let needs = store::list_needs(conn, project_id)?;
     let weights = Weights::default();
     let rated: Vec<(usize, Scores)> = needs.iter().enumerate().filter_map(|(i, n)| n.scores.map(|s| (i, s))).collect();
     let ranked = priority::rank(&rated.iter().map(|(_, s)| *s).collect::<Vec<_>>(), &weights)
-        .map_err(|e| ServiceError::Priority(format!("{e:?}")))?;
+        .map_err(|e| ProjectsError::Priority(format!("{e:?}")))?;
     let ranking = ranked.iter().map(|r| needs[rated[r.index].0].id.clone()).collect();
     let affected = store::get_summary(conn, project_id)?
         .and_then(|s| s.summary["affected"]["count"].as_u64())
         .map(|c| c as u32);
-    let population = profile_store::load_current(conn)?.map(|p| p.input.totals(p.as_of_year).population.max(0) as u32);
+    let population = crate::core::api::people_served(conn)?;
     let beneficiaries_suggestion = match (affected, population) {
         (Some(a), Some(p)) => priority::suggest_beneficiaries_score(a, p),
         _ => None,
@@ -321,19 +320,19 @@ pub fn needs_view(conn: &Connection, project_id: &str) -> Result<NeedsView, Serv
     Ok(NeedsView { project, needs, ranking, beneficiaries_suggestion, weights })
 }
 
-pub fn get_needs(db: &SharedDb, project_id: &str) -> Result<NeedsView, ServiceError> {
+pub fn get_needs(db: &SharedDb, project_id: &str) -> Result<NeedsView, ProjectsError> {
     let conn = lock(db)?;
     needs_view(&conn, project_id)
 }
 
-pub async fn propose_needs(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<(NeedsView, AiStatus), ServiceError> {
+pub async fn propose_needs(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<(NeedsView, AiStatus), ProjectsError> {
     let context = {
         let conn = lock(db)?;
-        let summary = store::get_summary(&conn, project_id)?.ok_or(ServiceError::NotFound)?;
+        let summary = store::get_summary(&conn, project_id)?.ok_or(ProjectsError::NotFound)?;
         if summary.confirmed_at.is_none() {
-            return Err(ServiceError::WrongStage);
+            return Err(ProjectsError::WrongStage);
         }
-        let project = store::get_project(&conn, project_id)?.ok_or(ServiceError::NotFound)?;
+        let project = store::get_project(&conn, project_id)?.ok_or(ProjectsError::NotFound)?;
         let root = store::get_root(&conn, project_id)?.map(|r| r.text).unwrap_or_default();
         let said = person_words(&store::turns(&conn, project_id)?);
         // each block says how far to trust it: data captured in Mi institución and what the person said are facts;
@@ -354,7 +353,7 @@ pub async fn propose_needs(db: &SharedDb, provider: Option<&dyn AiProvider>, pro
             conn.execute(
                 "DELETE FROM need WHERE project_id=?1 AND origin='ai_assumption' AND scores_json IS NULL AND selected=0",
                 [project_id],
-            ).map_err(ServiceError::from)?;
+            ).map_err(ProjectsError::from)?;
             for n in v["needs"].as_array().into_iter().flatten().take(3) {
                 store::add_need(
                     &conn,
@@ -379,9 +378,9 @@ pub enum AddNeedOutcome {
     Quarantine { report: QuarantineReport },
 }
 
-pub fn add_need(db: &SharedDb, project_id: &str, title: &str, description: &str, decision: Option<Decision>) -> Result<AddNeedOutcome, ServiceError> {
+pub fn add_need(db: &SharedDb, project_id: &str, title: &str, description: &str, decision: Option<Decision>) -> Result<AddNeedOutcome, ProjectsError> {
     if title.trim().is_empty() {
-        return Err(ServiceError::EmptyText);
+        return Err(ProjectsError::EmptyText);
     }
     let conn = lock(db)?;
     let fields = vec![("title".to_string(), title.to_string()), ("description".to_string(), description.to_string())];
@@ -394,19 +393,19 @@ pub fn add_need(db: &SharedDb, project_id: &str, title: &str, description: &str,
     Ok(AddNeedOutcome::Saved { view: needs_view(&conn, project_id)? })
 }
 
-pub fn rate_need(db: &SharedDb, project_id: &str, need_id: &str, scores: Scores) -> Result<NeedsView, ServiceError> {
+pub fn rate_need(db: &SharedDb, project_id: &str, need_id: &str, scores: Scores) -> Result<NeedsView, ProjectsError> {
     let conn = lock(db)?;
-    let total = priority::total_score(&scores, &Weights::default()).map_err(|e| ServiceError::Priority(format!("{e:?}")))?;
+    let total = priority::total_score(&scores, &Weights::default()).map_err(|e| ProjectsError::Priority(format!("{e:?}")))?;
     if !store::set_need_scores(&conn, need_id, &scores, total)? {
-        return Err(ServiceError::NotFound);
+        return Err(ProjectsError::NotFound);
     }
     needs_view(&conn, project_id)
 }
 
-pub fn select_need(db: &SharedDb, project_id: &str, need_id: &str) -> Result<NeedsView, ServiceError> {
+pub fn select_need(db: &SharedDb, project_id: &str, need_id: &str) -> Result<NeedsView, ProjectsError> {
     let mut conn = lock(db)?;
     if !store::select_need(&mut conn, project_id, need_id)? {
-        return Err(ServiceError::NotFound);
+        return Err(ProjectsError::NotFound);
     }
     needs_view(&conn, project_id)
 }
@@ -433,5 +432,5 @@ pub fn stage_error_code(e: &StageError) -> &'static str {
 }
 
 #[cfg(test)]
-#[path = "diagnosis_service_tests.rs"]
+#[path = "diagnosis_tests.rs"]
 mod tests;

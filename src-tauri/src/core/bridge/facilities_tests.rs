@@ -125,7 +125,7 @@ fn the_board_crosses_the_stairs_with_the_people_in_a_wheelchair() {
     assert_eq!((beds.values["beds"], beds.values["served"], beds.values["capacity"]), (12, 3, 20));
     assert_eq!(o.board.built_m2_per_person, Some(100));
 
-    let sheet = crate::diagnosis_service::profile_summary_for_tests(&c).unwrap();
+    let sheet = crate::modules::projects::diagnosis::profile_summary_for_tests(&c).unwrap();
     assert!(sheet.contains("Espacio: Dormitorios, primer piso: 4 (4 bien). 12 camas."), "{sheet}");
     assert!(sheet.contains("Hallazgo: El inmueble tiene varios pisos y solo escaleras entre ellos; hay 4 espacios arriba y 3 personas usan silla de ruedas o están en cama."), "{sheet}");
     assert!(!sheet.contains("las instalaciones"), "the facilities are captured:\n{sheet}");

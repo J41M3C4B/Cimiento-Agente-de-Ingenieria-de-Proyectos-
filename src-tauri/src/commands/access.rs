@@ -139,7 +139,7 @@ pub fn admin_request_resolve(session: State<'_, Session>, db: State<'_, Db>, id:
     let mut conn = lock(&db)?;
     // a project belongs to the projects module: the core is told how to delete it (ADR-032)
     let delete_project = |c: &mut rusqlite::Connection, target: &str| -> Result<(), crate::core::error::ServiceError> {
-        crate::storage::projects::delete_project(c, target)?;
+        crate::modules::projects::storage::projects::delete_project(c, target)?;
         Ok(())
     };
     Ok(svc::resolve_request(&mut conn, gate.user()?, &id, approve, &delete_project)?)

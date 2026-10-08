@@ -2,8 +2,8 @@
 //! Changing the budget or the schedule takes away their confirmation and marks the texts that depend on them for
 //! review; nothing is deleted behind the person's back.
 
-use super::StorageError;
-use crate::domain::budget::Funder;
+use crate::storage::StorageError;
+use crate::modules::projects::domain::budget::Funder;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use serde_json::Value;
@@ -290,7 +290,7 @@ pub fn set_asks_for_proposal(conn: &Connection, project_id: &str, asks: bool) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::projects::create_project;
+    use crate::modules::projects::storage::projects::create_project;
     use crate::storage::open_encrypted;
     use crate::core::profile::storage as profile;
     use serde_json::json;
@@ -396,7 +396,7 @@ mod tests {
         save_section(&c, &pid, "what", "x", "user", None).unwrap();
         save_budget_item(&c, &pid, None, &item(1.0)).unwrap();
         save_activity(&c, &pid, None, "a", 1, 1).unwrap();
-        assert!(crate::storage::projects::delete_project(&mut c, &pid).unwrap());
+        assert!(crate::modules::projects::storage::projects::delete_project(&mut c, &pid).unwrap());
         let left: i64 = c.query_row("SELECT (SELECT count(*) FROM project_section)+(SELECT count(*) FROM budget_item)+(SELECT count(*) FROM schedule_activity)", [], |r| r.get(0)).unwrap();
         assert_eq!(left, 0);
     }

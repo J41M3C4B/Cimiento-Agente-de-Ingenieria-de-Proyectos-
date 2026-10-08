@@ -138,7 +138,7 @@ pub fn plan_sections(req: &CallRequirements, asks_for_proposal: bool) -> Vec<Sec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::requirements::Line;
+    use crate::modules::projects::domain::requirements::Line;
 
     fn line(t: &str) -> Line {
         Line { text: t.into(), applies_to: None, page: None, file: None }

@@ -2,7 +2,7 @@ use super::*;
 use std::sync::{Arc, Mutex};
 use crate::ai::mock::MockProvider;
 use crate::ai::{AiError, AiResponse};
-use crate::conversation_service::{conversation_view, send_message, start_conversation, AnswerOutcome};
+use crate::modules::projects::conversation::{conversation_view, send_message, start_conversation, AnswerOutcome};
 use crate::core::profile::domain::*;
 use crate::storage::open_encrypted;
 use crate::core::profile::storage as profile;
@@ -31,7 +31,7 @@ async fn an_internal_project_needs_a_confirmed_profile() {
     let db: SharedDb = Arc::new(Mutex::new(open_encrypted(&dir.path().join("t.db"), KEY).unwrap()));
     assert!(matches!(
         create_project(&db, "x", None),
-        Err(ServiceError::Stage(StageError::NotReady(Missing::ProfileNotConfirmed)))
+        Err(ProjectsError::Stage(StageError::NotReady(Missing::ProfileNotConfirmed)))
     ));
     assert!(store::list_projects(&db.lock().unwrap()).unwrap().is_empty());
 }
@@ -41,14 +41,14 @@ async fn a_project_born_from_a_call_waits_until_the_person_confirms_it_and_then_
     let (_d, db) = profile_db();
     let pid = project_in_call_selection(&db);
     assert_eq!(store::get_project(&db.lock().unwrap(), &pid).unwrap().unwrap().stage, Stage::CallSelection);
-    assert!(matches!(advance(&db, &pid), Err(ServiceError::Stage(StageError::NotReady(Missing::CallNotReady)))));
+    assert!(matches!(advance(&db, &pid), Err(ProjectsError::Stage(StageError::NotReady(Missing::CallNotReady)))));
     let reading = store::get_project(&db.lock().unwrap(), &pid).unwrap().unwrap().call_reading_id.unwrap();
-    assert!(crate::call_service::confirm(&db, &reading).unwrap());
+    assert!(crate::modules::projects::calls::confirm(&db, &reading).unwrap());
     assert_eq!(advance(&db, &pid).unwrap().stage, Stage::Diagnosis);
     // the diagnosis ends when the root cause is confirmed and then the summary
-    assert!(matches!(advance(&db, &pid), Err(ServiceError::Stage(StageError::NotReady(Missing::DiagnosisIncomplete)))));
+    assert!(matches!(advance(&db, &pid), Err(ProjectsError::Stage(StageError::NotReady(Missing::DiagnosisIncomplete)))));
     reach_confirmed_root(&db, &pid).await;
-    assert!(matches!(advance(&db, &pid), Err(ServiceError::Stage(StageError::NotReady(Missing::SummaryNotConfirmed)))));
+    assert!(matches!(advance(&db, &pid), Err(ProjectsError::Stage(StageError::NotReady(Missing::SummaryNotConfirmed)))));
 }
 
 #[tokio::test]
@@ -57,19 +57,19 @@ async fn reading_the_call_again_takes_away_the_confirmation_and_the_project_cann
     let pid = project_in_call_selection(&db);
     let reading = store::get_project(&db.lock().unwrap(), &pid).unwrap().unwrap().call_reading_id.unwrap();
     // a call read in part can be read again (a complete one cannot: reading it again would only spend the allowance)
-    crate::storage::calls::finish(&db.lock().unwrap(), &reading, crate::storage::calls::ReadingStatus::Partial, Some("unavailable"), Some(&canonical_doc()), &json!({})).unwrap();
-    assert!(crate::call_service::confirm(&db, &reading).unwrap());
+    crate::modules::projects::storage::calls::finish(&db.lock().unwrap(), &reading, crate::modules::projects::storage::calls::ReadingStatus::Partial, Some("unavailable"), Some(&canonical_doc()), &json!({})).unwrap();
+    assert!(crate::modules::projects::calls::confirm(&db, &reading).unwrap());
     assert!(store::facts(&db.lock().unwrap(), &pid).unwrap().call_confirmed);
     // «Leer otra vez»
-    assert!(crate::call_service::prepare_retry(&db, &reading).unwrap());
+    assert!(crate::modules::projects::calls::prepare_retry(&db, &reading).unwrap());
     assert!(!store::facts(&db.lock().unwrap(), &pid).unwrap().call_confirmed);
-    assert!(matches!(advance(&db, &pid), Err(ServiceError::Stage(StageError::NotReady(Missing::CallNotReady)))));
+    assert!(matches!(advance(&db, &pid), Err(ProjectsError::Stage(StageError::NotReady(Missing::CallNotReady)))));
 }
 
 #[tokio::test]
 async fn the_summary_waits_for_the_confirmed_root_cause_and_reads_the_whole_conversation() {
     let (_d, db, pid) = setup();
-    assert!(matches!(generate_summary(&db, None, &pid).await, Err(ServiceError::WrongStage)));
+    assert!(matches!(generate_summary(&db, None, &pid).await, Err(ProjectsError::WrongStage)));
     reach_confirmed_root(&db, &pid).await;
     let p = MockProvider::new(vec![summary_ok(summary_value(""))]);
     let out = generate_summary(&db, Some(&p), &pid).await.unwrap();
@@ -214,7 +214,7 @@ async fn full_path_to_prioritization_with_scores_computed_by_code() {
     let (_d, db, pid) = setup();
     reach_confirmed_root(&db, &pid).await;
     // cannot move on before the summary is confirmed
-    assert!(matches!(advance(&db, &pid), Err(ServiceError::Stage(StageError::NotReady(Missing::SummaryNotConfirmed)))));
+    assert!(matches!(advance(&db, &pid), Err(ProjectsError::Stage(StageError::NotReady(Missing::SummaryNotConfirmed)))));
     let p = MockProvider::new(vec![summary_ok(summary_value(""))]);
     generate_summary(&db, Some(&p), &pid).await.unwrap();
     confirm_summary(&db, &pid).unwrap();
@@ -242,11 +242,11 @@ async fn full_path_to_prioritization_with_scores_computed_by_code() {
     // bad rating is refused
     assert!(rate_need(&db, &pid, &ids[0], Scores { beneficiaries: 9, ..high }).is_err());
 
-    assert!(matches!(advance(&db, &pid), Err(ServiceError::Stage(StageError::NotReady(Missing::NoNeedSelected)))));
+    assert!(matches!(advance(&db, &pid), Err(ProjectsError::Stage(StageError::NotReady(Missing::NoNeedSelected)))));
     select_need(&db, &pid, &ids[0]).unwrap();
     assert_eq!(advance(&db, &pid).unwrap().stage, Stage::Drafting);
     // next stages are not ready (later phases)
-    assert!(matches!(advance(&db, &pid), Err(ServiceError::Stage(StageError::NotReady(Missing::SectionsNotConfirmed)))));
+    assert!(matches!(advance(&db, &pid), Err(ProjectsError::Stage(StageError::NotReady(Missing::SectionsNotConfirmed)))));
 }
 
 #[tokio::test]
@@ -293,7 +293,7 @@ async fn going_back_keeps_the_work_and_marks_it_for_review() {
     let v = conversation_view(&db.lock().unwrap(), &pid).unwrap();
     assert!(v.summary.is_some() && v.root.is_some_and(|r| r.confirmed), "nothing was deleted");
     assert_eq!(v.turns.len(), 10, "the conversation is still there");
-    assert!(matches!(go_back(&db, &pid, Stage::Prioritization), Err(ServiceError::Stage(StageError::NotEarlier))));
+    assert!(matches!(go_back(&db, &pid, Stage::Prioritization), Err(ProjectsError::Stage(StageError::NotEarlier))));
     // going back to the call is allowed too, and the confirmation of the call is still there
     assert_eq!(go_back(&db, &pid, Stage::CallSelection).unwrap().stage, Stage::CallSelection);
     assert!(store::facts(&db.lock().unwrap(), &pid).unwrap().call_confirmed);
@@ -375,11 +375,11 @@ async fn gemini_smoke_live() {
 #[ignore]
 async fn golden_case_live() {
     use crate::ai::{golden, metrics};
-    use crate::domain::conversation::Phase;
+    use crate::modules::projects::domain::conversation::Phase;
 
     let dir = tempfile::tempdir().unwrap();
     let mut conn = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
-    let input: ProfileInput = serde_json::from_str(include_str!("../../fixtures/institucion-asilo.json")).unwrap();
+    let input: ProfileInput = serde_json::from_str(include_str!("../../../../fixtures/institucion-asilo.json")).unwrap();
     profile::save(&mut conn, &input).unwrap();
     profile::confirm(&mut conn).unwrap();
     let (cfg, provider) = live_provider(&conn);
@@ -450,7 +450,7 @@ async fn gemini_probe_live() {
 
     let dir = tempfile::tempdir().unwrap();
     let mut conn = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
-    let input: ProfileInput = serde_json::from_str(include_str!("../../fixtures/institucion-asilo.json")).unwrap();
+    let input: ProfileInput = serde_json::from_str(include_str!("../../../../fixtures/institucion-asilo.json")).unwrap();
     profile::save(&mut conn, &input).unwrap();
     profile::confirm(&mut conn).unwrap();
     let cfg = crate::ai::settings::load(&conn).unwrap();

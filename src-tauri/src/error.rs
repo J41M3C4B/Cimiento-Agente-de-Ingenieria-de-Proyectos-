@@ -3,6 +3,7 @@
 
 use crate::scanner::guard::GuardError;
 use crate::core::error::ServiceError;
+use crate::modules::projects::ProjectsError;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -46,10 +47,6 @@ impl From<ServiceError> for UiError {
                     _ => "Revise los datos de la ficha.",
                 },
             ),
-            ServiceError::InvalidBudgetItem => UiError::new("invalid_budget_item", "Revise la cantidad (debe ser mayor que cero) y el precio (no puede ser negativo)."),
-            ServiceError::BudgetIncomplete => UiError::new("budget_incomplete", "Faltan los costos de algunas partidas. Escríbalos y después confirme el presupuesto."),
-            ServiceError::InvalidActivity => UiError::new("invalid_activity", "Revise los meses: empiezan en 1 y el final no puede ser antes del inicio."),
-            ServiceError::GuideHasPersonalData => UiError::new("guide_has_personal_data", "La guía traería datos que parecen de una persona, así que no se generó. Revise los textos del proyecto."),
             ServiceError::InvalidPin => UiError::new("invalid_pin", "El PIN debe tener de 4 a 8 números, sin espacios ni letras."),
             ServiceError::WrongPin => UiError::new("wrong_pin", "Ese no es el PIN actual."),
             ServiceError::Storage(crate::storage::StorageError::WrongPassword) => {
@@ -59,7 +56,6 @@ impl From<ServiceError> for UiError {
                 UiError::new("weak_backup_password", "La contraseña debe tener al menos 8 caracteres.")
             }
             ServiceError::Storage(crate::storage::StorageError::BackupExists) => UiError::new("backup_exists", "Ya existe un archivo con ese nombre."),
-            ServiceError::InvalidYear => UiError::new("invalid_year", "El año no parece correcto. Escríbalo con cuatro cifras, por ejemplo 2026."),
             ServiceError::TextTooLarge => UiError::new(
                 "text_too_large",
                 "El texto es muy largo. Intente con una parte más corta.",
@@ -86,15 +82,36 @@ impl From<ServiceError> for UiError {
             }
             ServiceError::OnboardingIncomplete => UiError::new("onboarding_incomplete", "Todavía faltan datos de la institución. Revise los pasos marcados."),
             ServiceError::StaffMoved => UiError::new("staff_moved", "El personal ahora se lleva en su propia sección. Vuelva a abrir la pantalla."),
-            ServiceError::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
-            ServiceError::AlreadyRunning => UiError::new("already_running", "Ya lo estamos haciendo. En cuanto termine, se muestra aquí."),
-            ServiceError::Priority(_) => UiError::new("priority", "Cada calificación debe ir del 1 al 5."),
-            ServiceError::Stage(e) => {
-                let code = crate::diagnosis_service::stage_error_code(&e);
-                UiError { code, message: stage_message(code).to_string() }
-            }
             other => {
                 eprintln!("internal error: {other}");
+                UiError::internal()
+            }
+        }
+    }
+}
+
+impl From<ProjectsError> for UiError {
+    fn from(e: ProjectsError) -> Self {
+        use ProjectsError as P;
+        match e {
+            P::Core(e) => e.into(),
+            P::NotFound => ServiceError::NotFound.into(),
+            P::EmptyText => ServiceError::EmptyText.into(),
+            P::TextTooLarge => ServiceError::TextTooLarge.into(),
+            P::InvalidBudgetItem => UiError::new("invalid_budget_item", "Revise la cantidad (debe ser mayor que cero) y el precio (no puede ser negativo)."),
+            P::BudgetIncomplete => UiError::new("budget_incomplete", "Faltan los costos de algunas partidas. Escríbalos y después confirme el presupuesto."),
+            P::InvalidActivity => UiError::new("invalid_activity", "Revise los meses: empiezan en 1 y el final no puede ser antes del inicio."),
+            P::GuideHasPersonalData => UiError::new("guide_has_personal_data", "La guía traería datos que parecen de una persona, así que no se generó. Revise los textos del proyecto."),
+            P::InvalidYear => UiError::new("invalid_year", "El año no parece correcto. Escríbalo con cuatro cifras, por ejemplo 2026."),
+            P::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
+            P::AlreadyRunning => UiError::new("already_running", "Ya lo estamos haciendo. En cuanto termine, se muestra aquí."),
+            P::Priority(_) => UiError::new("priority", "Cada calificación debe ir del 1 al 5."),
+            P::Stage(e) => {
+                let code = crate::modules::projects::diagnosis::stage_error_code(&e);
+                UiError { code, message: stage_message(code).to_string() }
+            }
+            P::Internal(m) => {
+                eprintln!("internal error: {m}");
                 UiError::internal()
             }
         }

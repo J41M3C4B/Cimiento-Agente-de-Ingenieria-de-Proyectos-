@@ -12,7 +12,7 @@ pnpm test             # pruebas del frontend (Vitest)
 cargo test            # pruebas Rust (desde src-tauri/)
 cargo test architecture                                # capas del monolito modular (ADR-032): cada capa solo mira hacia abajo; lista de deuda que solo se achica
 cargo test canonical                                   # lectura canónica (ADR-015): contrato, paquete, recuperación, normalización, ensamble, resumen y estrategias; sin red ni gasto
-cargo test call_service                                # crear un proyecto desde su convocatoria y leerla en segundo plano, con modelo simulado (sin red ni gasto)
+cargo test projects::calls                             # crear un proyecto desde su convocatoria y leerla en segundo plano, con modelo simulado (sin red ni gasto)
 cargo test conversation                                # la conversación del diagnóstico (ADR-017): reglas puras, servicio con modelo simulado y batería de personas simuladas (sin red ni gasto)
 cargo test card                                        # la ficha de la convocatoria para la persona y su resumen con IA (ADR-024), con modelo simulado
 #   la ficha de una convocatoria real, sin llamadas (a ojo):
@@ -26,8 +26,8 @@ cargo test care                                        # módulo de Beneficiario
 cargo test onboarding                                  # primer inicio (ADR-031): pasos, cifras rápidas, cierre, bienvenida y lo que llega a la IA
 cargo test facilit                                     # módulo de Instalaciones (ADR-030): inmueble, grupos con conteo por estado, traslado, tablero, escáner y lo que llega a la IA
 cargo test bridge::staff                               # el personal con la base real: lo que llega al perfil y a la IA, identificadores tapados, puestos con escáner
-cargo test drafting_service                            # redacción, presupuesto y cronograma (ADR-018), con modelo simulado
-cargo test guide_service                               # revisión y guía en Word (ADR-018): escribe archivos en carpetas temporales
+cargo test projects::drafting                          # redacción, presupuesto y cronograma (ADR-018), con modelo simulado
+cargo test projects::guide                             # revisión y guía en Word (ADR-018): escribe archivos en carpetas temporales
 cargo test core::security                              # PIN, escaneo de la base, respaldo y restauración (ADR-019)
 # una guía de muestra para abrirla en Word a mano:
 #   $env:CIMIENTO_SAMPLE_DIR="D:\...\muestra"; cargo test write_a_sample_guide -- --ignored --nocapture

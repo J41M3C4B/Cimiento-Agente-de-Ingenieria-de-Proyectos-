@@ -1,19 +1,11 @@
 mod ai;
 mod audit;
-mod call_service;
 mod commands;
 mod common;
-mod conversation_service;
 mod core;
-mod diagnosis_service;
 mod documents;
-mod domain;
-mod drafting_service;
 mod error;
-mod guide_service;
-mod jobs;
 mod modules;
-mod review_service;
 mod scanner;
 mod storage;
 #[cfg(test)]
@@ -42,13 +34,13 @@ pub fn run() {
             let key = storage::get_or_create_db_key()?;
             let conn = storage::open_encrypted(&dir.join("cimiento.db"), &key)?;
             // a reading that was running when the program was closed waits to be resumed
-            let _ = storage::calls::mark_interrupted(&conn);
+            let _ = modules::projects::storage::calls::mark_interrupted(&conn);
             let db = Arc::new(Mutex::new(conn));
             // who is using the app (ADR-028): nobody until they enter
             app.manage(core::access::service::Session::new(db.clone()));
             app.manage(Db(db));
             app.manage(core::security::Attempts::default());
-            app.manage(jobs::Jobs::default());
+            app.manage(modules::projects::jobs::Jobs::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -1,10 +1,10 @@
 //! The automatic review before a project is ready (docs/02-flujo-funcional.md). No AI: the code gathers the facts
 //! of the project and `domain::checklist` decides. It is recomputed every time it is asked for.
 
-use crate::domain::checklist::Report;
-use crate::guide_service::{gather, review_report};
-use crate::core::error::ServiceError;
-use crate::storage::projects::ProjectRow;
+use crate::modules::projects::domain::checklist::Report;
+use crate::modules::projects::guide::{gather, review_report};
+use crate::modules::projects::ProjectsError;
+use crate::modules::projects::storage::projects::ProjectRow;
 use rusqlite::Connection;
 use serde::Serialize;
 
@@ -14,7 +14,7 @@ pub struct ReviewView {
     pub report: Report,
 }
 
-pub fn review(conn: &Connection, project_id: &str) -> Result<ReviewView, ServiceError> {
+pub fn review(conn: &Connection, project_id: &str) -> Result<ReviewView, ProjectsError> {
     let data = gather(conn, project_id)?;
     let report = review_report(conn, &data)?;
     Ok(ReviewView { project: data.project, report })

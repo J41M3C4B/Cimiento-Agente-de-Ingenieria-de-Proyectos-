@@ -7,19 +7,18 @@
 
 use crate::audit::{self, AuditKind};
 use crate::scanner::PublicDocScanner;
-use crate::conversation_service::conversation_view;
-use crate::diagnosis_service::{lock, SharedDb};
+use crate::modules::projects::conversation::conversation_view;
+use crate::modules::projects::diagnosis::{lock, SharedDb};
 use crate::documents::docx::{self, Block, TableData};
-use crate::domain::budget::format_mxn;
-use crate::domain::checklist::{self, Facts, Level, Report, SectionState};
-use crate::domain::requirements::{CallRequirements, Line, Sourced};
-use crate::domain::sections::SectionKind;
-use crate::domain::stage::Stage;
-use crate::drafting_service::{drafting_view, DraftingView, SectionStatus};
+use crate::modules::projects::domain::budget::format_mxn;
+use crate::modules::projects::domain::checklist::{self, Facts, Level, Report, SectionState};
+use crate::modules::projects::domain::requirements::{CallRequirements, Line, Sourced};
+use crate::modules::projects::domain::sections::SectionKind;
+use crate::modules::projects::domain::stage::Stage;
+use crate::modules::projects::drafting::{drafting_view, DraftingView, SectionStatus};
 use crate::scanner::{RegexScanner, SensitiveScanner};
-use crate::core::error::ServiceError;
-use crate::storage::projects::{self as projects, ProjectRow, StoredSummary};
-use crate::core::profile::storage as profile_store;
+use crate::modules::projects::ProjectsError;
+use crate::modules::projects::storage::projects::{self as projects, ProjectRow, StoredSummary};
 use rusqlite::Connection;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -30,9 +29,9 @@ pub struct GuideData {
     pub drafting: DraftingView,
     pub summary: Option<StoredSummary>,
     pub root: Option<String>,
-    pub institution: Option<crate::core::profile::domain::ProfileInput>,
-    /// The facilities, from their module (ADR-030).
-    pub facilities: Vec<crate::modules::facilities::domain::aggregate::SiteSummary>,
+    pub institution: Option<crate::core::api::ProfileInput>,
+    /// The facilities in words, from their module through the core (ADR-030, ADR-032).
+    pub facility_lines: Vec<String>,
     pub call_name: Option<String>,
     pub funder: Option<String>,
     pub year: Option<i64>,
@@ -40,18 +39,18 @@ pub struct GuideData {
     pub today: String,
 }
 
-pub fn gather(conn: &Connection, project_id: &str) -> Result<GuideData, ServiceError> {
+pub fn gather(conn: &Connection, project_id: &str) -> Result<GuideData, ProjectsError> {
     let drafting = drafting_view(conn, project_id)?;
     let project = drafting.project.clone();
     let reading = match &project.call_reading_id {
-        Some(id) => crate::storage::calls::get(conn, id)?,
+        Some(id) => crate::modules::projects::storage::calls::get(conn, id)?,
         None => None,
     };
     Ok(GuideData {
         summary: projects::get_summary(conn, project_id)?,
         root: projects::get_root(conn, project_id)?.map(|r| r.text),
-        institution: profile_store::load_current(conn)?.map(|p| p.input),
-        facilities: crate::modules::facilities::api::summaries(conn)?,
+        institution: crate::core::api::institution(conn)?,
+        facility_lines: crate::core::api::facility_lines(conn)?,
         call_name: reading.as_ref().map(|r| r.name.clone()),
         funder: reading.as_ref().and_then(|r| r.funder.clone()),
         year: reading.as_ref().and_then(|r| r.year),
@@ -204,10 +203,10 @@ pub fn guide_blocks(data: &GuideData, pending: &[String]) -> Vec<Block> {
     if d.budget.items.is_empty() {
         b.push(Block::Paragraph("Todavía no hay partidas.".into()));
     } else {
-        let paid = |f: crate::domain::budget::Funder| match f {
-            crate::domain::budget::Funder::Requested => "Lo pide a la convocatoria",
-            crate::domain::budget::Funder::Institution => "La institución",
-            crate::domain::budget::Funder::Other => "Otra fuente",
+        let paid = |f: crate::modules::projects::domain::budget::Funder| match f {
+            crate::modules::projects::domain::budget::Funder::Requested => "Lo pide a la convocatoria",
+            crate::modules::projects::domain::budget::Funder::Institution => "La institución",
+            crate::modules::projects::domain::budget::Funder::Other => "Otra fuente",
         };
         b.push(Block::Table(TableData {
             header: ["Concepto", "Categoría", "Cantidad", "Precio unitario", "Total con IVA", "Quién lo paga"].iter().map(|s| s.to_string()).collect(),
@@ -273,19 +272,9 @@ pub fn guide_blocks(data: &GuideData, pending: &[String]) -> Vec<Block> {
             b.push(Block::Bullets(i.population_by_label().into_iter().map(|(label, n)| format!("{label}: {n} personas")).collect()));
         }
     }
-    let facility_lines: Vec<String> = data
-        .facilities
-        .iter()
-        .flat_map(|s| {
-            crate::core::insights::facility_text::site_lines(&s.site)
-                .into_iter()
-                .chain(s.spaces.iter().map(crate::core::insights::facility_text::space_line))
-                .chain(s.equipment.iter().map(crate::core::insights::facility_text::equipment_line))
-        })
-        .collect();
-    if !facility_lines.is_empty() {
+    if !data.facility_lines.is_empty() {
         b.push(Block::Heading(2, "Instalaciones".into()));
-        b.push(Block::Bullets(facility_lines));
+        b.push(Block::Bullets(data.facility_lines.clone()));
     }
 
     // 9. what is pending
@@ -313,13 +302,13 @@ pub fn blocks_text(blocks: &[Block]) -> String {
 
 /// How many data of a person the text carries. A call is public and so is the institution's own contact: only what
 /// identifies a person (CURP, personal RFC, voter key, bank accounts...) counts, as in the reading of a call.
-pub fn findings_in(conn: &Connection, text: &str) -> Result<usize, ServiceError> {
-    let scanner = PublicDocScanner::new(RegexScanner::new(profile_store::scanner_config(conn)?));
+pub fn findings_in(conn: &Connection, text: &str) -> Result<usize, ProjectsError> {
+    let scanner = PublicDocScanner::new(RegexScanner::new(crate::core::api::scanner_config(conn)?));
     Ok(scanner.scan(text).findings.len())
 }
 
 /// The review of the project as the person sees it: what the code checked, with the state of the sections.
-pub fn review_report(conn: &Connection, data: &GuideData) -> Result<Report, ServiceError> {
+pub fn review_report(conn: &Connection, data: &GuideData) -> Result<Report, ProjectsError> {
     let d = &data.drafting;
     let sections: Vec<SectionState> = d
         .sections
@@ -335,7 +324,7 @@ pub fn review_report(conn: &Connection, data: &GuideData) -> Result<Report, Serv
         budget_lines: d.budget.items.len(),
         budget_confirmed: d.budget.confirmed,
         schedule_activities: d.schedule.activities.len(),
-        duration_months: crate::domain::schedule::duration_months(&months),
+        duration_months: crate::modules::projects::domain::schedule::duration_months(&months),
         schedule_confirmed: d.schedule.confirmed,
         sections: &sections,
         scanner_findings: findings,
@@ -374,32 +363,32 @@ fn free_path(dir: &Path, stem: &str) -> PathBuf {
 
 /// Writes the guide in `dir`. It only exists when the project is `READY` and the review is clean, and nothing that
 /// identifies a person goes into it. The log keeps only counts.
-pub fn export_guide(db: &SharedDb, project_id: &str, dir: &Path) -> Result<Exported, ServiceError> {
+pub fn export_guide(db: &SharedDb, project_id: &str, dir: &Path) -> Result<Exported, ProjectsError> {
     let conn = lock(db)?;
     let data = gather(&conn, project_id)?;
     if data.project.stage != Stage::Ready {
-        return Err(ServiceError::WrongStage);
+        return Err(ProjectsError::WrongStage);
     }
     let report = review_report(&conn, &data)?;
     if !report.clean() {
-        return Err(ServiceError::Stage(crate::domain::stage::StageError::NotReady(crate::domain::stage::Missing::ChecklistHasErrors)));
+        return Err(ProjectsError::Stage(crate::modules::projects::domain::stage::StageError::NotReady(crate::modules::projects::domain::stage::Missing::ChecklistHasErrors)));
     }
     let pending: Vec<String> = report.checks.iter().filter(|c| c.level == Level::Warn).map(|c| c.text.clone()).collect();
     let blocks = guide_blocks(&data, &pending);
     if findings_in(&conn, &blocks_text(&blocks))? > 0 {
-        return Err(ServiceError::GuideHasPersonalData);
+        return Err(ProjectsError::GuideHasPersonalData);
     }
     let institution = data.institution.as_ref().map(|i| i.institution.name.clone()).unwrap_or_else(|| "Cimiento".into());
     let created: String = conn.query_row("SELECT strftime('%Y-%m-%dT%H:%M:%SZ','now')", [], |r| r.get(0))?;
-    let bytes = docx::build(&blocks, &format!("Guía del proyecto: {}", data.project.title), &institution, &created).map_err(|e| ServiceError::Internal(e.to_string()))?;
-    std::fs::create_dir_all(dir).map_err(|e| ServiceError::Internal(e.to_string()))?;
+    let bytes = docx::build(&blocks, &format!("Guía del proyecto: {}", data.project.title), &institution, &created).map_err(|e| ProjectsError::Internal(e.to_string()))?;
+    std::fs::create_dir_all(dir).map_err(|e| ProjectsError::Internal(e.to_string()))?;
     let path = free_path(dir, &format!("{} - guía {}", safe_name(&data.project.title), data.today));
-    std::fs::write(&path, bytes).map_err(|e| ServiceError::Internal(e.to_string()))?;
+    std::fs::write(&path, bytes).map_err(|e| ProjectsError::Internal(e.to_string()))?;
     let tables = blocks.iter().filter(|b| matches!(b, Block::Table(_))).count();
     audit::record(&conn, AuditKind::ExportCreated, Some("project"), Some(project_id), serde_json::json!({ "format": "docx", "blocks": blocks.len(), "tables": tables }))?;
     Ok(Exported { file_name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), path: path.to_string_lossy().into_owned() })
 }
 
 #[cfg(test)]
-#[path = "guide_service_tests.rs"]
+#[path = "guide_tests.rs"]
 mod tests;

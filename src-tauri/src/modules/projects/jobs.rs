@@ -5,8 +5,8 @@
 //!
 //! It lives in memory on purpose: a call dies with the program, so after a restart there is nothing to recover.
 
-use crate::diagnosis_service::AiStatus;
-use crate::core::error::ServiceError;
+use crate::modules::projects::diagnosis::AiStatus;
+use crate::modules::projects::ProjectsError;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -55,10 +55,10 @@ fn lock(m: &Mutex<Inner>) -> MutexGuard<'_, Inner> {
 
 impl Jobs {
     /// Takes the project's slot, or says another job is already running on it.
-    pub fn claim(&self, project_id: &str, kind: JobKind) -> Result<JobGuard, ServiceError> {
+    pub fn claim(&self, project_id: &str, kind: JobKind) -> Result<JobGuard, ProjectsError> {
         let mut inner = lock(&self.0);
         if inner.running.contains_key(project_id) {
-            return Err(ServiceError::AlreadyRunning);
+            return Err(ProjectsError::AlreadyRunning);
         }
         inner.running.insert(project_id.to_string(), kind);
         inner.finished.remove(project_id);
@@ -107,7 +107,7 @@ mod tests {
     fn a_second_job_on_the_same_project_is_refused_until_the_first_ends() {
         let jobs = Jobs::default();
         let first = jobs.claim("p1", JobKind::Summary).unwrap();
-        assert!(matches!(jobs.claim("p1", JobKind::Turn), Err(ServiceError::AlreadyRunning)));
+        assert!(matches!(jobs.claim("p1", JobKind::Turn), Err(ProjectsError::AlreadyRunning)));
         assert_eq!(jobs.status("p1").running, Some(JobKind::Summary));
         // another project is not affected
         let other = jobs.claim("p2", JobKind::Needs).unwrap();
@@ -120,9 +120,9 @@ mod tests {
     #[test]
     fn the_slot_is_freed_when_the_job_fails_or_panics() {
         let jobs = Jobs::default();
-        let failed = |jobs: &Jobs| -> Result<(), ServiceError> {
+        let failed = |jobs: &Jobs| -> Result<(), ProjectsError> {
             let _job = jobs.claim("p1", JobKind::Summary)?;
-            Err(ServiceError::NotFound) // leaves without calling finish
+            Err(ProjectsError::NotFound) // leaves without calling finish
         };
         assert!(failed(&jobs).is_err());
         assert_eq!(jobs.status("p1"), JobStatus { running: None, finished: None }, "a failure with no AI outcome leaves nothing to report");

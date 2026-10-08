@@ -2,8 +2,8 @@
 //! file of every value. The document was already checked quote by quote; here only typed values are picked out:
 //! the numbers come from what the code normalized, never from the model.
 
-use super::summary::summarize;
-use crate::domain::requirements::{CallRequirements, Line, Sourced};
+use crate::documents::canonical::summary::summarize;
+use crate::modules::projects::domain::requirements::{CallRequirements, Line, Sourced};
 use serde_json::Value;
 
 /// The first quote of a node: where its value comes from.

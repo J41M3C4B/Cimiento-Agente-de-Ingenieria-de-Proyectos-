@@ -5,20 +5,21 @@
 //! profile, the call, the budget or the schedule, and the code checks it.
 
 use crate::ai::{prompts, AiProvider, AiTask};
-use crate::conversation_service::{call_context, figure_sources};
-use crate::diagnosis_service::{ask_ai, lock, profile_context, AiStatus, SharedDb};
-use crate::core::screen::guard_texts;
-use crate::documents::canonical::requirements::call_requirements;
-use crate::domain::budget::{self, format_mxn, Funder, Item, LineTotal, Totals};
-use crate::domain::requirements::CallRequirements;
-use crate::domain::schedule;
-use crate::domain::sections::{plan_sections, SectionKind, SectionSpec, KEY_BUDGET, KEY_SCHEDULE};
-use crate::domain::{figures, stage::Stage};
+use crate::modules::projects::conversation::{call_context, figure_sources};
+use crate::modules::projects::diagnosis::{ask_ai, lock, profile_context, AiStatus, SharedDb};
+use crate::core::api::guard_texts;
+use crate::modules::projects::domain::call_requirements::call_requirements;
+use crate::modules::projects::domain::budget::{self, format_mxn, Funder, Item, LineTotal, Totals};
+use crate::modules::projects::domain::requirements::CallRequirements;
+use crate::modules::projects::domain::schedule;
+use crate::modules::projects::domain::sections::{plan_sections, SectionKind, SectionSpec, KEY_BUDGET, KEY_SCHEDULE};
+use crate::ai::figures;
+use crate::modules::projects::domain::stage::Stage;
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::core::error::ServiceError;
-use crate::storage::calls;
-use crate::storage::drafting::{self as store, ActivityRow, BudgetInput, BudgetRow, SectionRow};
-use crate::storage::projects::{self as projects, ProjectRow};
+use crate::modules::projects::ProjectsError;
+use crate::modules::projects::storage::calls;
+use crate::modules::projects::storage::drafting::{self as store, ActivityRow, BudgetInput, BudgetRow, SectionRow};
+use crate::modules::projects::storage::projects::{self as projects, ProjectRow};
 use crate::storage::StorageError;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -102,13 +103,13 @@ pub struct DraftingView {
     pub plan_ready: bool,
 }
 
-pub(crate) fn requirements_of(conn: &Connection, project: &ProjectRow) -> Result<CallRequirements, ServiceError> {
+pub(crate) fn requirements_of(conn: &Connection, project: &ProjectRow) -> Result<CallRequirements, ProjectsError> {
     let Some(reading) = &project.call_reading_id else { return Ok(CallRequirements::default()) };
     Ok(calls::result(conn, reading)?.map(|(doc, _)| call_requirements(&doc)).unwrap_or_default())
 }
 
 /// The plan of sections with what the person answered about the proposal.
-pub(crate) fn plan_of(conn: &Connection, project: &ProjectRow, req: &CallRequirements) -> Result<(bool, bool, Vec<SectionSpec>), ServiceError> {
+pub(crate) fn plan_of(conn: &Connection, project: &ProjectRow, req: &CallRequirements) -> Result<(bool, bool, Vec<SectionSpec>), ProjectsError> {
     let answered = store::asks_for_proposal(conn, &project.id)?;
     let asks = answered.unwrap_or_else(|| req.asks_for_proposal());
     Ok((asks, answered.is_some(), plan_sections(req, asks)))
@@ -168,7 +169,7 @@ pub(crate) fn schedule_text(rows: &[ActivityRow]) -> String {
 }
 
 /// The goal the person chose: its title and what it says.
-pub(crate) fn objective_of(conn: &Connection, project_id: &str) -> Result<Option<String>, ServiceError> {
+pub(crate) fn objective_of(conn: &Connection, project_id: &str) -> Result<Option<String>, ProjectsError> {
     Ok(projects::list_needs(conn, project_id)?.into_iter().find(|n| n.selected).map(|n| match n.description {
         Some(d) if !d.trim().is_empty() => format!("{}. {}", n.title.trim_end_matches('.'), d),
         _ => n.title,
@@ -190,8 +191,8 @@ fn strings_of(row: &SectionRow, key: &str) -> Vec<String> {
     row.source_ref.as_ref().and_then(|s| s[key].as_array()).map(|a| a.iter().filter_map(|p| p.as_str().map(String::from)).collect()).unwrap_or_default()
 }
 
-pub fn drafting_view(conn: &Connection, project_id: &str) -> Result<DraftingView, ServiceError> {
-    let project = projects::get_project(conn, project_id)?.ok_or(ServiceError::NotFound)?;
+pub fn drafting_view(conn: &Connection, project_id: &str) -> Result<DraftingView, ProjectsError> {
+    let project = projects::get_project(conn, project_id)?.ok_or(ProjectsError::NotFound)?;
     let requirements = requirements_of(conn, &project)?;
     let (asks_for_proposal, asks_confirmed, plan) = plan_of(conn, &project, &requirements)?;
     let rows = store::sections(conn, project_id)?;
@@ -241,7 +242,7 @@ pub fn drafting_view(conn: &Connection, project_id: &str) -> Result<DraftingView
 }
 
 /// Every section that has to be confirmed is, and so are the budget and the schedule.
-pub fn sections_confirmed(conn: &Connection, project_id: &str) -> Result<bool, ServiceError> {
+pub fn sections_confirmed(conn: &Connection, project_id: &str) -> Result<bool, ProjectsError> {
     let v = drafting_view(conn, project_id)?;
     Ok(v.sections.iter().filter(|s| s.spec.required).all(|s| match s.spec.kind {
         SectionKind::Budget => v.budget.confirmed,
@@ -252,26 +253,26 @@ pub fn sections_confirmed(conn: &Connection, project_id: &str) -> Result<bool, S
 
 // ------------------------------------------------------------------ the person's side
 
-fn in_drafting(conn: &Connection, project_id: &str) -> Result<ProjectRow, ServiceError> {
-    let project = projects::get_project(conn, project_id)?.ok_or(ServiceError::NotFound)?;
+fn in_drafting(conn: &Connection, project_id: &str) -> Result<ProjectRow, ProjectsError> {
+    let project = projects::get_project(conn, project_id)?.ok_or(ProjectsError::NotFound)?;
     if project.stage != Stage::Drafting {
-        return Err(ServiceError::WrongStage);
+        return Err(ProjectsError::WrongStage);
     }
     Ok(project)
 }
 
 /// The person says whether the call asks for a project proposal as a document of its own.
-pub fn set_asks_for_proposal(db: &SharedDb, project_id: &str, asks: bool) -> Result<DraftingView, ServiceError> {
+pub fn set_asks_for_proposal(db: &SharedDb, project_id: &str, asks: bool) -> Result<DraftingView, ProjectsError> {
     let conn = lock(db)?;
     in_drafting(&conn, project_id)?;
     store::set_asks_for_proposal(&conn, project_id, asks)?;
     drafting_view(&conn, project_id)
 }
 
-fn text_spec(conn: &Connection, project: &ProjectRow, key: &str) -> Result<SectionSpec, ServiceError> {
+fn text_spec(conn: &Connection, project: &ProjectRow, key: &str) -> Result<SectionSpec, ProjectsError> {
     let req = requirements_of(conn, project)?;
     let (_, _, plan) = plan_of(conn, project, &req)?;
-    plan.into_iter().find(|s| s.key == key && s.kind == SectionKind::Text).ok_or(ServiceError::NotFound)
+    plan.into_iter().find(|s| s.key == key && s.kind == SectionKind::Text).ok_or(ProjectsError::NotFound)
 }
 
 #[derive(Debug, Serialize)]
@@ -282,15 +283,15 @@ pub enum EditOutcome {
 }
 
 /// The person writes or corrects the text of a section. It is scanned like any text and goes back to a draft.
-pub fn save_text(db: &SharedDb, project_id: &str, key: &str, text: &str, decision: Option<Decision>) -> Result<EditOutcome, ServiceError> {
+pub fn save_text(db: &SharedDb, project_id: &str, key: &str, text: &str, decision: Option<Decision>) -> Result<EditOutcome, ProjectsError> {
     let conn = lock(db)?;
     let project = in_drafting(&conn, project_id)?;
     text_spec(&conn, &project, key)?;
     if text.trim().is_empty() {
-        return Err(ServiceError::EmptyText);
+        return Err(ProjectsError::EmptyText);
     }
     if text.len() > MAX_SECTION_BYTES {
-        return Err(ServiceError::TextTooLarge);
+        return Err(ProjectsError::TextTooLarge);
     }
     let fields = vec![("section_text".to_string(), text.to_string())];
     let clean = match guard_texts(&conn, "project_section", &fields, decision)? {
@@ -302,12 +303,12 @@ pub fn save_text(db: &SharedDb, project_id: &str, key: &str, text: &str, decisio
 }
 
 /// The person confirms the text of a section.
-pub fn confirm_text(db: &SharedDb, project_id: &str, key: &str) -> Result<DraftingView, ServiceError> {
+pub fn confirm_text(db: &SharedDb, project_id: &str, key: &str) -> Result<DraftingView, ProjectsError> {
     let conn = lock(db)?;
     let project = in_drafting(&conn, project_id)?;
     text_spec(&conn, &project, key)?;
     if !store::confirm_section(&conn, project_id, key)? {
-        return Err(ServiceError::Storage(StorageError::NothingToConfirm));
+        return Err(ProjectsError::Core(crate::core::api::ServiceError::Storage(StorageError::NothingToConfirm)));
     }
     drafting_view(&conn, project_id)
 }
@@ -322,14 +323,14 @@ pub struct DraftOutcome {
 
 /// The AI writes the text of a section from what is confirmed. A figure nobody gave is asked again once; if it
 /// stays it is only flagged by the screen. The text is a draft (origin `ai_assumption`) until the person confirms.
-pub async fn draft_section(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str, key: &str) -> Result<DraftOutcome, ServiceError> {
+pub async fn draft_section(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str, key: &str) -> Result<DraftOutcome, ProjectsError> {
     let (spec, context, sources) = {
         let conn = lock(db)?;
         let project = in_drafting(&conn, project_id)?;
         let spec = text_spec(&conn, &project, key)?;
-        let summary = projects::get_summary(&conn, project_id)?.ok_or(ServiceError::WrongStage)?;
+        let summary = projects::get_summary(&conn, project_id)?.ok_or(ProjectsError::WrongStage)?;
         let root = projects::get_root(&conn, project_id)?.map(|r| r.text).unwrap_or_default();
-        let objective = objective_of(&conn, project_id)?.ok_or(ServiceError::WrongStage)?;
+        let objective = objective_of(&conn, project_id)?.ok_or(ProjectsError::WrongStage)?;
         let budget_rows = store::budget(&conn, project_id)?;
         let budget_words = budget_text(&budget_rows, &budget::totals(&budget_items(&budget_rows)));
         let schedule_words = schedule_text(&store::schedule(&conn, project_id)?);
@@ -393,11 +394,11 @@ struct Gathered {
     specs: Vec<SectionSpec>,
 }
 
-fn gather(conn: &Connection, project_id: &str, with_budget: bool) -> Result<Gathered, ServiceError> {
+fn gather(conn: &Connection, project_id: &str, with_budget: bool) -> Result<Gathered, ProjectsError> {
     let project = in_drafting(conn, project_id)?;
-    let summary = projects::get_summary(conn, project_id)?.ok_or(ServiceError::WrongStage)?;
+    let summary = projects::get_summary(conn, project_id)?.ok_or(ProjectsError::WrongStage)?;
     let root = projects::get_root(conn, project_id)?.map(|r| r.text).unwrap_or_default();
-    let objective = objective_of(conn, project_id)?.ok_or(ServiceError::WrongStage)?;
+    let objective = objective_of(conn, project_id)?.ok_or(ProjectsError::WrongStage)?;
     let requirements = requirements_of(conn, &project)?;
     let (_, _, specs) = plan_of(conn, &project, &requirements)?;
     let profile = profile_context(conn)?;
@@ -436,7 +437,7 @@ fn quantity_text(q: f64) -> String {
 /// Keeps what the assistant prepared: the clear title and the plain words of each section, the budget lines (with no
 /// price) and the schedule it proposed. A line or an activity it proposed is only taken if the person has none yet,
 /// and a quantity only if somebody said it: the rest of what it says is a proposal the person corrects.
-fn apply_plan(conn: &Connection, project_id: &str, v: &Value, keys: &[String], sources: &[String], max_months: u32) -> Result<(), ServiceError> {
+fn apply_plan(conn: &Connection, project_id: &str, v: &Value, keys: &[String], sources: &[String], max_months: u32) -> Result<(), ProjectsError> {
     let mut sections = serde_json::Map::new();
     for s in v["sections"].as_array().into_iter().flatten() {
         let key = s["key"].as_str().unwrap_or("");
@@ -487,7 +488,7 @@ fn apply_plan(conn: &Connection, project_id: &str, v: &Value, keys: &[String], s
 /// plain explanation for each section (so a sentence of the call is never left ambiguous), the budget lines without
 /// prices and a schedule. The person then only writes the costs and corrects. It runs once; if the AI is not
 /// available nothing is saved and the person can try again.
-pub async fn prepare_plan(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<DraftOutcome, ServiceError> {
+pub async fn prepare_plan(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<DraftOutcome, ProjectsError> {
     let (context, keys, sources, max_months) = {
         let conn = lock(db)?;
         if store::plan(&conn, project_id)?.is_some() {
@@ -531,7 +532,7 @@ pub enum DraftMode {
 /// The assistant writes every pending section in one call: it gets the whole list of sections and the person's
 /// choice (a full draft or a short guide). Texts the person wrote or confirmed are left alone. A figure nobody gave
 /// is asked again once; if it stays it is flagged on its section. Everything it writes is a draft until confirmed.
-pub async fn draft_all(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str, mode: DraftMode) -> Result<DraftOutcome, ServiceError> {
+pub async fn draft_all(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str, mode: DraftMode) -> Result<DraftOutcome, ProjectsError> {
     let (targets, context, sources) = {
         let conn = lock(db)?;
         let g = gather(&conn, project_id, true)?;
@@ -607,7 +608,7 @@ pub async fn draft_all(db: &SharedDb, provider: Option<&dyn AiProvider>, project
 
 /// The person confirms every text that is ready in one go. The ones that carry figures nobody gave, or that were
 /// marked for review because something they depend on changed, are left for the person to look at one by one.
-pub fn confirm_all_texts(db: &SharedDb, project_id: &str) -> Result<DraftingView, ServiceError> {
+pub fn confirm_all_texts(db: &SharedDb, project_id: &str) -> Result<DraftingView, ProjectsError> {
     let conn = lock(db)?;
     in_drafting(&conn, project_id)?;
     let view = drafting_view(&conn, project_id)?;
@@ -635,13 +636,13 @@ pub struct BudgetItemInput {
 }
 
 /// Adds or changes a budget line. The code checks the numbers; the words go through the scanner.
-pub fn save_budget_item(db: &SharedDb, project_id: &str, item: BudgetItemInput, decision: Option<Decision>) -> Result<EditOutcome, ServiceError> {
+pub fn save_budget_item(db: &SharedDb, project_id: &str, item: BudgetItemInput, decision: Option<Decision>) -> Result<EditOutcome, ProjectsError> {
     let conn = lock(db)?;
     in_drafting(&conn, project_id)?;
     if item.description.trim().is_empty() || item.category.trim().is_empty() {
-        return Err(ServiceError::EmptyText);
+        return Err(ProjectsError::EmptyText);
     }
-    budget::validate(item.quantity, item.unit_price_mxn).map_err(|_| ServiceError::InvalidBudgetItem)?;
+    budget::validate(item.quantity, item.unit_price_mxn).map_err(|_| ProjectsError::InvalidBudgetItem)?;
     let fields = vec![
         ("budget_category".to_string(), item.category.clone()),
         ("budget_description".to_string(), item.description.clone()),
@@ -662,30 +663,30 @@ pub fn save_budget_item(db: &SharedDb, project_id: &str, item: BudgetItemInput, 
         administrative: item.administrative,
     };
     if !store::save_budget_item(&conn, project_id, item.id.as_deref(), &input)? {
-        return Err(ServiceError::NotFound);
+        return Err(ProjectsError::NotFound);
     }
     Ok(EditOutcome::Saved { view: drafting_view(&conn, project_id)? })
 }
 
-pub fn delete_budget_item(db: &SharedDb, project_id: &str, item_id: &str) -> Result<DraftingView, ServiceError> {
+pub fn delete_budget_item(db: &SharedDb, project_id: &str, item_id: &str) -> Result<DraftingView, ProjectsError> {
     let conn = lock(db)?;
     in_drafting(&conn, project_id)?;
     if !store::delete_budget_item(&conn, project_id, item_id)? {
-        return Err(ServiceError::NotFound);
+        return Err(ProjectsError::NotFound);
     }
     drafting_view(&conn, project_id)
 }
 
 /// The person confirms the budget as it is: a snapshot of what the code added up is what is confirmed.
-pub fn confirm_budget(db: &SharedDb, project_id: &str) -> Result<DraftingView, ServiceError> {
+pub fn confirm_budget(db: &SharedDb, project_id: &str) -> Result<DraftingView, ProjectsError> {
     let conn = lock(db)?;
     in_drafting(&conn, project_id)?;
     let rows = store::budget(&conn, project_id)?;
     if rows.is_empty() {
-        return Err(ServiceError::Storage(StorageError::NothingToConfirm));
+        return Err(ProjectsError::Core(crate::core::api::ServiceError::Storage(StorageError::NothingToConfirm)));
     }
     if rows.iter().any(|r| r.unit_price_mxn <= 0.0) {
-        return Err(ServiceError::BudgetIncomplete);
+        return Err(ProjectsError::BudgetIncomplete);
     }
     let totals = budget::totals(&budget_items(&rows));
     store::save_section(&conn, project_id, KEY_BUDGET, &serde_json::to_string(&totals).unwrap_or_default(), "computed", None)?;
@@ -696,39 +697,39 @@ pub fn confirm_budget(db: &SharedDb, project_id: &str) -> Result<DraftingView, S
 // ------------------------------------------------------------------ the schedule
 
 /// Adds or changes an activity. The code checks the months; the title goes through the scanner.
-pub fn save_activity(db: &SharedDb, project_id: &str, activity_id: Option<&str>, title: &str, start_month: i64, end_month: i64, decision: Option<Decision>) -> Result<EditOutcome, ServiceError> {
+pub fn save_activity(db: &SharedDb, project_id: &str, activity_id: Option<&str>, title: &str, start_month: i64, end_month: i64, decision: Option<Decision>) -> Result<EditOutcome, ProjectsError> {
     let conn = lock(db)?;
     in_drafting(&conn, project_id)?;
     if title.trim().is_empty() {
-        return Err(ServiceError::EmptyText);
+        return Err(ProjectsError::EmptyText);
     }
-    schedule::validate(start_month, end_month).map_err(|_| ServiceError::InvalidActivity)?;
+    schedule::validate(start_month, end_month).map_err(|_| ProjectsError::InvalidActivity)?;
     let fields = vec![("activity_title".to_string(), title.to_string())];
     let clean = match guard_texts(&conn, "schedule_activity", &fields, decision)? {
         Ok(mut t) => t.remove(0),
         Err(report) => return Ok(EditOutcome::Quarantine { report }),
     };
     if !store::save_activity(&conn, project_id, activity_id, &clean, start_month as u32, end_month as u32)? {
-        return Err(ServiceError::NotFound);
+        return Err(ProjectsError::NotFound);
     }
     Ok(EditOutcome::Saved { view: drafting_view(&conn, project_id)? })
 }
 
-pub fn delete_activity(db: &SharedDb, project_id: &str, activity_id: &str) -> Result<DraftingView, ServiceError> {
+pub fn delete_activity(db: &SharedDb, project_id: &str, activity_id: &str) -> Result<DraftingView, ProjectsError> {
     let conn = lock(db)?;
     in_drafting(&conn, project_id)?;
     if !store::delete_activity(&conn, project_id, activity_id)? {
-        return Err(ServiceError::NotFound);
+        return Err(ProjectsError::NotFound);
     }
     drafting_view(&conn, project_id)
 }
 
-pub fn confirm_schedule(db: &SharedDb, project_id: &str) -> Result<DraftingView, ServiceError> {
+pub fn confirm_schedule(db: &SharedDb, project_id: &str) -> Result<DraftingView, ProjectsError> {
     let conn = lock(db)?;
     in_drafting(&conn, project_id)?;
     let rows = store::schedule(&conn, project_id)?;
     if rows.is_empty() {
-        return Err(ServiceError::Storage(StorageError::NothingToConfirm));
+        return Err(ProjectsError::Core(crate::core::api::ServiceError::Storage(StorageError::NothingToConfirm)));
     }
     let months: Vec<(u32, u32)> = rows.iter().map(|a| (a.start_month, a.end_month)).collect();
     let snapshot = json!({ "activities": rows.len(), "duration_months": schedule::duration_months(&months) });
@@ -738,5 +739,5 @@ pub fn confirm_schedule(db: &SharedDb, project_id: &str) -> Result<DraftingView,
 }
 
 #[cfg(test)]
-#[path = "drafting_service_tests.rs"]
+#[path = "drafting_tests.rs"]
 mod tests;

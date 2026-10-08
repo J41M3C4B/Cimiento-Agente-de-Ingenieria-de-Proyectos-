@@ -1,11 +1,11 @@
 //! Projects and the diagnosis data: answers, the open follow-up question, closed
 //! dimensions, the summary and the proposed needs.
 
-use super::StorageError;
+use crate::storage::StorageError;
 use crate::audit::{self, AuditKind};
-use crate::domain::conversation::{is_vague, Kind, Role, TurnFacts};
-use crate::domain::priority::Scores;
-use crate::domain::stage::{Stage, StageFacts};
+use crate::modules::projects::domain::conversation::{is_vague, Kind, Role, TurnFacts};
+use crate::modules::projects::domain::priority::Scores;
+use crate::modules::projects::domain::stage::{Stage, StageFacts};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use serde_json::{json, Value};

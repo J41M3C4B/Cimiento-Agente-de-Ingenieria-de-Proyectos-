@@ -41,7 +41,7 @@ async fn it_only_starts_in_the_diagnosis_and_only_with_the_ai() {
     let (_d, db) = profile_db();
     let pid = project_in_call_selection(&db); // the call is not confirmed yet
     let p = MockProvider::new(vec![opening()]);
-    assert!(matches!(start_conversation(&db, Some(&p), &pid).await, Err(ServiceError::WrongStage)));
+    assert!(matches!(start_conversation(&db, Some(&p), &pid).await, Err(ProjectsError::WrongStage)));
     assert!(p.requests().is_empty());
 
     let (_d2, db, pid) = setup();
@@ -232,7 +232,7 @@ async fn if_the_ai_fails_what_the_person_wrote_stays_and_trying_again_does_not_d
     assert_eq!(ai, AiStatus::Offline);
     assert_eq!((view.phase, view.turns.len()), (Phase::AwaitingAi, 2), "the answer is saved and the AI owes the reply");
     // the person cannot write on top of a message the AI still owes
-    assert!(matches!(send_message(&db, Some(&p), &pid, "otra cosa", false, None).await, Err(ServiceError::WrongStage)));
+    assert!(matches!(send_message(&db, Some(&p), &pid, "otra cosa", false, None).await, Err(ProjectsError::WrongStage)));
     let v = view_of(retry(&db, Some(&p), &pid).await.unwrap());
     assert_eq!((v.phase, v.turns.len()), (Phase::AwaitingAnswer, 3));
     // when nothing is owed, trying again asks nobody
@@ -261,12 +261,12 @@ async fn messages_out_of_turn_or_empty_are_refused() {
     let (_d, db, pid) = setup();
     let p = MockProvider::new(vec![opening()]);
     // nothing to answer yet
-    assert!(matches!(send_message(&db, Some(&p), &pid, "hola", false, None).await, Err(ServiceError::WrongStage)));
+    assert!(matches!(send_message(&db, Some(&p), &pid, "hola", false, None).await, Err(ProjectsError::WrongStage)));
     view_of(start_conversation(&db, Some(&p), &pid).await.unwrap());
-    assert!(matches!(send_message(&db, Some(&p), &pid, "   ", false, None).await, Err(ServiceError::EmptyText)));
-    assert!(matches!(send_message(&db, Some(&p), &pid, &"a ".repeat(4000), false, None).await, Err(ServiceError::TextTooLarge)));
+    assert!(matches!(send_message(&db, Some(&p), &pid, "   ", false, None).await, Err(ProjectsError::EmptyText)));
+    assert!(matches!(send_message(&db, Some(&p), &pid, &"a ".repeat(4000), false, None).await, Err(ProjectsError::TextTooLarge)));
     // there is no proposal to confirm: the quick reply cannot close anything
-    assert!(matches!(send_message(&db, Some(&p), &pid, "", true, None).await, Err(ServiceError::WrongStage)));
+    assert!(matches!(send_message(&db, Some(&p), &pid, "", true, None).await, Err(ProjectsError::WrongStage)));
     assert!(store::get_root(&db.lock().unwrap(), &pid).unwrap().is_none());
 }
 
