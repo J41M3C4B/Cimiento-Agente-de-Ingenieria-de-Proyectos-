@@ -32,8 +32,10 @@ Objetivo: proyecto que compila, base cifrada y las pruebas técnicas de riesgo r
 - [x] **Revisión de «Mi institución», bloque 1: datos generales (2026-10-07, ADR-026).** Guardado revisado (montos con comas, tope de cifras, avisos de RFC, teléfono y correo). Ficha de la IA: «Gasto anual aproximado» en lugar de «Presupuesto anual», ingresos por tipo y egresos; nómina y cuotas del padrón nunca como cifra, y balance en palabras. Ingresos por tipo con cuotas calculadas del padrón, egresos en lista o con aproximado exprés, nómina con aguinaldo y prima vacacional (LFT 2023), balance. Migración 0014.
 - [x] Diseño de la pantalla para el bloque 1 (sesión de diseño): ingresos por tipo y periodo, lista de egresos con modo exprés, tarjeta de balance, nómina con prestaciones.
 - [x] **«Mi institución», bloque 2: Personal como base de RH (2026-10-07, ADR-027).** Módulo aparte (`hr/`, tablas `hr_*`, migración 0015 con traslado del padrón), modalidades con reglas y modalidades propias, catálogo de puestos con plazas autorizadas, formulario en 4 pasos con avance, CURP/RFC/NSS/CLABE validados y tapados, baja distinta de borrado, aportaciones y personal externo como egresos aparte, y a la IA solo agregados (atributos personales con grupos de 3 o más).
-- [ ] Diseño fino del módulo de Personal (sesión de diseño).
-- [ ] **Siguiente: perfiles de acceso.** Administrador técnico; dirección y contaduría con acceso completo, pero con candados para cambios graves (borrados, cambios masivos) y, más adelante, solicitudes que aprueba el administrador a distancia.
+- [x] Diseño fino del módulo de Personal (sesión de diseño).
+- [x] **Perfiles de acceso (2026-10-07, ADR-028).** Cuentas con contraseña (Argon2id), administrador y dirección/contaduría, permiso declarado y revisado en Rust en cada comando (con prueba que impide comandos sin permiso), borrados de dirección/contaduría como solicitudes con el registro oculto, panel de administración (cuentas, solicitudes, bitácora, código de recuperación), bloqueo por inactividad, bitácora con autor; el PIN se retira. Migración 0016.
+- [ ] Diseño fino de las pantallas de acceso y del panel de administración (sesión de diseño).
+- [ ] Módulo remoto para aprobar solicitudes a distancia (sobre `access_request`).
 
 - [x] Prueba manual en la app: cargar un ejemplo, pegar una CURP ficticia en las notas, ver la cuarentena y tapar; agregar un documento de texto y borrarlo con el botón de emergencia.
 

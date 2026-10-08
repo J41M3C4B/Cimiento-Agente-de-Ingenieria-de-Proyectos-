@@ -12,7 +12,6 @@ import type {
   AnswerOutcome,
   AppError,
   BackupFile,
-  PinCheck,
   ScanSummary,
   BudgetItemInput,
   CreateProjectOutcome,
@@ -198,10 +197,6 @@ export const reviewGet = (projectId: string) => invoke<ReviewView>("review_get",
 export const guideExport = (projectId: string) => invoke<Exported>("guide_export", { projectId });
 
 // Security: PIN, encrypted backup and the scan of everything the app keeps (ADR-019)
-export const pinStatus = () => invoke<boolean>("pin_status");
-export const pinSet = (pin: string, current?: string) => invoke<void>("pin_set", { pin, current: current ?? null });
-export const pinClear = (current: string) => invoke<void>("pin_clear", { current });
-export const pinVerify = (pin: string) => invoke<PinCheck>("pin_verify", { pin });
 export const securityScan = () => invoke<ScanSummary>("security_scan");
 export const backupCreate = (password: string) => invoke<BackupFile>("backup_create", { password });
 /** `data` is the backup file in base64. */

@@ -25,7 +25,7 @@ fn institution_kind(conn: &Connection) -> Result<InstitutionKind, StorageError> 
 
 fn load_fields(conn: &Connection, entity: Entity) -> Result<Vec<RosterField>, StorageError> {
     let rows = conn
-        .prepare("SELECT key, title, kind, options, builtin, locked_options, required, position FROM roster_field WHERE entity=?1 ORDER BY position")?
+        .prepare("SELECT key, title, kind, options, builtin, locked_options, required, position FROM roster_field WHERE entity=?1 AND hidden = 0 ORDER BY position")?
         .query_map([entity.as_db()], |r| {
             Ok(RosterField {
                 key: r.get(0)?,
@@ -135,7 +135,7 @@ pub fn delete_field(conn: &Connection, entity: Entity, key: &str) -> Result<Vec<
 
 pub fn list(conn: &Connection, entity: Entity) -> Result<Vec<RosterEntry>, StorageError> {
     let rows = conn
-        .prepare("SELECT id, data FROM roster_entry WHERE entity=?1 ORDER BY created_at, rowid")?
+        .prepare("SELECT id, data FROM roster_entry WHERE entity=?1 AND hidden = 0 ORDER BY created_at, rowid")?
         .query_map([entity.as_db()], |r| {
             let data: String = r.get(1)?;
             Ok(RosterEntry { id: r.get(0)?, data: serde_json::from_str::<Data>(&data).unwrap_or_default() })
@@ -171,6 +171,32 @@ pub fn delete(conn: &Connection, entity: Entity, id: &str) -> Result<bool, Stora
 }
 
 #[cfg(debug_assertions)]
+/// Hides a record (or brings it back) while a request to delete it waits (ADR-028).
+pub fn set_entry_hidden(conn: &Connection, id: &str, hidden: bool) -> Result<bool, StorageError> {
+    Ok(conn.execute("UPDATE roster_entry SET hidden=?2 WHERE id=?1", rusqlite::params![id, hidden as i64])? > 0)
+}
+
+/// Hides a field of their own (or brings it back) while a request to delete it waits; the values stay in the records.
+pub fn set_field_hidden(conn: &Connection, entity: Entity, key: &str, hidden: bool) -> Result<bool, StorageError> {
+    Ok(conn.execute("UPDATE roster_field SET hidden=?3 WHERE entity=?1 AND key=?2 AND builtin=0", rusqlite::params![entity.as_db(), key, hidden as i64])? > 0)
+}
+
+/// The keys of the fields hidden while their deletion waits: their values must survive an edit of the record.
+pub fn hidden_field_keys(conn: &Connection, entity: Entity) -> Result<Vec<String>, StorageError> {
+    Ok(conn.prepare("SELECT key FROM roster_field WHERE entity=?1 AND hidden=1")?.query_map([entity.as_db()], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// What a record holds, hidden or not.
+pub fn stored(conn: &Connection, id: &str) -> Result<Option<Data>, StorageError> {
+    let raw: Option<String> = conn.query_row("SELECT data FROM roster_entry WHERE id=?1", [id], |r| r.get(0)).optional()?;
+    Ok(raw.map(|d| serde_json::from_str(&d).unwrap_or_default()))
+}
+
+/// The title of a field, hidden or not.
+pub fn field_title(conn: &Connection, entity: Entity, key: &str) -> Result<Option<String>, StorageError> {
+    Ok(conn.query_row("SELECT title FROM roster_field WHERE entity=?1 AND key=?2", [entity.as_db(), key], |r| r.get(0)).optional()?)
+}
+
 pub fn clear(conn: &Connection, entity: Entity) -> Result<(), StorageError> {
     conn.execute("DELETE FROM roster_entry WHERE entity=?1", [entity.as_db()])?;
     Ok(())

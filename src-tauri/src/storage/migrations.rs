@@ -19,6 +19,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (13, include_str!("../../migrations/0013_call_brief.sql")),
     (14, include_str!("../../migrations/0014_income_kinds_and_expenses.sql")),
     (15, include_str!("../../migrations/0015_hr_staff.sql")),
+    (16, include_str!("../../migrations/0016_access.sql")),
 ];
 
 /// Code that runs right after the SQL of a version, inside the same transaction (moves of data that need rules).
@@ -67,8 +68,11 @@ fn move_roster_staff(tx: &Transaction) -> rusqlite::Result<()> {
     let moved = crate::hr::legacy::import(tx, flavor, &rows, &own).map_err(hr_failure)?;
     tx.execute("DELETE FROM roster_entry WHERE entity = 'staff'", [])?;
     tx.execute("DELETE FROM roster_field WHERE entity = 'staff'", [])?;
-    crate::audit::record(tx, crate::audit::AuditKind::HrImported, Some("hr_person"), None, serde_json::json!({ "people": moved }))
-        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    // written by hand: at this version the audit log has no author yet (ADR-028 adds it in 0016)
+    tx.execute(
+        "INSERT INTO audit_log (at, event, entity, entity_id, details_json) VALUES (strftime('%Y-%m-%dT%H:%M:%SZ','now'), 'hr.imported', 'hr_person', NULL, ?1)",
+        [serde_json::json!({ "people": moved }).to_string()],
+    )?;
     Ok(())
 }
 

@@ -66,6 +66,9 @@ pub enum ServiceError {
     Hr(#[from] crate::hr::HrError),
     #[error("the staff is kept in its own module now")]
     StaffMoved,
+    /// An account or session rule (ADR-028); the code says which.
+    #[error("access: {0}")]
+    Access(&'static str),
 }
 
 #[derive(Debug, Clone, Serialize)]

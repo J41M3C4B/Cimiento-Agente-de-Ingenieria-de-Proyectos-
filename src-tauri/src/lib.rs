@@ -1,3 +1,4 @@
+mod access_service;
 mod ai;
 mod audit;
 mod call_service;
@@ -38,13 +39,31 @@ pub fn run() {
             let conn = storage::open_encrypted(&dir.join("cimiento.db"), &key)?;
             // a reading that was running when the program was closed waits to be resumed
             let _ = storage::calls::mark_interrupted(&conn);
-            app.manage(Db(Arc::new(Mutex::new(conn))));
+            let db = Arc::new(Mutex::new(conn));
+            // who is using the app (ADR-028): nobody until they enter
+            app.manage(access_service::Session::new(db.clone()));
+            app.manage(Db(db));
             app.manage(security_service::Attempts::default());
             app.manage(jobs::Jobs::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::access::access_status,
+            commands::access::access_setup_admin,
+            commands::access::access_login,
+            commands::access::access_recover,
+            commands::access::access_unlock,
+            commands::access::access_lock,
+            commands::access::access_logout,
+            commands::access::access_change_password,
+            commands::access::admin_overview,
+            commands::access::admin_user_create,
+            commands::access::admin_user_update,
+            commands::access::admin_user_reset_password,
+            commands::access::admin_request_resolve,
+            commands::access::admin_audit,
+            commands::access::admin_recovery_code_new,
             commands::profile_get,
             commands::profile_save,
             commands::profile_confirm,
@@ -117,10 +136,6 @@ pub fn run() {
             commands::drafting::schedule_confirm,
             commands::drafting::review_get,
             commands::drafting::guide_export,
-            commands::security::pin_status,
-            commands::security::pin_set,
-            commands::security::pin_clear,
-            commands::security::pin_verify,
             commands::security::security_scan,
             commands::security::backup_create,
             commands::security::backup_restore,

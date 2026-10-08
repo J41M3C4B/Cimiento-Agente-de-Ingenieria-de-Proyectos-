@@ -102,7 +102,7 @@ pub(crate) fn sync_profile(conn: &mut Connection) -> Result<Option<ProfileView>,
     Ok(Some(profile_store::save(conn, &input)?.into()))
 }
 
-fn change(conn: &mut Connection, entity: Entity) -> Result<Change, ServiceError> {
+pub(crate) fn change(conn: &mut Connection, entity: Entity) -> Result<Change, ServiceError> {
     let profile = sync_profile(conn)?;
     Ok(Change { entries: store::list(conn, entity)?, totals: totals(conn)?, profile })
 }
@@ -110,7 +110,15 @@ fn change(conn: &mut Connection, entity: Entity) -> Result<Change, ServiceError>
 pub fn save_entry(conn: &mut Connection, entity: Entity, id: Option<&str>, data: &Data) -> Result<Change, ServiceError> {
     not_staff(entity)?;
     let fields = store::fields(conn, entity)?;
-    let clean = roster::clean_entry(&fields, data).map_err(|e| ServiceError::InvalidRoster(e.code()))?;
+    let mut clean = roster::clean_entry(&fields, data).map_err(|e| ServiceError::InvalidRoster(e.code()))?;
+    // a field hidden while its deletion waits keeps its value: if the deletion is refused, nothing was lost (ADR-028)
+    if let Some(old) = id.map(|i| store::stored(conn, i)).transpose()?.flatten() {
+        for key in store::hidden_field_keys(conn, entity)? {
+            if let Some(v) = old.get(&key) {
+                clean.insert(key, v.clone());
+            }
+        }
+    }
     if !store::upsert(conn, entity, id, &clean)? {
         return Err(ServiceError::NotFound);
     }

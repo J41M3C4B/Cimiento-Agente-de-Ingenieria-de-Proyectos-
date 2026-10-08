@@ -114,6 +114,15 @@ CREATE TABLE income_source (
 -- hr_custom_field  datos propios del formulario
 -- staff_group.relation  tipo de relación de cada línea anónima (dónde cuenta su dinero)
 
+-- Perfiles de acceso (ADR-028, migración 0016).
+-- app_user        cuentas: username (único, minúsculas), display_name, person_id (ficha del personal), role (admin|manager),
+--                 active, password_hash (Argon2id), must_change_password, failed_attempts, locked_until (unix), last_login_at
+-- access_request  borrados que esperan al administrador: kind, target_id, target_label, requested_by, status
+--                 (pending|approved|rejected), resolved_by, resolved_at; una sola pendiente por cosa
+-- audit_log.actor_id  quién hizo cada cosa (de la sesión)
+-- hidden          en document, project, roster_entry, roster_field, hr_person, hr_custom_field: oculto mientras espera
+-- app_settings 'access.recovery'  hash del código de recuperación del administrador
+
 -- Egresos por concepto (ADR-026). La nómina no se escribe aquí: se calcula del padrón con prestaciones.
 -- `institution_profile.annual_budget_mxn` es el «gasto anual aproximado» (modo exprés): cuenta mientras esta
 -- lista esté vacía.

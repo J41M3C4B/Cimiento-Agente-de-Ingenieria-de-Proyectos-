@@ -760,7 +760,6 @@ export interface Exported {
 
 // ---------------------------------------------------------------- security: PIN, backup, scan (ADR-019)
 
-export type PinCheck = { status: "ok" } | { status: "wrong" } | { status: "locked"; wait_secs: number };
 export interface BackupFile {
   file_name: string;
   path: string;

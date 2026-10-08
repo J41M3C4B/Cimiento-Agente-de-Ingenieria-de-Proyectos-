@@ -106,7 +106,7 @@ pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
     let mut stmt = conn.prepare(
         "SELECT d.id, d.kind, d.display_name, d.data_level, d.redactions_count, d.created_at,
                 (SELECT count(*) FROM document_chunk c WHERE c.document_id = d.id)
-         FROM document d ORDER BY d.created_at DESC, d.id DESC",
+         FROM document d WHERE d.hidden = 0 ORDER BY d.created_at DESC, d.id DESC",
     )?;
     let rows = stmt
         .query_map([], |r| {

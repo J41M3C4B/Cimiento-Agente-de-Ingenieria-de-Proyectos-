@@ -55,7 +55,7 @@ pub fn overview(conn: &Connection) -> Result<StaffOverview, ServiceError> {
     Ok(StaffOverview { hr: hr::overview(conn)?, totals: totals(conn)? })
 }
 
-fn change(conn: &mut Connection) -> Result<StaffChange, ServiceError> {
+pub(crate) fn change(conn: &mut Connection) -> Result<StaffChange, ServiceError> {
     let profile = sync_profile(conn)?;
     Ok(StaffChange { overview: overview(conn)?, profile })
 }
@@ -68,7 +68,11 @@ pub fn save_person(conn: &mut Connection, id: Option<&str>, data: PersonData) ->
     prepare(conn)?;
     Ok(match hr::save_person(conn, id, data)? {
         SaveOutcome::Invalid { issues } => PersonOutcome::Invalid { issues },
-        SaveOutcome::Saved { person } => PersonOutcome::Saved { person, change: change(conn)? },
+        SaveOutcome::Saved { person } => {
+            // a person who left cannot use the app any more (ADR-028)
+            crate::access_service::after_staff_saved(conn, &person.id, &person.data.status)?;
+            PersonOutcome::Saved { person, change: change(conn)? }
+        }
     })
 }
 

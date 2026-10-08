@@ -25,6 +25,21 @@ pub enum AuditKind {
     HrPersonDeleted,
     /// The staff of the old roster moved into the staff module (counts only).
     HrImported,
+    // access profiles (ADR-028): never a password, a code or the data of a person
+    AccessSetup,
+    AuthLogin,
+    AuthLoginFailed,
+    AuthLocked,
+    AuthLogout,
+    AuthRecovered,
+    PasswordChanged,
+    UserCreated,
+    UserUpdated,
+    UserPasswordReset,
+    AccessDenied,
+    RequestCreated,
+    RequestApproved,
+    RequestRejected,
 }
 
 impl AuditKind {
@@ -44,6 +59,20 @@ impl AuditKind {
             AuditKind::HrSensitiveViewed => "hr.sensitive_viewed",
             AuditKind::HrPersonDeleted => "hr.person_deleted",
             AuditKind::HrImported => "hr.imported",
+            AuditKind::AccessSetup => "access.setup",
+            AuditKind::AuthLogin => "auth.login",
+            AuditKind::AuthLoginFailed => "auth.login_failed",
+            AuditKind::AuthLocked => "auth.locked",
+            AuditKind::AuthLogout => "auth.logout",
+            AuditKind::AuthRecovered => "auth.recovered",
+            AuditKind::PasswordChanged => "auth.password_changed",
+            AuditKind::UserCreated => "user.created",
+            AuditKind::UserUpdated => "user.updated",
+            AuditKind::UserPasswordReset => "user.password_reset",
+            AuditKind::AccessDenied => "access.denied",
+            AuditKind::RequestCreated => "request.created",
+            AuditKind::RequestApproved => "request.approved",
+            AuditKind::RequestRejected => "request.rejected",
         }
     }
 }
@@ -78,9 +107,11 @@ pub fn record(
     details: Value,
 ) -> Result<(), AuditError> {
     check_no_free_text(&details)?;
+    // who is acting comes from the session of this connection (ADR-028); empty when the app acts by itself
+    conn.execute_batch("CREATE TEMP TABLE IF NOT EXISTS session_actor (user_id TEXT);")?;
     conn.execute(
-        "INSERT INTO audit_log (at, event, entity, entity_id, details_json)
-         VALUES (strftime('%Y-%m-%dT%H:%M:%SZ','now'), ?1, ?2, ?3, ?4)",
+        "INSERT INTO audit_log (at, event, entity, entity_id, details_json, actor_id)
+         VALUES (strftime('%Y-%m-%dT%H:%M:%SZ','now'), ?1, ?2, ?3, ?4, (SELECT user_id FROM temp.session_actor LIMIT 1))",
         params![kind.as_str(), entity, entity_id, details.to_string()],
     )?;
     Ok(())
@@ -103,7 +134,18 @@ mod tests {
     fn db() -> Connection {
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch(include_str!("../../migrations/0001_initial.sql")).unwrap();
+        c.execute_batch("ALTER TABLE audit_log ADD COLUMN actor_id TEXT;").unwrap();
         c
+    }
+
+    #[test]
+    fn the_entry_says_who_was_acting() {
+        let c = db();
+        record(&c, AuditKind::AuthLogout, None, None, json!({})).unwrap();
+        c.execute_batch("DELETE FROM temp.session_actor; INSERT INTO temp.session_actor VALUES ('usr_1');").unwrap();
+        record(&c, AuditKind::AuthLogin, None, None, json!({})).unwrap();
+        let actors: Vec<Option<String>> = c.prepare("SELECT actor_id FROM audit_log ORDER BY rowid").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
+        assert_eq!(actors, vec![None, Some("usr_1".to_string())]);
     }
 
     #[test]

@@ -203,7 +203,7 @@ fn contacts(conn: &Connection, person_id: &str) -> Result<Vec<EmergencyContact>,
 
 pub fn people(conn: &Connection) -> Result<Vec<StoredPerson>, HrError> {
     let mut out = conn
-        .prepare(&format!("SELECT {PERSON_COLUMNS} FROM hr_person p JOIN hr_job j ON j.person_id = p.id AND j.current = 1 ORDER BY p.rowid"))?
+        .prepare(&format!("SELECT {PERSON_COLUMNS} FROM hr_person p JOIN hr_job j ON j.person_id = p.id AND j.current = 1 WHERE p.hidden = 0 ORDER BY p.rowid"))?
         .query_map([], person_of)?
         .collect::<Result<Vec<_>, _>>()?;
     for p in &mut out {
@@ -331,7 +331,11 @@ pub fn delete_person(conn: &Connection, id: &str) -> Result<bool, HrError> {
 }
 
 pub fn count_in_position(conn: &Connection, position_id: &str) -> Result<i64, HrError> {
-    Ok(conn.query_row("SELECT count(*) FROM hr_job WHERE position_id=?1 AND current=1 AND status <> 'left'", [position_id], |r| r.get(0))?)
+    Ok(conn.query_row(
+        "SELECT count(*) FROM hr_job j JOIN hr_person p ON p.id = j.person_id WHERE j.position_id=?1 AND j.current=1 AND j.status <> 'left' AND p.hidden = 0",
+        [position_id],
+        |r| r.get(0),
+    )?)
 }
 
 // ------------------------------------------------------------------ the institution's own fields
@@ -348,7 +352,7 @@ pub struct CustomField {
 
 pub fn custom_fields(conn: &Connection) -> Result<Vec<CustomField>, HrError> {
     Ok(conn
-        .prepare("SELECT key, title, kind, options, position FROM hr_custom_field ORDER BY position")?
+        .prepare("SELECT key, title, kind, options, position FROM hr_custom_field WHERE hidden = 0 ORDER BY position")?
         .query_map([], |r| {
             Ok(CustomField { key: r.get(0)?, title: r.get(1)?, kind: r.get(2)?, options: serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default(), position: r.get(4)? })
         })?
@@ -377,6 +381,25 @@ pub fn delete_custom_field(conn: &Connection, key: &str) -> Result<(), HrError> 
     conn.execute("DELETE FROM hr_custom_field WHERE key=?1", [key])?;
     conn.execute("UPDATE hr_person SET extra = json_remove(extra, '$.' || json_quote(?1)) WHERE json_extract(extra, '$.' || json_quote(?1)) IS NOT NULL", [key])?;
     Ok(())
+}
+
+/// Hides a record (or brings it back) while a request to delete it waits: it leaves the lists and the sums.
+pub fn set_person_hidden(conn: &Connection, id: &str, hidden: bool) -> Result<bool, HrError> {
+    Ok(conn.execute("UPDATE hr_person SET hidden=?2 WHERE id=?1", params![id, hidden as i64])? > 0)
+}
+
+/// Hides a field of their own (or brings it back) while a request to delete it waits; the values stay.
+pub fn set_field_hidden(conn: &Connection, key: &str, hidden: bool) -> Result<bool, HrError> {
+    Ok(conn.execute("UPDATE hr_custom_field SET hidden=?2 WHERE key=?1", params![key, hidden as i64])? > 0)
+}
+
+pub fn hidden_field_keys(conn: &Connection) -> Result<Vec<String>, HrError> {
+    Ok(conn.prepare("SELECT key FROM hr_custom_field WHERE hidden = 1")?.query_map([], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// The title of a field of their own, hidden or not.
+pub fn field_title(conn: &Connection, key: &str) -> Result<Option<String>, HrError> {
+    Ok(conn.query_row("SELECT title FROM hr_custom_field WHERE key=?1", [key], |r| r.get(0)).optional()?)
 }
 
 /// The covered identifiers a record has stored, by name.

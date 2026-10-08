@@ -1,5 +1,6 @@
 //! Pure business rules (stages, calculations, validations). No I/O, no Tauri, no SQLite.
 
+pub mod access;
 pub mod budget;
 pub mod checklist;
 pub mod conversation;

@@ -14,6 +14,7 @@ import { fromView, toInput } from "./profileForm";
 import { RosterTab } from "./RosterTab";
 import { hrOverview } from "../hr/api";
 import { HR_KEY, StaffTab } from "../hr/StaffTab";
+import { useSession } from "../access/session";
 
 const t = es.profile;
 const money = (n: number) => n.toLocaleString("es-MX");
@@ -34,6 +35,8 @@ const ZERO: ProfileTotals = {
  */
 export function ProfilePage() {
   const qc = useQueryClient();
+  // the example data replaces records: only the administrator, in development (ADR-028)
+  const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
   // the staff lives in its own module (ADR-027); the people served, in the roster (ADR-020)
   const staffModule = useQuery({ queryKey: HR_KEY, queryFn: hrOverview });
@@ -295,7 +298,7 @@ export function ProfilePage() {
         </Dock>
       )}
 
-      {import.meta.env.DEV && (
+      {import.meta.env.DEV && access?.can("settings") && (
         <p className="flex flex-wrap items-center justify-center gap-3 text-small text-ink-3">
           {t.banner.loadExample}
           <Button size="sm" variant="plain" onClick={() => loadExample("asilo")} disabled={busy}>

@@ -1,6 +1,6 @@
 # ADR-019 · Respaldo cifrado, PIN opcional y escaneo de la base
 
-**Estado:** Aceptada (2026-10-03). Implementada: `storage/backup.rs`, `security_service.rs`, pantallas «Seguridad» y de bloqueo.
+**Estado:** Aceptada (2026-10-03). **El PIN de pantalla lo retira el ADR-028** (cada persona entra con su cuenta y contraseña); el respaldo y el escaneo siguen igual, pero restaurar un respaldo es solo del administrador. Implementada: `storage/backup.rs`, `security_service.rs`, pantallas «Seguridad» y de bloqueo.
 
 ## Decisión
 1. **Respaldo con contraseña.** Una copia de toda la base cifrada con una contraseña que la persona elige (mínimo 8 caracteres). Se usa `sqlcipher_export` hacia un archivo `.cimiento` (SQLCipher deriva la clave de la contraseña), sin dependencias nuevas. Se guarda en Descargas con nombre único (`Respaldo Cimiento AAAA-MM-DD.cimiento`); nunca sobrescribe. La bitácora registra solo `backup.created`. Se conservan el índice de búsqueda y las migraciones. El archivo no se puede leer sin la contraseña ni con la llave de la base.

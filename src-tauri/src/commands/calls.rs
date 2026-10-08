@@ -1,6 +1,8 @@
 //! Commands of the calls (convocatorias). Thin: decode what the screen sends, call `call_service`.
 //! A call belongs to the project born from it. The reading runs in the background and the screen asks how it is going.
 
+use super::guard;
+use crate::access_service::Session;
 use crate::call_service::{self as svc, NewProjectOutcome, PackageFile, ReadingDetail, UploadedFile};
 use crate::commands::diagnosis::{as_dyn, make_provider};
 use crate::error::UiError;
@@ -24,14 +26,14 @@ pub struct UploadFile {
 /// Creates a project from its call: saves the files, creates the project and starts reading the call
 /// without making the person wait.
 #[tauri::command]
-pub async fn project_create_from_call(
-    db: State<'_, Db>,
+pub async fn project_create_from_call(session: State<'_, Session>, db: State<'_, Db>,
     files: Vec<UploadFile>,
     name: String,
     funder: Option<String>,
     year: Option<i64>,
     decision: Option<Decision>,
 ) -> Result<NewProjectOutcome, UiError> {
+    guard(&session, "project_create_from_call")?;
     let shared = db.0.clone();
     let mut decoded = Vec::with_capacity(files.len());
     for f in files {
@@ -58,19 +60,22 @@ fn start(db: crate::diagnosis_service::SharedDb, id: String) {
 
 /// The person confirms that the call is the right one. Returns whether it could be confirmed.
 #[tauri::command]
-pub fn call_reading_confirm(db: State<'_, Db>, id: String) -> Result<bool, UiError> {
+pub fn call_reading_confirm(session: State<'_, Session>, db: State<'_, Db>, id: String) -> Result<bool, UiError> {
+    guard(&session, "call_reading_confirm")?;
     Ok(svc::confirm(&db.0, &id)?)
 }
 
 #[tauri::command]
-pub fn call_reading_get(db: State<'_, Db>, id: String) -> Result<ReadingDetail, UiError> {
+pub fn call_reading_get(session: State<'_, Session>, db: State<'_, Db>, id: String) -> Result<ReadingDetail, UiError> {
+    guard(&session, "call_reading_get")?;
     Ok(svc::detail(&db.0, &id)?)
 }
 
 /// Writes the «en pocas palabras» of a read call, once. The slot is the call's (`call:<id>`), so a second request
 /// while the first is running is refused instead of paying for another call.
 #[tauri::command]
-pub async fn call_brief_make(db: State<'_, Db>, jobs: State<'_, Jobs>, id: String) -> Result<ReadingDetail, UiError> {
+pub async fn call_brief_make(session: State<'_, Session>, db: State<'_, Db>, jobs: State<'_, Jobs>, id: String) -> Result<ReadingDetail, UiError> {
+    guard(&session, "call_brief_make")?;
     let job = jobs.claim(&format!("call:{id}"), JobKind::Brief)?;
     let shared = db.0.clone();
     let provider = make_provider(&shared);
@@ -81,7 +86,8 @@ pub async fn call_brief_make(db: State<'_, Db>, jobs: State<'_, Jobs>, id: Strin
 
 /// Reads again a call that is waiting, partial or failed. Returns whether a new reading started.
 #[tauri::command]
-pub fn call_reading_retry(db: State<'_, Db>, id: String) -> Result<bool, UiError> {
+pub fn call_reading_retry(session: State<'_, Session>, db: State<'_, Db>, id: String) -> Result<bool, UiError> {
+    guard(&session, "call_reading_retry")?;
     let shared = db.0.clone();
     let started = svc::prepare_retry(&shared, &id)?;
     if started {

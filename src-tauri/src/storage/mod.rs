@@ -1,5 +1,6 @@
 //! Encrypted database, migrations and repositories.
 
+pub mod access;
 pub mod backup;
 pub mod calls;
 pub mod db;

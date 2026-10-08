@@ -8,23 +8,20 @@ import { DocumentsPage } from "./features/documents/DocumentsPage";
 import { HelpPage } from "./features/help/HelpPage";
 import { ProfilePage } from "./features/profile/ProfilePage";
 import { ProjectsPage } from "./features/projects/ProjectsPage";
-import { LockScreen } from "./features/security/LockScreen";
+import { AdminPage } from "./features/access/AdminPage";
+import { useSession } from "./features/access/session";
 import { SecurityPage } from "./features/security/SecurityPage";
 import { es } from "./i18n/es-MX";
-import { pinStatus, profileGet, projectList } from "./lib/tauri";
+import { profileGet, projectList } from "./lib/tauri";
 
 export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  // the screen is not shown until the PIN, if there is one, is entered
-  const pin = useQuery({ queryKey: ["pin-status"], queryFn: pinStatus });
-  const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet, enabled: pin.data !== true });
-  const projects = useQuery({ queryKey: ["projects"], queryFn: projectList, enabled: pin.data !== true });
-  const [unlocked, setUnlocked] = useState(false);
-
-  if (pin.isLoading) return <p className="p-6 text-heading">{es.common.loading}</p>;
-  if (pin.data === true && !unlocked) return <LockScreen onUnlock={() => setUnlocked(true)} />;
+  // the app is shown only with a person inside (AccessGate, ADR-028); what they may do shapes the menu
+  const access = useSession();
+  const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
+  const projects = useQuery({ queryKey: ["projects"], queryFn: projectList });
 
   const institution = profile.data?.input.institution.name?.trim() || es.nav.profile;
 
@@ -43,7 +40,7 @@ export default function App() {
   };
 
   return (
-    <Shell page={page} onNavigate={setPage} institution={institution} focus={focus} onOpenFocus={openFocus} locked={pin.data === true} onLock={() => setUnlocked(false)}>
+    <Shell page={page} onNavigate={setPage} institution={institution} focus={focus} onOpenFocus={openFocus} access={access}>
       {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
           project, the project that was open and what they were writing are still there when they come back */}
       <div hidden={page !== "projects"}>
@@ -52,7 +49,8 @@ export default function App() {
       {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={() => setPage("profile")} />}
       {page === "profile" && <ProfilePage />}
       {page === "documents" && <DocumentsPage />}
-      {page === "ai" && <AiSettingsPage />}
+      {page === "ai" && access?.can("settings") && <AiSettingsPage />}
+      {page === "admin" && access?.can("administer") && <AdminPage />}
       {page === "security" && <SecurityPage />}
       {page === "help" && <HelpPage />}
     </Shell>

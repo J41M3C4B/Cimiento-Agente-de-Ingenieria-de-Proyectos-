@@ -68,7 +68,9 @@ Eventos mínimos: `document.uploaded`, `scanner.quarantine`, `scanner.override`,
 
 ## Roles
 
-En la versión local hay una sola cuenta por instalación (la computadora es el límite de acceso). Se prepara el modelo para roles futuros:
+Desde el ADR-028 cada persona entra con su cuenta (contraseña Argon2id, bloqueo por intentos y por inactividad) y Rust revisa en cada comando el permiso que necesita. Hoy existen `admin` (todo, incluido el panel de administración, la configuración técnica y borrar por completo) y `manager` (dirección y contaduría: toda la app, pero sus borrados se vuelven solicitudes que el administrador aprueba o devuelve, y el registro se oculta mientras tanto). La bitácora guarda quién hizo cada cosa (`actor_id`). Las cuentas no sustituyen el cifrado: protegen contra errores y usos indebidos de personas sin perfil técnico.
+
+Tabla original de roles previstos:
 
 | Rol | Puede |
 |---|---|
