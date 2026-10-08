@@ -7,8 +7,11 @@ import { HomePage } from "./core/home/HomePage";
 import { DocumentsPage } from "./core/documents/DocumentsPage";
 import { HelpPage } from "./core/help/HelpPage";
 import { ProfilePage } from "./core/profile/ProfilePage";
-import type { ProfileTab } from "./core/profile/ProfilePage";
 import { ProjectsPage } from "./modules/projects/ProjectsPage";
+import { StaffPage } from "./modules/hr/StaffPage";
+import { CarePage } from "./modules/care/CarePage";
+import { FacilitiesPage } from "./modules/facilities/FacilitiesPage";
+import { FinancePage } from "./modules/finance/FinancePage";
 import { AdminPage } from "./core/access/AdminPage";
 import { useSession } from "./core/access/session";
 import { SecurityPage } from "./core/security/SecurityPage";
@@ -19,8 +22,6 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  // «Mi institución» opens on the tab a link from Inicio points to; the rail always opens it on the first
-  const [profileTab, setProfileTab] = useState<ProfileTab | undefined>(undefined);
   // the app is shown only with a person inside (AccessGate, ADR-028); what they may do shapes the menu
   const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
@@ -36,14 +37,8 @@ export default function App() {
     setPage("projects");
   };
   const openFocus = () => focus && openProject(focus.id);
-  const goProfile = (tab?: ProfileTab) => {
-    setProfileTab(tab);
-    setPage("profile");
-  };
-  const navigate = (p: Page) => {
-    if (p === "profile") setProfileTab(undefined);
-    setPage(p);
-  };
+  const goProfile = () => setPage("profile");
+  const navigate = (p: Page) => setPage(p);
   const newProject = () => {
     setOpenId(null);
     setCreating(true);
@@ -57,8 +52,12 @@ export default function App() {
       <div hidden={page !== "projects"}>
         <ProjectsPage openId={openId} onOpen={setOpenId} creating={creating} onCreating={setCreating} />
       </div>
-      {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGoAi={() => setPage("ai")} />}
-      {page === "profile" && <ProfilePage key={profileTab ?? "first"} initialTab={profileTab} />}
+      {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGo={navigate} onGoAi={() => setPage("ai")} />}
+      {page === "profile" && <ProfilePage onGo={navigate} />}
+      {page === "staff" && <StaffPage />}
+      {page === "people" && <CarePage />}
+      {page === "facilities" && <FacilitiesPage />}
+      {page === "finance" && <FinancePage />}
       {page === "documents" && <DocumentsPage />}
       {page === "ai" && access?.can("settings") && <AiSettingsPage />}
       {page === "admin" && access?.can("administer") && <AdminPage />}

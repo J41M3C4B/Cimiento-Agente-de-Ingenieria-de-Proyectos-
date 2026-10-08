@@ -15,6 +15,10 @@ export const es = {
     projects: "Mis proyectos",
     profile: "Mi institución",
     documents: "Documentos",
+    staff: "Personal",
+    people: "Beneficiarios",
+    facilities: "Instalaciones",
+    finance: "Finanzas",
     ai: "Ayuda automática",
     security: "Seguridad",
     help: "Ayuda",
@@ -26,6 +30,13 @@ export const es = {
     themeLight: "Cambiar a modo claro",
     openProject: "Abrir el proyecto",
     mainSections: "Secciones",
+  },
+  /** Los módulos de la institución (ADR-032): cada uno se abre desde el riel. */
+  modules: {
+    staff: { title: "Personal", intro: "Las fichas de quienes trabajan en la institución, sus puestos y lo que cuesta la nómina." },
+    people: { title: "Beneficiarios", intro: "Las personas que atiende la institución, la lista de espera y el tablero con sus cifras." },
+    facilities: { title: "Instalaciones", intro: "El inmueble, sus espacios y su equipo, y en qué estado está cada cosa." },
+    finance: { title: "Finanzas", intro: "Lo que entra, lo que sale y el balance del año. Las cuentas las hace el programa." },
   },
   common: {
     save: "Guardar",
@@ -173,7 +184,16 @@ export const es = {
         "Por ejemplo: Somos una casa hogar que acompaña a niñas y niños en situación de abandono. Les damos un espacio seguro, educación y cariño todos los días.",
       needsName: "Primero registre el nombre de su institución y después podrá contar aquí quiénes son.",
     },
-    tabs: { general: "Datos generales", staff: "Personal", population: "Beneficiarios", facilities: "Instalaciones" },
+    /** Lo que lleva cada módulo, en una línea; el botón lleva al módulo (ADR-032). */
+    modules: {
+      title: "Lo que lleva la institución",
+      open: "Abrir",
+      staff: (n: number) => (n === 0 ? "Todavía no hay personas registradas" : n === 1 ? "1 persona en el personal" : `${n} personas en el personal`),
+      people: (n: number) => (n === 0 ? "Todavía no hay personas registradas" : n === 1 ? "1 persona atendida" : `${n} personas atendidas`),
+      facilities: (n: number) => (n === 0 ? "Todavía no hay espacios registrados" : n === 1 ? "1 espacio registrado" : `${n} espacios registrados`),
+      financeKnown: (balance: string) => `Balance del año: ${balance}`,
+      financeUnknown: "Faltan ingresos o egresos para saber el balance",
+    },
     incomeEmpty: "Todavía no hay fuentes de ingreso. Agregue la primera.",
     /** Dinero de la institución: ingresos por tipo, egresos y balance (ADR-026). Las cuentas las hace el programa. */
     finance: {

@@ -1,72 +1,37 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { UseFormRegister } from "react-hook-form";
-import { Alert, Button, Choice, FormSection, Inset, Modal, RadioCard, Select, Tag, TextArea, TextInput } from "../../components/ui";
-import { INCOME_KINDS } from "./finance";
+import { Alert, Button, FormSection, Modal, RadioCard, Select, TextArea, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import type { FinanceInput, ProfileIssue, ProfileView } from "../../lib/types";
+import type { ProfileIssue, ProfileView } from "../../lib/types";
 import { formSchema, fromView, type FormValues } from "./profileForm";
 
 const t = es.profile;
 const ins = es.institution;
 const options = (labels: Record<string, string>): [string, string][] => [["", es.facilities.select], ...Object.entries(labels)];
 
-/** What is being edited: one card of the profile, the approximate expense, or one item of a list (income, expense). */
-export type Edit =
-  | { kind: "institution" | "contact" | "legal" | "capacity" | "estimate" }
-  | { kind: "income" | "expense"; index: number | null };
-
-/** The money is saved in its own module (ADR-032); the rest, in the profile. */
-export const isMoney = (e: Edit) => e.kind === "income" || e.kind === "expense" || e.kind === "estimate";
+/** What is being edited: one card of the profile. The money is edited in its module (ADR-032). */
+export type Edit = { kind: "institution" | "contact" | "legal" | "capacity" };
 
 const kindOptions = Object.entries(t.kinds) as [string, string][];
 
-const titleOf = (e: Edit) =>
-  e.kind === "income" ? (e.index === null ? t.modal.incomeAdd : t.modal.incomeEdit)
-  : e.kind === "expense" ? (e.index === null ? t.modal.expenseAdd : t.modal.expenseEdit)
-  : t.modal[e.kind];
-
-/** «Al mes» or «Al año»: Rust turns the amount into a year, so the person writes it the way they know it. */
-function PeriodChoice({ name, register }: { name: `income.${number}.period` | `expenses.${number}.period`; register: UseFormRegister<FormValues> }) {
-  return (
-    <fieldset>
-      <legend className="field-label">{t.finance.periodLabel}</legend>
-      <div className="flex flex-wrap gap-2">
-        <Choice value="monthly" tone="ink" {...register(name)}>
-          {t.finance.period.monthly}
-        </Choice>
-        <Choice value="annual" tone="ink" {...register(name)}>
-          {t.finance.period.annual}
-        </Choice>
-      </div>
-    </fieldset>
-  );
-}
+const titleOf = (e: Edit) => t.modal[e.kind];
 
 /**
  * One window for each card of the profile: it holds the fields of that card only, starts from what is saved and
- * hands back the whole form; the page saves the profile or the money (`isMoney`) with that change. The page does
- * not keep a form of its own: what is on screen is what is saved.
+ * hands back the whole form; the page saves the profile with that change. The page does not keep a form of its own:
+ * what is on screen is what is saved.
  */
 export function ProfileEdit({
-  edit, view, money, issues, busy, onCommit, onClose,
+  edit, view, issues, busy, onCommit, onClose,
 }: {
   edit: Edit;
   view: ProfileView | null;
-  money: FinanceInput | null;
   issues: ProfileIssue[];
   busy: boolean;
   onCommit: (values: FormValues, onSaved: () => void) => void;
   onClose: () => void;
 }) {
-  const start = fromView(view, money);
-  // a new item goes at the end of its list, and that is the one the window edits
-  if (edit.kind === "income" && edit.index === null) start.income = [...start.income, { label: "", kind: "other", amount_mxn: "", period: "annual" }];
-  if (edit.kind === "expense" && edit.index === null) start.expenses = [...start.expenses, { label: "", amount_mxn: "", period: "annual" }];
-  const i =
-    edit.kind === "income" ? (edit.index ?? start.income.length - 1)
-    : edit.kind === "expense" ? (edit.index ?? start.expenses.length - 1)
-    : 0;
+  const start = fromView(view);
 
   const { register, handleSubmit, formState } = useForm<FormValues>({ resolver: zodResolver(formSchema), defaultValues: start });
   const fe = formState.errors;
@@ -137,49 +102,6 @@ export function ProfileEdit({
               </div>
             </FormSection>
             <TextArea label={t.fields.notes} {...register("notes")} />
-          </>
-        )}
-        {edit.kind === "estimate" && (
-          <>
-            <p className="text-ui text-ink-2">{t.modal.estimateIntro}</p>
-            <Inset className="space-y-3 !p-4">
-              <div className="text-small font-bold text-ink-2">{t.modal.estimateIncludes}</div>
-              <ul className="flex flex-wrap gap-2">
-                {t.modal.estimateItems.map((x) => (
-                  <li key={x}>
-                    <Tag tone="amber" variant="soft" icon="check">
-                      {x}
-                    </Tag>
-                  </li>
-                ))}
-              </ul>
-            </Inset>
-            <TextInput label={t.fields.annualBudget} hint={t.finance.expenses.estimateHelp} prefix="$" suffix="al año" autoFocus error={err(fe.annual_budget_mxn)} {...register("annual_budget_mxn")} />
-          </>
-        )}
-        {edit.kind === "income" && (
-          <>
-            <TextInput label={t.fields.incomeLabel} autoFocus placeholder={t.modal.incomePlaceholder} {...register(`income.${i}.label`)} />
-            <fieldset className="space-y-2">
-              <legend className="field-label">{t.finance.kindLabel}</legend>
-              {INCOME_KINDS.map((k) => (
-                <RadioCard key={k} value={k} title={t.finance.incomeKinds[k]![0]} note={t.finance.incomeKinds[k]![1]} {...register(`income.${i}.kind`)} />
-              ))}
-            </fieldset>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <TextInput label={t.finance.amountLabel} prefix="$" error={err(fe.income?.[i]?.amount_mxn)} {...register(`income.${i}.amount_mxn`)} />
-              <PeriodChoice name={`income.${i}.period`} register={register} />
-            </div>
-          </>
-        )}
-        {edit.kind === "expense" && (
-          <>
-            <p className="text-ui text-ink-2">{t.finance.expenses.payrollNote}</p>
-            <TextInput label={t.finance.expenses.labelField} autoFocus placeholder={t.finance.expenses.placeholder} {...register(`expenses.${i}.label`)} />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <TextInput label={t.finance.amountLabel} prefix="$" error={err(fe.expenses?.[i]?.amount_mxn)} {...register(`expenses.${i}.amount_mxn`)} />
-              <PeriodChoice name={`expenses.${i}.period`} register={register} />
-            </div>
           </>
         )}
         {issues.length > 0 && (

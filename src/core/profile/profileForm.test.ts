@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { FinanceInput, ProfileInput, ProfileView } from "../../lib/types";
-import { emptyForm, formSchema, fromView, parsePesos, toFinance, toInput } from "./profileForm";
+import type { ProfileInput, ProfileView } from "../../lib/types";
+import { emptyForm, formSchema, fromView, toInput } from "./profileForm";
 
 const input: ProfileInput = {
   institution: {
@@ -27,12 +27,6 @@ const input: ProfileInput = {
   staff: [],
 };
 
-const money: FinanceInput = {
-  annual_budget_mxn: null,
-  income: [{ label: "Donativos", kind: "occasional_donation", amount_mxn: 1000, period: "monthly" }],
-  expenses: [{ label: "Alimentos", amount_mxn: 8000, period: "monthly" }],
-};
-
 const view = (i: ProfileInput): ProfileView => ({
   institution_id: "inst_1",
   version: 1,
@@ -49,8 +43,7 @@ const view = (i: ProfileInput): ProfileView => ({
 
 describe("profile form conversion", () => {
   it("round-trips what the app sends", () => {
-    expect(toInput(fromView(view(input), money))).toEqual(input);
-    expect(toFinance(fromView(view(input), money))).toEqual(money);
+    expect(toInput(fromView(view(input)))).toEqual(input);
   });
 
   it("never sends staff or people served: they come from the roster", () => {
@@ -69,24 +62,8 @@ describe("profile form conversion", () => {
     expect(out.capacity_total).toBeNull();
   });
 
-  it("keeps the expenses when another card is saved, and never sends money with the profile", () => {
-    const f = fromView(view(input), money);
-    f.name = "Otro nombre";
-    expect(toFinance(f).expenses).toEqual(money.expenses);
-    expect(toInput(f)).not.toHaveProperty("expenses");
-  });
-
-  it("reads amounts as people write them, like Rust does", () => {
-    for (const [text, n] of [["1800000", 1800000], ["1,800,000", 1800000], ["$1 800 000", 1800000], ["$ 950", 950], ["1.800.000", 1800000]] as const) {
-      expect(parsePesos(text)).toBe(n);
-    }
-    for (const text of ["abc", "9 mil", "1,80,000", "1800,000", "-5", "12.50", "$"]) expect(parsePesos(text)).toBeNull();
-    const f = fromView(view(input), money);
-    f.annual_budget_mxn = "$1,800,000";
-    f.income[0]!.amount_mxn = "12,500";
-    expect(formSchema.safeParse(f).success).toBe(true);
-    expect(toFinance(f).annual_budget_mxn).toBe(1800000);
-    expect(toFinance(f).income[0]!.amount_mxn).toBe(12500);
+  it("never sends money with the profile: it lives in the finance module", () => {
+    expect(toInput(fromView(view(input)))).not.toHaveProperty("expenses");
   });
 
   it("accepts only whole numbers in number fields", () => {
@@ -94,7 +71,7 @@ describe("profile form conversion", () => {
     expect(ok.success).toBe(true);
     const f = fromView(view(input));
     f.capacity_total = "abc";
-    f.annual_budget_mxn = "-3";
+    f.founded_year = "-3";
     const bad = formSchema.safeParse(f);
     expect(bad.success).toBe(false);
     expect(bad.error!.issues.map((i) => i.message)).toEqual(["not_a_number", "not_a_number"]);

@@ -1,30 +1,29 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Card, Dock, Eyebrow, FactRow, Facts, Inset, Metric, TabPanel, Tag, TextButton, Toast } from "../../components/ui";
+import { Alert, Button, Card, Eyebrow, FactRow, Facts, Inset, Metric, Tag, TextButton, Tile, Toast } from "../../components/ui";
+import type { Page } from "../../components/Shell";
+import type { IconName } from "../../components/icons";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileConfirm, profileGet, profileSave, toAppError } from "../../lib/tauri";
-import type { Decision, FinanceInput, ProfileInput, ProfileIssue, ProfileTotals, ProfileView, QuarantineReport } from "../../lib/types";
+import type { Decision, ProfileInput, ProfileIssue, ProfileTotals, QuarantineReport } from "../../lib/types";
 import { CapacityCard } from "./CapacityCard";
-import { BalanceCard, ExpensesCard, IncomeCard } from "./FinanceCards";
-import { isMoney, ProfileEdit } from "./ProfileEdit";
+import { ProfileEdit } from "./ProfileEdit";
 import type { Edit } from "./ProfileEdit";
-import { toFinance, toInput } from "./profileForm";
-import { FINANCE_KEY, financeGet, financeSave } from "../../modules/finance/api";
+import { toInput } from "./profileForm";
+import { FINANCE_KEY, financeGet } from "../../modules/finance/api";
 import { careOverview } from "../../modules/care/api";
 import { facilitiesOverview } from "../../modules/facilities/api";
-import { FACILITIES_KEY, FacilitiesTab } from "../../modules/facilities/FacilitiesTab";
-import { CARE_KEY, CareTab } from "../../modules/care/CareTab";
+import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
+import { CARE_KEY } from "../../modules/care/CareTab";
 import { hrOverview } from "../../modules/hr/api";
-import { HR_KEY, StaffTab } from "../../modules/hr/StaffTab";
+import { HR_KEY } from "../../modules/hr/StaffTab";
 import { useSession } from "../access/session";
 
 const t = es.profile;
 const count = (n: number) => n.toLocaleString("es-MX");
 const peso = (n: number) => `$${count(n)}`;
-export type ProfileTab = "general" | "staff" | "population" | "facilities";
-type Tab = ProfileTab;
 
 const ZERO: ProfileTotals = {
   population: 0, staff_paid: 0, staff_volunteer: 0,
@@ -34,16 +33,16 @@ const ZERO: ProfileTotals = {
 };
 
 /**
- * Mi institución (docs/13 §10). One header tray in two halves: who the institution is (name, mission, state) and
- * its four figures; below, the detail by cut-out tab. What is on the screen is what is saved: «Editar» opens a
- * window with just those fields, so there is no half-edited page.
+ * Mi institución (docs/13 §10), the core of the app (ADR-032). One header tray in two halves: who the institution is
+ * (name, mission, state) and its four figures; below, its data and a line for each module, which opens it. What is
+ * on the screen is what is saved: «Editar» opens a window with just those fields, so there is no half-edited page.
  */
-export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTab }) {
+export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
   const qc = useQueryClient();
   // the example data replaces records: only the administrator, in development (ADR-028)
   const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
-  // the money lives in its own module (ADR-032)
+  // what each module has, for its line (ADR-032)
   const finance = useQuery({ queryKey: FINANCE_KEY, queryFn: financeGet });
   // the staff and the people served live in their own modules (ADR-027, ADR-029)
   const staffModule = useQuery({ queryKey: HR_KEY, queryFn: hrOverview });
@@ -51,16 +50,11 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
   // and the facilities in theirs (ADR-030)
   const facilitiesModule = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
 
-  const [tab, setTab] = useState<Tab>(initialTab);
   const [edit, setEdit] = useState<Edit | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [issues, setIssues] = useState<ProfileIssue[]>([]);
-  const [quarantine, setQuarantine] = useState<
-    | { target: "profile"; input: ProfileInput; report: QuarantineReport; onSaved?: () => void }
-    | { target: "money"; input: FinanceInput; report: QuarantineReport; onSaved?: () => void }
-    | null
-  >(null);
+  const [quarantine, setQuarantine] = useState<{ input: ProfileInput; report: QuarantineReport; onSaved?: () => void } | null>(null);
 
   const view = profile.data ?? null;
   const money = finance.data ?? null;
@@ -87,31 +81,7 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
         return true;
       }
       if (out.status === "invalid") setIssues(out.issues);
-      else setQuarantine({ target: "profile", input, report: out.report, onSaved });
-      return false;
-    } catch (e) {
-      setToast({ tone: "error", text: toAppError(e).message });
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /** Saves the whole money with a change, in its module. Returns whether it was saved. */
-  async function commitMoney(input: FinanceInput, decision?: Decision, onSaved?: () => void): Promise<boolean> {
-    setBusy(true);
-    setIssues([]);
-    try {
-      const out = await financeSave(input, decision);
-      if (out.status === "saved") {
-        setQuarantine(null);
-        qc.setQueryData(FINANCE_KEY, out.finance);
-        setToast({ tone: "ok", text: es.common.saved });
-        onSaved?.();
-        return true;
-      }
-      if (out.status === "invalid") setIssues(out.issues);
-      else setQuarantine({ target: "money", input, report: out.report, onSaved });
+      else setQuarantine({ input, report: out.report, onSaved });
       return false;
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
@@ -148,49 +118,43 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
     }
   }
 
-  function removeItem(kind: "income" | "expenses", index: number) {
-    if (!money) return;
-    const m: FinanceInput = { ...money.input, income: [...money.input.income], expenses: [...money.input.expenses] };
-    m[kind].splice(index, 1);
-    void commitMoney(m);
-  }
-
-  /** The person decided what to do with what the scanner found: the same save again, with the decision. */
-  function resolveQuarantine(decision: Decision) {
-    if (!quarantine) return;
-    return quarantine.target === "money"
-      ? commitMoney(quarantine.input, decision, quarantine.onSaved)
-      : commit(quarantine.input, decision, quarantine.onSaved);
-  }
-
   const open = (e: Edit) => {
     setIssues([]);
     setEdit(e);
   };
 
-  const notify = (text: string) => setToast({ tone: "ok", text });
-  const onRosterProfile = (p: ProfileView) => {
-    qc.setQueryData(["profile"], p);
-    // the payroll and the fees of the balance come from the staff and the people served
-    void qc.invalidateQueries({ queryKey: FINANCE_KEY });
-  };
 
   const totals = staffModule.data?.totals ?? view?.totals ?? ZERO;
   const staffCount = staffModule.data?.people.filter((p) => p.status !== "left").length ?? 0;
   const peopleCount = peopleModule.data?.board.indicators.served ?? 0;
   const spacesCount = facilitiesModule.data?.indicators.spaces ?? 0;
-  const headsUp = [...(view?.issues ?? []), ...(money?.issues ?? [])].filter((i) => !i.blocking);
+  const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
 
   // what is still missing, each one leading to where it is filled in
   const todo: { text: string; go: () => void }[] = [];
   if (view) {
     if (!inst?.contact_phone && !inst?.contact_email) todo.push({ text: t.todo.contact, go: () => open({ kind: "contact" }) });
-    if (staffModule.isSuccess && staffCount === 0) todo.push({ text: t.todo.staff, go: () => setTab("staff") });
-    if (peopleModule.isSuccess && peopleCount === 0) todo.push({ text: t.todo.population, go: () => setTab("population") });
-    if (facilitiesModule.isSuccess && spacesCount === 0) todo.push({ text: t.todo.facilities, go: () => setTab("facilities") });
+    if (staffModule.isSuccess && staffCount === 0) todo.push({ text: t.todo.staff, go: () => onGo("staff") });
+    if (peopleModule.isSuccess && peopleCount === 0) todo.push({ text: t.todo.population, go: () => onGo("people") });
+    if (facilitiesModule.isSuccess && spacesCount === 0) todo.push({ text: t.todo.facilities, go: () => onGo("facilities") });
   }
 
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
+
+  // a line for each module: what it has, and the way into it
+  const balance = money?.finances.balance_annual_mxn ?? null;
+  const modules: { page: Page; icon: IconName; tone: "teal" | "violet" | "sky" | "green"; title: string; text: string }[] = [
+    { page: "staff", icon: "briefcase", tone: "teal", title: es.nav.staff, text: t.modules.staff(staffCount) },
+    { page: "people", icon: "heart", tone: "violet", title: es.nav.people, text: t.modules.people(peopleCount) },
+    { page: "facilities", icon: "building", tone: "sky", title: es.nav.facilities, text: t.modules.facilities(spacesCount) },
+    {
+      page: "finance",
+      icon: "wallet",
+      tone: "green",
+      title: es.nav.finance,
+      text: balance === null ? t.modules.financeUnknown : t.modules.financeKnown(`${balance < 0 ? "−" : ""}${peso(Math.abs(balance))}`),
+    },
+  ];
 
   const [showTodo, setShowTodo] = useState(false);
   const capacity = view?.input.capacity_total ?? 0;
@@ -300,85 +264,61 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
       </Card>
 
       {view && (
-        <Dock
-          label={t.sections.basics}
-          value={tab}
-          onChange={setTab}
-          items={[
-            { id: "general", label: t.tabs.general },
-            { id: "staff", label: t.tabs.staff, count: staffCount },
-            { id: "population", label: t.tabs.population, count: peopleCount },
-            { id: "facilities", label: t.tabs.facilities, count: spacesCount },
-          ]}
-        >
-          <TabPanel id="general" active={tab === "general"}>
-            <div className="grid items-start gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <Card className="dock-attach">
-                <FactRow title={t.cards.institution} action={edition({ kind: "institution" })}>
-                  <Facts columns={2} items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
-                </FactRow>
-                <FactRow title={t.cards.contact} note={t.privateNote} action={edition({ kind: "contact" })}>
-                  <Facts
-                    columns={2}
-                    items={[
-                      [t.fields.phone, inst?.contact_phone],
-                      [t.fields.email, inst?.contact_email],
-                      [es.institution.state, inst?.state ? es.institution.states[inst.state] : null],
-                      [es.institution.municipality, inst?.municipality],
-                    ]}
-                  />
-                </FactRow>
-                <FactRow title={t.cards.legal} note={t.legalNote} action={edition({ kind: "legal" })}>
-                  <Facts
-                    columns={2}
-                    items={[
-                      [t.fields.rfc, inst?.legal_rfc],
-                      [t.fields.legalRep, inst?.legal_rep_name],
-                      [es.institution.legalForm, inst?.legal_form ? es.institution.legalForms[inst.legal_form] : null],
-                      [es.institution.foundedYear, inst?.founded_year?.toString()],
-                      [es.institution.authorizedDonee, inst?.authorized_donee ? es.institution.registry[inst.authorized_donee] : null],
-                      [es.institution.cluni, inst?.cluni ? es.institution.registry[inst.cluni] : null],
-                    ]}
-                  />
-                </FactRow>
-              </Card>
+        <>
+          <div className="grid items-start gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <Card>
+              <FactRow title={t.cards.institution} action={edition({ kind: "institution" })}>
+                <Facts columns={2} items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
+              </FactRow>
+              <FactRow title={t.cards.contact} note={t.privateNote} action={edition({ kind: "contact" })}>
+                <Facts
+                  columns={2}
+                  items={[
+                    [t.fields.phone, inst?.contact_phone],
+                    [t.fields.email, inst?.contact_email],
+                    [es.institution.state, inst?.state ? es.institution.states[inst.state] : null],
+                    [es.institution.municipality, inst?.municipality],
+                  ]}
+                />
+              </FactRow>
+              <FactRow title={t.cards.legal} note={t.legalNote} action={edition({ kind: "legal" })}>
+                <Facts
+                  columns={2}
+                  items={[
+                    [t.fields.rfc, inst?.legal_rfc],
+                    [t.fields.legalRep, inst?.legal_rep_name],
+                    [es.institution.legalForm, inst?.legal_form ? es.institution.legalForms[inst.legal_form] : null],
+                    [es.institution.foundedYear, inst?.founded_year?.toString()],
+                    [es.institution.authorizedDonee, inst?.authorized_donee ? es.institution.registry[inst.authorized_donee] : null],
+                    [es.institution.cluni, inst?.cluni ? es.institution.registry[inst.cluni] : null],
+                  ]}
+                />
+              </FactRow>
+            </Card>
 
-              <CapacityCard view={view} onEdit={() => open({ kind: "capacity" })} />
-            </div>
-            {money && (
-              <div className="mt-4">
-                <BalanceCard money={money} />
-              </div>
-            )}
-            <div className="mt-4 grid items-start gap-4 min-[1000px]:grid-cols-2">
-              {money && <IncomeCard money={money} busy={busy} onAdd={() => open({ kind: "income", index: null })} onEdit={(index) => open({ kind: "income", index })} onRemove={(index) => removeItem("income", index)} />}
-              {money && <ExpensesCard
-                money={money}
-                totals={totals}
-                busy={busy}
-                onAdd={() => open({ kind: "expense", index: null })}
-                onEdit={(index) => open({ kind: "expense", index })}
-                onRemove={(index) => removeItem("expenses", index)}
-                onEditEstimate={() => open({ kind: "estimate" })}
-              />}
-            </div>
-          </TabPanel>
-          <TabPanel id="staff" active={tab === "staff"}>
-            <Card className="dock-attach">
-              <StaffTab onProfile={onRosterProfile} onNotice={notify} />
-            </Card>
-          </TabPanel>
-          <TabPanel id="population" active={tab === "population"}>
-            <Card className="dock-attach">
-              <CareTab onProfile={onRosterProfile} onNotice={notify} />
-            </Card>
-          </TabPanel>
-          <TabPanel id="facilities" active={tab === "facilities"}>
-            <Card className="dock-attach">
-              <FacilitiesTab onNotice={notify} />
-            </Card>
-          </TabPanel>
-        </Dock>
+            <CapacityCard view={view} onEdit={() => open({ kind: "capacity" })} />
+          </div>
+          <Card className="flex flex-col gap-4">
+            <h2 className="text-heading font-bold">{t.modules.title}</h2>
+            <ul className="grid gap-3 min-[1000px]:grid-cols-2">
+              {modules.map((m) => (
+                <li key={m.page}>
+                  <Inset className="flex items-center gap-3">
+                    <Tile icon={m.icon} tone={m.tone} />
+                    <div className="min-w-0 flex-1">
+                      <b className="block text-ui font-bold">{m.title}</b>
+                      <span className="block text-small text-ink-2">{m.text}</span>
+                    </div>
+                    <Button size="sm" variant="secondary" onClick={() => onGo(m.page)}>
+                      {t.modules.open}
+                      <Icon name="next" size={14} />
+                    </Button>
+                  </Inset>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </>
       )}
 
       {import.meta.env.DEV && access?.can("settings") && (
@@ -397,10 +337,9 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
         <ProfileEdit
           edit={edit}
           view={view}
-          money={money?.input ?? null}
           issues={issues}
           busy={busy}
-          onCommit={(values, onSaved) => void (isMoney(edit) ? commitMoney(toFinance(values), undefined, onSaved) : commit(toInput(values), undefined, onSaved))}
+          onCommit={(values, onSaved) => void commit(toInput(values), undefined, onSaved)}
           onClose={() => setEdit(null)}
         />
       )}
@@ -409,8 +348,8 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
         <QuarantineDialog
           report={quarantine.report}
           busy={busy}
-          onRedact={() => void resolveQuarantine("redact")}
-          onNotPersonal={() => void resolveQuarantine("not_personal")}
+          onRedact={() => void commit(quarantine.input, "redact", quarantine.onSaved)}
+          onNotPersonal={() => void commit(quarantine.input, "not_personal", quarantine.onSaved)}
           onCancel={() => setQuarantine(null)}
         />
       )}

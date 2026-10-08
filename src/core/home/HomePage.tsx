@@ -11,7 +11,7 @@ import { facilitiesOverview } from "../../modules/facilities/api";
 import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { ONBOARDING_KEY, onboardingStatus } from "../onboarding/api";
 import { resumeOnboarding } from "../onboarding/OnboardingGate";
-import type { ProfileTab } from "../profile/ProfilePage";
+import type { Page } from "../../components/Shell";
 import { shortDate, stepInfo, useProjectCall } from "../../modules/projects/projectCall";
 import { ProjectFolder } from "../../modules/projects/ProjectFolder";
 import { stepsForView } from "../../modules/projects/steps";
@@ -36,12 +36,15 @@ export function HomePage({
   onNewProject,
   onGoProjects,
   onGoProfile,
+  onGo,
   onGoAi,
 }: {
   onOpenProject: (id: string) => void;
   onNewProject: () => void;
   onGoProjects: () => void;
-  onGoProfile: (tab?: ProfileTab) => void;
+  onGoProfile: () => void;
+  /** opens a section or a module of the rail */
+  onGo: (page: Page) => void;
   onGoAi: () => void;
 }) {
   const projects = useQuery({ queryKey: ["projects"], queryFn: projectList });
@@ -110,7 +113,7 @@ export function HomePage({
         </div>
       )}
 
-      <NextSteps onGoProfile={onGoProfile} onGoAi={onGoAi} />
+      <NextSteps onGo={onGo} onGoAi={onGoAi} />
 
       {others.length > 0 && (
         <section className="space-y-3" aria-labelledby="home-others">
@@ -213,16 +216,16 @@ function PendingData() {
  * After the first start: what to do next so the assistant knows the institution better (ADR-031). Each step goes to
  * where it is done and goes away when it is done; with all of them done the card is not drawn.
  */
-function NextSteps({ onGoProfile, onGoAi }: { onGoProfile: (tab?: ProfileTab) => void; onGoAi: () => void }) {
+function NextSteps({ onGo, onGoAi }: { onGo: (page: Page) => void; onGoAi: () => void }) {
   const access = useSession();
   const status = useQuery({ queryKey: ONBOARDING_KEY, queryFn: onboardingStatus });
   const facilities = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
   const s = status.data;
   if (!s || !s.done) return null;
   const all: { key: string; icon: IconName; tone: "teal" | "violet" | "sky" | "amber"; todo: boolean; go: () => void }[] = [
-    { key: "staff", icon: "briefcase", tone: "teal", todo: s.records.staff === 0, go: () => onGoProfile("staff") },
-    { key: "people", icon: "heart", tone: "violet", todo: s.records.served === 0, go: () => onGoProfile("population") },
-    ...(facilities.isSuccess ? [{ key: "facilities", icon: "building" as IconName, tone: "sky" as const, todo: facilities.data.indicators.spaces === 0, go: () => onGoProfile("facilities") }] : []),
+    { key: "staff", icon: "briefcase", tone: "teal", todo: s.records.staff === 0, go: () => onGo("staff") },
+    { key: "people", icon: "heart", tone: "violet", todo: s.records.served === 0, go: () => onGo("people") },
+    ...(facilities.isSuccess ? [{ key: "facilities", icon: "building" as IconName, tone: "sky" as const, todo: facilities.data.indicators.spaces === 0, go: () => onGo("facilities") }] : []),
     ...(s.setup && access?.can("settings") ? [{ key: "ai", icon: "sparkles" as IconName, tone: "amber" as const, todo: !s.setup.ai_ready, go: onGoAi }] : []),
   ];
   const pending = all.filter((x) => x.todo);

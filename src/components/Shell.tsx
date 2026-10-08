@@ -9,13 +9,21 @@ import { PROJECT_STEPS, stepIndex } from "../modules/projects/steps";
 import type { IconName } from "./icons";
 import { Avatar, IconButton, Logo, StepDots } from "./ui";
 
-export type Page = "home" | "projects" | "profile" | "documents" | "ai" | "security" | "admin" | "help";
+/** The sections of the rail: the core (Inicio, Mi institución, Documentos), the modules (ADR-032) and the settings. */
+export type Page = "home" | "profile" | "documents" | "projects" | "staff" | "people" | "facilities" | "finance" | "ai" | "security" | "admin" | "help";
 
-const TOP: [Page, string, IconName][] = [
+const CORE: [Page, string, IconName][] = [
   ["home", es.nav.home, "home"],
-  ["projects", es.nav.projects, "folder"],
-  ["profile", es.nav.profile, "building"],
+  ["profile", es.nav.profile, "idcard"],
   ["documents", es.nav.documents, "file"],
+];
+/** One button per module of the institution (ADR-032). */
+const MODULES: [Page, string, IconName][] = [
+  ["projects", es.nav.projects, "folder"],
+  ["staff", es.nav.staff, "briefcase"],
+  ["people", es.nav.people, "heart"],
+  ["facilities", es.nav.facilities, "building"],
+  ["finance", es.nav.finance, "wallet"],
 ];
 /** The sections below the line; some only for whoever may use them (ADR-028). */
 const MORE: [Page, string, IconName, "settings" | "administer" | null][] = [
@@ -89,7 +97,9 @@ export function Shell({
           </div>
         </header>
         <nav aria-label={es.nav.mainSections} className="rail">
-          {TOP.map(rail)}
+          {CORE.map(rail)}
+          <span className="rail-sep" aria-hidden="true" />
+          {MODULES.map(rail)}
           <span className="rail-sep" aria-hidden="true" />
           {MORE.filter(([, , , needs]) => !needs || access?.can(needs)).map(([id, label, icon]) => rail([id, label, icon]))}
           <span className="rail-gap" aria-hidden="true" />

@@ -1,12 +1,5 @@
 import { z } from "zod";
-import type {
-  FinanceInput,
-  IncomeKind,
-  InstitutionKind,
-  Period,
-  ProfileInput,
-  ProfileView,
-} from "../../lib/types";
+import type { InstitutionKind, ProfileInput, ProfileView } from "../../lib/types";
 
 // The form keeps everything as text; conversion to numbers happens here.
 // Business rules (totals, limits) live in Rust, not here.
@@ -14,18 +7,6 @@ import type {
 const wholeNumber = z.string().refine((v) => v.trim() === "" || /^\d+$/.test(v.trim()), {
   message: "not_a_number",
 });
-
-/**
- * An amount as people write it: «1800000», «1,800,000», «$1 800 000». The same reading as `parse_pesos` in Rust
- * (separators only between groups of three digits); `null` when it is not an amount.
- */
-export function parsePesos(v: string): number | null {
-  const s = v.trim().replace(/^\$\s*/, "");
-  if (!/^(\d+|\d{1,3}([,. ]\d{3})+)$/.test(s)) return null;
-  return Number(s.replace(/[,. ]/g, ""));
-}
-
-const pesos = z.string().refine((v) => v.trim() === "" || parsePesos(v) !== null, { message: "not_a_number" });
 
 export const formSchema = z.object({
   name: z.string(),
@@ -45,10 +26,7 @@ export const formSchema = z.object({
   staff_paid_estimate: wholeNumber,
   staff_volunteer_estimate: wholeNumber,
   capacity_total: wholeNumber,
-  annual_budget_mxn: pesos,
   notes: z.string(),
-  income: z.array(z.object({ label: z.string(), kind: z.string(), amount_mxn: pesos, period: z.enum(["monthly", "annual"]) })),
-  expenses: z.array(z.object({ label: z.string(), amount_mxn: pesos, period: z.enum(["monthly", "annual"]) })),
 });
 
 export type FormValues = z.infer<typeof formSchema>;
@@ -71,22 +49,16 @@ export const emptyForm = (): FormValues => ({
   staff_paid_estimate: "",
   staff_volunteer_estimate: "",
   capacity_total: "",
-  annual_budget_mxn: "",
   notes: "",
-  income: [],
-  expenses: [],
 });
 
 const str = (v: string | null | undefined) => v ?? "";
 const numStr = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v));
 const textOrNull = (v: string) => (v.trim() === "" ? null : v.trim());
 const numOrNull = (v: string) => (v.trim() === "" ? null : Number(v.trim()));
-const pesosOrNull = (v: string) => (v.trim() === "" ? null : parsePesos(v));
 
-/** The fields of the profile and of the money (it lives in its own module, ADR-032), as one form. */
-export function fromView(view: ProfileView | null, money: FinanceInput | null = null): FormValues {
-  const m = money ?? { annual_budget_mxn: null, income: [], expenses: [] };
-  if (!view) return { ...emptyForm(), ...moneyFields(m) };
+export function fromView(view: ProfileView | null): FormValues {
+  if (!view) return emptyForm();
   const p = view.input;
   return {
     name: p.institution.name,
@@ -107,15 +79,6 @@ export function fromView(view: ProfileView | null, money: FinanceInput | null = 
     staff_volunteer_estimate: numStr(p.staff_volunteer_estimate),
     capacity_total: numStr(p.capacity_total),
     notes: str(p.notes),
-    ...moneyFields(m),
-  };
-}
-
-function moneyFields(m: FinanceInput): Pick<FormValues, "annual_budget_mxn" | "income" | "expenses"> {
-  return {
-    annual_budget_mxn: numStr(m.annual_budget_mxn),
-    income: m.income.map((i) => ({ label: i.label, kind: i.kind, amount_mxn: numStr(i.amount_mxn), period: i.period })),
-    expenses: m.expenses.map((e) => ({ label: e.label, amount_mxn: numStr(e.amount_mxn), period: e.period })),
   };
 }
 
@@ -147,16 +110,3 @@ export function toInput(v: FormValues): ProfileInput {
   };
 }
 
-/** The money of the form, as the finance module keeps it. */
-export function toFinance(v: FormValues): FinanceInput {
-  return {
-    annual_budget_mxn: pesosOrNull(v.annual_budget_mxn),
-    income: v.income.map((i) => ({
-      label: i.label,
-      kind: i.kind as IncomeKind,
-      amount_mxn: pesosOrNull(i.amount_mxn),
-      period: i.period as Period,
-    })),
-    expenses: v.expenses.map((e) => ({ label: e.label, amount_mxn: pesosOrNull(e.amount_mxn), period: e.period as Period })),
-  };
-}
