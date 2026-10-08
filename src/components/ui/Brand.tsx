@@ -20,9 +20,9 @@ const MARK = (
  * (dark in the light theme, light in the dark one). Size it with a height (`h-8`); the width follows.
  * The name is text in the program's own font, so it only needs the font the app already carries.
  */
-export function Logo({ inverse, className = "" }: { inverse?: boolean; className?: string }) {
+export function Logo({ inverse, onBrand, className = "" }: { inverse?: boolean; /** all white, for the flat blue of the brand */ onBrand?: boolean; className?: string }) {
   return (
-    <svg className={`logo ${inverse ? "logo--inverse" : ""} ${className}`} viewBox="-1 -1 212.7 79.3" role="img" aria-label={NAME}>
+    <svg className={`logo ${inverse ? "logo--inverse" : ""} ${onBrand ? "logo--on-brand" : ""} ${className}`} viewBox="-1 -1 212.7 79.3" role="img" aria-label={NAME}>
       {MARK}
       <text className="lg-word" transform="translate(63.83 51.77)">
         <tspan>Soci</tspan>

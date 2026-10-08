@@ -5,7 +5,7 @@ type Plural = { one: string; other: string };
 
 export const es = {
   app: {
-    name: "Cimiento",
+    name: "SociAI",
     tagline: "Le ayudamos a preparar sus proyectos para pedir donativos.",
     welcome:
       "¡Hola! Vamos a armar su proyecto paso a paso. Usted solo responda; nosotros nos encargamos del formato y las cuentas.",
@@ -806,7 +806,7 @@ export const es = {
     welcome: {
       steps: [
         {
-          title: "Le damos la bienvenida a Cimiento",
+          title: "Le damos la bienvenida a SociAI",
           text: "Aquí arma los proyectos de su institución para pedir donativos, paso a paso. Usted responde con sus palabras; nosotros nos encargamos del formato y las cuentas.",
         },
         {
@@ -1906,11 +1906,11 @@ export const es = {
     wrong: "El usuario o la contraseña no son correctos.",
     waiting: (secs: number) => `Demasiados intentos. Espere ${secs} segundos e intente otra vez.`,
     disabled: "Esta cuenta está desactivada. Hable con la persona administradora.",
-    login: { title: "Le damos la bienvenida a Cimiento", help: "Entre con su usuario y contraseña.", forgot: "Olvidé mi contraseña" },
+    login: { title: "Le damos la bienvenida a SociAI", help: "Entre con su usuario y contraseña.", forgot: "Olvidé mi contraseña" },
     forgotHelp: "Si es usted la persona administradora, use su código de recuperación. Si no, pídale a la persona administradora que le dé una contraseña temporal.",
     setup: {
       title: "Crear la cuenta de administración",
-      help: "Es la primera vez que se usa Cimiento con cuentas. Esta cuenta podrá todo, incluido dar acceso a las demás personas.",
+      help: "Es la primera vez que se usa SociAI con cuentas. Esta cuenta podrá todo, incluido dar acceso a las demás personas.",
       name: "Su nombre",
       pin: "PIN actual de esta computadora",
       pinHelp: "Esta computadora tenía un PIN. Escríbalo para confirmar que usted puede crear la cuenta; después el PIN deja de usarse.",
@@ -1934,7 +1934,7 @@ export const es = {
       save: "Guardar y seguir",
     },
     locked: {
-      title: "Cimiento está bloqueado",
+      title: "SociAI está bloqueado",
       help: (name: string) => `Se bloqueó porque pasó un rato sin usarse. ${name}, escriba su contraseña para seguir donde se quedó.`,
       other: "Entrar con otra cuenta",
       tag: "Bloqueado",
@@ -1948,10 +1948,10 @@ export const es = {
   },
   admin: {
     title: "Administración",
-    intro: "Quién puede entrar a Cimiento, lo que se pidió borrar y lo que ha pasado. Solo usted ve esta sección.",
+    intro: "Quién puede entrar a SociAI, lo que se pidió borrar y lo que ha pasado. Solo usted ve esta sección.",
     tabs: { people: "Personal y cuentas", requests: "Solicitudes", audit: "Bitácora", recovery: "Recuperación" },
     people: {
-      help: "Dé acceso a las personas del personal que usarán Cimiento. Entrarán con una contraseña temporal y la cambiarán al entrar.",
+      help: "Dé acceso a las personas del personal que usarán SociAI. Entrarán con una contraseña temporal y la cambiarán al entrar.",
       noAccount: "Sin cuenta",
       summaryActive: "Cuentas activas",
       summaryPending: "Por cambiar su contraseña",
@@ -1971,7 +1971,7 @@ export const es = {
       giveOutside: "Dar acceso a alguien sin ficha",
       name: "Nombre",
       role: "Qué puede hacer",
-      roleNote: "Puede usar todo Cimiento, menos esta sección, la configuración técnica y borrar por completo (sus borrados llegan aquí como solicitudes).",
+      roleNote: "Puede usar todo SociAI, menos esta sección, la configuración técnica y borrar por completo (sus borrados llegan aquí como solicitudes).",
       temporary: "Contraseña temporal",
       temporaryHint: "Désela en persona. La cambiará la primera vez que entre.",
       create: "Dar acceso",
@@ -1979,7 +1979,7 @@ export const es = {
       resetSave: "Guardar contraseña temporal",
     },
     requests: {
-      help: "Lo que la dirección o la contaduría quitaron. Ya no se ve en Cimiento; usted decide si se borra por completo o si vuelve.",
+      help: "Lo que la dirección o la contaduría quitaron. Ya no se ve en SociAI; usted decide si se borra por completo o si vuelve.",
       empty: "No hay solicitudes pendientes.",
       emptyNote: "Cuando la dirección o la contaduría quiten algo, aparecerá aquí para que usted decida.",
       confirmTitle: "Borrar por completo",
@@ -2042,7 +2042,7 @@ export const es = {
     },
   },
   lock: {
-    title: "Cimiento está bloqueado",
+    title: "SociAI está bloqueado",
     help: "Escriba su PIN para entrar.",
     label: "PIN",
     enter: "Entrar",

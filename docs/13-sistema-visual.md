@@ -66,6 +66,10 @@ Todos pasan 7:1 con la letra negra, y permiten un amarillo verdadero. (Se evalu�
 
 Sobre fondo blanco los colores claros rinden menos como línea fina (el amarillo es 1.4:1 contra blanco); por eso las barras de avance dejan lo que falta en un tinte del mismo color, y los estados siempre llevan palabra. Sobre superficies oscuras todos pasan de 6:1.
 
+### 3.2.1 Azul de marca
+
+La herramienta se llama **SociAI** y su azul es el del logotipo: `brand` (`#0a76fc`), con letra blanca encima (`on-brand`). Es **solo de identidad** y siempre **liso**: sin degradados, brillos ni sombras. Se usa en el panel izquierdo del primer inicio (`.onb`, pantalla dividida con los formularios a la derecha), donde el logo va todo en blanco (`<Logo onBrand>`). No es un acento de estado ni significa nada (§3.4).
+
 ### 3.3 Etiquetas sólidas y tintes
 
 Las etiquetas de estado y de categoría son **sólidas**, del mismo color vivo que el resto de la interfaz; un fondo pastel con texto oscuro se ve apagado junto a los avatares, íconos y bandejas de color. La letra de encima es siempre negra (3.2): una sola regla para etiquetas, avatares, íconos de color, pestañas de carpeta, píldoras seleccionadas y avisos.
