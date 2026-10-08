@@ -6,7 +6,7 @@
 //! what is still pending. The code builds the file; the AI wrote only text that the person confirmed.
 
 use crate::audit::{self, AuditKind};
-use crate::call_service::PublicDocScanner;
+use crate::scanner::PublicDocScanner;
 use crate::conversation_service::conversation_view;
 use crate::diagnosis_service::{lock, SharedDb};
 use crate::documents::docx::{self, Block, TableData};

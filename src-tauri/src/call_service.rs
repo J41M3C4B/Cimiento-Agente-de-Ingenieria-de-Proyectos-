@@ -21,7 +21,7 @@ use crate::documents::canonical::run::{read_canonical, Options, Strategy};
 use crate::documents::canonical::summary::{summarize, CallSummary};
 use crate::documents::text::{clean_text, norm, same_statement};
 use crate::scanner::guard::{Decision, QuarantineReport};
-use crate::scanner::{RegexScanner, ScanReport, SensitiveScanner, Severity};
+use crate::scanner::{PublicDocScanner, RegexScanner, SensitiveScanner};
 use crate::service::ServiceError;
 use crate::storage::calls::{self, CallMeta, FileRole, NewFile, ReadingRow, ReadingStatus};
 use crate::storage::projects::{self as projects, ProjectRow};
@@ -81,30 +81,6 @@ pub enum NewProjectOutcome {
     /// The name or the funder look like data of a person: nothing was saved.
     Quarantine { report: QuarantineReport },
     Unreadable { file: String, reason: Unreadable },
-}
-
-/// The scanner for a document of the funder, not of the institution. A call is public: the telephone, the
-/// e-mail and the names of whoever it tells to write to are part of what it says and the reading must
-/// keep them. What is never kept is a person's identity data (CURP, personal RFC, voter key, bank
-/// account, card, social security): those findings are covered, here and before the model sees a page.
-pub struct PublicDocScanner(RegexScanner);
-
-impl PublicDocScanner {
-    pub fn new(inner: RegexScanner) -> Self {
-        PublicDocScanner(inner)
-    }
-}
-
-impl SensitiveScanner for PublicDocScanner {
-    fn scan(&self, text: &str) -> ScanReport {
-        let mut r = self.0.scan(text);
-        r.findings.retain(|f| f.severity == Severity::Block);
-        r
-    }
-
-    fn redact(&self, text: &str, report: &ScanReport) -> String {
-        self.0.redact(text, report)
-    }
 }
 
 /// A folder for one upload that is gone when it is dropped, whatever happens in between.
@@ -167,7 +143,7 @@ fn prepare(file: &UploadedFile, role: FileRole, scanner: &PublicDocScanner) -> R
     }
     // a list of people is rejected whole; here the whole scanner counts, not only the public one
     let joined = pages.join("\n\n");
-    if scanner.0.looks_like_roster(&joined, &scanner.0.scan(&joined)) {
+    if scanner.whole().looks_like_roster(&joined, &scanner.whole().scan(&joined)) {
         return Err(Unreadable::Roster);
     }
     let mut redactions = 0i64;

@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::{Arc, Mutex};
 use crate::ai::mock::MockProvider;
 use crate::ai::{AiError, AiResponse};
 use crate::conversation_service::{conversation_view, send_message, start_conversation, AnswerOutcome};

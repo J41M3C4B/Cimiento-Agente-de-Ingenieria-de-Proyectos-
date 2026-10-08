@@ -4,11 +4,9 @@
 //! database is encrypted with a key in the keychain of the system). It is kept as a salted hash, never as the PIN.
 //! The scan only counts: it never returns a piece of what it finds.
 
-use crate::call_service::PublicDocScanner;
-use crate::diagnosis_service::SharedDb;
-use crate::scanner::{RegexScanner, SensitiveScanner};
+use crate::scanner::{PublicDocScanner, RegexScanner, SensitiveScanner};
 use crate::service::ServiceError;
-use crate::storage::{backup, open_encrypted, profile as profile_store};
+use crate::storage::{backup, open_encrypted, profile as profile_store, SharedDb};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

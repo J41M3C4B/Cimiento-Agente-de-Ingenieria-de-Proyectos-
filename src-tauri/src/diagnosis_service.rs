@@ -16,9 +16,8 @@ use crate::scanner::RegexScanner;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::{Arc, Mutex};
 
-pub type SharedDb = Arc<Mutex<Connection>>;
+pub use crate::storage::SharedDb;
 
 /// How the AI part went. The UI uses it to say "seguimos sin ayuda automática".
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

@@ -40,11 +40,11 @@ pub struct SessionState {
 #[derive(Default)]
 pub struct Session {
     pub state: Mutex<SessionState>,
-    pub db: Option<crate::diagnosis_service::SharedDb>,
+    pub db: Option<crate::storage::SharedDb>,
 }
 
 impl Session {
-    pub fn new(db: crate::diagnosis_service::SharedDb) -> Self {
+    pub fn new(db: crate::storage::SharedDb) -> Self {
         Session { state: Mutex::new(SessionState::default()), db: Some(db) }
     }
     pub fn current(&self) -> Option<CurrentUser> {
@@ -544,14 +544,17 @@ pub fn request_deletion(conn: &mut Connection, by: &CurrentUser, kind: DeletionK
     sync_after(conn, kind)
 }
 
+/// How a project is deleted for good: the core does not know the projects (ADR-032), so the commands say it.
+pub type DeleteProject<'a> = &'a dyn Fn(&mut Connection, &str) -> Result<(), ServiceError>;
+
 /// The deletion itself, as the administrator does it.
-fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str) -> Result<(), ServiceError> {
+fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str, delete_project: DeleteProject) -> Result<(), ServiceError> {
     match kind {
         DeletionKind::Document => {
             crate::storage::documents::emergency_delete_document(conn, target)?;
         }
         DeletionKind::Project => {
-            crate::storage::projects::delete_project(conn, target)?;
+            delete_project(conn, target)?;
         }
         DeletionKind::HrPerson => {
             crate::staff_service::delete_person(conn, target)?;
@@ -571,10 +574,10 @@ fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str) -> R
 }
 
 /// The administrator approves (the thing is deleted for good) or rejects (it comes back) a request.
-pub fn resolve_request(conn: &mut Connection, actor: &CurrentUser, id: &str, approve: bool) -> Result<AdminOverview, ServiceError> {
+pub fn resolve_request(conn: &mut Connection, actor: &CurrentUser, id: &str, approve: bool, delete_project: DeleteProject) -> Result<AdminOverview, ServiceError> {
     let request = store::request(conn, id)?.filter(|r| r.status == "pending").ok_or(ServiceError::NotFound)?;
     if approve {
-        delete_for_good(conn, request.kind, &request.target_id)?;
+        delete_for_good(conn, request.kind, &request.target_id, delete_project)?;
     } else {
         hide(conn, request.kind, &request.target_id, false)?;
         sync_after(conn, request.kind)?;

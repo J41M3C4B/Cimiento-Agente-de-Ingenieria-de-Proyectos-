@@ -5,10 +5,12 @@
 
 mod checks;
 pub mod guard;
+mod public;
 mod names;
 mod normalize;
 
 use normalize::Normalized;
+pub use public::PublicDocScanner;
 use regex::Regex;
 use serde::Serialize;
 use std::collections::BTreeMap;

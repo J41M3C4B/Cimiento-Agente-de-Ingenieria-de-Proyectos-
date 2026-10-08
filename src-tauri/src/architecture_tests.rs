@@ -90,12 +90,6 @@ const PLACES: &[(&str, Layer)] = &[
 
 /// What breaks the rule today: (the file, as a module path; what it uses). Each block of ADR-032 empties its part.
 const DEBT: &[(&str, &str)] = &[
-    // B4: the core stops reaching into the projects; what crosses both (approved deletions, the scan of the whole
-    // base) is put together by the commands
-    ("access_service", "diagnosis_service"),
-    ("access_service", "storage::projects"),
-    ("security_service", "call_service"),
-    ("security_service", "diagnosis_service"),
     // B5: the projects get their own error and read the institution only through `core::api`
     ("service", "domain::stage"),
     ("call_service", "service"),

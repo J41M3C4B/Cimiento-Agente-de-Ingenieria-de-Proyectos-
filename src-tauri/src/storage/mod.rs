@@ -13,6 +13,9 @@ mod secrets;
 
 #[allow(unused_imports)]
 pub use db::open_encrypted;
+
+/// The connection the app shares between its commands and the work that runs in the background.
+pub type SharedDb = std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>;
 #[allow(unused_imports)]
 pub use secrets::get_or_create_db_key;
 #[allow(unused_imports)]

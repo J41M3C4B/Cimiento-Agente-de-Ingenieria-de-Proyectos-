@@ -10,6 +10,11 @@ use crate::storage::open_encrypted;
 const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 const ADMIN_PASSWORD: &str = "una clave larga";
 
+/// No project is deleted in these tests: the projects belong to their module (ADR-032).
+fn no_project(_: &mut Connection, _: &str) -> Result<(), ServiceError> {
+    Ok(())
+}
+
 fn conn() -> (tempfile::TempDir, Connection) {
     let dir = tempfile::tempdir().unwrap();
     let c = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
@@ -228,14 +233,14 @@ fn a_deletion_asked_by_direction_hides_the_person_until_the_administrator_decide
     assert_eq!((pending.len(), pending[0].target_label.as_str(), pending[0].requested_by_name.as_str()), (1, "Ana", "Rosa María Hernández"));
 
     // rejected: it comes back
-    resolve_request(&mut c, &a, &pending[0].id, false).unwrap();
+    resolve_request(&mut c, &a, &pending[0].id, false, &no_project).unwrap();
     assert!(crate::staff_service::overview(&c).unwrap().hr.people.iter().any(|p| p.id == person.id));
     assert_eq!(payroll(&c), 9_000);
 
     // asked again and approved: deleted for good
     request_deletion(&mut c, &rosa, DeletionKind::HrPerson, &person.id).unwrap();
     let id = admin_overview(&c).unwrap().pending[0].id.clone();
-    let after = resolve_request(&mut c, &a, &id, true).unwrap();
+    let after = resolve_request(&mut c, &a, &id, true, &no_project).unwrap();
     assert!(after.pending.is_empty() && after.resolved.iter().any(|r| r.status == "approved"));
     assert!(crate::modules::hr::service::get_person(&c, &person.id).unwrap().is_none());
     let kinds: Vec<String> = events(&c).into_iter().map(|e| e.0).collect();

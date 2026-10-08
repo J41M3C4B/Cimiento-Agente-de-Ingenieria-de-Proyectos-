@@ -137,7 +137,12 @@ pub fn admin_user_reset_password(session: State<'_, Session>, db: State<'_, Db>,
 pub fn admin_request_resolve(session: State<'_, Session>, db: State<'_, Db>, id: String, approve: bool) -> Result<AdminOverview, UiError> {
     let gate = guard(&session, "admin_request_resolve")?;
     let mut conn = lock(&db)?;
-    Ok(svc::resolve_request(&mut conn, gate.user()?, &id, approve)?)
+    // a project belongs to the projects module: the core is told how to delete it (ADR-032)
+    let delete_project = |c: &mut rusqlite::Connection, target: &str| -> Result<(), crate::service::ServiceError> {
+        crate::storage::projects::delete_project(c, target)?;
+        Ok(())
+    };
+    Ok(svc::resolve_request(&mut conn, gate.user()?, &id, approve, &delete_project)?)
 }
 
 /// The latest entries of the audit log; `event` filters by the start of the event name (`auth.`, `hr.`…).
