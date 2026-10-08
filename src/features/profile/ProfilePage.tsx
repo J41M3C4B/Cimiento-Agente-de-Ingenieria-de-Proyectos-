@@ -6,6 +6,7 @@ import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileConfirm, profileGet, profileSave, toAppError } from "../../lib/tauri";
 import type { Decision, FinanceInput, ProfileInput, ProfileIssue, ProfileTotals, ProfileView, QuarantineReport } from "../../lib/types";
+import { CapacityCard } from "./CapacityCard";
 import { BalanceCard, ExpensesCard, IncomeCard } from "./FinanceCards";
 import { isMoney, ProfileEdit } from "./ProfileEdit";
 import type { Edit } from "./ProfileEdit";
@@ -340,22 +341,15 @@ export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTa
                     ]}
                   />
                 </FactRow>
-                <FactRow title={t.cards.capacity} action={edition({ kind: "capacity" })}>
-                  <Facts
-                    columns={2}
-                    items={[
-                      [t.fields.capacity, view.input.capacity_total !== null ? `${count(view.input.capacity_total)} personas` : null],
-                      [es.institution.servedEstimate, view.input.served_estimate !== null ? `${count(view.input.served_estimate)} ${es.institution.approx}` : null],
-                      [es.institution.staffPaidEstimate, view.input.staff_paid_estimate !== null ? `${count(view.input.staff_paid_estimate)} ${es.institution.approx}` : null],
-                      [es.institution.staffVolunteerEstimate, view.input.staff_volunteer_estimate !== null ? `${count(view.input.staff_volunteer_estimate)} ${es.institution.approx}` : null],
-                      [t.fields.notes, view.input.notes],
-                    ]}
-                  />
-                </FactRow>
               </Card>
 
-              {money && <BalanceCard money={money} />}
+              <CapacityCard view={view} onEdit={() => open({ kind: "capacity" })} />
             </div>
+            {money && (
+              <div className="mt-4">
+                <BalanceCard money={money} />
+              </div>
+            )}
             <div className="mt-4 grid items-start gap-4 min-[1000px]:grid-cols-2">
               {money && <IncomeCard money={money} busy={busy} onAdd={() => open({ kind: "income", index: null })} onEdit={(index) => open({ kind: "income", index })} onRemove={(index) => removeItem("income", index)} />}
               {money && <ExpensesCard
