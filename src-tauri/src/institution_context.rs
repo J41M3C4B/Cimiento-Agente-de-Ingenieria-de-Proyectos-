@@ -142,9 +142,17 @@ fn listed(counts: &[Count], words: fn(&str) -> &'static str) -> String {
 
 /// The staff, by position: how many, their relation, schedule and shift, the seats and what the position does.
 /// Schooling and seniority go only for groups of `MIN_GROUP` people or more.
-fn render_staff(s: &mut String, staff: &StaffSummary, missing: &mut Vec<&str>) {
+fn render_staff(s: &mut String, staff: &StaffSummary, estimate: (Option<i64>, Option<i64>), missing: &mut Vec<&str>) {
     if staff.total == 0 && staff.positions.is_empty() {
-        missing.push("el personal");
+        // no records yet: the quick figures of the onboarding, said as approximate (ADR-031)
+        match estimate {
+            (None, None) => missing.push("el personal"),
+            (paid, volunteer) => s.push_str(&format!(
+                "Personal (cifra aproximada que dio la persona; todavía sin registros): {} con sueldo y {} de voluntariado.\n",
+                paid.map_or("sin dato".to_string(), |n| n.to_string()),
+                volunteer.map_or("sin dato".to_string(), |n| n.to_string())
+            )),
+        }
         return;
     }
     for p in &staff.positions {
@@ -294,10 +302,14 @@ fn finding_text(i: &Insight) -> Option<String> {
 
 /// The people served: how many per group and, for groups of `MIN_GROUP` or more, their support, mobility, health,
 /// stay and family; then the findings that cross them with the rest of the institution. Never who.
-fn render_people(s: &mut String, people: &PeopleSheet, fee_payers: i64, missing: &mut Vec<&str>) {
+fn render_people(s: &mut String, people: &PeopleSheet, fee_payers: i64, estimate: Option<i64>, missing: &mut Vec<&str>) {
     let c = &people.summary;
     if c.served == 0 {
-        missing.push("a quiénes atiende");
+        // no records yet: the quick figure of the onboarding, said as approximate (ADR-031)
+        match estimate {
+            Some(n) => s.push_str(&format!("Personas atendidas (cifra aproximada que dio la persona; todavía sin registros): {n}.\n")),
+            None => missing.push("a quiénes atiende"),
+        }
         if c.waiting > 0 {
             s.push_str(&format!("Lista de espera: {} solicitudes.\n", c.waiting));
         }
@@ -438,6 +450,52 @@ fn render_facilities(s: &mut String, f: &FacilitiesSheet, missing: &mut Vec<&str
     }
 }
 
+/// Where the institution is and what it is, legally (ADR-031): most calls filter by these. None of it is personal.
+fn render_identity(s: &mut String, inst: &crate::domain::profile::InstitutionInput, year: i64, missing: &mut Vec<&str>) {
+    use crate::domain::onboarding::state_name;
+    let state = inst.state.as_deref().and_then(state_name);
+    match (text(&inst.municipality), state) {
+        (Some(m), Some(st)) => s.push_str(&format!("Ubicación: {m}, {st}.\n")),
+        (None, Some(st)) => s.push_str(&format!("Ubicación: {st}.\n")),
+        (Some(m), None) => s.push_str(&format!("Ubicación: {m}.\n")),
+        (None, None) => missing.push("dónde está"),
+    }
+    match inst.founded_year {
+        Some(y) if y < year => s.push_str(&format!("Fundada en {y} ({} años de operación).\n", year - y)),
+        Some(y) => s.push_str(&format!("Fundada en {y}.\n")),
+        None => missing.push("el año de fundación"),
+    }
+    match inst.legal_form.as_deref() {
+        Some(f) => s.push_str(&format!(
+            "Figura jurídica: {}.\n",
+            match f {
+                "ac" => "asociación civil (A.C.)",
+                "iap" => "institución de asistencia privada (I.A.P.)",
+                "ibp" => "institución de beneficencia privada (I.B.P.)",
+                "sc" => "sociedad civil (S.C.)",
+                "abp" => "asociación de beneficencia privada (A.B.P.)",
+                "religious" => "asociación religiosa",
+                _ => "otra",
+            }
+        )),
+        None => missing.push("la figura jurídica"),
+    }
+    let registry = |v: &Option<String>| match v.as_deref() {
+        Some("yes") => Some("sí"),
+        Some("in_progress") => Some("en trámite"),
+        Some("no") => Some("no"),
+        _ => None,
+    };
+    match registry(&inst.authorized_donee) {
+        Some(w) => s.push_str(&format!("Donataria autorizada por el SAT: {w}.\n")),
+        None => missing.push("si es donataria autorizada"),
+    }
+    match registry(&inst.cluni) {
+        Some(w) => s.push_str(&format!("CLUNI (registro federal de organizaciones de la sociedad civil): {w}.\n")),
+        None => missing.push("si tiene CLUNI"),
+    }
+}
+
 pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> String {
     let i = &p.input;
     let t = i.totals(p.as_of_year);
@@ -455,6 +513,7 @@ pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet, fac
         Some(m) => s.push_str(&format!("A qué se dedica: {m}\n")),
         None => missing.push("a qué se dedica"),
     }
+    render_identity(&mut s, &i.institution, p.as_of_year, &mut missing);
     match i.capacity_total {
         Some(c) => s.push_str(&format!("Capacidad total: {c} personas.\n")),
         None => missing.push("capacidad total"),
@@ -529,10 +588,10 @@ pub fn render(p: &StoredProfile, staff: &StaffSummary, people: &PeopleSheet, fac
     }
 
     // people served: from their module, as counts; never who (ADR-029)
-    render_people(&mut s, people, t.fee_payers, &mut missing);
+    render_people(&mut s, people, t.fee_payers, i.served_estimate, &mut missing);
 
     // staff: from the staff module, as positions and counts; never a person, a pay or a date (ADR-027)
-    render_staff(&mut s, staff, &mut missing);
+    render_staff(&mut s, staff, (i.staff_paid_estimate, i.staff_volunteer_estimate), &mut missing);
 
     // facilities: from their module, as groups that count how many are in each state (ADR-030)
     render_facilities(&mut s, facilities, &mut missing);
@@ -573,11 +632,21 @@ pub(crate) mod tests {
                 legal_rfc: Some("AFI200101AB1".into()),
                 contact_phone: Some("55 5555 0101".into()),
                 legal_rep_name: Some("Rosa Representante".into()),
+                state: Some("jal".into()),
+                municipality: Some("Zapopan".into()),
+                founded_year: Some(1987),
+                legal_form: Some("ac".into()),
+                authorized_donee: Some("yes".into()),
+                cluni: Some("no".into()),
                 ..Default::default()
             },
             capacity_total: Some(25),
             annual_budget_mxn: Some(1_800_000),
             notes: Some("Perfil ficticio para pruebas.".into()),
+            // the records of the modules are there: these figures are not used
+            served_estimate: Some(40),
+            staff_paid_estimate: Some(30),
+            staff_volunteer_estimate: None,
             population: vec![
                 PopulationGroupInput { label: "Adultos mayores".into(), count: 8, age_min: Some(70), age_max: Some(95), dependency_level: Some(DependencyLevel::High), paying_count: Some(5), monthly_fee_mxn: Some(3_333), ..Default::default() },
                 PopulationGroupInput { label: "Adultos mayores".into(), count: 3, age_min: Some(66), age_max: Some(80), dependency_level: Some(DependencyLevel::High), ..Default::default() },
@@ -694,6 +763,10 @@ pub(crate) mod tests {
     pub(crate) const RICH_FACTS: &[&str] = &[
         "Asilo Ficticio (asilo)",
         "A qué se dedica: Un hogar digno para adultos mayores.",
+        "Ubicación: Zapopan, Jalisco.",
+        "Figura jurídica: asociación civil (A.C.).",
+        "Donataria autorizada por el SAT: sí.",
+        "CLUNI (registro federal de organizaciones de la sociedad civil): no.",
         "Capacidad total: 25 personas.",
         "Gasto anual aproximado (cifra a ojo de la persona, todo incluido): $1,800,000 pesos.",
         "Ingreso — cuotas de los beneficiarios (del padrón): las pagan 5 personas; el monto no se comparte.",
@@ -824,7 +897,9 @@ pub(crate) mod tests {
         let (_d, c) = saved(&rich(), true);
         let ctx = profile_context(&c).unwrap();
         // every number of the sheet is a fact of the profile or a sum made by code
-        let allowed = ["25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9", "89", "79", "60", "69", "90", "65", "77", "2", "6", "20", "50", "600"];
+        // the years of operation change with the year the test runs
+        let operating = (profile_store::current_year(&c).unwrap() - 1987).to_string();
+        let allowed = [operating.as_str(), "1987", "25", "1800000", "10000", "120000", "680000", "800000", "15000", "180000", "36000", "216000", "11", "8", "3", "5", "66", "95", "12", "4", "1", "70", "80", "7", "9", "89", "79", "60", "69", "90", "65", "77", "2", "6", "20", "50", "600"];
         for n in crate::domain::figures::digit_numbers(&ctx) {
             assert!(allowed.contains(&n.as_str()), "unexpected number {n} in the sheet:\n{ctx}");
         }

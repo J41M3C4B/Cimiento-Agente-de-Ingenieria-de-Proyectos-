@@ -40,6 +40,8 @@ Objetivo: proyecto que compila, base cifrada y las pruebas técnicas de riesgo r
 - [x] **«Mi institución», bloque 4: Instalaciones (2026-10-07, ADR-030).** Módulo aparte (`facilities/`, tablas `fac_*`, migración 0018 con traslado de la lista del perfil, que desaparece). El inmueble con m², pisos y cómo se sube, tenencia y papeles, servicios, y seguridad y protección civil. Espacios y equipo por grupo con conteo por estado y lo no contado «sin revisar», fallas de una lista, camas, barras y regadera accesible. Tablero con indicadores (m² por persona, personas por baño, camas) y hallazgos que cruzan la casa con las personas atendidas; a la IA todo, salvo conteos de personas con atributos de menos de 3.
 - [ ] Diseño fino del módulo de Instalaciones y su tablero (sesión de diseño).
 - [ ] Umbrales de la NOM-031-SSA3 y la NOM-032-SSA3 para calificar las proporciones de Instalaciones (confirmar en el texto oficial).
+- [x] **Primer inicio (2026-10-08, ADR-031).** Bienvenida por cuenta, puesta en marcha del administrador y asistente obligatorio de datos de la institución en 6 pasos con revisión; cifras rápidas de personal y beneficiarios; ubicación, año de fundación, figura jurídica, donataria y CLUNI en el perfil y en la ficha de la IA. Migración 0019. `CIMIENTO_DATA_DIR` para probar desde cero sin tocar los ejemplos.
+- [ ] Diseño fino del primer inicio (sesión de diseño) y lista de «Siguientes pasos» en Inicio.
 - [ ] Módulo remoto para aprobar solicitudes a distancia (sobre `access_request`).
 
 - [x] Prueba manual en la app: cargar un ejemplo, pegar una CURP ficticia en las notas, ver la cuarentena y tapar; agregar un documento de texto y borrarlo con el botón de emergencia.

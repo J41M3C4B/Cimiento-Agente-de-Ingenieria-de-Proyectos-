@@ -6,7 +6,13 @@
     "legal_rfc": "AHE200101AB1",
     "contact_phone": "55 5555 0101",
     "contact_email": "contacto@asilo-ejemplo.org",
-    "legal_rep_name": null
+    "legal_rep_name": null,
+    "state": "pue",
+    "municipality": "Puebla",
+    "founded_year": 1985,
+    "legal_form": "ac",
+    "authorized_donee": "yes",
+    "cluni": "yes"
   },
   "capacity_total": 25,
   "annual_budget_mxn": 1800000,

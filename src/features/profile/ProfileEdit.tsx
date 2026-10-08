@@ -1,13 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { UseFormRegister } from "react-hook-form";
-import { Alert, Button, Choice, Modal, RadioCard, TextArea, TextInput } from "../../components/ui";
+import { Alert, Button, Choice, Modal, RadioCard, Select, TextArea, TextInput } from "../../components/ui";
 import { INCOME_KINDS } from "./finance";
 import { es } from "../../i18n/es-MX";
 import type { ProfileInput, ProfileIssue, ProfileView } from "../../lib/types";
 import { emptyForm, formSchema, fromView, toInput, type FormValues } from "./profileForm";
 
 const t = es.profile;
+const ins = es.institution;
+const options = (labels: Record<string, string>): [string, string][] => [["", es.facilities.select], ...Object.entries(labels)];
 
 /** What is being edited: one card of the profile, or one item of a list (income, expense). */
 export type Edit =
@@ -97,6 +99,10 @@ export function ProfileEdit({
             <p className="text-ui text-ink-2">{t.privateNote}</p>
             <TextInput label={t.fields.phone} inputMode="tel" autoFocus {...register("contact_phone")} />
             <TextInput label={t.fields.email} inputMode="email" {...register("contact_email")} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Select label={ins.state} options={options(ins.states)} {...register("state")} />
+              <TextInput label={ins.municipality} {...register("municipality")} />
+            </div>
           </>
         )}
         {edit.kind === "legal" && (
@@ -104,6 +110,12 @@ export function ProfileEdit({
             <p className="text-ui text-ink-2">{t.legalNote}</p>
             <TextInput label={t.fields.rfc} autoFocus {...register("legal_rfc")} />
             <TextInput label={t.fields.legalRep} {...register("legal_rep_name")} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Select label={ins.legalForm} options={options(ins.legalForms)} {...register("legal_form")} />
+              <TextInput label={ins.foundedYear} inputMode="numeric" error={err(fe.founded_year)} {...register("founded_year")} />
+              <Select label={ins.authorizedDonee} options={options(ins.registry)} {...register("authorized_donee")} />
+              <Select label={ins.cluni} options={options(ins.registry)} {...register("cluni")} />
+            </div>
           </>
         )}
         {edit.kind === "capacity" && (
@@ -111,6 +123,11 @@ export function ProfileEdit({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <TextInput label={t.fields.capacity} suffix="personas" inputMode="numeric" autoFocus error={err(fe.capacity_total)} {...register("capacity_total")} />
               <TextInput label={t.fields.annualBudget} hint={t.finance.expenses.estimateHelp} prefix="$" suffix="al año" error={err(fe.annual_budget_mxn)} {...register("annual_budget_mxn")} />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <TextInput label={ins.servedEstimate} inputMode="numeric" error={err(fe.served_estimate)} {...register("served_estimate")} />
+              <TextInput label={ins.staffPaidEstimate} inputMode="numeric" error={err(fe.staff_paid_estimate)} {...register("staff_paid_estimate")} />
+              <TextInput label={ins.staffVolunteerEstimate} inputMode="numeric" error={err(fe.staff_volunteer_estimate)} {...register("staff_volunteer_estimate")} />
             </div>
             <TextArea label={t.fields.notes} {...register("notes")} />
           </>

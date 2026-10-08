@@ -5,6 +5,8 @@ Mantén este documento actualizado.
 ```bash
 pnpm install          # dependencias
 pnpm tauri dev        # desarrollo
+# probar el primer inicio desde cero sin tocar los datos ni los ejemplos (solo en desarrollo):
+#   $env:CIMIENTO_DATA_DIR="D:\Agente Proyectos\cimiento-vacio"; pnpm tauri dev
 pnpm build            # compila el frontend (tsc + vite)
 pnpm test             # pruebas del frontend (Vitest)
 cargo test            # pruebas Rust (desde src-tauri/)
@@ -20,6 +22,7 @@ cargo test finances                                    # ingresos por tipo, egre
 cargo test hr::                                        # módulo de Personal (ADR-027): modalidades, CURP/RFC/NSS/CLABE, avance, agregados y su frontera
 cargo test access                                      # perfiles de acceso (ADR-028): roles, permiso de cada comando, cuentas, bloqueo, recuperación y solicitudes de borrado
 cargo test care                                        # módulo de Beneficiarios (ADR-029): ficha, grupos, lista de espera, indicadores, tablero y lo que llega a la IA
+cargo test onboarding                                  # primer inicio (ADR-031): pasos, cifras rápidas, cierre, bienvenida y lo que llega a la IA
 cargo test facilit                                     # módulo de Instalaciones (ADR-030): inmueble, grupos con conteo por estado, traslado, tablero, escáner y lo que llega a la IA
 cargo test staff_service                               # el personal con la base real: lo que llega al perfil y a la IA, identificadores tapados, puestos con escáner
 cargo test drafting_service                            # redacción, presupuesto y cronograma (ADR-018), con modelo simulado

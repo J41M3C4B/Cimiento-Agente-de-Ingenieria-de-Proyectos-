@@ -68,6 +68,9 @@ pub enum ServiceError {
     Care(#[from] crate::care::CareError),
     #[error("facilities module: {0}")]
     Facilities(#[from] crate::facilities::FacilitiesError),
+    /// The onboarding cannot be closed while a required datum is missing (ADR-031).
+    #[error("the onboarding is not complete")]
+    OnboardingIncomplete,
     #[error("the staff is kept in its own module now")]
     StaffMoved,
     /// An account or session rule (ADR-028); the code says which.

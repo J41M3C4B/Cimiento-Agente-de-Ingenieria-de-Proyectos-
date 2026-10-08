@@ -22,6 +22,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (16, include_str!("../../migrations/0016_access.sql")),
     (17, include_str!("../../migrations/0017_care.sql")),
     (18, include_str!("../../migrations/0018_facilities.sql")),
+    (19, include_str!("../../migrations/0019_onboarding.sql")),
 ];
 
 /// Code that runs right after the SQL of a version, inside the same transaction (moves of data that need rules).

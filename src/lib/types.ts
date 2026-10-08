@@ -11,6 +11,13 @@ export interface InstitutionInput {
   contact_phone: string | null;
   contact_email: string | null;
   legal_rep_name: string | null;
+  /** Where it is and what it is, legally (ADR-031). */
+  state: string | null;
+  municipality: string | null;
+  founded_year: number | null;
+  legal_form: string | null;
+  authorized_donee: string | null;
+  cluni: string | null;
 }
 export interface PopulationGroupInput {
   label: string;
@@ -52,6 +59,10 @@ export interface ProfileInput {
   capacity_total: number | null;
   annual_budget_mxn: number | null;
   notes: string | null;
+  /** Quick figures while the records are not in the modules yet (ADR-031). */
+  served_estimate: number | null;
+  staff_paid_estimate: number | null;
+  staff_volunteer_estimate: number | null;
   population: PopulationGroupInput[];
   staff: StaffGroupInput[];
   income: IncomeSourceInput[];

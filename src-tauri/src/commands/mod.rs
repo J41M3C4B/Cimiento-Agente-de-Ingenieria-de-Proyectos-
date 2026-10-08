@@ -7,6 +7,7 @@ pub mod diagnosis;
 pub mod drafting;
 pub mod facilities;
 pub mod hr;
+pub mod onboarding;
 pub mod security;
 
 use crate::access_service::{CurrentUser, Session};
@@ -158,6 +159,8 @@ pub fn dev_load_fixture(session: State<'_, Session>, db: State<Db>, name: String
         service::save_profile(&mut conn, input.clone(), None)?;
         crate::profile_sync::seed_examples(&mut conn, padron)?;
         crate::facilities_service::seed_example(&mut conn, facilities)?;
+        // an example is a finished institution: it does not go through the first start (ADR-031)
+        crate::onboarding_service::mark_done(&conn)?;
         return match service::save_profile(&mut conn, input, None)? {
             SaveProfileOutcome::Saved { profile } => Ok(profile),
             _ => Err(UiError::internal()),

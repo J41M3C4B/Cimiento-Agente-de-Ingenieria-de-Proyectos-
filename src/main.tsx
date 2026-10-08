@@ -4,6 +4,7 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@ta
 import App from "./App";
 import { AccessGate } from "./features/access/AccessGate";
 import { notifyIfAccessLost } from "./features/access/session";
+import { OnboardingGate } from "./features/onboarding/OnboardingGate";
 import "@fontsource-variable/plus-jakarta-sans";
 import "./index.css";
 
@@ -18,7 +19,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AccessGate>
-        <App />
+        <OnboardingGate>
+          <App />
+        </OnboardingGate>
       </AccessGate>
     </QueryClientProvider>
   </React.StrictMode>,

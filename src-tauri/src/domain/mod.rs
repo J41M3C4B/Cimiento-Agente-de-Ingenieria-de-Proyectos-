@@ -9,6 +9,7 @@ pub mod facility_insights;
 pub mod facility_text;
 pub mod finances;
 pub mod insights;
+pub mod onboarding;
 pub mod priority;
 pub mod profile;
 pub mod requirements;

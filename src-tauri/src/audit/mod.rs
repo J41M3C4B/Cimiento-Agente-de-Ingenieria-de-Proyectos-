@@ -47,6 +47,8 @@ pub enum AuditKind {
     CareImported,
     /// The spaces of the old profile list moved into the facilities module (counts only).
     FacilitiesImported,
+    /// The institution finished its first start (ADR-031).
+    InstitutionOnboarded,
 }
 
 impl AuditKind {
@@ -84,6 +86,7 @@ impl AuditKind {
             AuditKind::CarePersonDeleted => "care.person_deleted",
             AuditKind::CareImported => "care.imported",
             AuditKind::FacilitiesImported => "facilities.imported",
+            AuditKind::InstitutionOnboarded => "institution.onboarded",
         }
     }
 }

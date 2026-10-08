@@ -119,6 +119,13 @@ CREATE TABLE income_source (
 -- care_waitlist       solicitudes de ingreso: requested_on, name/phone opcionales, sex, approx_age, dependency, reason,
 --                     status waiting|admitted|declined|withdrawn, person_id
 
+-- Primer inicio (ADR-031, migración 0019).
+-- institution  state (código de 32 estados), municipality, founded_year, legal_form (ac|iap|ibp|sc|abp|religious|other),
+--              authorized_donee y cluni (yes|in_progress|no), onboarded_at (una sola vez, al terminar el asistente)
+-- institution_profile  served_estimate, staff_paid_estimate, staff_volunteer_estimate: cifras rápidas mientras no hay
+--              fichas en los módulos (las fichas mandan)
+-- app_user.welcomed_at  la persona ya vio la bienvenida
+
 -- Módulo de Instalaciones (ADR-030, migración 0018; elimina facility).
 -- fac_site       un inmueble (la pantalla maneja uno): name, land_m2, built_m2, floors, floor_access JSON
 --                (ramp|elevator|stair_lift|none), built_year, tenure (own|loan|rent|borrowed|other), tenure_until,

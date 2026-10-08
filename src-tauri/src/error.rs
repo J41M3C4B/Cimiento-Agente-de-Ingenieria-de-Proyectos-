@@ -84,6 +84,7 @@ impl From<ServiceError> for UiError {
             ServiceError::Care(crate::care::CareError::AgeNeeded) => {
                 UiError::new("age_needed", "Escriba la edad aproximada en la solicitud antes de darle ingreso.")
             }
+            ServiceError::OnboardingIncomplete => UiError::new("onboarding_incomplete", "Todavía faltan datos de la institución. Revise los pasos marcados."),
             ServiceError::StaffMoved => UiError::new("staff_moved", "El personal ahora se lleva en su propia sección. Vuelva a abrir la pantalla."),
             ServiceError::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
             ServiceError::AlreadyRunning => UiError::new("already_running", "Ya lo estamos haciendo. En cuanto termine, se muestra aquí."),

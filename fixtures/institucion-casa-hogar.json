@@ -6,7 +6,13 @@
     "legal_rfc": "CLE190101CD2",
     "contact_phone": "55 5555 0202",
     "contact_email": "contacto@casahogar-ejemplo.org",
-    "legal_rep_name": null
+    "legal_rep_name": null,
+    "state": "cdmx",
+    "municipality": "Coyoacán",
+    "founded_year": 2001,
+    "legal_form": "iap",
+    "authorized_donee": "yes",
+    "cluni": "in_progress"
   },
   "capacity_total": 40,
   "annual_budget_mxn": 2400000,

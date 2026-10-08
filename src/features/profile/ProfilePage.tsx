@@ -248,10 +248,28 @@ export function ProfilePage() {
                   <Facts columns={2} items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
                 </FactRow>
                 <FactRow title={t.cards.contact} note={t.privateNote} action={edition({ kind: "contact" })}>
-                  <Facts columns={2} items={[[t.fields.phone, inst?.contact_phone], [t.fields.email, inst?.contact_email]]} />
+                  <Facts
+                    columns={2}
+                    items={[
+                      [t.fields.phone, inst?.contact_phone],
+                      [t.fields.email, inst?.contact_email],
+                      [es.institution.state, inst?.state ? es.institution.states[inst.state] : null],
+                      [es.institution.municipality, inst?.municipality],
+                    ]}
+                  />
                 </FactRow>
                 <FactRow title={t.cards.legal} note={t.legalNote} action={edition({ kind: "legal" })}>
-                  <Facts columns={2} items={[[t.fields.rfc, inst?.legal_rfc], [t.fields.legalRep, inst?.legal_rep_name]]} />
+                  <Facts
+                    columns={2}
+                    items={[
+                      [t.fields.rfc, inst?.legal_rfc],
+                      [t.fields.legalRep, inst?.legal_rep_name],
+                      [es.institution.legalForm, inst?.legal_form ? es.institution.legalForms[inst.legal_form] : null],
+                      [es.institution.foundedYear, inst?.founded_year?.toString()],
+                      [es.institution.authorizedDonee, inst?.authorized_donee ? es.institution.registry[inst.authorized_donee] : null],
+                      [es.institution.cluni, inst?.cluni ? es.institution.registry[inst.cluni] : null],
+                    ]}
+                  />
                 </FactRow>
                 <FactRow title={t.cards.capacity} action={edition({ kind: "capacity" })}>
                   <Facts
@@ -259,6 +277,9 @@ export function ProfilePage() {
                     items={[
                       [t.fields.capacity, view.input.capacity_total !== null ? `${money(view.input.capacity_total)} personas` : null],
                       [t.fields.annualBudget, view.input.annual_budget_mxn !== null ? peso(view.input.annual_budget_mxn) : null],
+                      [es.institution.servedEstimate, view.input.served_estimate !== null ? `${money(view.input.served_estimate)} ${es.institution.approx}` : null],
+                      [es.institution.staffPaidEstimate, view.input.staff_paid_estimate !== null ? `${money(view.input.staff_paid_estimate)} ${es.institution.approx}` : null],
+                      [es.institution.staffVolunteerEstimate, view.input.staff_volunteer_estimate !== null ? `${money(view.input.staff_volunteer_estimate)} ${es.institution.approx}` : null],
                       [t.fields.notes, view.input.notes],
                     ]}
                   />

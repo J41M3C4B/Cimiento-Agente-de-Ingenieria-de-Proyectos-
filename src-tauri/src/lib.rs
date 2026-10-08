@@ -17,6 +17,7 @@ mod error;
 mod guide_service;
 mod hr;
 mod institution_context;
+mod onboarding_service;
 mod jobs;
 mod review_service;
 mod profile_sync;
@@ -38,7 +39,13 @@ pub struct Db(pub Arc<Mutex<rusqlite::Connection>>);
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
+            #[allow(unused_mut)]
+            let mut dir = app.path().app_data_dir()?;
+            // development only: another folder, to try the first start from zero without touching the examples
+            #[cfg(debug_assertions)]
+            if let Some(other) = std::env::var_os("CIMIENTO_DATA_DIR").filter(|d| !d.is_empty()) {
+                dir = other.into();
+            }
             std::fs::create_dir_all(&dir)?;
             let key = storage::get_or_create_db_key()?;
             let conn = storage::open_encrypted(&dir.join("cimiento.db"), &key)?;
@@ -87,6 +94,10 @@ pub fn run() {
             commands::care::care_waitlist_save,
             commands::care::care_waitlist_admit,
             commands::care::care_waitlist_delete,
+            commands::onboarding::onboarding_status,
+            commands::onboarding::onboarding_save,
+            commands::onboarding::onboarding_finish,
+            commands::onboarding::onboarding_welcome_done,
             commands::facilities::facilities_overview,
             commands::facilities::facilities_site_save,
             commands::facilities::facilities_space_save,
