@@ -7,6 +7,7 @@ import { HomePage } from "./features/home/HomePage";
 import { DocumentsPage } from "./features/documents/DocumentsPage";
 import { HelpPage } from "./features/help/HelpPage";
 import { ProfilePage } from "./features/profile/ProfilePage";
+import type { ProfileTab } from "./features/profile/ProfilePage";
 import { ProjectsPage } from "./features/projects/ProjectsPage";
 import { AdminPage } from "./features/access/AdminPage";
 import { useSession } from "./features/access/session";
@@ -18,6 +19,8 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // «Mi institución» opens on the tab a link from Inicio points to; the rail always opens it on the first
+  const [profileTab, setProfileTab] = useState<ProfileTab | undefined>(undefined);
   // the app is shown only with a person inside (AccessGate, ADR-028); what they may do shapes the menu
   const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
@@ -33,6 +36,14 @@ export default function App() {
     setPage("projects");
   };
   const openFocus = () => focus && openProject(focus.id);
+  const goProfile = (tab?: ProfileTab) => {
+    setProfileTab(tab);
+    setPage("profile");
+  };
+  const navigate = (p: Page) => {
+    if (p === "profile") setProfileTab(undefined);
+    setPage(p);
+  };
   const newProject = () => {
     setOpenId(null);
     setCreating(true);
@@ -40,14 +51,14 @@ export default function App() {
   };
 
   return (
-    <Shell page={page} onNavigate={setPage} institution={institution} focus={focus} onOpenFocus={openFocus} access={access}>
+    <Shell page={page} onNavigate={navigate} institution={institution} focus={focus} onOpenFocus={openFocus} access={access}>
       {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
           project, the project that was open and what they were writing are still there when they come back */}
       <div hidden={page !== "projects"}>
         <ProjectsPage openId={openId} onOpen={setOpenId} creating={creating} onCreating={setCreating} />
       </div>
-      {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={() => setPage("profile")} />}
-      {page === "profile" && <ProfilePage />}
+      {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGoAi={() => setPage("ai")} />}
+      {page === "profile" && <ProfilePage key={profileTab ?? "first"} initialTab={profileTab} />}
       {page === "documents" && <DocumentsPage />}
       {page === "ai" && access?.can("settings") && <AiSettingsPage />}
       {page === "admin" && access?.can("administer") && <AdminPage />}

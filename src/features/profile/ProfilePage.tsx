@@ -21,7 +21,8 @@ import { useSession } from "../access/session";
 const t = es.profile;
 const money = (n: number) => n.toLocaleString("es-MX");
 const peso = (n: number) => `$${money(n)}`;
-type Tab = "general" | "staff" | "population" | "facilities";
+export type ProfileTab = "general" | "staff" | "population" | "facilities";
+type Tab = ProfileTab;
 
 const ZERO: ProfileTotals = {
   population: 0, staff_paid: 0, staff_volunteer: 0, income_annual_mxn: 0,
@@ -35,7 +36,7 @@ const ZERO: ProfileTotals = {
  * its four figures; below, the detail by cut-out tab. What is on the screen is what is saved: «Editar» opens a
  * window with just those fields, so there is no half-edited page.
  */
-export function ProfilePage() {
+export function ProfilePage({ initialTab = "general" }: { initialTab?: ProfileTab }) {
   const qc = useQueryClient();
   // the example data replaces records: only the administrator, in development (ADR-028)
   const access = useSession();
@@ -46,7 +47,7 @@ export function ProfilePage() {
   // and the facilities in theirs (ADR-030)
   const facilitiesModule = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
 
-  const [tab, setTab] = useState<Tab>("general");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [edit, setEdit] = useState<Edit | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -147,6 +148,12 @@ export function ProfilePage() {
 
   const [showTodo, setShowTodo] = useState(false);
   const capacity = view?.input.capacity_total ?? 0;
+  // while nobody is registered in the modules, the quick figures the person gave at the start stand in, and say so
+  const servedEstimate = view?.input.served_estimate ?? null;
+  const paidEstimate = view?.input.staff_paid_estimate ?? 0;
+  const volunteerEstimate = view?.input.staff_volunteer_estimate ?? 0;
+  const peopleApprox = servedEstimate !== null && peopleCount === 0 && totals.population === 0;
+  const staffApprox = staffCount === 0 && totals.staff_paid + totals.staff_volunteer === 0 && view?.input.staff_paid_estimate != null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -196,8 +203,25 @@ export function ProfilePage() {
 
         {view ? (
           <div className="grid min-w-0 grid-cols-2 gap-3 max-[520px]:grid-cols-1">
-            <Metric icon="heart" tone="violet" label={t.kpi.people} value={money(totals.population)} sub={capacity ? t.kpi.peopleOf(money(capacity)) : undefined} fill={capacity ? (totals.population / capacity) * 100 : undefined} />
-            <Metric icon="briefcase" tone="teal" label={t.kpi.staff} value={money(staffModule.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)} sub={t.kpi.staffPaid(totals.staff_paid)} />
+            <Metric
+              icon="heart"
+              tone="violet"
+              label={t.kpi.people}
+              value={peopleApprox ? `≈ ${money(servedEstimate!)}` : money(totals.population)}
+              approx={peopleApprox ? t.kpi.approx : undefined}
+              hint={peopleApprox ? t.kpi.approxNote : undefined}
+              sub={capacity ? t.kpi.peopleOf(money(capacity)) : undefined}
+              fill={capacity ? ((peopleApprox ? servedEstimate! : totals.population) / capacity) * 100 : undefined}
+            />
+            <Metric
+              icon="briefcase"
+              tone="teal"
+              label={t.kpi.staff}
+              value={staffApprox ? `≈ ${money(paidEstimate + volunteerEstimate)}` : money(staffModule.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)}
+              approx={staffApprox ? t.kpi.approx : undefined}
+              hint={staffApprox ? t.kpi.approxNote : undefined}
+              sub={t.kpi.staffPaid(staffApprox ? paidEstimate : totals.staff_paid)}
+            />
             <Metric icon="banknote" tone="amber" label={t.finance.payroll.label} value={peso(totals.payroll_cost_annual_mxn)} sub={t.finance.payroll.sub(peso(totals.payroll_annual_mxn), peso(totals.payroll_benefits_annual_mxn))} note={totals.benefits_assumed > 0 ? t.finance.payroll.assumed(totals.benefits_assumed) : undefined} />
             <Metric icon="wallet" tone="green" label={t.kpi.fees} value={peso(totals.fees_monthly_mxn)} sub={t.kpi.payers(totals.fee_payers)} />
           </div>

@@ -104,11 +104,11 @@ export function StepNav({
               <span className={`bar ${done ? "tone-green" : "tone-ink"} ${now ? "" : "opacity-70"}`}>
                 <i style={{ width: `${percent}%` }} />
               </span>
-              <span className={`flex items-center gap-2 truncate text-small max-sm:sr-only ${now ? "font-extrabold text-ink" : "font-bold text-ink-2"}`}>
+              <span className={`flex items-center gap-2 text-small max-sm:sr-only ${now ? "font-extrabold text-ink" : "font-bold text-ink-2"}`}>
                 <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-pill text-caption font-extrabold ${done ? "bg-green text-onc" : now ? "bg-ink text-on-ink" : "bg-inset text-ink-2"}`}>
                   {done ? <Icon name="check" size={12} strokeWidth={3} /> : s.na ? "–" : i + 1}
                 </span>
-                <span className="truncate">{s.label}</span>
+                <span className="line-clamp-2 min-w-0 break-words leading-tight">{s.label}</span>
                 {s.warn ? (
                   <span className="shrink-0 text-amber-ink" title={s.warnLabel}>
                     <Icon name="warn" size={14} strokeWidth={2.4} />

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +15,7 @@ vi.mock("../access/session", () => ({ useSession: () => ({ can: () => false }) }
 
 import * as api from "./api";
 import type { OnboardingStatus } from "./api";
-import { OnboardingGate } from "./OnboardingGate";
+import { OnboardingGate, resumeOnboarding } from "./OnboardingGate";
 
 const KEYS = ["institution", "location", "people", "team", "money", "building"];
 
@@ -81,6 +81,16 @@ describe("the first start", () => {
     gate();
     await userEvent.click(await screen.findByRole("button", { name: "Dejarlos a la dirección y entrar" }));
     expect(screen.getByText("La app")).toBeInTheDocument();
+  });
+
+  it("the administrator who left the data can take them up again from Inicio", async () => {
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ can_postpone: true, setup: { ai_ready: false, managers: 0 } }));
+    gate();
+    await userEvent.click(await screen.findByRole("button", { name: "Dejarlos a la dirección y entrar" }));
+    expect(screen.getByText("La app")).toBeInTheDocument();
+    act(() => resumeOnboarding());
+    expect(await screen.findByText("Datos de su institución")).toBeInTheDocument();
+    expect(screen.queryByText("La app")).not.toBeInTheDocument();
   });
 
   it("a finished institution opens the app", async () => {

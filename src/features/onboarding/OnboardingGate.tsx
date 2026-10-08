@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Alert, Button } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
@@ -12,6 +12,17 @@ import { Wizard } from "./Wizard";
 
 const o = es.onboarding;
 const LATER = "cimiento.onboarding.later";
+const RESUME = "cimiento:onboarding-resume";
+
+/** From Inicio: the administrator who left the data to the direction takes them up again (the data steps open). */
+export function resumeOnboarding() {
+  try {
+    sessionStorage.removeItem(LATER);
+  } catch {
+    // without storage the gate still reopens through the event
+  }
+  window.dispatchEvent(new Event(RESUME));
+}
 
 function readLater(): boolean {
   try {
@@ -36,6 +47,15 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const put = (s: OnboardingStatus) => qc.setQueryData(ONBOARDING_KEY, s);
+
+  useEffect(() => {
+    const again = () => {
+      setLater(false);
+      setFilling(true);
+    };
+    window.addEventListener(RESUME, again);
+    return () => window.removeEventListener(RESUME, again);
+  }, []);
 
   async function welcomed() {
     setBusy(true);
@@ -84,7 +104,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   if (s.done || (s.can_postpone && later)) return <>{children}</>;
   if (s.can_postpone && !filling) {
     const examples = import.meta.env.DEV && access?.can("settings") && (
-      <p className="flex flex-wrap items-center justify-center gap-3 border-t border-line pt-4 text-small text-ink-3">
+      <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-small text-ink-3">
         {o.setup.examples}
         <Button size="sm" variant="plain" disabled={busy} onClick={() => example("asilo")}>
           {es.profile.devAsilo}

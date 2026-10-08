@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Choice, FormSection, RadioCard, Select, StepNav, TextArea, TextButton, TextInput } from "../../components/ui";
+import { Alert, Button, Choice, Eyebrow, Facts, FormSection, RadioCard, Select, StepNav, Tag, TextArea, TextButton, TextInput, Tile } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
@@ -110,9 +110,12 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
   return (
     <StartFrame wide>
       <div className="space-y-6">
-        <div className="space-y-1.5">
-          <h1 className="text-subtitle font-bold leading-tight tracking-tight">{o.title}</h1>
-          <p className="text-ui text-ink-2">{o.intro}</p>
+        <div className="flex items-start gap-4">
+          <Tile icon="building" tone="ink" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <h1 className="text-subtitle font-bold leading-tight tracking-tight">{o.title}</h1>
+            <p className="max-w-[70ch] text-ui text-ink-2">{o.intro}</p>
+          </div>
         </div>
         <StepNav
           label={o.title}
@@ -120,10 +123,16 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
           onSelect={go}
           steps={keys.map((k) => {
             const s = status.steps.find((x) => x.key === k);
-            return { key: k, label: o.steps[k] ?? k, filled: k === REVIEW ? (status.ready ? 1 : 0) : s?.complete ? 1 : 0, total: 1 };
+            const done = k === REVIEW ? status.ready : !!s?.complete;
+            return { key: k, label: o.steps[k] ?? k, filled: done ? 1 : 0, total: 1, caption: done ? o.stepDone : o.stepPending };
           })}
         />
-        <p className="text-ui text-ink-2">{o.help[key]}</p>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-3">
+          <Eyebrow>{o.stepOf(n + 1, keys.length)}</Eyebrow>
+          <span className="min-w-0 flex-1 text-ui text-ink-2">{o.help[key]}</span>
+          {key !== REVIEW && <span className="text-caption text-ink-3">{o.requiredNote}</span>}
+        </div>
+        <div key={key} className="anim-rise min-h-[14rem] space-y-6">
 
         {key === "institution" && (
           <div className="space-y-4">
@@ -163,11 +172,11 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
 
         {key === "people" && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <TextInput label={p.fields.capacity} required suffix="personas" inputMode="numeric" value={d.capacity_total?.toString() ?? ""} onChange={(e) => set({ capacity_total: num(e.target.value) })} error={issue("capacity_total")} />
+            <TextInput label={p.fields.capacity} required suffix={o.unitPeople} inputMode="numeric" value={d.capacity_total?.toString() ?? ""} onChange={(e) => set({ capacity_total: num(e.target.value) })} error={issue("capacity_total")} />
             {status.records.served > 0 ? (
               <Alert tone="info">{o.records.served(status.records.served)}</Alert>
             ) : (
-              <TextInput label={ins.servedEstimate} required suffix="personas" inputMode="numeric" value={d.served_estimate?.toString() ?? ""} onChange={(e) => set({ served_estimate: num(e.target.value) })} error={issue("served_estimate")} />
+              <TextInput label={ins.servedEstimate} required suffix={o.unitPeople} inputMode="numeric" value={d.served_estimate?.toString() ?? ""} onChange={(e) => set({ served_estimate: num(e.target.value) })} error={issue("served_estimate")} />
             )}
           </div>
         )}
@@ -177,8 +186,8 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
             <Alert tone="info">{o.records.staff(status.records.staff)}</Alert>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <TextInput label={ins.staffPaidEstimate} required suffix="personas" inputMode="numeric" value={d.staff_paid_estimate?.toString() ?? ""} onChange={(e) => set({ staff_paid_estimate: num(e.target.value) })} error={issue("staff_paid_estimate")} />
-              <TextInput label={ins.staffVolunteerEstimate} required hint="Si no hay, escriba 0." suffix="personas" inputMode="numeric" value={d.staff_volunteer_estimate?.toString() ?? ""} onChange={(e) => set({ staff_volunteer_estimate: num(e.target.value) })} error={issue("staff_volunteer_estimate")} />
+              <TextInput label={ins.staffPaidEstimate} required suffix={o.unitPeople} inputMode="numeric" value={d.staff_paid_estimate?.toString() ?? ""} onChange={(e) => set({ staff_paid_estimate: num(e.target.value) })} error={issue("staff_paid_estimate")} />
+              <TextInput label={ins.staffVolunteerEstimate} required hint={o.zeroHint} suffix={o.unitPeople} inputMode="numeric" value={d.staff_volunteer_estimate?.toString() ?? ""} onChange={(e) => set({ staff_volunteer_estimate: num(e.target.value) })} error={issue("staff_volunteer_estimate")} />
             </div>
           ))}
 
@@ -189,7 +198,7 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
               required
               hint={p.finance.expenses.estimateHelp}
               prefix="$"
-              suffix="al año"
+              suffix={o.unitYear}
               value={d.annual_budget_mxn?.toString() ?? ""}
               onChange={(e) => set({ annual_budget_mxn: e.target.value.trim() === "" ? null : parsePesos(e.target.value) })}
               error={issue("annual_budget_mxn")}
@@ -235,6 +244,7 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
         )}
 
         {key === REVIEW && <Review status={status} onEdit={go} />}
+        </div>
 
         {shownMissing.length > 0 && (
           <Alert tone="warn">
@@ -244,7 +254,7 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
         {issues.length > 0 && !issues.some((i) => issue(i.field)) && <Alert tone="error">{issues.map((i) => es.issues[i.code] ?? es.errors.generic).join(" ")}</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
           <div className="flex gap-2">
             {n > 0 && <Button onClick={() => go(n - 1)}>{o.back}</Button>}
             {n === 0 && onBack && <TextButton onClick={onBack}>{o.back}</TextButton>}
@@ -306,28 +316,30 @@ function Review({ status, onEdit }: { status: OnboardingStatus; onEdit: (i: numb
       [es.facilities.building.tenure, d.tenure ? es.facilities.building.tenures[d.tenure]! : none],
     ],
   };
+  const pending = status.steps.filter((x) => !x.complete).length;
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {status.steps.map((s, i) => (
-        <section key={s.key} className="flex flex-col gap-2 rounded-inset bg-inset p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-ui font-bold">
-              <Icon name={s.complete ? "check" : "warn"} size={16} className={s.complete ? "text-green-ink" : "text-amber-ink"} />
-              {o.steps[s.key]}
-            </h2>
-            <TextButton onClick={() => onEdit(i)}>{es.facilities.edit}</TextButton>
-          </div>
-          <dl className="grid gap-1 text-small">
-            {(rows[s.key] ?? []).map(([label, value]) => (
-              <div key={label} className="flex gap-2">
-                <dt className="shrink-0 text-ink-3">{label}:</dt>
-                <dd className="min-w-0 break-words">{value}</dd>
+    <div className="space-y-4">
+      <Alert tone={pending === 0 ? "ok" : "warn"}>{pending === 0 ? o.reviewReady : o.reviewPending(pending)}</Alert>
+      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
+        {status.steps.map((s, i) => (
+          <section key={s.key} className="flex flex-col gap-3 rounded-inset bg-inset p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-ui font-bold">{o.steps[s.key]}</h2>
+              <div className="flex items-center gap-2">
+                <Tag tone={s.complete ? "green" : "amber"} variant="soft" icon={s.complete ? "check" : "warn"}>
+                  {s.complete ? o.stepDone : o.stepPending}
+                </Tag>
+                <TextButton onClick={() => onEdit(i)}>{es.facilities.edit}</TextButton>
               </div>
-            ))}
-          </dl>
-          {!s.complete && <p className="text-small font-semibold text-amber-ink">{`${o.stillMissing} ${s.missing.map((m) => o.missing[m] ?? m).join(", ")}.`}</p>}
-        </section>
-      ))}
+            </div>
+            <Facts
+              columns={1}
+              items={(rows[s.key] ?? []).map(([label, value]): [string, React.ReactNode] => [label, value === none ? <span className="font-medium text-ink-3">{none}</span> : value])}
+            />
+            {!s.complete && <p className="text-small font-semibold text-amber-ink">{`${o.stillMissing} ${s.missing.map((m) => o.missing[m] ?? m).join(", ")}.`}</p>}
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
