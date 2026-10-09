@@ -124,6 +124,25 @@ pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
     Ok(rows)
 }
 
+/// The name of a document and how many fragments (pages, for a call) it has, if it exists.
+pub fn document_brief(conn: &Connection, doc_id: &str) -> Result<Option<(String, i64)>, StorageError> {
+    Ok(conn
+        .query_row(
+            "SELECT display_name, (SELECT count(*) FROM document_chunk c WHERE c.document_id = d.id) FROM document d WHERE d.id = ?1",
+            [doc_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?)
+}
+
+/// The clean text of a document, one fragment (one page, for a call) after another.
+pub fn document_pages(conn: &Connection, doc_id: &str) -> Result<Vec<String>, StorageError> {
+    Ok(conn
+        .prepare("SELECT text FROM document_chunk WHERE document_id=?1 ORDER BY ordinal")?
+        .query_map([doc_id], |r| r.get(0))?
+        .collect::<Result<Vec<_>, _>>()?)
+}
+
 fn table_exists(conn: &Connection, name: &str) -> rusqlite::Result<bool> {
     conn.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name=?1)", [name], |r| r.get(0))
 }

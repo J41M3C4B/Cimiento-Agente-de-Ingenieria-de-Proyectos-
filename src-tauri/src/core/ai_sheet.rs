@@ -460,7 +460,7 @@ fn render_facilities(s: &mut String, f: &FacilitiesSheet, missing: &mut Vec<&str
 
 /// Where the institution is and what it is, legally (ADR-031): most calls filter by these. None of it is personal.
 fn render_identity(s: &mut String, inst: &crate::core::profile::domain::InstitutionInput, year: i64, missing: &mut Vec<&str>) {
-    use crate::core::onboarding::domain::state_name;
+    use crate::core::institution::catalog::state_name;
     let state = inst.state.as_deref().and_then(state_name);
     match (text(&inst.municipality), state) {
         (Some(m), Some(st)) => s.push_str(&format!("Ubicación: {m}, {st}.\n")),

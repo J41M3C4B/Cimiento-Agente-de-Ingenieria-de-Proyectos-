@@ -11,54 +11,8 @@ use serde::Serialize;
 /// The steps, in order. The last screen (review and confirm) is not a step: it needs all of them complete.
 pub const STEPS: &[&str] = &["institution", "location", "people", "team", "money", "building"];
 
-/// The 32 states: (code, name).
-pub const STATES: &[(&str, &str)] = &[
-    ("ags", "Aguascalientes"),
-    ("bc", "Baja California"),
-    ("bcs", "Baja California Sur"),
-    ("camp", "Campeche"),
-    ("coah", "Coahuila"),
-    ("col", "Colima"),
-    ("chis", "Chiapas"),
-    ("chih", "Chihuahua"),
-    ("cdmx", "Ciudad de México"),
-    ("dgo", "Durango"),
-    ("gto", "Guanajuato"),
-    ("gro", "Guerrero"),
-    ("hgo", "Hidalgo"),
-    ("jal", "Jalisco"),
-    ("mex", "Estado de México"),
-    ("mich", "Michoacán"),
-    ("mor", "Morelos"),
-    ("nay", "Nayarit"),
-    ("nl", "Nuevo León"),
-    ("oax", "Oaxaca"),
-    ("pue", "Puebla"),
-    ("qro", "Querétaro"),
-    ("qroo", "Quintana Roo"),
-    ("slp", "San Luis Potosí"),
-    ("sin", "Sinaloa"),
-    ("son", "Sonora"),
-    ("tab", "Tabasco"),
-    ("tamps", "Tamaulipas"),
-    ("tlax", "Tlaxcala"),
-    ("ver", "Veracruz"),
-    ("yuc", "Yucatán"),
-    ("zac", "Zacatecas"),
-];
-
-/// Asociación civil, institución de asistencia privada, institución de beneficencia privada, sociedad civil,
-/// asociación de beneficencia privada, asociación religiosa, other.
-pub const LEGAL_FORMS: &[&str] = &["ac", "iap", "ibp", "sc", "abp", "religious", "other"];
-/// Answers for «donataria autorizada» and «CLUNI».
-pub const REGISTRY: &[&str] = &["yes", "in_progress", "no"];
-pub const OLDEST_YEAR: i64 = 1800;
-/// The most people a quick figure may say.
-pub const MAX_ESTIMATE: i64 = 100_000;
-
-pub fn state_name(code: &str) -> Option<&'static str> {
-    STATES.iter().find(|(c, _)| *c == code).map(|(_, n)| *n)
-}
+/// The catalogs of the institution live with it (audit D3); the steps use them from there.
+pub use crate::core::institution::catalog::{state_name, STATES};
 
 /// What the steps look at, besides the profile: the records of the modules and the main site.
 pub struct Facts<'a> {

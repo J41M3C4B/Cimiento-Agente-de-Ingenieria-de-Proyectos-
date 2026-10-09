@@ -7,7 +7,10 @@ use crate::scanner::guard::{Decision, QuarantineReport};
 use crate::scanner::ScannerConfig;
 use rusqlite::Connection;
 
-pub use crate::core::archive::storage::{add_call_document, emergency_delete_document};
+pub use crate::core::archive::storage::{add_call_document, document_brief, document_pages, emergency_delete_document};
+/// Whether, and how long ago, the institution confirmed its data, and the version a new project is tied to. The
+/// projects never read the tables of the profile themselves.
+pub use crate::core::profile::storage::{confirmed_days_ago as profile_confirmed_days_ago, latest_confirmed as confirmed_profile};
 pub use crate::core::error::ServiceError;
 pub use crate::core::profile::domain::ProfileInput;
 

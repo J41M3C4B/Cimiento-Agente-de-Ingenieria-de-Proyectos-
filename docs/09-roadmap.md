@@ -197,3 +197,17 @@ Objetivo: tratar la app como un ERP de la institución. «Inicio» y «Mi instit
 - [x] **B6** Frontend en `src/core/` (Inicio, Mi institución, primer inicio, acceso, documentos, ajustes, ayuda) y `src/modules/` (Personal, Beneficiarios, Instalaciones, Finanzas y Proyectos con sus convocatorias). El riel muestra el núcleo y una entrada por módulo; cada módulo tiene su página (`components/ModulePage.tsx`); Finanzas tiene su propia ventana de edición; «Mi institución» deja las pestañas y muestra una línea por módulo que lo abre. El diseño fino queda para la sesión de diseño.
 
 **Terminado cuando:** la lista de deuda de `architecture_tests.rs` está vacía, todas las pruebas pasan y cada módulo se abre desde el riel.
+
+## Fase 10 · El núcleo alimenta al ERP (ADR-033 y ADR-034)
+
+Objetivo: que «Mi institución» sea la fuente de todo lo que la institución es (formularios universales, expediente, datos protegidos e historial ligero) y que la IA trabaje en todo el ERP como un equipo de agentes con herramientas. Auditoría de partida: `docs/14-auditoria-nucleo.md`. **Un bloque a la vez:** cada uno se prueba en la app antes de empezar el siguiente.
+
+- [x] **N1** Defectos de la auditoría (2026-10-09): un cambio en Personal o Beneficiarios ya no vuelve borrador el perfil ni abre una versión (las líneas anónimas se actualizan en la versión vigente, D1); Proyectos pide la confirmación del perfil y los archivos de su convocatoria por `core::api` (D2); los catálogos de la institución viven en `core::institution::catalog` (D3); las líneas de beneficiarios se guardan como `computed` (D7). La prueba de fronteras revisa también el SQL: solo el dueño de una tabla escribe SQL sobre ella (`only_the_owner_of_a_table_writes_sql_on_it`); encontró y se corrigieron dos accesos más (el ejemplo de Instalaciones y los documentos de la convocatoria).
+- [ ] **F1** Catálogo de campos (`common/forms`) y perfil de atención en lugar del tipo fijo.
+- [ ] **N2** La pantalla ya no decide: `institution_overview` en Rust.
+- [ ] **IA1–IA2** Bucle de agentes, `ai_proposal`, manual del ERP y «?» por campo.
+- [ ] **N3** Datos nuevos de «Mi institución» en el catálogo, patronato, cuentas, origen por campo, historial ligero; ejemplo I.A.P.
+- [ ] **IA3–IA4** Asistente en toda la app y Capturista.
+- [ ] **N4** Expediente (`core_record`) y subir PDF y Word.
+- [ ] **IA5–IA6** Embeddings guardados, búsqueda híbrida y Lector de documentos.
+- [ ] **N5** El expediente hacia Proyectos, la IA e Inicio.

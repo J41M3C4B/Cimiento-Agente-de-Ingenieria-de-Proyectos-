@@ -1,5 +1,7 @@
 //! What the core says about the institution to the rest of the app.
 
+pub mod catalog;
+
 use rusqlite::{Connection, OptionalExtension};
 
 /// The kind of institution (`elderly_home`, `children_home`, …), or `None` before it is written. Nobody else reads it

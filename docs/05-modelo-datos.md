@@ -350,6 +350,7 @@ CREATE TABLE ai_usage (
 
 - Montos en pesos (`INTEGER` para totales, `REAL` solo en precio unitario). Los cálculos usan aritmética decimal en Rust (`rust_decimal`) y se redondean a 2 decimales al mostrar.
 - `population_group` y `staff_group` no tienen ni pueden tener columnas de identificación individual: desde la migración 0009 se **calculan** a partir del padrón (`roster_entry`, ADR-020), que es una tabla aparte que nunca llega a la IA. Cualquier PR que ponga nombres o contacto en ellas se rechaza.
+- Las líneas `population_group` y `staff_group` (`origin = 'computed'`) reflejan lo que tienen hoy los módulos: un cambio en Personal o Beneficiarios las reescribe en la versión vigente sin abrir otra ni quitarle la confirmación (auditoría D1). Una versión nueva solo nace cuando la persona guarda sus datos.
 - `blob` en `document` solo se usa cuando el archivo se necesita después (plantillas Word, cuestionarios Excel). Los PDF de convocatoria se guardan como texto extraído.
 
 ## Cambios posteriores a esta especificación (migraciones 0004 a 0007)

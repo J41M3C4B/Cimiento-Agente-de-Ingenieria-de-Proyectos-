@@ -212,3 +212,22 @@ fn saving_the_profile_form_does_not_wipe_the_staff_lines() {
     assert_eq!(profile.input.staff.len(), 1);
     assert_eq!(profile.input.staff[0].relation.as_deref(), Some("employee"));
 }
+
+#[test]
+fn a_change_in_the_staff_keeps_the_confirmed_profile_and_its_version() {
+    // audit D1: registering a person used to open an unconfirmed version, so the sheet of the AI read «BORRADOR»
+    let (_d, mut c) = conn();
+    with_profile(&mut c);
+    profile_store::confirm(&mut c).unwrap();
+    let before = profile_store::load_current(&c).unwrap().unwrap();
+    let kitchen = position(&c, "Cocina");
+    saved(save_person(&mut c, None, person("Ana", &kitchen, "indefinite", Some(7_000))).unwrap());
+    saved(save_person(&mut c, None, person("Rosa", &kitchen, "indefinite", Some(7_000))).unwrap());
+    let after = profile_store::load_current(&c).unwrap().unwrap();
+    assert_eq!((after.version, &after.confirmed_at), (before.version, &before.confirmed_at), "same version, still confirmed");
+    assert_eq!(after.input.staff.iter().map(|s| s.count).sum::<i64>(), 2, "the lines follow the module");
+    assert!(!crate::core::ai_sheet::profile_context(&c).unwrap().contains("BORRADOR"));
+    let origins: Vec<String> = c.prepare("SELECT origin FROM staff_group UNION SELECT origin FROM population_group").unwrap()
+        .query_map([], |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect();
+    assert!(origins.iter().all(|o| o == "computed"), "{origins:?}");
+}

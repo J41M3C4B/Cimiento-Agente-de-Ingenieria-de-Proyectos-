@@ -167,14 +167,15 @@ pub fn create_project_with_call(
 }
 
 fn files_of(conn: &Connection, reading_id: &str) -> Result<Vec<ReadingFile>, StorageError> {
-    let mut stmt = conn.prepare(
-        "SELECT d.id, d.display_name, (SELECT count(*) FROM document_chunk c WHERE c.document_id = d.id), f.role
-         FROM call_reading_file f JOIN document d ON d.id = f.document_id
-         WHERE f.reading_id = ?1 ORDER BY f.position",
-    )?;
-    let rows = stmt
-        .query_map([reading_id], |r| Ok(ReadingFile { document_id: r.get(0)?, name: r.get(1)?, pages: r.get(2)?, role: FileRole::from_db(&r.get::<_, String>(3)?) }))?
-        .collect::<Result<Vec<_>, _>>()?;
+    // the documents are the core's: their name and pages come through `core::api`
+    let mut stmt = conn.prepare("SELECT document_id, role FROM call_reading_file WHERE reading_id = ?1 ORDER BY position")?;
+    let files = stmt.query_map([reading_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    let mut rows = Vec::new();
+    for (document_id, role) in files {
+        if let Some((name, pages)) = crate::core::api::document_brief(conn, &document_id)? {
+            rows.push(ReadingFile { document_id, name, pages, role: FileRole::from_db(&role) });
+        }
+    }
     Ok(rows)
 }
 
@@ -220,8 +221,7 @@ pub fn get(conn: &Connection, id: &str) -> Result<Option<ReadingRow>, StorageErr
 pub fn pages_of(conn: &Connection, reading_id: &str) -> Result<Vec<(String, Vec<String>)>, StorageError> {
     let mut out = Vec::new();
     for f in files_of(conn, reading_id)? {
-        let mut stmt = conn.prepare("SELECT text FROM document_chunk WHERE document_id=?1 ORDER BY ordinal")?;
-        let pages = stmt.query_map([&f.document_id], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+        let pages = crate::core::api::document_pages(conn, &f.document_id)?;
         out.push((f.name, pages));
     }
     Ok(out)

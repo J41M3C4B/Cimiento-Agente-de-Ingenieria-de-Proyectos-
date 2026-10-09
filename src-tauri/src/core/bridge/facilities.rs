@@ -126,7 +126,7 @@ pub fn seed_example(conn: &mut Connection, raw: &str) -> Result<(), ServiceError
     }
     let example: Example = serde_json::from_str(raw).map_err(|e| ServiceError::Internal(e.to_string()))?;
     let tx = conn.transaction()?;
-    tx.execute("DELETE FROM fac_site", [])?;
+    crate::modules::facilities::api::clear_for_example(&tx)?;
     let fail = |out: SaveOutcome| match out {
         SaveOutcome::Saved => Ok(()),
         SaveOutcome::Invalid { issues } => Err(ServiceError::Internal(format!("the example is not valid: {issues:?}"))),

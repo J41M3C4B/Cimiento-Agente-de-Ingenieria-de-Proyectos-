@@ -50,14 +50,10 @@ pub(crate) fn totals(conn: &Connection) -> Result<ProfileTotals, ServiceError> {
     Ok(ProfileInput { staff, population, ..input }.totals(year))
 }
 
-/// Writes the new lines into the current profile (a new draft if the last version was confirmed).
+/// Writes the new lines into the current version in place: it stays confirmed if it was (audit D1).
 pub(crate) fn sync_profile(conn: &mut Connection) -> Result<Option<ProfileView>, ServiceError> {
-    let Some(current) = profile_store::load_current(conn)? else { return Ok(None) };
-    let mut input = current.input;
     let (staff, population) = derive(conn)?;
-    input.staff = staff;
-    input.population = population;
-    Ok(Some(profile_store::save(conn, &input)?.into()))
+    Ok(profile_store::refresh_lines(conn, &staff, &population)?.map(Into::into))
 }
 
 /// Development only: replaces the staff and the people served with the fictitious ones of an example

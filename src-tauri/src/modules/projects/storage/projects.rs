@@ -61,16 +61,9 @@ fn project_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<ProjectRow> {
 
 const PROJECT_COLS: &str = "id, institution_id, profile_id, title, initial_request, stage, needs_review, created_at, kind, call_reading_id, color, donor_kind";
 
-/// Days since the latest confirmed profile was confirmed (`None` if none is confirmed).
+/// Days since the latest confirmed profile was confirmed (`None` if none is confirmed). The core answers it.
 pub fn profile_confirmed_days_ago(conn: &Connection) -> Result<Option<i64>, StorageError> {
-    Ok(conn
-        .query_row(
-            "SELECT CAST(julianday('now') - julianday(confirmed_at) AS INTEGER)
-             FROM institution_profile WHERE confirmed_at IS NOT NULL ORDER BY version DESC LIMIT 1",
-            [],
-            |r| r.get(0),
-        )
-        .optional()?)
+    crate::core::api::profile_confirmed_days_ago(conn)
 }
 
 /// Creates the project in `PROFILE`; the caller advances it once the profile check passes.
@@ -90,14 +83,7 @@ pub(super) fn insert_project(
     kind: &str,
     call_reading_id: Option<&str>,
 ) -> Result<String, StorageError> {
-    let (institution_id, profile_id): (String, String) = tx
-        .query_row(
-            "SELECT institution_id, id FROM institution_profile WHERE confirmed_at IS NOT NULL ORDER BY version DESC LIMIT 1",
-            [],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .optional()?
-        .ok_or(StorageError::NoProfile)?;
+    let (institution_id, profile_id) = crate::core::api::confirmed_profile(tx)?.ok_or(StorageError::NoProfile)?;
     let pid = id("proj");
     tx.execute(
         "INSERT INTO project (id,institution_id,profile_id,title,initial_request,stage,kind,call_reading_id,created_at,updated_at)

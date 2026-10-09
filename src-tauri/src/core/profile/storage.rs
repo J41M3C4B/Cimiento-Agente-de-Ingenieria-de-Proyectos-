@@ -205,15 +205,22 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
         }
     };
 
-    for g in &input.population {
+    insert_lines(&tx, &profile_id, &input.staff, &input.population)?;
+    tx.commit()?;
+    load_current(conn)?.ok_or(StorageError::NoProfile)
+}
+
+/// The anonymous lines of a version. Both lists are computed from their modules, never written by a person.
+fn insert_lines(tx: &rusqlite::Transaction<'_>, profile_id: &str, staff: &[StaffGroupInput], population: &[PopulationGroupInput]) -> Result<(), StorageError> {
+    for g in population {
         tx.execute(
             "INSERT INTO population_group (id,profile_id,label,age_min,age_max,count,dependency_level,notes,paying_count,monthly_fee_mxn,origin)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,'user')",
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,'computed')",
             params![id("pop"), profile_id, g.label.trim(), g.age_min, g.age_max, g.count,
                     g.dependency_level.map(|d| d.as_db()), text(&g.notes), g.paying_count, g.monthly_fee_mxn],
         )?;
     }
-    for s in &input.staff {
+    for s in staff {
         tx.execute(
             "INSERT INTO staff_group (id,profile_id,role,count,shift,paid,monthly_salary_mxn,contract,start_year,notes,relation,origin)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,'computed')",
@@ -221,8 +228,47 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
                     s.monthly_salary_mxn, s.contract.map(|c| c.as_db()), s.start_year, text(&s.notes), text(&s.relation)],
         )?;
     }
+    Ok(())
+}
+
+/// Replaces the anonymous lines of the latest version in place, whether it is confirmed or not (audit D1). The
+/// lines only mirror what the modules hold now, so a change in a module neither opens a version nor takes the
+/// confirmation of what the person wrote; the progress over time is kept by the snapshots (ADR-033 §4).
+pub fn refresh_lines(conn: &mut Connection, staff: &[StaffGroupInput], population: &[PopulationGroupInput]) -> Result<Option<StoredProfile>, StorageError> {
+    let tx = conn.transaction()?;
+    let latest: Option<String> =
+        tx.query_row("SELECT id FROM institution_profile ORDER BY version DESC LIMIT 1", [], |r| r.get(0)).optional()?;
+    let Some(profile_id) = latest else { return Ok(None) };
+    for t in PROFILE_LISTS {
+        tx.execute(&format!("DELETE FROM {t} WHERE profile_id=?1"), [&profile_id])?;
+    }
+    insert_lines(&tx, &profile_id, staff, population)?;
     tx.commit()?;
-    load_current(conn)?.ok_or(StorageError::NoProfile)
+    load_current(conn)
+}
+
+/// Days since the latest confirmed version was confirmed (`None` if none is). The projects ask it through
+/// `core::api` (the stage «Perfil» asks for a recent confirmation).
+pub fn confirmed_days_ago(conn: &Connection) -> Result<Option<i64>, StorageError> {
+    Ok(conn
+        .query_row(
+            "SELECT CAST(julianday('now') - julianday(confirmed_at) AS INTEGER)
+             FROM institution_profile WHERE confirmed_at IS NOT NULL ORDER BY version DESC LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .optional()?)
+}
+
+/// The institution and its latest confirmed version, which a new project is tied to (`None` if none is confirmed).
+pub fn latest_confirmed(conn: &Connection) -> Result<Option<(String, String)>, StorageError> {
+    Ok(conn
+        .query_row(
+            "SELECT institution_id, id FROM institution_profile WHERE confirmed_at IS NOT NULL ORDER BY version DESC LIMIT 1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?)
 }
 
 /// Freezes the current draft as a confirmed version.

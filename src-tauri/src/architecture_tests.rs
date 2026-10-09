@@ -229,6 +229,84 @@ fn every_layer_only_looks_down() {
     assert!(paid.is_empty(), "this debt is paid, take it out of DEBT: {paid:#?}");
 }
 
+/// The tables of the core and of each module (`docs/05-modelo-datos.md`, «Dueño de cada tabla»). Only their owner
+/// writes SQL on them; the rest ask through its `api` (audit D2: the projects read the profile with SQL and no `use`
+/// showed it). The tables of a module go by their prefix.
+const CORE_TABLES: &[&str] = &[
+    "institution", "institution_profile", "population_group", "staff_group", "document", "document_chunk",
+    "document_chunk_fts", "app_user", "access_request", "roster_field", "roster_entry", "income_source", "expense_item",
+];
+const MODULE_PREFIXES: &[(&str, &str)] = &[("hr_", "hr"), ("care_", "care"), ("fac_", "facilities"), ("fin_", "finance")];
+
+/// What SQL on someone else's tables is still allowed today: (the file, the table). It may only shrink, like `DEBT`.
+const TABLE_DEBT: &[(&str, &str)] = &[];
+
+fn table_owner(table: &str) -> Option<Layer> {
+    if CORE_TABLES.contains(&table) {
+        return Some(Core);
+    }
+    MODULE_PREFIXES.iter().find(|(p, _)| table.starts_with(p)).map(|(_, m)| Module(m))
+}
+
+/// The tables a line of SQL names after FROM, JOIN, INTO, UPDATE or TABLE.
+fn tables_in(line: &str) -> Vec<String> {
+    let words: Vec<&str> = line.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')).filter(|w| !w.is_empty()).collect();
+    words
+        .windows(2)
+        .filter(|w| matches!(w[0], "FROM" | "JOIN" | "INTO" | "UPDATE" | "TABLE"))
+        .map(|w| w[1].to_string())
+        .collect()
+}
+
+/// Every SQL that touches a table of another layer: (file, table). The base storage (migrations, backup, the scan of
+/// the whole base) and the shell may touch any.
+fn foreign_tables() -> BTreeSet<(String, String)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut files = Vec::new();
+    rust_files(&root, &mut files);
+    let mut found = BTreeSet::new();
+    for file in files.iter().filter(|f| !is_test_file(f)) {
+        let from_path = module_path(&root, file);
+        let Some((from, _)) = place(&from_path) else { continue };
+        if from == Shell || from_path.starts_with("storage") {
+            continue;
+        }
+        let text = std::fs::read_to_string(file).unwrap();
+        for (_, line) in code_lines(&text) {
+            for table in tables_in(line) {
+                if table_owner(&table).is_some_and(|owner| owner != from) {
+                    found.insert((from_path.clone(), table));
+                }
+            }
+        }
+    }
+    found
+}
+
+#[test]
+fn only_the_owner_of_a_table_writes_sql_on_it() {
+    let found = foreign_tables();
+    let debt: BTreeSet<(String, String)> = TABLE_DEBT.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
+    let new: Vec<_> = found.difference(&debt).collect();
+    let paid: Vec<_> = debt.difference(&found).collect();
+    let listing: String = found.iter().map(|(a, b)| format!("    (\"{a}\", \"{b}\"),
+")).collect();
+    assert!(new.is_empty(), "SQL on a table of another layer (ADR-032): {new:#?}
+
+the whole list today:
+{listing}");
+    assert!(paid.is_empty(), "this debt is paid, take it out of TABLE_DEBT: {paid:#?}");
+}
+
+#[test]
+fn tables_are_read_from_a_line() {
+    assert_eq!(tables_in("SELECT a FROM institution_profile p JOIN hr_job j ON 1"), vec!["institution_profile", "hr_job"]);
+    assert_eq!(tables_in("\"INSERT INTO document (id) VALUES (?1)\","), vec!["document"]);
+    assert!(tables_in("let from = 1;").is_empty());
+    assert_eq!(table_owner("care_person"), Some(Module("care")));
+    assert_eq!(table_owner("project"), None);
+}
+
 #[test]
 fn paths_are_read_from_a_line() {
     assert_eq!(paths_in("use crate::modules::hr::api::{Count, MIN_GROUP};"), vec!["modules::hr::api::Count", "modules::hr::api::MIN_GROUP", "modules::hr::api"]);
