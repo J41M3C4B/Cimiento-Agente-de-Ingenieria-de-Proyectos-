@@ -8,6 +8,11 @@ vi.mock("../../lib/tauri", () => ({
   toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
 }));
 
+// as the WebView2 of Windows does today: scrolling returns a promise (an effect that returned it blanked the screen)
+Element.prototype.scrollIntoView = function () {
+  return Promise.resolve() as unknown as void;
+};
+
 import { assistantAsk } from "../../lib/tauri";
 import { ManualPanel } from "../../components/ManualHelp";
 import { AssistantProvider, useAssistant } from "./Assistant";

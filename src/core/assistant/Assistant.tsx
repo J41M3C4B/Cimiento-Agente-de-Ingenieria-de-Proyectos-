@@ -86,7 +86,11 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
     },
   };
 
-  useEffect(() => end.current?.scrollIntoView?.({ block: "end" }), [messages, busy]);
+  // the last message in view. In braces: a newer WebView2 returns a promise from scrollIntoView, and an effect that
+  // returns something that is not a function brings the whole screen down
+  useEffect(() => {
+    end.current?.scrollIntoView?.({ block: "end" });
+  }, [messages, busy]);
 
   const fieldEntry = useQuery({ queryKey: ["manual", field], queryFn: () => manualEntry(field!), enabled: field !== null, staleTime: Infinity });
 
