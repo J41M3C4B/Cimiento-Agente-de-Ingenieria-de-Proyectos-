@@ -49,6 +49,8 @@ pub enum AuditKind {
     FacilitiesImported,
     /// The institution finished its first start (ADR-031).
     InstitutionOnboarded,
+    /// An errand of an agent ended (ADR-034): agent, steps, tools used (counts) and result; never content.
+    AiRun,
 }
 
 impl AuditKind {
@@ -87,6 +89,7 @@ impl AuditKind {
             AuditKind::CareImported => "care.imported",
             AuditKind::FacilitiesImported => "facilities.imported",
             AuditKind::InstitutionOnboarded => "institution.onboarded",
+            AuditKind::AiRun => "ai.run",
         }
     }
 }

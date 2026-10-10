@@ -3,6 +3,7 @@
 //! The AI only asks diagnosis questions, reasons about needs and writes text.
 //! It never calculates and never writes files: it returns JSON, code validates it.
 
+pub mod agent;
 pub mod anthropic;
 pub mod figures;
 pub mod gemini;
@@ -48,6 +49,9 @@ pub enum AiTask {
     CallCanonical,
     /// Writes the «en pocas palabras» of a call for the person (ADR-024), from what its reading understood.
     CallBrief,
+    /// One step of an agent (ADR-034): it asks for a tool or gives its answer. The agent says its name (the task in
+    /// `ai_usage`, `agent.<name>`) and its tier; its prompt and schema come with the call (`pipeline::Custom`).
+    Agent { name: &'static str, tier: ModelTier },
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // used by the measurement tests, not by the application
@@ -73,6 +77,7 @@ impl AiTask {
             AiTask::DraftingAll => "drafting.all",
             AiTask::CallCanonical => "call.canonical",
             AiTask::CallBrief => "call.brief",
+            AiTask::Agent { name, .. } => name,
         }
     }
 
@@ -85,6 +90,7 @@ impl AiTask {
             | AiTask::DraftingPlan
             | AiTask::DraftingAll
             | AiTask::CallCanonical => ModelTier::Strong,
+            AiTask::Agent { tier, .. } => tier,
         }
     }
 
@@ -92,7 +98,7 @@ impl AiTask {
     /// quickly; the reading of a call runs once, in the background, over a lot of text.
     pub fn timeout_secs(self) -> u64 {
         match self {
-            AiTask::ConversationTurn | AiTask::CallBrief => 60,
+            AiTask::ConversationTurn | AiTask::CallBrief | AiTask::Agent { .. } => 60,
             AiTask::DiagnosisSummary | AiTask::PrioritizationProposeNeeds | AiTask::DraftingSection | AiTask::DraftingPlan => 120,
             AiTask::DraftingAll => 180,
             AiTask::CallCanonical => 300,
@@ -121,7 +127,8 @@ impl AiTask {
     /// doc's 1,200 because a truncated JSON is useless and cost follows real usage.
     pub fn max_output_tokens(self) -> u32 {
         match self {
-            AiTask::ConversationTurn | AiTask::CallBrief => 500,
+            // an agent sets it per call (`pipeline::Custom`)
+            AiTask::ConversationTurn | AiTask::CallBrief | AiTask::Agent { .. } => 500,
             AiTask::DiagnosisSummary => 2000,
             AiTask::PrioritizationProposeNeeds => 1000,
             AiTask::DraftingSection => 1500,

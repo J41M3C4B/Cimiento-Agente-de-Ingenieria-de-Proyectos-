@@ -32,6 +32,22 @@ pub trait Ledger: Send + Sync {
     fn record_leak_prevented(&self, task: AiTask, counts: &BTreeMap<&'static str, usize>) -> Result<(), AiError>;
     /// Calls that reached the provider for `model` in the last `seconds`.
     fn window(&self, model: &str, seconds: u32) -> Result<Window, AiError>;
+    /// The end of an errand of an agent (`ai.run`): who, how many steps and tools, how it ended. Never content.
+    fn record_run(&self, run: &RunRecord) -> Result<(), AiError>;
+}
+
+/// What the audit log keeps of an errand of an agent (ADR-034 §5): counts and codes, never content.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunRecord {
+    pub agent: &'static str,
+    pub model_calls: u32,
+    pub tool_calls: u32,
+    /// How many times each tool ran, by name.
+    pub tools: BTreeMap<&'static str, u32>,
+    /// Requests of a tool the agent may not use, that does not exist or with bad arguments.
+    pub rejected: u32,
+    /// `answered`, `step_limit`, `token_limit` or the kind of the AI error.
+    pub result: String,
 }
 
 #[derive(Debug, Clone)]
@@ -179,10 +195,18 @@ async fn call_provider(
 }
 
 /// What a caller may decide about one call besides its task: the schema of the answer (the canonical
-/// reading asks for the whole schema or for one block of it) and how much it may write.
+/// reading asks for the whole schema or for one block of it), how much it may write and, for an agent, its
+/// own fixed prompt.
 pub struct Custom {
     pub schema: Value,
     pub max_output_tokens: u32,
+    pub system: Option<String>,
+}
+
+/// A valid answer and the text it cost (input and output of every attempt, failed ones included).
+pub struct Measured {
+    pub value: Value,
+    pub tokens: u64,
 }
 
 pub async fn run(
@@ -201,6 +225,17 @@ pub async fn run_with(
     call: AiCall,
     custom: Option<Custom>,
 ) -> Result<Value, AiError> {
+    run_measured(provider, scanner, ledger, call, custom).await.map(|m| m.value)
+}
+
+/// Like `run_with`, and says how much text the call cost (an agent keeps a cap per errand).
+pub async fn run_measured(
+    provider: &dyn AiProvider,
+    scanner: &dyn SensitiveScanner,
+    ledger: &dyn Ledger,
+    call: AiCall,
+    custom: Option<Custom>,
+) -> Result<Measured, AiError> {
     let settings = ledger.settings()?;
 
     // 1. Budget: at the cap, AI is paused and everything else keeps working.
@@ -227,16 +262,17 @@ pub async fn run_with(
     }
 
     // 3-5. Pace and provider, schema validation (one retry with the error), usage log.
-    let (schema, max_output_tokens) = match custom {
-        Some(c) => (c.schema, c.max_output_tokens),
-        None => (prompts::schema(call.task), call.task.max_output_tokens()),
+    let (schema, max_output_tokens, system) = match custom {
+        Some(c) => (c.schema, c.max_output_tokens, c.system.unwrap_or_else(|| prompts::system_prompt(call.task))),
+        None => (prompts::schema(call.task), call.task.max_output_tokens(), prompts::system_prompt(call.task)),
     };
+    let mut tokens = 0u64;
     let mut attempt_user = user.clone();
     for attempt in 0..2 {
         let req = AiRequest {
             task: call.task,
             tier: call.task.tier(),
-            system: prompts::system_prompt(call.task),
+            system: system.clone(),
             context: context.clone(),
             user: attempt_user.clone(),
             output_schema: schema.clone(),
@@ -246,6 +282,7 @@ pub async fn run_with(
             Ok(Answered { resp, latency_ms }) => {
                 let model = if resp.model.is_empty() { provider.model_name(req.tier) } else { resp.model.clone() };
                 let check = validate(&schema, &resp.value);
+                tokens += resp.usage.input_tokens + resp.usage.cache_read_tokens + resp.usage.output_tokens;
                 ledger.record_usage(&UsageRecord {
                     task: call.task,
                     provider: provider.name().to_string(),
@@ -261,7 +298,7 @@ pub async fn run_with(
                     error_kind: check.as_ref().err().map(|_| "schema".to_string()),
                 })?;
                 match check {
-                    Ok(()) => return Ok(resp.value),
+                    Ok(()) => return Ok(Measured { value: resp.value, tokens }),
                     Err(msg) => msg,
                 }
             }
@@ -343,6 +380,18 @@ impl Ledger for SqliteLedger {
 
     fn window(&self, model: &str, seconds: u32) -> Result<Window, AiError> {
         metrics::window(&*self.conn()?, model, seconds).map_err(db_err)
+    }
+
+    fn record_run(&self, r: &RunRecord) -> Result<(), AiError> {
+        let conn = self.conn()?;
+        audit::record(
+            &conn,
+            AuditKind::AiRun,
+            Some("ai_run"),
+            None,
+            json!({ "agent": r.agent, "model_calls": r.model_calls, "tool_calls": r.tool_calls, "tools": r.tools, "rejected": r.rejected, "result": r.result }),
+        )
+        .map_err(db_err)
     }
 }
 

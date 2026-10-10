@@ -15,6 +15,8 @@ const DRAFTING_ALL: &str = include_str!("prompts/drafting_all.v1.md");
 const PROPOSE_NEEDS: &str = include_str!("prompts/prioritization_propose_needs.v4.md");
 const CALL_CANONICAL: &str = include_str!("prompts/canonical_read.v1.md");
 const CALL_BRIEF: &str = include_str!("prompts/call_brief.v1.md");
+/// How an agent asks for a tool or answers (ADR-034 §2); the same for every agent.
+const AGENT_PROTOCOL: &str = include_str!("prompts/agent_protocol.v1.md");
 
 pub const CALL_BRIEF_VERSION: &str = "call_brief.v1";
 pub const CONVERSATION_TURN_VERSION: &str = "conversation_turn.v2";
@@ -25,10 +27,13 @@ pub const DRAFTING_ALL_VERSION: &str = "drafting_all.v1";
 pub const PROPOSE_NEEDS_VERSION: &str = "prioritization_propose_needs.v4";
 #[allow(dead_code)] // the version of the prompt, for whoever reads the usage log
 pub const CALL_CANONICAL_VERSION: &str = "canonical_read.v1";
+#[allow(dead_code)] // the version of the protocol, for whoever reads the usage log
+pub const AGENT_PROTOCOL_VERSION: &str = "agent_protocol.v1";
 
-/// Does the task receive the profile of the institution (and so need the rules about how to treat it)?
+/// Does the task receive the profile of the institution (and so need the rules about how to treat it)? An agent
+/// says it itself (`agent_system`).
 fn knows_the_institution(task: AiTask) -> bool {
-    !matches!(task, AiTask::CallCanonical | AiTask::CallBrief)
+    !matches!(task, AiTask::CallCanonical | AiTask::CallBrief | AiTask::Agent { .. })
 }
 
 /// Fixed text (no dates, no ids) so the provider can cache it between calls.
@@ -42,12 +47,25 @@ pub fn system_prompt(task: AiTask) -> String {
         AiTask::DraftingAll => DRAFTING_ALL,
         AiTask::CallCanonical => CALL_CANONICAL,
         AiTask::CallBrief => CALL_BRIEF,
+        // an agent brings its whole prompt (`agent_system`); this is only the protocol
+        AiTask::Agent { .. } => AGENT_PROTOCOL,
     };
     if knows_the_institution(task) {
         format!("{}\n\n{}\n\n{}", body.trim(), INSTITUTION_RULES.trim(), COMMON.trim())
     } else {
         format!("{}\n\n{}", body.trim(), COMMON.trim())
     }
+}
+
+/// The fixed prompt of an agent: its trade, the protocol, its tools and the rules (those about the institution only
+/// when it gets its sheet). The same text on every call, so the provider can cache it.
+pub fn agent_system(trade: &str, tools: &str, knows_institution: bool) -> String {
+    let mut s = format!("{}\n\n{}\n\nHerramientas que puede pedir:\n{}", trade.trim(), AGENT_PROTOCOL.trim(), tools.trim());
+    if knows_institution {
+        s.push_str(&format!("\n\n{}", INSTITUTION_RULES.trim()));
+    }
+    s.push_str(&format!("\n\n{}", COMMON.trim()));
+    s
 }
 
 fn string_list() -> Value {
@@ -181,6 +199,17 @@ pub fn schema(task: AiTask) -> Value {
             "type": "object",
             "properties": { "brief": { "type": "string" } },
             "required": ["brief"],
+            "additionalProperties": false
+        }),
+        // the bare shape of a step; each agent sends its own, with the arguments of its tools (`agent::step_schema`)
+        AiTask::Agent { .. } => json!({
+            "type": "object",
+            "properties": {
+                "tool": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "args": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+                "answer": { "anyOf": [{ "type": "object" }, { "type": "null" }] }
+            },
+            "required": ["tool", "args", "answer"],
             "additionalProperties": false
         }),
         AiTask::PrioritizationProposeNeeds => json!({
