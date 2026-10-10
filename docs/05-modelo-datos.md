@@ -375,7 +375,7 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
 | Dueño | Tablas |
 |---|---|
 | Base | `schema_migrations`, `app_settings`, `audit_log`, `ai_usage` |
-| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
+| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
 | Personal (`hr_*`) | `hr_modality`, `hr_position`, `hr_person`, `hr_job`, `hr_emergency_contact`, `hr_custom_field` |
 | Beneficiarios (`care_*`) | `care_group`, `care_person`, `care_contact`, `care_custom_field`, `care_waitlist` |
 | Instalaciones (`fac_*`) | `fac_site`, `fac_space`, `fac_equipment` |
@@ -386,3 +386,8 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
   - La migración copia las líneas de la versión vigente del perfil y su «gasto anual aproximado» (`fin_settings.annual_budget_mxn`, una sola fila).
   - Cada línea conserva su `origin`, su `source_ref` y su confirmación.
   - `income_source`, `expense_item` e `institution_profile.annual_budget_mxn` quedan como historia de las versiones anteriores y ya no se escriben.
+- **0022 `ai_proposal`:** lo que la IA propone cambiar (ADR-034 §2). Lleva el formulario, el registro (si es de un módulo) y el campo; el valor ya revisado por el escáner; `origin` (`ai_assumption` o `document`), `source_ref` y el agente; `status` (`pending`, `accepted`, `rejected`), quién lo resolvió y cuándo.
+  - El valor debe caber en su campo del catálogo (opción de la lista, número en su rango) o no se guarda; un campo que la IA nunca ve (`AiUse::Never`) no admite propuestas de la IA.
+  - Hay a lo más una propuesta pendiente por campo: la nueva reemplaza a la anterior.
+  - Una propuesta no es un guardado: aceptarla corre el guardado de siempre del formulario (IA4).
+- **0023 `manual_fts`, `manual_index`:** el índice de búsqueda del manual del programa (`docs/manual/`), sin acentos (`unicode61 remove_diacritics 2`). `manual_index` guarda la huella del texto del manual; el índice se rehace solo cuando cambia.

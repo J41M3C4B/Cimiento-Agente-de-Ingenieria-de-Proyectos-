@@ -18,6 +18,10 @@ cargo test card                                        # la ficha de la convocat
 #   la ficha de una convocatoria real, sin llamadas (a ojo):
 #   $env:CIMIENTO_CANON_FILE="D:\...\x.canonico.json"; cargo test print_card_of_a_real_call -- --ignored --nocapture
 cargo test jobs                                        # un proceso de IA por proyecto a la vez (ADR-023)
+cargo test ai::agent                                   # bucle de agentes (ADR-034): herramientas, rechazo de lo no permitido, topes, escáner y ai.run, con modelo simulado
+cargo test core::agents                                # herramientas del núcleo (estado de llenado, partes de la ficha), permisos, lo que nunca llega a la IA, y ai_proposal
+cargo test core::manual                                # manual del programa (ADR-034): cada campo del catálogo con su entrada, lenguaje sencillo y búsqueda sin conexión
+cargo test agent_tools_live -- --ignored --nocapture   # encargo real con las dos herramientas del núcleo (a lo más 4 pasos); imprime pasos, texto y costo
 cargo test ai_sheet                                    # la ficha de «Mi institución» que lee la IA: qué lleva, qué nunca (ADR-023)
 cargo test finance                                     # módulo de Finanzas (ADR-026, ADR-032): ingresos por tipo, egresos, balance, escáner y guardado; la nómina con prestaciones está en `cargo test profile`
 cargo test hr::                                        # módulo de Personal (ADR-027): modalidades, CURP/RFC/NSS/CLABE, avance, agregados y su frontera

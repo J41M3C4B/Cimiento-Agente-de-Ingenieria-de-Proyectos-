@@ -8,7 +8,7 @@ App de escritorio (Tauri 2) local y con IA para que asilos y casas hogar diagnos
 
 ## Principios que NO se negocian
 
-1. **Determinista primero.** Si algo se puede resolver con una regla, va en código. La IA solo hace: preguntas de diagnóstico, razonamiento sobre necesidades, redacción y resumen. Ver `docs/07-ia-y-costos.md`.
+1. **Determinista primero.** Si algo se puede resolver con una regla, va en código. La IA hace: preguntas y conversación (diagnóstico y asistencia), razonamiento, redacción y resumen, y **propuestas** de datos con su fuente. Nunca calcula, nunca guarda y nunca decide sola: lo que propone lo acepta una persona y lo guarda el código (ADR-034). Ver `docs/07-ia-y-costos.md`.
 2. **La IA nunca calcula.** Totales, porcentajes, presupuestos y validaciones se hacen en Rust/TypeScript.
 3. **La IA nunca escribe archivos.** La IA devuelve JSON estructurado; el código valida y escribe en Word/Excel.
 4. **Todo dato lleva origen.** Campos `origin` (`user`, `document`, `ai_assumption`, `computed`) y `confirmed_at`. Ver `docs/05-modelo-datos.md`.

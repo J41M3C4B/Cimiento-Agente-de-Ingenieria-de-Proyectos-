@@ -64,7 +64,9 @@ Registra **eventos**, nunca contenido:
 { "at": "2026-10-01T10:00:00Z", "event": "scanner.quarantine", "entity": "document", "entity_id": "doc_123", "details": { "findings": { "curp": 3, "phone": 1 }, "decision": "redacted" } }
 ```
 
-Eventos mínimos: `document.uploaded`, `scanner.quarantine`, `scanner.override`, `scanner.leak_prevented`, `emergency.delete`, `ai.call`, `export.created`, `profile.confirmed`, `stage.changed`, `backup.created`.
+Eventos mínimos: `document.uploaded`, `scanner.quarantine`, `scanner.override`, `scanner.leak_prevented`, `emergency.delete`, `ai.call`, `ai.run`, `export.created`, `profile.confirmed`, `stage.changed`, `backup.created`.
+
+`ai.run` es el fin de un encargo de un agente (ADR-034): qué agente, cuántas llamadas y cuántos pedidos de herramientas, cuántas veces corrió cada herramienta, cuántos pedidos se rechazaron y cómo terminó (`answered`, `step_limit`, `token_limit` o el tipo de error). Nunca la pregunta, la respuesta ni lo que devolvió una herramienta.
 
 ## Roles
 

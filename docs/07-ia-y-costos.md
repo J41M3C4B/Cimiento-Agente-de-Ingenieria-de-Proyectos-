@@ -53,6 +53,17 @@ Implementaciones: `AnthropicProvider` y `GeminiProvider` (APIs en la nube, ADR-0
 
 Si la calidad de una tarea Light no alcanza en pruebas, se sube a Strong y se documenta.
 
+## Agentes y herramientas (ADR-034)
+
+- Un agente lo define el código (`ai::agent::Agent`): su oficio, su nivel, la lista cerrada de herramientas, el tope de pedidos de herramientas, el tope de texto por encargo y el esquema de su respuesta. Su tarea en `ai_usage` es `agent.<nombre>`.
+- **Protocolo en JSON sobre el recorrido de siempre** (`prompts/agent_protocol.v1.md`): en cada paso el modelo responde `{"tool", "args", "answer"}`. Cada paso pasa por presupuesto, escáner, ritmo, validación del esquema y `ai_usage`, igual con Gemini, Anthropic u Ollama.
+- Rust revisa que la herramienta sea de la lista del agente y que los argumentos tengan su forma, la corre y le devuelve el resultado en el paso siguiente. Una herramienta fuera de la lista nunca corre; el modelo se entera y sigue.
+- Al llegar al tope de pedidos se le pide responder con lo que tiene; si vuelve a pedir, el encargo termina (`step_limit`). Al pasar el tope de texto, también (`token_limit`).
+- Las herramientas solo leen y revisan el permiso de quien pregunta. Las del núcleo hoy: `fill_state` (qué tan completos están los datos y qué falta, sin valores) y `sheet_section` (una parte de la ficha de la institución: `institution`, `money`, `people`, `staff` o `facilities`, con las mismas reglas de la ficha completa).
+- El prompt del agente (oficio, protocolo y herramientas) es el mismo en todos los pasos, así que el proveedor lo puede guardar en caché.
+- Lo que la IA quiera cambiar es una propuesta (`ai_proposal`) que acepta una persona.
+- El manual del programa (`docs/manual/`) responde el «?» de cada campo y la búsqueda de Ayuda **sin IA**: no gasta nada.
+
 ## Técnicas de ahorro
 
 1. **Contexto mínimo:** se recuperan solo los fragmentos relevantes (FTS5 + vectores). Nunca documentos completos.

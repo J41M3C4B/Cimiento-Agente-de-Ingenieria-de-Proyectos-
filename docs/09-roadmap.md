@@ -210,7 +210,15 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
   - La ficha de la IA lo dice («A quién atiende», «Cómo atiende», «Áreas de atención»).
   - Una prueba exige las palabras de cada campo y de cada código en `es-MX.ts`.
 - [x] **N2** La pantalla ya no decide (2026-10-09): `institution_overview` (`core/overview.rs`) compone en Rust la cifra de cada módulo (y si es la cifra rápida del primer inicio), la ocupación y los lugares vacíos, el balance, el porcentaje de avance (100 solo sin nada pendiente) y lo que falta con el lugar donde se llena, ahora con «a quién atienden» y «cómo los atienden». «Mi institución», la tarjeta de la institución y las cifras de Inicio solo lo dibujan.
-- [ ] **IA1–IA2** Bucle de agentes, `ai_proposal`, manual del ERP y «?» por campo.
+- [x] **IA1–IA2** Bucle de agentes, `ai_proposal`, manual del ERP y «?» por campo (2026-10-09):
+  - **IA1.** El bucle de agentes en la base (`ai/agent.rs`): el código define cada agente (oficio, nivel, herramientas permitidas, tope de pedidos y de texto, esquema de su respuesta). En cada paso la IA pide una herramienta o responde, en JSON y por el recorrido de siempre (escáner, esquema, ritmo y `ai_usage`). Una herramienta fuera de su lista nunca corre; los topes cortan el bucle; el fin de cada encargo queda en la bitácora como `ai.run`, solo con conteos.
+  - Herramientas de solo lectura del núcleo (`core/agents/tools.rs`), con el permiso de quien pregunta: `fill_state` (qué falta y dónde se llena, sin valores) y `sheet_section` (una parte de la ficha). La ficha se parte en cinco partes y cada dato está en una sola (prueba).
+  - Tabla `ai_proposal` (migración 0022): una propuesta se revisa contra su campo del catálogo y con el escáner, y espera a que una persona la acepte o la rechace. Aceptarla y guardar llega en IA4.
+  - Prueba en seco: un agente pide las dos herramientas del núcleo con datos reales de la base y responde. La corrida real acotada está lista (`cargo test agent_tools_live -- --ignored --nocapture`); sus métricas se anotan aquí cuando se corra.
+  - **IA2.** El manual del programa (`docs/manual/`) viaja dentro del programa. Una prueba exige que cada campo del catálogo tenga su entrada con «Qué poner:» y «Para qué sirve:»; «Lo usan» sale del catálogo.
+  - Junto a cada campo de «Su institución», un «?» abre lo que dice el manual, sin IA, sin internet y sin costo.
+  - En Ayuda, «Buscar en el manual» (FTS5 sin acentos, migración 0023) funciona sin conexión.
+  - El principio 1 se amplía como dice el ADR-034 §6.
 - [ ] **N3** Datos nuevos de «Mi institución» en el catálogo, patronato, cuentas, origen por campo, historial ligero; ejemplo I.A.P.
 - [ ] **IA3–IA4** Asistente en toda la app y Capturista.
 - [ ] **N4** Expediente (`core_record`) y subir PDF y Word.
