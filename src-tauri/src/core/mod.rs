@@ -4,6 +4,7 @@
 //!
 
 pub mod access;
+pub mod agents;
 pub mod ai_sheet;
 pub mod api;
 pub mod archive;

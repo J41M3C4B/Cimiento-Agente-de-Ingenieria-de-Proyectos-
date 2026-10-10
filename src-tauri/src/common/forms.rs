@@ -210,8 +210,8 @@ impl FormSpec {
     }
 }
 
-/// What is wrong with one filled value, if anything.
-fn problem(f: &FieldSpec, v: &Value) -> Option<&'static str> {
+/// What is wrong with one filled value, if anything (a proposal of the AI is checked with it, ADR-034).
+pub fn problem(f: &FieldSpec, v: &Value) -> Option<&'static str> {
     let known = |s: &str| f.options.contains(&s);
     match f.kind {
         FieldKind::Select => match v.as_str() {

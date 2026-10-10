@@ -554,18 +554,93 @@ fn render_identity(s: &mut String, inst: &crate::core::profile::domain::Institut
     }
 }
 
+/// The parts of the sheet an agent may ask for one at a time (ADR-034 §2), in the order of the whole sheet.
+pub const SECTIONS: &[&str] = &["institution", "money", "people", "staff", "facilities"];
+
+/// One part of the sheet: where its text and what it misses are inside the whole.
+struct Part {
+    key: &'static str,
+    text: std::ops::Range<usize>,
+    missing: std::ops::Range<usize>,
+}
+
+/// The whole sheet, with where each part begins and ends, before the line of what is missing.
+struct Composed {
+    text: String,
+    /// The line that says whether the data are confirmed.
+    header: std::ops::Range<usize>,
+    parts: Vec<Part>,
+    notes: std::ops::Range<usize>,
+    missing: Vec<String>,
+}
+
 pub fn render(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> String {
+    let c = compose(p, fin, staff, people, facilities);
+    let mut s = c.text;
+    if !c.missing.is_empty() {
+        s.push_str(&format!(
+            "No capturado en «Mi institución»: {}. «No capturado» quiere decir que no se sabe, no que sea cero.\n",
+            c.missing.join(", ")
+        ));
+    }
+    s
+}
+
+/// One part of the sheet (`SECTIONS`), with the line of whether it is confirmed and what is missing in it. The
+/// notes of the institution go with its own part. `None` for a part that does not exist.
+pub fn render_section(key: &str, p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> Option<String> {
+    let c = compose(p, fin, staff, people, facilities);
+    let part = c.parts.iter().find(|x| x.key == key)?;
+    let mut s = format!("{}{}", &c.text[c.header.clone()], &c.text[part.text.clone()]);
+    if key == "institution" {
+        s.push_str(&c.text[c.notes.clone()]);
+    }
+    let missing = &c.missing[part.missing.clone()];
+    if !missing.is_empty() {
+        s.push_str(&format!("No capturado en esta parte: {}. «No capturado» quiere decir que no se sabe, no que sea cero.\n", missing.join(", ")));
+    }
+    Some(s)
+}
+
+/// The sheet of the current profile, one part (`render_section`). Without a profile, it says there is nothing.
+pub fn section_context(conn: &Connection, key: &str) -> Result<Option<String>, ServiceError> {
+    if !SECTIONS.contains(&key) {
+        return Ok(None);
+    }
+    Ok(Some(match profile_store::load_current(conn)? {
+        Some(p) => render_section(
+            key,
+            &p,
+            &crate::modules::finance::api::lines(conn)?,
+            &crate::modules::hr::api::ai_summary(conn)?,
+            &people_sheet(conn)?,
+            &facilities_sheet(conn)?,
+        )
+        .unwrap_or_default(),
+        None => "Perfil: sin datos. Todavía no hay nada capturado en «Mi institución».".into(),
+    }))
+}
+
+fn compose(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> Composed {
     let i = &p.input;
     let t = i.totals(p.as_of_year);
     let money = balance::finances(fin, &crate::core::bridge::finance::derived_from(&t));
     let mut s = String::new();
     let mut missing: Vec<&str> = Vec::new();
+    let mut parts: Vec<Part> = Vec::new();
+    // closes the part that began at the last cut
+    let cut = |parts: &mut Vec<Part>, key: &'static str, s: &String, missing: &Vec<&str>, from: (usize, usize)| {
+        parts.push(Part { key, text: from.0..s.len(), missing: from.1..missing.len() });
+        (s.len(), missing.len())
+    };
 
     s.push_str(if p.confirmed_at.is_some() {
         "Datos de «Mi institución», confirmados por la persona.\n"
     } else {
         "Datos de «Mi institución». Es un BORRADOR: la persona todavía no lo confirma.\n"
     });
+    let header = 0..s.len();
+    let mut from = (s.len(), 0);
     s.push_str(&format!("Institución: {} ({}).\n", i.institution.name, kind_text(i.institution.kind)));
     match text(&i.institution.mission) {
         Some(m) => s.push_str(&format!("A qué se dedica: {m}\n")),
@@ -576,6 +651,7 @@ pub fn render(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, peopl
         Some(c) => s.push_str(&format!("Capacidad total: {c} personas.\n")),
         None => missing.push("capacidad total"),
     }
+    from = cut(&mut parts, "institution", &s, &missing, from);
 
     // income: what the person wrote, by kind; the roster fees only as how many pay
     let roster_fees = money.income.iter().any(|l| l.kind == BENEFICIARY_FEES);
@@ -644,26 +720,27 @@ pub fn render(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, peopl
         };
         s.push_str(&format!("Balance del año, calculado con lo capturado y {against}: los ingresos {verdict}.\n"));
     }
+    from = cut(&mut parts, "money", &s, &missing, from);
 
     // people served: from their module, as counts; never who (ADR-029)
     render_people(&mut s, people, t.fee_payers, i.served_estimate, &mut missing);
+    from = cut(&mut parts, "people", &s, &missing, from);
 
     // staff: from the staff module, as positions and counts; never a person, a pay or a date (ADR-027)
     render_staff(&mut s, staff, (i.staff_paid_estimate, i.staff_volunteer_estimate), &mut missing);
+    from = cut(&mut parts, "staff", &s, &missing, from);
 
     // facilities: from their module, as groups that count how many are in each state (ADR-030)
     render_facilities(&mut s, facilities, &mut missing);
+    cut(&mut parts, "facilities", &s, &missing, from);
 
+    let notes_from = s.len();
     if let Some(n) = text(&i.notes) {
         s.push_str(&format!("Notas de la institución: {n}\n"));
     }
-    if !missing.is_empty() {
-        s.push_str(&format!(
-            "No capturado en «Mi institución»: {}. «No capturado» quiere decir que no se sabe, no que sea cero.\n",
-            missing.join(", ")
-        ));
-    }
-    s
+    let notes = notes_from..s.len();
+    let missing = missing.into_iter().map(str::to_string).collect();
+    Composed { text: s, header, parts, notes, missing }
 }
 
 #[cfg(test)]
@@ -896,6 +973,31 @@ pub(crate) mod tests {
         for raw in ["poor", "good", "high", "total", "fees", "permanent", "elderly_home"] {
             assert!(!ctx.contains(&format!("{raw})")) && !ctx.contains(&format!(": {raw}")), "raw value «{raw}» in:\n{ctx}");
         }
+    }
+
+    /// An agent asks for one part at a time (ADR-034): every fact of the whole sheet is in exactly one part, each part
+    /// says whether the data are confirmed, and what is missing goes with the part it belongs to.
+    #[test]
+    fn the_sheet_splits_into_parts_and_every_fact_is_in_one() {
+        let (_d, c) = saved(&rich(), true);
+        let parts: Vec<String> = SECTIONS.iter().map(|k| section_context(&c, k).unwrap().unwrap()).collect();
+        for fact in RICH_FACTS {
+            let n = parts.iter().filter(|p| p.contains(fact)).count();
+            assert_eq!(n, 1, "«{fact}» is in {n} parts");
+        }
+        assert!(parts.iter().all(|p| p.starts_with("Datos de «Mi institución», confirmados por la persona.")));
+        assert!(parts[0].contains("Notas de la institución: Perfil ficticio para pruebas."));
+        assert!(parts[1].contains("Balance del año") && parts[4].contains("Casa principal"));
+        assert_eq!(section_context(&c, "nope").unwrap(), None);
+
+        let mut thin = rich();
+        thin.capacity_total = None;
+        let (_d, c) = saved_with(&thin, &FinanceInput::default(), false);
+        let institution = section_context(&c, "institution").unwrap().unwrap();
+        assert!(institution.contains("No capturado en esta parte: capacidad total."), "{institution}");
+        let money = section_context(&c, "money").unwrap().unwrap();
+        assert!(money.contains("No capturado en esta parte:") && money.contains("cuánto gasta al año"), "{money}");
+        assert!(!money.contains("capacidad total"));
     }
 
     #[test]
