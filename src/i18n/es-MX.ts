@@ -81,6 +81,12 @@ export const es = {
   errors: {
     generic:
       "Algo falló de nuestro lado. Su trabajo está guardado. Intente otra vez y, si sigue pasando, avísele a la persona que le instaló el programa.",
+    // what shows instead of a blank screen when a part of the screen fails
+    crash: {
+      title: "Algo falló en esta pantalla",
+      text: "Lo que ya guardó está a salvo. Vuelva a cargar el programa para seguir. Si sigue pasando, avísele a la persona que le instaló el programa.",
+      reload: "Volver a cargar",
+    },
   },
   profile: {
     title: "Mi institución",
@@ -1110,15 +1116,27 @@ export const es = {
     manualIntro: "Encontré esto en el manual:",
     noHits: "No encontré nada en el manual con esas palabras. Pruebe con otras o vea la sección «Ayuda».",
     clear: "Empezar de nuevo",
+    // why the AI did not answer (core/agents/assistant.rs `reason`): what happened, and what the person can do
     reasons: {
-      not_configured: "La ayuda automática no está configurada; le respondo con el manual.",
-      offline: "No hay conexión con la ayuda automática; le respondo con el manual.",
-      busy: "La ayuda automática está ocupada; le respondo con el manual. Intente de nuevo en un momento.",
-      budget: "Se terminó el presupuesto de ayuda automática de este mes; le respondo con el manual.",
-      quota: "Se acabaron las consultas de hoy de la ayuda automática; le respondo con el manual.",
-      key_rejected: "La llave de la ayuda automática no funciona; le respondo con el manual.",
-      unavailable: "La ayuda automática no pudo responder; le respondo con el manual.",
+      not_configured: "La ayuda automática todavía no está configurada: falta su llave.",
+      key_rejected: "La llave de la ayuda automática no funciona: el servicio la rechazó.",
+      offline: "No hay conexión a internet, o no se pudo llegar al servicio de ayuda automática.",
+      busy: "El servicio de ayuda automática está saturado en este momento.",
+      quota: "Se acabaron las consultas de hoy del servicio de ayuda automática. Mañana vuelve a funcionar.",
+      budget: "Se terminó el presupuesto de ayuda automática de este mes.",
+      unavailable: "La ayuda automática no pudo responder esta vez.",
     } as Record<string, string>,
+    reasonHelp: {
+      not_configured: { admin: "Configúrela en «Inteligencia artificial».", other: "Pídale a la persona administradora que la configure." },
+      key_rejected: { admin: "Revise la llave en «Inteligencia artificial».", other: "Pídale a la persona administradora que revise la llave." },
+      budget: { admin: "Puede revisar el tope de gasto en «Inteligencia artificial».", other: "La persona administradora puede revisar el tope de gasto." },
+      offline: { admin: "Revise su conexión e intente de nuevo.", other: "Revise su conexión e intente de nuevo." },
+      busy: { admin: "Intente de nuevo en unos minutos.", other: "Intente de nuevo en unos minutos." },
+      unavailable: { admin: "Intente de nuevo.", other: "Intente de nuevo." },
+    } as Record<string, { admin: string; other: string }>,
+    meanwhile: "Mientras tanto, le respondo con el manual:",
+    retry: "Intentar de nuevo",
+    toSettings: "Ir a «Inteligencia artificial»",
     places: {
       home: "Inicio",
       profile: "Mi institución",

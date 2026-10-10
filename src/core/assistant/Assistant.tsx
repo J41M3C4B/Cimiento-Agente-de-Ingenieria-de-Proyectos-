@@ -7,6 +7,7 @@ import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Alert, Bubble, Button, Composer, Disclosure, IconButton, TextButton } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { assistantAsk, manualEntry, toAppError } from "../../lib/tauri";
+import { useSession } from "../access/session";
 import type { AssistantOutcome, AssistantTurn, Decision, ManualSource, QuarantineReport } from "../../lib/types";
 
 const t = es.assistant;
@@ -57,6 +58,44 @@ function Answer({ text, sources, place, onGo }: { text: string; sources: ManualS
         </Button>
       )}
     </Bubble>
+  );
+}
+
+/** The failures worth trying again, and those someone fixes in «Inteligencia artificial». */
+const RETRY = ["offline", "busy", "unavailable"];
+const SETTINGS = ["not_configured", "key_rejected", "budget"];
+
+/**
+ * The AI could not answer: what happened and what to do, said plainly (a key, the connection, a busy service), and
+ * meanwhile what the manual says. Whoever may change the settings gets the way there; the rest, whom to ask.
+ */
+function Unavailable({ reason, hits, busy, onRetry, onGo }: { reason: string; hits: ManualSource[]; busy: boolean; onRetry: () => void; onGo: (place: string) => void }) {
+  const access = useSession();
+  const admin = access?.can("settings") ?? false;
+  const help = t.reasonHelp[reason];
+  return (
+    <div className="space-y-3">
+      <Alert tone="warn">
+        <p>{t.reasons[reason] ?? t.reasons.unavailable}</p>
+        {help && <p className="mt-1 text-ink-2">{admin ? help.admin : help.other}</p>}
+        {(RETRY.includes(reason) || (admin && SETTINGS.includes(reason))) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {RETRY.includes(reason) && (
+              <Button size="sm" variant="secondary" disabled={busy} onClick={onRetry}>
+                {t.retry}
+              </Button>
+            )}
+            {admin && SETTINGS.includes(reason) && (
+              <Button size="sm" variant="secondary" onClick={() => onGo("ai")}>
+                {t.toSettings}
+              </Button>
+            )}
+          </div>
+        )}
+      </Alert>
+      <p className="text-small text-ink-3">{t.meanwhile}</p>
+      {hits.length === 0 ? <p className="text-ui text-ink-2">{t.noHits}</p> : hits.map((h) => <ManualHit key={h.id} hit={h} />)}
+    </div>
   );
 }
 
@@ -148,10 +187,7 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
               ) : m.outcome.status === "answered" ? (
                 <Answer key={i} text={m.outcome.text} sources={m.outcome.sources} place={m.outcome.go_to} onGo={onGo} />
               ) : (
-                <div key={i} className="space-y-2">
-                  <p className="text-small text-ink-3">{t.reasons[m.outcome.reason] ?? t.reasons.unavailable}</p>
-                  {m.outcome.hits.length === 0 ? <p className="text-ui text-ink-2">{t.noHits}</p> : m.outcome.hits.map((h) => <ManualHit key={h.id} hit={h} />)}
-                </div>
+                <Unavailable key={i} reason={m.outcome.reason} hits={m.outcome.hits} busy={busy} onRetry={() => void send(m.outcome.asked)} onGo={onGo} />
               ),
             )}
             {busy && <p className="text-small text-ink-3">{t.thinking}</p>}

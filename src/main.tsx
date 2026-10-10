@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AccessGate } from "./core/access/AccessGate";
 import { notifyIfAccessLost } from "./core/access/session";
 import { OnboardingGate } from "./core/onboarding/OnboardingGate";
@@ -17,12 +18,14 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AccessGate>
-        <OnboardingGate>
-          <App />
-        </OnboardingGate>
-      </AccessGate>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AccessGate>
+          <OnboardingGate>
+            <App />
+          </OnboardingGate>
+        </AccessGate>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

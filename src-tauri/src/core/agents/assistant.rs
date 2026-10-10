@@ -113,12 +113,14 @@ pub enum AssistantOutcome {
     Quarantine { report: QuarantineReport },
 }
 
-/// Why the AI did not answer, in a word the screen puts into words.
+/// Why the AI did not answer, in a word the screen puts into words (and says what to do).
 fn reason(e: &AgentError) -> &'static str {
     match e {
         AgentError::Ai(AiError::NoApiKey) => "not_configured",
         AgentError::Ai(AiError::Offline) => "offline",
+        // too many requests, too slow, or the service overloaded (a 503 of Gemini): it is busy, try again later
         AgentError::Ai(AiError::RateLimited | AiError::Timeout) => "busy",
+        AgentError::Ai(AiError::Http { status, .. }) if *status == 429 || *status >= 500 => "busy",
         AgentError::Ai(AiError::BudgetExhausted) => "budget",
         AgentError::Ai(AiError::QuotaReached) => "quota",
         AgentError::Ai(AiError::Auth) => "key_rejected",
@@ -388,6 +390,21 @@ mod tests {
         assert!(!asked.contains("LOPM800101") && !p.requests()[0].user.contains("LOPM800101"));
 
         assert!(matches!(ask(&db, None, Some(Role::Manager), question("home", None, "  "), None).await, Err(ServiceError::EmptyText)));
+    }
+
+    /// Each failure of the AI says why in a word the screen explains: a key, the connection, a busy service…
+    #[test]
+    fn each_failure_of_the_ai_has_its_reason() {
+        let of = |e: AiError| reason(&AgentError::Ai(e));
+        assert_eq!(of(AiError::NoApiKey), "not_configured");
+        assert_eq!(of(AiError::Auth), "key_rejected");
+        assert_eq!(of(AiError::Offline), "offline");
+        assert_eq!(of(AiError::Timeout), "busy");
+        assert_eq!(of(AiError::Http { status: 503, message: "overloaded".into() }), "busy");
+        assert_eq!(of(AiError::Http { status: 400, message: "bad".into() }), "unavailable");
+        assert_eq!(of(AiError::BudgetExhausted), "budget");
+        assert_eq!(of(AiError::QuotaReached), "quota");
+        assert_eq!(reason(&AgentError::StepLimit), "unavailable");
     }
 
     /// The code keeps only places it knows and sources that are entries of the manual.

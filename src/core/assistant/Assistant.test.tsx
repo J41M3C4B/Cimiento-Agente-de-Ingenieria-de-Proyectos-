@@ -71,9 +71,32 @@ describe("Assistant", () => {
     expect(screen.getByLabelText("Su pregunta")).toHaveValue("¿Qué pongo aquí y para qué sirve?");
     expect(await screen.findByText(/Sobre «Folio ante la Junta»/)).toBeInTheDocument();
     ask("¿Cómo hago un respaldo?");
-    expect(await screen.findByText(/No hay conexión con la ayuda automática/)).toBeInTheDocument();
+    expect(await screen.findByText(/No hay conexión a internet/)).toBeInTheDocument();
+    expect(screen.getByText(/Revise su conexión/)).toBeInTheDocument();
     expect(screen.getByText("Hacer un respaldo")).toBeInTheDocument();
     expect(lastCall()[0].field).toBe("institution.junta_folio");
+  });
+
+  it("says why the AI did not answer and what to do: try again when it is busy, ask the administrator for a key", async () => {
+    vi.mocked(assistantAsk)
+      .mockResolvedValueOnce({ status: "manual", asked: "¿Qué me falta?", reason: "busy", hits: [] })
+      .mockResolvedValueOnce({ status: "answered", asked: "¿Qué me falta?", text: "Le falta el patronato.", go_to: null, sources: [] })
+      .mockResolvedValueOnce({ status: "manual", asked: "¿Y ahora?", reason: "not_configured", hits: [] });
+    draw();
+    fireEvent.click(screen.getByText("abrir"));
+    ask("¿Qué me falta?");
+    expect(await screen.findByText("El servicio de ayuda automática está saturado en este momento.")).toBeInTheDocument();
+    expect(screen.getByText("Intente de nuevo en unos minutos.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Intentar de nuevo" }));
+    expect(await screen.findByText("Le falta el patronato.")).toBeInTheDocument();
+    expect(lastCall()[0].question).toBe("¿Qué me falta?");
+
+    // without a key: whoever may not change the settings is told whom to ask, and there is nothing to retry
+    ask("¿Y ahora?");
+    expect(await screen.findByText(/falta su llave/)).toBeInTheDocument();
+    expect(screen.getByText("Pídale a la persona administradora que la configure.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ir a «Inteligencia artificial»" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Intentar de nuevo" })).toHaveLength(1);
   });
 
   it("a question with data of a person waits for the person's decision", async () => {
