@@ -140,6 +140,13 @@ CREATE TABLE income_source (
 --              A la IA llegan el nombre legal, el objeto social, los servicios, las edades, los criterios, el
 --              régimen y el rubro; de la Junta, solo que está registrada. Nunca el domicilio, el RFC, folios ni claves.
 
+-- Origen por dato e historial ligero (ADR-033 §4, auditoría D6; migración 0025; código en core/history.rs).
+-- core_field   field (id del catálogo) PK, origin (user|document|ai_assumption|computed), source_ref, confirmed_at,
+--              confirmed_by, updated_at. Un dato escrito sin fila es de antes de N3b: lo escribió una persona.
+-- core_change  id, field, value_json (NULL si se vació o si es institutional_private), protected (0|1), origin,
+--              changed_at, changed_by. Solo crece: triggers impiden UPDATE y DELETE. Se escribe en la misma
+--              transacción del guardado (profile::storage::save_with). value_at(field, fecha) dice cómo estaba.
+
 -- Módulo de Instalaciones (ADR-030, migración 0018; elimina facility).
 -- fac_site       un inmueble (la pantalla maneja uno): name, land_m2, built_m2, floors, floor_access JSON
 --                (ramp|elevator|stair_lift|none), built_year, tenure (own|loan|rent|borrowed|other), tenure_until,
@@ -384,7 +391,7 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
 | Dueño | Tablas |
 |---|---|
 | Base | `schema_migrations`, `app_settings`, `audit_log`, `ai_usage` |
-| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
+| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
 | Personal (`hr_*`) | `hr_modality`, `hr_position`, `hr_person`, `hr_job`, `hr_emergency_contact`, `hr_custom_field` |
 | Beneficiarios (`care_*`) | `care_group`, `care_person`, `care_contact`, `care_custom_field`, `care_waitlist` |
 | Instalaciones (`fac_*`) | `fac_site`, `fac_space`, `fac_equipment` |

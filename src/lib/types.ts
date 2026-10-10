@@ -77,7 +77,14 @@ export interface InstitutionOverview {
 export interface FormView {
   spec: FormSpec;
   values: FormValues;
+  /** Where each saved datum comes from (ADR-033 §4): `user`, `document`, `ai_assumption` or `computed`. */
+  origins: Record<string, FieldOrigin>;
   missing: string[];
+}
+export interface FieldOrigin {
+  origin: "user" | "document" | "ai_assumption" | "computed";
+  source_ref: string | null;
+  confirmed_at: string | null;
 }
 // The manual of the program (ADR-034, core/manual): in the program, with no AI and no internet.
 export interface ManualEntry {

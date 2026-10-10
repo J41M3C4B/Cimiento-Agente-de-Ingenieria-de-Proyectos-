@@ -235,7 +235,7 @@ fn every_layer_only_looks_down() {
 const CORE_TABLES: &[&str] = &[
     "institution", "institution_profile", "population_group", "staff_group", "document", "document_chunk",
     "document_chunk_fts", "app_user", "access_request", "roster_field", "roster_entry", "income_source", "expense_item",
-    "ai_proposal", "manual_fts", "manual_index",
+    "ai_proposal", "manual_fts", "manual_index", "core_field", "core_change",
 ];
 const MODULE_PREFIXES: &[(&str, &str)] = &[("hr_", "hr"), ("care_", "care"), ("fac_", "facilities"), ("fin_", "finance")];
 

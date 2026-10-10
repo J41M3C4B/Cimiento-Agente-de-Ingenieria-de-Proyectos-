@@ -223,6 +223,16 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
 /// Saves the profile as the current draft. If the latest version is already
 /// confirmed, a new version is started so the confirmed one stays intact.
 pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile, StorageError> {
+    save_with(conn, input, |_| Ok(()))
+}
+
+/// Saves the profile like `save`, and runs `then` inside the same transaction once it is written (the history of
+/// the data goes there, ADR-033 §4): if `then` fails, nothing is saved.
+pub fn save_with(
+    conn: &mut Connection,
+    input: &ProfileInput,
+    then: impl FnOnce(&rusqlite::Transaction<'_>) -> Result<(), StorageError>,
+) -> Result<StoredProfile, StorageError> {
     let tx = conn.transaction()?;
     let inst = &input.institution;
 
@@ -308,6 +318,7 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
     };
 
     insert_lines(&tx, &profile_id, &input.staff, &input.population)?;
+    then(&tx)?;
     tx.commit()?;
     load_current(conn)?.ok_or(StorageError::NoProfile)
 }

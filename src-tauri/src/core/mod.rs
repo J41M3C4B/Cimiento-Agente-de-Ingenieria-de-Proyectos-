@@ -10,6 +10,7 @@ pub mod api;
 pub mod archive;
 pub mod bridge;
 pub mod error;
+pub mod history;
 pub mod insights;
 pub mod institution;
 pub mod manual;

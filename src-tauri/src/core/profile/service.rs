@@ -81,7 +81,12 @@ pub fn save_profile(
         }
     }
 
-    let saved = store::save(conn, &input)?;
+    // the history of every datum that changed goes in the same transaction (ADR-033 §4)
+    let before = store::load_current(conn)?.map(|p| crate::core::profile::forms::catalog_values(&p.input)).unwrap_or_default();
+    let saved = store::save_with(conn, &input, |tx| {
+        let after = store::load_current(tx)?.map(|p| crate::core::profile::forms::catalog_values(&p.input)).unwrap_or_default();
+        crate::core::history::record(tx, &before, &after, &crate::core::history::Source::user()).map(|_| ())
+    })?;
     if let Some((kind, details)) = audit_event {
         audit::record(conn, kind, Some("institution_profile"), Some(&saved.profile_id), details)?;
     }

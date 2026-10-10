@@ -13,12 +13,18 @@ use rusqlite::Connection;
 use serde::Serialize;
 use serde_json::{json, Value};
 
-/// A form ready to draw: its description, what is saved and what is still missing.
+/// A form ready to draw: its description, what is saved, where each saved datum comes from and what is still missing.
 #[derive(Debug, Serialize)]
 pub struct FormView {
     pub spec: &'static FormSpec,
     pub values: Values,
+    pub origins: std::collections::BTreeMap<String, crate::core::history::FieldOrigin>,
     pub missing: Vec<&'static str>,
+}
+
+/// Every datum of the catalog the profile holds, by field id: what the history compares (ADR-033 §4).
+pub fn catalog_values(p: &ProfileInput) -> Values {
+    crate::core::institution::forms::FORMS.iter().flat_map(|f| values_of(f.id, p)).collect()
 }
 
 fn text(v: Option<&Value>) -> Option<String> {
@@ -139,7 +145,8 @@ pub fn get(conn: &Connection, id: &str) -> Result<FormView, ServiceError> {
     let spec = form(id).ok_or(ServiceError::NotFound)?;
     let profile = store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
     let values = values_of(id, &profile);
-    Ok(FormView { spec, missing: spec.missing(&values), values })
+    let origins = crate::core::history::origins(conn, &values)?;
+    Ok(FormView { spec, missing: spec.missing(&values), origins, values })
 }
 
 /// Saves a form. A value out of its list or range is refused with the field it belongs to; what is missing never
@@ -330,6 +337,42 @@ mod tests {
         assert!(matches!(save(&mut c, "institution.legal", legal, None).unwrap(), SaveProfileOutcome::Quarantine { .. }));
         let contact = values(json!({ "institution.street": "Calle de María López", "institution.contact_email": "contacto@casa.org" }));
         saved(save(&mut c, "institution.contact", contact, None).unwrap());
+    }
+
+    /// ADR-033 §4 and audit D6: every save leaves a line per datum that changed, with its origin; what is protected
+    /// says only that it changed; saving the same again adds nothing; a save that does not happen leaves nothing.
+    #[test]
+    fn every_save_leaves_its_history_and_the_origin_of_each_datum() {
+        use crate::core::history::changes;
+        let (_d, mut c) = conn();
+        saved(save(&mut c, "institution.identity", values(json!({ "institution.name": "Casa", "institution.mission": "Cuidar." })), None).unwrap());
+        let contact = values(json!({ "institution.street": "Calle Ficticia", "institution.municipality": "Zapopan" }));
+        saved(save(&mut c, "institution.contact", contact.clone(), None).unwrap());
+        let lines = changes(&c, None, 50).unwrap();
+        let line = |f: &str| lines.iter().find(|l| l.field == f).unwrap_or_else(|| panic!("no line for {f}: {lines:?}"));
+        assert_eq!((line("institution.name").value.clone(), line("institution.name").origin.as_str()), (Some(json!("Casa")), "user"));
+        assert_eq!((line("institution.street").value.clone(), line("institution.street").protected), (None, true));
+        assert_eq!(line("institution.municipality").value, Some(json!("Zapopan")));
+        let view = get(&c, "institution.contact").unwrap();
+        assert_eq!(view.origins["institution.street"].origin, "user");
+        assert!(view.origins["institution.street"].confirmed_at.is_some());
+
+        // the same again: nothing new; a save the scanner holds back: nothing either
+        let n = lines.len();
+        saved(save(&mut c, "institution.contact", contact, None).unwrap());
+        let held = values(json!({ "institution.name": "Casa", "institution.mission": "Llamar a maria.lopez@example.com" }));
+        assert!(matches!(save(&mut c, "institution.identity", held, None).unwrap(), SaveProfileOutcome::Quarantine { .. }));
+        assert_eq!(changes(&c, None, 50).unwrap().len(), n);
+    }
+
+    /// The datum and its line go together: if the history cannot be written, the datum is not saved either.
+    #[test]
+    fn without_its_history_a_datum_is_not_saved() {
+        let (_d, mut c) = conn();
+        saved(save(&mut c, "institution.identity", values(json!({ "institution.name": "Casa" })), None).unwrap());
+        c.execute_batch("CREATE TEMP TRIGGER fail_history BEFORE INSERT ON core_change BEGIN SELECT RAISE(ABORT, 'no'); END;").unwrap();
+        assert!(save(&mut c, "institution.identity", values(json!({ "institution.name": "Casa Nueva" })), None).is_err());
+        assert_eq!(store::load_current(&c).unwrap().unwrap().input.institution.name, "Casa");
     }
 
     #[test]
