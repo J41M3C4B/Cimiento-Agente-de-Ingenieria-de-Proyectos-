@@ -2,6 +2,7 @@
 //! add up to (`sync`).
 
 pub mod domain;
+pub mod forms;
 pub mod service;
 pub mod storage;
 pub mod sync;

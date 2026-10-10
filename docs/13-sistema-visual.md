@@ -272,6 +272,7 @@ Toda sección —las tres de la institución y los cinco módulos— se arma igu
   - Error: el campo se marca con borde `red`, el mensaje va debajo con ícono, en palabras de la persona («Escriba el nombre de la persona.»), y el foco pasa al primer campo con error. El mensaje se quita al escribir.
   - Pie con «Cancelar», «Guardar y agregar otra» (solo al agregar) y «Guardar» o «Guardar cambios» como botón principal. `Esc` o tocar fuera cierran; el foco vuelve al botón que abrió la ventana.
   - Al guardar, un aviso breve abajo («Persona agregada») y las cifras de la ficha se actualizan al momento.
+  - **Formularios descritos en Rust (`FormRenderer`, ADR-033, 2026-10-09):** el mismo formulario de arriba, armado a partir de la descripción de cada campo y sin estilos propios. Texto corto: `TextInput`; texto largo: `TextArea`; una opción entre **cuatro o menos**: píldoras (`Choice`); entre más: selector (`Select`); **varias opciones**: píldoras que se pueden marcar varias (las marcadas conservan el orden de la lista); números: dígitos y, si es dinero, «$». Cada sección es un `FormSection` en una columna o en dos. Un campo que depende de otro aparece al contestar ese otro. Primero se usa en «Su institución» de «Mi institución»; las demás ventanas pasan a él cuando se validen.
 - **Ventana (modal):** bandeja de 28 con título de 18, secciones con etiqueta en mayúsculas pequeñas y botones al pie; fondo atenuado.
 
 ### 7.1 Medidas canónicas (un componente, una medida)

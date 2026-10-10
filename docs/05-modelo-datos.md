@@ -126,6 +126,11 @@ CREATE TABLE income_source (
 --              fichas en los módulos (las fichas mandan)
 -- app_user.welcomed_at  la persona ya vio la bienvenida
 
+-- Perfil de atención (ADR-033, migración 0021).
+-- institution  populations, modalities, care_areas (listas JSON de códigos de core::institution::catalog), sex_served
+--              (women|men|all). `kind` se deduce de populations (solo personas mayores = elderly_home; solo menores =
+--              children_home; mixto = other); los datos anteriores se trasladaron desde su kind.
+
 -- Módulo de Instalaciones (ADR-030, migración 0018; elimina facility).
 -- fac_site       un inmueble (la pantalla maneja uno): name, land_m2, built_m2, floors, floor_access JSON
 --                (ramp|elevator|stair_lift|none), built_year, tenure (own|loan|rent|borrowed|other), tenure_until,

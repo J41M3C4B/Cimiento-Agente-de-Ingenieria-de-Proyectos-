@@ -96,6 +96,25 @@ pub fn profile_save(session: State<'_, Session>, db: State<Db>,
     Ok(crate::core::onboarding::service::save_profile_confirmed(&mut conn, input, decision)?)
 }
 
+/// A form of «Mi institución» described as data, with its values and what is missing (ADR-033).
+#[tauri::command]
+pub fn form_get(session: State<'_, Session>, db: State<Db>, id: String) -> Result<crate::core::profile::forms::FormView, UiError> {
+    guard(&session, "form_get")?;
+    let conn = lock(&db)?;
+    Ok(crate::core::profile::forms::get(&conn, &id)?)
+}
+
+#[tauri::command]
+pub fn form_save(session: State<'_, Session>, db: State<Db>,
+    id: String,
+    values: crate::common::forms::Values,
+    decision: Option<Decision>,
+) -> Result<SaveProfileOutcome, UiError> {
+    guard(&session, "form_save")?;
+    let mut conn = lock(&db)?;
+    Ok(crate::core::profile::forms::save(&mut conn, &id, values, decision)?)
+}
+
 #[tauri::command]
 pub fn profile_confirm(session: State<'_, Session>, db: State<Db>) -> Result<ProfileView, UiError> {
     guard(&session, "profile_confirm")?;

@@ -11,6 +11,7 @@ import { devLoadFixture, profileGet, profileSave, toAppError } from "../../lib/t
 import type { Decision, ProfileInput, ProfileIssue, ProfileTotals, QuarantineReport } from "../../lib/types";
 import { CapacityCard } from "./CapacityCard";
 import { ProfileEdit } from "./ProfileEdit";
+import { FormWindow } from "./FormWindow";
 import type { Edit } from "./ProfileEdit";
 import { toInput } from "./profileForm";
 import { useFillGaps } from "./gaps";
@@ -28,6 +29,9 @@ import { useSession } from "../access/session";
 const t = es.profile;
 const count = (n: number) => n.toLocaleString("es-MX");
 const peso = (n: number) => `$${count(n)}`;
+/** The codes of a field in words, as its form names them («Niñez, Adolescencia»). */
+const codesText = (field: string, codes?: string[] | null) =>
+  codes?.length ? codes.map((c) => es.forms.fields[field]?.options?.[c] ?? c).join(", ") : null;
 
 const ZERO: ProfileTotals = {
   population: 0, staff_paid: 0, staff_volunteer: 0,
@@ -244,7 +248,14 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
           <div className="grid items-start gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <Card>
               <FactRow title={t.cards.institution} action={edition({ kind: "institution" })}>
-                <Facts columns={2} items={[[t.fields.name, inst?.name], [t.fields.kind, inst ? t.kinds[inst.kind] : null]]} />
+                <Facts
+                  columns={2}
+                  items={[
+                    [t.fields.name, inst?.name],
+                    [t.fields.attention, codesText("institution.populations", inst?.attention?.populations)],
+                    [t.fields.modalities, codesText("institution.modalities", inst?.attention?.modalities)],
+                  ]}
+                />
               </FactRow>
               <FactRow title={t.cards.contact} note={t.privateNote} action={edition({ kind: "contact" })}>
                 <Facts
@@ -289,7 +300,11 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
         </p>
       )}
 
-      {edit && (
+      {edit?.kind === "institution" && (
+        <FormWindow id="institution.identity" title={t.modal.institution} onSaved={() => setToast({ tone: "ok", text: es.common.saved })} onClose={() => setEdit(null)} />
+      )}
+
+      {edit && edit.kind !== "institution" && (
         <ProfileEdit
           edit={edit}
           view={view}

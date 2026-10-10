@@ -1,6 +1,7 @@
 //! What the core says about the institution to the rest of the app.
 
 pub mod catalog;
+pub mod forms;
 
 use rusqlite::{Connection, OptionalExtension};
 

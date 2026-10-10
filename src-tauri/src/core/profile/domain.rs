@@ -114,6 +114,57 @@ pub struct InstitutionInput {
     pub authorized_donee: Option<String>,
     #[serde(default)]
     pub cluni: Option<String>,
+    /// Whom and how it serves (ADR-033 §2). `None` when the screen did not send it: what is saved stays.
+    #[serde(default)]
+    pub attention: Option<Attention>,
+}
+
+/// The attention profile: codes of `institution::catalog`. It reaches the AI (nothing in it is personal).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Attention {
+    #[serde(default)]
+    pub populations: Vec<String>,
+    #[serde(default)]
+    pub sex_served: Option<String>,
+    #[serde(default)]
+    pub modalities: Vec<String>,
+    #[serde(default)]
+    pub care_areas: Vec<String>,
+}
+
+impl Attention {
+    /// What a kind of institution means as a profile (for data older than the profile, and the first start).
+    pub fn of_kind(kind: InstitutionKind) -> Self {
+        let (p, m, a) = crate::core::institution::catalog::attention_of_kind(kind.as_db());
+        let owned = |l: &[&str]| l.iter().map(|s| s.to_string()).collect();
+        Attention { populations: owned(p), sex_served: None, modalities: owned(m), care_areas: owned(a) }
+    }
+
+    /// The kind the modules go by, from whom it serves (`None` with nobody marked).
+    pub fn kind(&self) -> Option<InstitutionKind> {
+        (!self.populations.is_empty()).then(|| InstitutionKind::from_db(crate::core::institution::catalog::kind_of(&self.populations)))
+    }
+}
+
+/// The kind and the attention profile to keep when saving, from what was saved before and what came in. The profile
+/// decides the kind when the person wrote it; while the first start still asks for the kind, a kind that changes (or
+/// a profile still empty) fills the populations from the kind. A mixed profile is an institution of kind `other`.
+pub fn reconcile_attention(previous: Option<(InstitutionKind, Attention)>, kind: InstitutionKind, sent: Option<&Attention>) -> (InstitutionKind, Attention) {
+    if let Some(a) = sent {
+        return (a.kind().unwrap_or(kind), a.clone());
+    }
+    let (kind_before, mut a) = previous.unwrap_or((kind, Attention::default()));
+    if kind != kind_before || a.populations.is_empty() {
+        let from_kind = Attention::of_kind(kind);
+        a.populations = from_kind.populations;
+        if a.modalities.is_empty() {
+            a.modalities = from_kind.modalities;
+        }
+        if a.care_areas.is_empty() {
+            a.care_areas = from_kind.care_areas;
+        }
+    }
+    (kind, a)
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -341,6 +392,21 @@ impl ProfileInput {
         ] {
             if !known(value, list) {
                 add("code_unknown", field.into(), true);
+            }
+        }
+        if let Some(a) = &inst.attention {
+            use crate::core::institution::catalog::{CARE_AREAS, MODALITIES, POPULATIONS, SEXES_SERVED};
+            for (field, codes, list) in [
+                ("institution.populations", &a.populations, POPULATIONS),
+                ("institution.modalities", &a.modalities, MODALITIES),
+                ("institution.care_areas", &a.care_areas, CARE_AREAS),
+            ] {
+                if !codes.iter().all(|c| list.contains(&c.as_str())) {
+                    add("code_unknown", field.into(), true);
+                }
+            }
+            if !known(&a.sex_served, SEXES_SERVED) {
+                add("code_unknown", "institution.sex_served".into(), true);
             }
         }
         if let (Some(served), Some(capacity)) = (self.served_estimate, self.capacity_total) {
@@ -625,6 +691,33 @@ mod tests {
         p.staff[0].count = 3;
         assert_eq!(p.totals(2026).payroll_benefits_annual_mxn, 16_200);
         assert_eq!(p.totals(2026).benefits_assumed, 3);
+    }
+
+    #[test]
+    fn the_attention_profile_decides_the_kind_and_the_first_start_still_may_give_the_kind() {
+        let elderly = Attention::of_kind(InstitutionKind::ElderlyHome);
+        // what the person wrote decides the kind; a mixed profile is «other»
+        let mixed = Attention { populations: vec!["childhood".into(), "older_adults".into()], ..elderly.clone() };
+        assert_eq!(reconcile_attention(Some((InstitutionKind::ElderlyHome, elderly.clone())), InstitutionKind::ElderlyHome, Some(&mixed)), (InstitutionKind::Other, mixed.clone()));
+        // nothing sent: the saved profile stays
+        assert_eq!(reconcile_attention(Some((InstitutionKind::Other, mixed.clone())), InstitutionKind::Other, None), (InstitutionKind::Other, mixed.clone()));
+        // nothing sent and a kind that changes (the first start): the populations follow the kind, the rest stays
+        let with_areas = Attention { care_areas: vec!["health".into()], ..elderly.clone() };
+        let (kind, a) = reconcile_attention(Some((InstitutionKind::ElderlyHome, with_areas)), InstitutionKind::ChildrenHome, None);
+        assert_eq!((kind, a.populations.len(), a.care_areas), (InstitutionKind::ChildrenHome, 3, vec!["health".to_string()]));
+        // the first save of an older institution: filled from its kind
+        assert_eq!(reconcile_attention(None, InstitutionKind::ElderlyHome, None), (InstitutionKind::ElderlyHome, elderly));
+        assert_eq!(reconcile_attention(None, InstitutionKind::Other, None).1, Attention::default());
+    }
+
+    #[test]
+    fn codes_of_the_attention_profile_out_of_their_list_are_blocked() {
+        let mut p = base();
+        p.institution.attention = Some(Attention { populations: vec!["older_adults".into(), "aliens".into()], sex_served: Some("x".into()), modalities: vec!["residential".into()], care_areas: vec![] });
+        let codes: Vec<_> = p.validate(2026).into_iter().filter(|i| i.blocking).map(|i| i.field).collect();
+        assert_eq!(codes, vec!["institution.populations".to_string(), "institution.sex_served".to_string()]);
+        p.institution.attention = Some(Attention::of_kind(InstitutionKind::ChildrenHome));
+        assert!(p.validate(2026).is_empty());
     }
 
     #[test]

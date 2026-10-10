@@ -32,6 +32,8 @@ import type {
   ProfileView,
   DonorKind,
   DraftMode,
+  FormValues,
+  FormView,
   ProjectColor,
   ProjectRow,
   ReadingDetail,
@@ -62,6 +64,10 @@ export const profileGet = () => invoke<ProfileView | null>("profile_get");
 export const profileSave = (input: ProfileInput, decision?: Decision) =>
   invoke<SaveProfileOutcome>("profile_save", { input, decision: decision ?? null });
 export const profileConfirm = () => invoke<ProfileView>("profile_confirm");
+// Forms of «Mi institución» described as data (ADR-033)
+export const formGet = (id: string) => invoke<FormView>("form_get", { id });
+export const formSave = (id: string, values: FormValues, decision?: Decision) =>
+  invoke<SaveProfileOutcome>("form_save", { id, values, decision: decision ?? null });
 // Documents of the institution (global): the files of a call come in with their project
 export const documentAddText = (displayName: string, text: string, decision?: Decision) =>
   invoke<AddDocumentOutcome>("document_add_text", {

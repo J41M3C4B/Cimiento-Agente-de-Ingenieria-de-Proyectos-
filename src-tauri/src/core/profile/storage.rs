@@ -39,6 +39,15 @@ fn text(o: &Option<String>) -> Option<&str> {
     o.as_deref().map(str::trim).filter(|s| !s.is_empty())
 }
 
+/// A list of codes kept as a JSON array; anything unreadable is an empty list.
+fn codes(raw: String) -> Vec<String> {
+    serde_json::from_str(&raw).unwrap_or_default()
+}
+
+fn codes_json(list: &[String]) -> String {
+    serde_json::to_string(list).unwrap_or_else(|_| "[]".into())
+}
+
 /// Latest version of the profile (draft or confirmed), if any.
 pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageError> {
     let head = conn
@@ -46,7 +55,8 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
             "SELECT i.id, i.name, i.kind, i.mission, i.legal_rfc, i.contact_phone, i.contact_email, i.legal_rep_name,
                     p.id, p.version, p.confirmed_at, p.capacity_total, p.notes,
                     i.state, i.municipality, i.founded_year, i.legal_form, i.authorized_donee, i.cluni,
-                    p.served_estimate, p.staff_paid_estimate, p.staff_volunteer_estimate
+                    p.served_estimate, p.staff_paid_estimate, p.staff_volunteer_estimate,
+                    i.populations, i.sex_served, i.modalities, i.care_areas
              FROM institution i JOIN institution_profile p ON p.institution_id = i.id
              ORDER BY p.version DESC LIMIT 1",
             [],
@@ -67,6 +77,12 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
                         legal_form: r.get(16)?,
                         authorized_donee: r.get(17)?,
                         cluni: r.get(18)?,
+                        attention: Some(Attention {
+                            populations: codes(r.get(22)?),
+                            sex_served: r.get(23)?,
+                            modalities: codes(r.get(24)?),
+                            care_areas: codes(r.get(25)?),
+                        }),
                     },
                     r.get::<_, String>(8)?,
                     r.get::<_, i64>(9)?,
@@ -140,18 +156,28 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
     let tx = conn.transaction()?;
     let inst = &input.institution;
 
-    let existing_inst: Option<String> =
-        tx.query_row("SELECT id FROM institution LIMIT 1", [], |r| r.get(0)).optional()?;
+    let existing_inst: Option<(String, String, String, Option<String>, String, String)> = tx
+        .query_row("SELECT id, kind, populations, sex_served, modalities, care_areas FROM institution LIMIT 1", [], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
+        })
+        .optional()?;
+    // the attention profile decides the kind; the first start may still give the kind (ADR-033 §2)
+    let previous = existing_inst.as_ref().map(|(_, kind, p, sex, m, a)| {
+        (InstitutionKind::from_db(kind), Attention { populations: codes(p.clone()), sex_served: sex.clone(), modalities: codes(m.clone()), care_areas: codes(a.clone()) })
+    });
+    let (kind, attention) = reconcile_attention(previous, inst.kind, inst.attention.as_ref());
+    let attention_params = (codes_json(&attention.populations), text(&attention.sex_served), codes_json(&attention.modalities), codes_json(&attention.care_areas));
     let institution_id = match existing_inst {
-        Some(iid) => {
+        Some((iid, ..)) => {
             tx.execute(
                 "UPDATE institution SET name=?2, kind=?3, mission=?4, legal_rfc=?5, contact_phone=?6, contact_email=?7,
                         legal_rep_name=?8, state=?9, municipality=?10, founded_year=?11, legal_form=?12, authorized_donee=?13,
-                        cluni=?14, updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?1",
-                params![iid, inst.name.trim(), inst.kind.as_db(), text(&inst.mission), text(&inst.legal_rfc),
+                        cluni=?14, populations=?15, sex_served=?16, modalities=?17, care_areas=?18,
+                        updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?1",
+                params![iid, inst.name.trim(), kind.as_db(), text(&inst.mission), text(&inst.legal_rfc),
                         text(&inst.contact_phone), text(&inst.contact_email), text(&inst.legal_rep_name), text(&inst.state),
                         text(&inst.municipality), inst.founded_year, text(&inst.legal_form), text(&inst.authorized_donee),
-                        text(&inst.cluni)],
+                        text(&inst.cluni), attention_params.0, attention_params.1, attention_params.2, attention_params.3],
             )?;
             iid
         }
@@ -159,12 +185,14 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
             let iid = id("inst");
             tx.execute(
                 "INSERT INTO institution (id,name,kind,mission,legal_rfc,contact_phone,contact_email,legal_rep_name,state,
-                        municipality,founded_year,legal_form,authorized_donee,cluni,created_at,updated_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,strftime('%Y-%m-%dT%H:%M:%SZ','now'),strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
-                params![iid, inst.name.trim(), inst.kind.as_db(), text(&inst.mission), text(&inst.legal_rfc),
+                        municipality,founded_year,legal_form,authorized_donee,cluni,populations,sex_served,modalities,care_areas,
+                        created_at,updated_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,
+                         strftime('%Y-%m-%dT%H:%M:%SZ','now'),strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
+                params![iid, inst.name.trim(), kind.as_db(), text(&inst.mission), text(&inst.legal_rfc),
                         text(&inst.contact_phone), text(&inst.contact_email), text(&inst.legal_rep_name), text(&inst.state),
                         text(&inst.municipality), inst.founded_year, text(&inst.legal_form), text(&inst.authorized_donee),
-                        text(&inst.cluni)],
+                        text(&inst.cluni), attention_params.0, attention_params.1, attention_params.2, attention_params.3],
             )?;
             iid
         }

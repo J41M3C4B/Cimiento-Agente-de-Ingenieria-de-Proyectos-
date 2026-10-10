@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Alert, Button, FormSection, Modal, RadioCard, Select, TextArea, TextInput } from "../../components/ui";
+import { Alert, Button, FormSection, Modal, Select, TextArea, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { ProfileIssue, ProfileView } from "../../lib/types";
 import { formSchema, fromView, type FormValues } from "./profileForm";
@@ -9,10 +9,11 @@ const t = es.profile;
 const ins = es.institution;
 const options = (labels: Record<string, string>): [string, string][] => [["", es.facilities.select], ...Object.entries(labels)];
 
-/** What is being edited: one card of the profile. The money is edited in its module (ADR-032). */
+/**
+ * What is being edited: one card of the profile. The money is edited in its module (ADR-032), and «institution» is a
+ * form described in Rust (`FormWindow`, ADR-033); this window holds the others until they move there too.
+ */
 export type Edit = { kind: "institution" | "contact" | "legal" | "capacity" };
-
-const kindOptions = Object.entries(t.kinds) as [string, string][];
 
 const titleOf = (e: Edit) => t.modal[e.kind];
 
@@ -51,18 +52,6 @@ export function ProfileEdit({
       }
     >
       <form id="profile-edit" onSubmit={handleSubmit((v) => onCommit(v, onClose))} noValidate className="space-y-4">
-        {edit.kind === "institution" && (
-          <>
-            <TextInput label={t.fields.name} required autoFocus {...register("name")} />
-            <fieldset className="space-y-2">
-              <legend className="field-label">{t.fields.kind}</legend>
-              {kindOptions.map(([value, label]) => (
-                <RadioCard key={value} value={value} title={label} note={t.kindNotes[value]} {...register("kind")} />
-              ))}
-            </fieldset>
-            <TextArea label={t.fields.mission} {...register("mission")} />
-          </>
-        )}
         {edit.kind === "contact" && (
           <>
             <p className="text-ui text-ink-2">{t.privateNote}</p>

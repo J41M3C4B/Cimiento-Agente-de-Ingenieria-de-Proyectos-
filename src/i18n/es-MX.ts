@@ -101,6 +101,8 @@ export const es = {
     fields: {
       name: "Nombre de la institución",
       kind: "Tipo de institución",
+      attention: "A quién atiende",
+      modalities: "Cómo atiende",
       mission: "¿A qué se dedica?",
       rfc: "RFC de la institución",
       phone: "Teléfono de la institución",
@@ -855,6 +857,62 @@ export const es = {
     } as Record<string, string>,
     registry: { yes: "Sí", in_progress: "En trámite", no: "No" } as Record<string, string>,
   },
+  // Forms described as data (ADR-033): the words of each field, under its id in Rust (core/institution/forms.rs). A
+  // test of Rust checks that every field and every code has its words here.
+  forms: {
+    sections: {
+      who: "Quiénes son",
+      attention: "A quién atienden y cómo",
+    } as Record<string, string>,
+    fields: {
+      "institution.name": { label: "Nombre de la institución" },
+      "institution.mission": { label: "¿A qué se dedica?", hint: "En dos o tres frases, como se lo contaría a un donante." },
+      "institution.populations": {
+        label: "¿A quién atienden?",
+        hint: "Marque todas las que apliquen. Con esto, cada sección le pide solo lo que corresponde.",
+        options: {
+          early_childhood: "Primera infancia (0 a 5 años)",
+          childhood: "Niñez (6 a 11 años)",
+          adolescence: "Adolescencia (12 a 17 años)",
+          youth: "Juventud (18 a 29 años)",
+          adults: "Personas adultas (30 a 59 años)",
+          older_adults: "Personas mayores (60 años o más)",
+        },
+      },
+      "institution.sex_served": {
+        label: "¿Atienden a mujeres, a hombres o a ambos?",
+        options: { women: "Solo mujeres", men: "Solo hombres", all: "Mujeres y hombres" },
+      },
+      "institution.modalities": {
+        label: "¿Cómo los atienden?",
+        hint: "Marque todas las que apliquen.",
+        options: {
+          residential: "Viven en la institución",
+          day_care: "Estancia de día",
+          outpatient: "Consulta o atención sin quedarse",
+          community: "En la comunidad",
+          home_care: "En su domicilio",
+        },
+      },
+      "institution.care_areas": {
+        label: "¿En qué los apoyan?",
+        hint: "Marque todas las que apliquen.",
+        options: {
+          care: "Cuidado",
+          health: "Salud",
+          disability: "Discapacidad",
+          education: "Educación",
+          food: "Alimentación",
+          violence: "Atención a la violencia",
+          addictions: "Adicciones",
+          street: "Situación de calle",
+          migration: "Migración",
+          mental_health: "Salud mental",
+          other: "Otra",
+        },
+      },
+    } as Record<string, { label: string; hint?: string; options?: Record<string, string> }>,
+  },
   // The first start (ADR-031): the welcome of each person, the setup of the administrator and the data of the institution
   onboarding: {
     welcome: {
@@ -1365,6 +1423,9 @@ export const es = {
     email_format: "Revise el correo: debe verse como nombre@dominio.org.",
     number_too_large: "Este número es demasiado grande. Revise que no le sobren ceros.",
     code_unknown: "Elija una opción de la lista.",
+    wrong_type: "Revise este dato: no tiene la forma que esperábamos.",
+    repeated: "Una opción quedó marcada dos veces.",
+    number_too_small: "Este número es demasiado pequeño.",
     served_over_capacity: "Algo no cuadra: atienden a más personas de las que caben según la capacidad que puso.",
   } as Record<string, string>,
   quarantine: {

@@ -63,6 +63,8 @@ pub fn run() {
             commands::access::admin_recovery_code_new,
             commands::profile_get,
             commands::profile_save,
+            commands::form_get,
+            commands::form_save,
             commands::profile_confirm,
             commands::document_add_text,
             commands::documents_list,

@@ -18,6 +18,47 @@ export interface InstitutionInput {
   legal_form: string | null;
   authorized_donee: string | null;
   cluni: string | null;
+  /** Whom and how it serves (ADR-033); left out when a window does not edit it, so what is saved stays. */
+  attention?: Attention | null;
+}
+/** The attention profile: codes of `core::institution::catalog`. */
+export interface Attention {
+  populations: string[];
+  sex_served: string | null;
+  modalities: string[];
+  care_areas: string[];
+}
+
+// Forms described as data (ADR-033, common/forms.rs): the screen draws them, Rust validates and saves them.
+export type FieldKind = "text" | "long_text" | "number" | "money" | "year" | "date" | "select" | "multi_select" | "yes_no" | "email" | "phone";
+export type Condition = { when: "always" } | { when: "filled"; field: string } | { when: "any_of"; field: string; values: string[] };
+export interface FieldSpec {
+  id: string;
+  kind: FieldKind;
+  options: string[];
+  required: boolean;
+  applies_when: Condition;
+  sensitivity: "public" | "internal" | "institutional_private" | "personal";
+  ai: "as_is" | "aggregate_only" | "never";
+  used_by: string[];
+  min: number | null;
+  max: number | null;
+}
+export interface SectionSpec {
+  id: string;
+  columns: number;
+  fields: FieldSpec[];
+}
+export interface FormSpec {
+  id: string;
+  sections: SectionSpec[];
+}
+export type FormValue = string | number | boolean | string[];
+export type FormValues = Record<string, FormValue>;
+export interface FormView {
+  spec: FormSpec;
+  values: FormValues;
+  missing: string[];
 }
 export interface PopulationGroupInput {
   label: string;

@@ -458,9 +458,59 @@ fn render_facilities(s: &mut String, f: &FacilitiesSheet, missing: &mut Vec<&str
     }
 }
 
+fn attention_word(code: &str) -> &'static str {
+    match code {
+        "early_childhood" => "primera infancia",
+        "childhood" => "niñez",
+        "adolescence" => "adolescencia",
+        "youth" => "juventud",
+        "adults" => "personas adultas",
+        "older_adults" => "personas mayores",
+        "residential" => "residencial (viven en la institución)",
+        "day_care" => "estancia de día",
+        "outpatient" => "ambulatoria o de consulta",
+        "community" => "comunitaria",
+        "home_care" => "en el domicilio",
+        "care" => "cuidado",
+        "health" => "salud",
+        "disability" => "discapacidad",
+        "education" => "educación",
+        "food" => "alimentación",
+        "violence" => "atención a la violencia",
+        "addictions" => "adicciones",
+        "street" => "situación de calle",
+        "migration" => "migración",
+        "mental_health" => "salud mental",
+        _ => "otra",
+    }
+}
+
+/// Whom and how it serves (ADR-033 §2): calls filter by population and by kind of service.
+fn render_attention(s: &mut String, attention: Option<&crate::core::profile::domain::Attention>, missing: &mut Vec<&str>) {
+    let words = |codes: &[String]| codes.iter().map(|c| attention_word(c)).collect::<Vec<_>>().join(", ");
+    let Some(a) = attention.filter(|a| !a.populations.is_empty()) else {
+        missing.push("a quién atiende");
+        return;
+    };
+    let sex = match a.sex_served.as_deref() {
+        Some("women") => " (solo mujeres)",
+        Some("men") => " (solo hombres)",
+        Some(_) => " (mujeres y hombres)",
+        None => "",
+    };
+    s.push_str(&format!("A quién atiende: {}{sex}.\n", words(&a.populations)));
+    if !a.modalities.is_empty() {
+        s.push_str(&format!("Cómo atiende: {}.\n", words(&a.modalities)));
+    }
+    if !a.care_areas.is_empty() {
+        s.push_str(&format!("Áreas de atención: {}.\n", words(&a.care_areas)));
+    }
+}
+
 /// Where the institution is and what it is, legally (ADR-031): most calls filter by these. None of it is personal.
 fn render_identity(s: &mut String, inst: &crate::core::profile::domain::InstitutionInput, year: i64, missing: &mut Vec<&str>) {
     use crate::core::institution::catalog::state_name;
+    render_attention(s, inst.attention.as_ref(), missing);
     let state = inst.state.as_deref().and_then(state_name);
     match (text(&inst.municipality), state) {
         (Some(m), Some(st)) => s.push_str(&format!("Ubicación: {m}, {st}.\n")),

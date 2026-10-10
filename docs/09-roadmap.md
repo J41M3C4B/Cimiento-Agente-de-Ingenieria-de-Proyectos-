@@ -203,7 +203,12 @@ Objetivo: tratar la app como un ERP de la institución. «Inicio» y «Mi instit
 Objetivo: que «Mi institución» sea la fuente de todo lo que la institución es (formularios universales, expediente, datos protegidos e historial ligero) y que la IA trabaje en todo el ERP como un equipo de agentes con herramientas. Auditoría de partida: `docs/14-auditoria-nucleo.md`. **Un bloque a la vez:** cada uno se prueba en la app antes de empezar el siguiente.
 
 - [x] **N1** Defectos de la auditoría (2026-10-09): un cambio en Personal o Beneficiarios ya no vuelve borrador el perfil ni abre una versión (las líneas anónimas se actualizan en la versión vigente, D1); Proyectos pide la confirmación del perfil y los archivos de su convocatoria por `core::api` (D2); los catálogos de la institución viven en `core::institution::catalog` (D3); las líneas de beneficiarios se guardan como `computed` (D7). La prueba de fronteras revisa también el SQL: solo el dueño de una tabla escribe SQL sobre ella (`only_the_owner_of_a_table_writes_sql_on_it`); encontró y se corrigieron dos accesos más (el ejemplo de Instalaciones y los documentos de la convocatoria).
-- [ ] **F1** Catálogo de campos (`common/forms`) y perfil de atención en lugar del tipo fijo.
+- [x] **F1** Catálogo de campos y perfil de atención (2026-10-09):
+  - `common/forms` describe cada formulario como datos (tipo, opciones, obligatorio, cuándo aparece, sensibilidad, si llega a la IA, quién lo usa), con un validador genérico. Lo que falta nunca impide guardar; un código fuera de lista o un número fuera de rango, sí.
+  - Perfil de atención en `institution` (migración 0021): poblaciones, sexo, modalidades y áreas. El tipo se deduce de las poblaciones (mixta = `other`) y el primer inicio todavía puede dar el tipo; los datos de antes se trasladan desde su tipo.
+  - La ventana «Su institución» se dibuja desde Rust (`form_get` y `form_save`, `FormRenderer`) y «Mi institución» muestra a quién y cómo atiende.
+  - La ficha de la IA lo dice («A quién atiende», «Cómo atiende», «Áreas de atención»).
+  - Una prueba exige las palabras de cada campo y de cada código en `es-MX.ts`.
 - [ ] **N2** La pantalla ya no decide: `institution_overview` en Rust.
 - [ ] **IA1–IA2** Bucle de agentes, `ai_proposal`, manual del ERP y «?» por campo.
 - [ ] **N3** Datos nuevos de «Mi institución» en el catálogo, patronato, cuentas, origen por campo, historial ligero; ejemplo I.A.P.
