@@ -26,7 +26,7 @@ Las dos instituciones base son I.A.P. (un asilo y una casa hogar). Todo lo que s
 
 ## 3. Hallazgos
 
-> **Avance:** D1, D2, D3 y D7 corregidos en N1 (2026-10-09). La prueba de fronteras ahora revisa el SQL y encontró dos accesos más, también corregidos: el núcleo borraba `fac_site` al cargar el ejemplo y Proyectos leía `document` y `document_chunk` de su convocatoria.
+> **Avance:** D1, D2, D3 y D7 corregidos en N1 y D4 en N2 (2026-10-09; también las reglas de Inicio: ocupación, lugares vacíos y avance). La prueba de fronteras ahora revisa el SQL y encontró dos accesos más, también corregidos: el núcleo borraba `fac_site` al cargar el ejemplo y Proyectos leía `document` y `document_chunk` de su convocatoria.
 
 ### 3.1 Defectos y deuda de desacoplamiento (se arreglan primero)
 

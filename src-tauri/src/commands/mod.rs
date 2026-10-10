@@ -96,6 +96,14 @@ pub fn profile_save(session: State<'_, Session>, db: State<Db>,
     Ok(crate::core::onboarding::service::save_profile_confirmed(&mut conn, input, decision)?)
 }
 
+/// The institution at a glance (ADR-033): the figure of each module, how full it is, the balance and what is missing.
+#[tauri::command]
+pub fn institution_overview(session: State<'_, Session>, db: State<Db>) -> Result<crate::core::overview::InstitutionOverview, UiError> {
+    guard(&session, "institution_overview")?;
+    let conn = lock(&db)?;
+    Ok(crate::core::overview::institution_overview(&conn)?)
+}
+
 /// A form of «Mi institución» described as data, with its values and what is missing (ADR-033).
 #[tauri::command]
 pub fn form_get(session: State<'_, Session>, db: State<Db>, id: String) -> Result<crate::core::profile::forms::FormView, UiError> {

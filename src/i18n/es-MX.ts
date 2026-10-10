@@ -1040,6 +1040,8 @@ export const es = {
     missing: {
       name: "El nombre",
       mission: "A qué se dedica",
+      populations: "A quién atienden",
+      modalities: "Cómo los atienden",
       state: "El estado",
       municipality: "El municipio",
       contact: "Un teléfono o un correo",

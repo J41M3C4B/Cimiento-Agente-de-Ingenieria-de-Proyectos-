@@ -3,17 +3,24 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../lib/tauri", () => ({ profileGet: vi.fn() }));
+vi.mock("../../lib/tauri", () => ({ institutionOverview: vi.fn() }));
 vi.mock("../../modules/care/api", () => ({ careOverview: vi.fn() }));
 vi.mock("../../modules/care/CareTab", () => ({ CARE_KEY: ["care"] }));
 vi.mock("../../modules/finance/api", () => ({ FINANCE_KEY: ["finance"], financeGet: vi.fn() }));
 
-import { profileGet } from "../../lib/tauri";
+import { institutionOverview } from "../../lib/tauri";
 import { careOverview } from "../../modules/care/api";
 import { financeGet } from "../../modules/finance/api";
 import { GlobalFigures } from "./GlobalFigures";
 
-const profile = (input: object) => ({ input }) as unknown as Awaited<ReturnType<typeof profileGet>>;
+// what Rust composes (core/overview.rs): the figure of the people, how full the house is and what is left
+const overview = (capacity: number | null, served: number, approx = false) =>
+  ({
+    people: { value: served, approx },
+    capacity,
+    occupied_percent: capacity ? Math.min(100, Math.round((served / capacity) * 100)) : null,
+    vacant: capacity === null ? null : Math.max(capacity - served, 0),
+  }) as unknown as Awaited<ReturnType<typeof institutionOverview>>;
 const care = (served: number, admitted = 0, discharged = 0, latest: "admitted" | "discharged" | null = null) =>
   ({ board: { indicators: { served, admitted_this_year: admitted, discharged_this_year: discharged, latest_movement: latest } } }) as unknown as Awaited<ReturnType<typeof careOverview>>;
 const finance = (balance: number | null, income = 0, expenses: number | null = null) =>
@@ -33,7 +40,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("shows the places taken and free, the last movement, the balance of the year and what goes beside them", async () => {
-    vi.mocked(profileGet).mockResolvedValue(profile({ capacity_total: 40, served_estimate: null }));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(40, 10));
     vi.mocked(careOverview).mockResolvedValue(care(10, 3, 1, "admitted"));
     vi.mocked(financeGet).mockResolvedValue(finance(-1500, 8500, 10000));
     show();
@@ -46,7 +53,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("of entering and leaving it tells only the one that happened last", async () => {
-    vi.mocked(profileGet).mockResolvedValue(profile({ capacity_total: 40, served_estimate: null }));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(40, 10));
     vi.mocked(careOverview).mockResolvedValue(care(10, 3, 1, "discharged"));
     vi.mocked(financeGet).mockResolvedValue(finance(null));
     show();
@@ -56,7 +63,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("with no movement this year it still shows the last one, with its count and no sentence", async () => {
-    vi.mocked(profileGet).mockResolvedValue(profile({ capacity_total: 40, served_estimate: null }));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(40, 10));
     vi.mocked(careOverview).mockResolvedValue(care(10, 0, 0, "discharged"));
     vi.mocked(financeGet).mockResolvedValue(finance(null));
     show();
@@ -65,7 +72,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("the places are a waffle with the taken ones filled", async () => {
-    vi.mocked(profileGet).mockResolvedValue(profile({ capacity_total: 40, served_estimate: null }));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(40, 10));
     vi.mocked(careOverview).mockResolvedValue(care(10));
     vi.mocked(financeGet).mockResolvedValue(finance(null));
     const { container } = show();
@@ -75,7 +82,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("the year is a half donut with income, expenses and what is available, and the share of the budget in its hollow", async () => {
-    vi.mocked(profileGet).mockResolvedValue(profile({ capacity_total: null, served_estimate: null }));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(null, 3));
     vi.mocked(careOverview).mockResolvedValue(care(3));
     vi.mocked(financeGet).mockResolvedValue(finance(75000, 300000, 225000));
     const { container } = show();
@@ -89,7 +96,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("pointing at a color of the donut says what it is and its share of the income", async () => {
-    vi.mocked(profileGet).mockResolvedValue(profile({ capacity_total: null, served_estimate: null }));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(null, 3));
     vi.mocked(careOverview).mockResolvedValue(care(3));
     vi.mocked(financeGet).mockResolvedValue(finance(75000, 300000, 225000));
     const { container } = show();
@@ -105,7 +112,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("with no capacity there is no waffle, and with no spending the donut is only the gray arc", async () => {
-    vi.mocked(profileGet).mockResolvedValue(profile({ capacity_total: null, served_estimate: null }));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(null, 3));
     vi.mocked(careOverview).mockResolvedValue(care(3));
     vi.mocked(financeGet).mockResolvedValue(finance(null, 5000, null));
     const { container } = show();
@@ -116,7 +123,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("while nobody is registered, the quick figure stands in and is marked approximate", async () => {
-    vi.mocked(profileGet).mockResolvedValue(profile({ capacity_total: 40, served_estimate: 12 }));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(40, 12, true));
     vi.mocked(careOverview).mockResolvedValue(care(0));
     vi.mocked(financeGet).mockResolvedValue(finance(null));
     show();
@@ -124,7 +131,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("each figure opens the module it comes from", async () => {
-    vi.mocked(profileGet).mockResolvedValue(profile({ capacity_total: null, served_estimate: null }));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(null, 3));
     vi.mocked(careOverview).mockResolvedValue(care(3));
     vi.mocked(financeGet).mockResolvedValue(finance(100));
     const { onGo } = show();

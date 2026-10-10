@@ -8,21 +8,18 @@ import type { ModuleId } from "../../components/modules";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileGet, profileSave, toAppError } from "../../lib/tauri";
-import type { Decision, ProfileInput, ProfileIssue, ProfileTotals, QuarantineReport } from "../../lib/types";
+import type { Decision, ProfileInput, ProfileIssue, QuarantineReport } from "../../lib/types";
 import { CapacityCard } from "./CapacityCard";
 import { ProfileEdit } from "./ProfileEdit";
 import { FormWindow } from "./FormWindow";
 import type { Edit } from "./ProfileEdit";
 import { toInput } from "./profileForm";
-import { useFillGaps } from "./gaps";
+import { fromOverview, OVERVIEW_KEY, useOverview } from "./gaps";
 import type { Where } from "./gaps";
 import { ONBOARDING_KEY } from "../onboarding/api";
-import { FINANCE_KEY, financeGet } from "../../modules/finance/api";
-import { careOverview } from "../../modules/care/api";
-import { facilitiesOverview } from "../../modules/facilities/api";
+import { FINANCE_KEY } from "../../modules/finance/api";
 import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { CARE_KEY } from "../../modules/care/CareTab";
-import { hrOverview } from "../../modules/hr/api";
 import { HR_KEY } from "../../modules/hr/StaffTab";
 import { useSession } from "../access/session";
 
@@ -32,13 +29,6 @@ const peso = (n: number) => `$${count(n)}`;
 /** The codes of a field in words, as its form names them («Niñez, Adolescencia»). */
 const codesText = (field: string, codes?: string[] | null) =>
   codes?.length ? codes.map((c) => es.forms.fields[field]?.options?.[c] ?? c).join(", ") : null;
-
-const ZERO: ProfileTotals = {
-  population: 0, staff_paid: 0, staff_volunteer: 0,
-  payroll_monthly_mxn: 0, payroll_annual_mxn: 0, payroll_benefits_annual_mxn: 0, payroll_cost_annual_mxn: 0, benefits_assumed: 0,
-  staff_support_annual_mxn: 0, external_staff_annual_mxn: 0,
-  fee_payers: 0, fees_monthly_mxn: 0, fees_annual_mxn: 0,
-};
 
 /**
  * Mi institución (docs/13 §10), the core of the app (ADR-032). One header tray in two halves: who the institution is
@@ -50,13 +40,8 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
   // the example data replaces records: only the administrator, in development (ADR-028)
   const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
-  // what each module has, for its line (ADR-032)
-  const finance = useQuery({ queryKey: FINANCE_KEY, queryFn: financeGet });
-  // the staff and the people served live in their own modules (ADR-027, ADR-029)
-  const staffModule = useQuery({ queryKey: HR_KEY, queryFn: hrOverview });
-  const peopleModule = useQuery({ queryKey: CARE_KEY, queryFn: careOverview });
-  // and the facilities in theirs (ADR-030)
-  const facilitiesModule = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
+  // what each module has and what is missing, composed in Rust (ADR-033): this page only draws it
+  const overview = useOverview();
 
   const [edit, setEdit] = useState<Edit | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,7 +50,7 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
   const [quarantine, setQuarantine] = useState<{ input: ProfileInput; report: QuarantineReport; onSaved?: () => void } | null>(null);
 
   const view = profile.data ?? null;
-  const money = finance.data ?? null;
+  const o = overview.data ?? null;
   const inst = view?.input.institution;
 
   // the notice goes away by itself
@@ -85,6 +70,7 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
         setQuarantine(null);
         qc.setQueryData(["profile"], out.profile);
         void qc.invalidateQueries({ queryKey: ONBOARDING_KEY });
+        void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
         setToast({ tone: "ok", text: es.common.saved });
         onSaved?.();
         return true;
@@ -108,6 +94,7 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
       await qc.invalidateQueries({ queryKey: HR_KEY });
       await qc.invalidateQueries({ queryKey: FACILITIES_KEY });
       await qc.invalidateQueries({ queryKey: FINANCE_KEY });
+      await qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
     } finally {
@@ -121,44 +108,31 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
   };
 
 
-  const totals = staffModule.data?.totals ?? view?.totals ?? ZERO;
-  const staffCount = staffModule.data?.people.filter((p) => p.status !== "left").length ?? 0;
-  const peopleCount = peopleModule.data?.board.indicators.served ?? 0;
-  const spacesCount = facilitiesModule.data?.indicators.spaces ?? 0;
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
 
   // what is still missing, each one leading to where it is filled in (Rust says what the data still need)
-  const { ready: gapsReady, gaps } = useFillGaps();
+  const { ready: gapsReady, gaps } = fromOverview(overview.data);
   const goTo = (w: Where) => (w === "institution" || w === "contact" || w === "legal" || w === "capacity" ? open({ kind: w }) : onGo(w));
 
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 
-  const capacity = view?.input.capacity_total ?? 0;
-  // while nobody is registered in the modules, the quick figures the person gave at the start stand in, and say so
-  const servedEstimate = view?.input.served_estimate ?? null;
-  const paidEstimate = view?.input.staff_paid_estimate ?? 0;
-  const volunteerEstimate = view?.input.staff_volunteer_estimate ?? 0;
-  const peopleApprox = servedEstimate !== null && peopleCount === 0 && totals.population === 0;
-  const staffApprox = staffCount === 0 && totals.staff_paid + totals.staff_volunteer === 0 && view?.input.staff_paid_estimate != null;
-
-  // a tile for each module: what it has, and the way into it
-  const balance = money?.finances.balance_annual_mxn ?? null;
+  // a tile for each module: what it has, and the way into it. Rust says whether a figure is the quick one of the
+  // first start (while the module has no records), and it is marked «≈»
+  const people = o?.people ?? { value: 0, approx: false };
+  const staff = o?.staff ?? { value: 0, approx: false };
+  const spaces = o?.spaces ?? 0;
+  const balance = o?.balance_annual_mxn ?? null;
+  const shown = (f: { value: number; approx: boolean }) => (f.approx ? `≈ ${count(f.value)}` : count(f.value));
   const modules: { page: Exclude<ModuleId, "projects">; title: string; figure: string; label: string; approx?: boolean }[] = [
     {
       page: "people",
       title: es.nav.people,
-      figure: peopleApprox ? `≈ ${count(servedEstimate!)}` : count(peopleCount),
-      label: capacity ? t.kpi.peopleOf(count(capacity)) : t.modules.unit.people(peopleCount),
-      approx: peopleApprox,
+      figure: shown(people),
+      label: o?.capacity ? t.kpi.peopleOf(count(o.capacity)) : t.modules.unit.people(people.value),
+      approx: people.approx,
     },
-    {
-      page: "staff",
-      title: es.nav.staff,
-      figure: staffApprox ? `≈ ${count(paidEstimate + volunteerEstimate)}` : count(staffCount),
-      label: t.modules.unit.staff(staffApprox ? paidEstimate + volunteerEstimate : staffCount),
-      approx: staffApprox,
-    },
-    { page: "facilities", title: es.nav.facilities, figure: count(spacesCount), label: t.modules.unit.facilities(spacesCount) },
+    { page: "staff", title: es.nav.staff, figure: shown(staff), label: t.modules.unit.staff(staff.value), approx: staff.approx },
+    { page: "facilities", title: es.nav.facilities, figure: count(spaces), label: t.modules.unit.facilities(spaces) },
     {
       page: "finance",
       title: es.nav.finance,

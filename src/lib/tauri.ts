@@ -34,6 +34,7 @@ import type {
   DraftMode,
   FormValues,
   FormView,
+  InstitutionOverview,
   ProjectColor,
   ProjectRow,
   ReadingDetail,
@@ -64,6 +65,7 @@ export const profileGet = () => invoke<ProfileView | null>("profile_get");
 export const profileSave = (input: ProfileInput, decision?: Decision) =>
   invoke<SaveProfileOutcome>("profile_save", { input, decision: decision ?? null });
 export const profileConfirm = () => invoke<ProfileView>("profile_confirm");
+export const institutionOverview = () => invoke<InstitutionOverview>("institution_overview");
 // Forms of «Mi institución» described as data (ADR-033)
 export const formGet = (id: string) => invoke<FormView>("form_get", { id });
 export const formSave = (id: string, values: FormValues, decision?: Decision) =>

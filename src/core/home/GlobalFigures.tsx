@@ -6,10 +6,10 @@ import { MODULE_META } from "../../components/modules";
 import { ChartDot, FigureCard, Gauge, Waffle, gaugeShares } from "../../components/ui";
 import type { GaugePart } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import { profileGet } from "../../lib/tauri";
 import { careOverview } from "../../modules/care/api";
 import { CARE_KEY } from "../../modules/care/CareTab";
 import { FINANCE_KEY, financeGet } from "../../modules/finance/api";
+import { useOverview } from "../profile/gaps";
 
 const t = es.home.figures;
 const count = (n: number) => n.toLocaleString("es-MX");
@@ -21,21 +21,21 @@ const peso = (n: number) => `${n < 0 ? "−" : ""}$${count(Math.abs(n))}`;
  * and opens the module it comes from. The third cell is `aside`: what Inicio puts next to them (the card of the institution).
  */
 export function GlobalFigures({ onGo, aside }: { onGo: (page: "people" | "finance") => void; aside?: ReactNode }) {
-  const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
+  const overview = useOverview();
   const care = useQuery({ queryKey: CARE_KEY, queryFn: careOverview });
   const finance = useQuery({ queryKey: FINANCE_KEY, queryFn: financeGet });
 
-  const capacity = profile.data?.input.capacity_total ?? null;
+  // who is served, how full the house is and what is left, as Rust composes it (ADR-033); while nobody is registered
+  // the quick figure of the first start stands in, and says so («≈»)
+  const o = overview.data;
+  const capacity = o?.capacity ?? null;
   const indicators = care.data?.board.indicators;
-  const registered = indicators?.served ?? 0;
-  // while nobody is registered, the quick figure the person gave at the start stands in, and says so
-  const estimate = profile.data?.input.served_estimate ?? null;
-  const approx = registered === 0 && estimate !== null;
-  const served = approx ? estimate : registered;
+  const approx = o?.people.approx ?? false;
+  const served = o?.people.value ?? 0;
   // of entering and leaving, the card tells only the one that happened last, with its count of this year
   const lastLeft = indicators?.latest_movement === "discharged";
   const movedN = (lastLeft ? indicators?.discharged_this_year : indicators?.admitted_this_year) ?? 0;
-  const used = capacity ? Math.min(100, Math.round((served / capacity) * 100)) : 0;
+  const used = o?.occupied_percent ?? 0;
 
   const f = finance.data?.finances;
   const balance = f?.balance_annual_mxn ?? null;
@@ -62,7 +62,7 @@ export function GlobalFigures({ onGo, aside }: { onGo: (page: "people" | "financ
               {capacity !== null && (
                 <span className="fig-col">
                   <ChartDot tone="off" />
-                  <b className="tabular">{count(Math.max(capacity - served, 0))}</b>
+                  <b className="tabular">{count(o?.vacant ?? 0)}</b>
                   <span>{t.emptyPlaces}</span>
                 </span>
               )}

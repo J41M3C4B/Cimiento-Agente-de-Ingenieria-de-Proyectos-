@@ -7,6 +7,7 @@ import { es } from "../../i18n/es-MX";
 import { formGet, formSave, toAppError } from "../../lib/tauri";
 import type { Decision, FormValues, ProfileIssue, ProfileView, QuarantineReport } from "../../lib/types";
 import { ONBOARDING_KEY } from "../onboarding/api";
+import { OVERVIEW_KEY } from "./gaps";
 
 export const formKey = (id: string) => ["form", id];
 
@@ -40,6 +41,7 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
         setQuarantine(null);
         qc.setQueryData(["profile"], out.profile);
         void qc.invalidateQueries({ queryKey: ONBOARDING_KEY });
+        void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
         void qc.invalidateQueries({ queryKey: formKey(id) });
         onSaved(out.profile);
         onClose();

@@ -12,6 +12,7 @@ pub mod error;
 pub mod insights;
 pub mod institution;
 pub mod onboarding;
+pub mod overview;
 pub mod profile;
 pub mod screen;
 pub mod security;

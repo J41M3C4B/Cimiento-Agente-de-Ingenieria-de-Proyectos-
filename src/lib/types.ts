@@ -55,6 +55,23 @@ export interface FormSpec {
 }
 export type FormValue = string | number | boolean | string[];
 export type FormValues = Record<string, FormValue>;
+// The institution at a glance (ADR-033, core/overview.rs): composed in Rust, the screen only draws it.
+export type Place = "institution" | "contact" | "legal" | "capacity" | "finance" | "facilities" | "staff" | "people";
+export interface Figure {
+  value: number;
+  /** the quick figure of the first start, while the module has no records */
+  approx: boolean;
+}
+export interface InstitutionOverview {
+  people: Figure;
+  capacity: number | null;
+  occupied_percent: number | null;
+  vacant: number | null;
+  staff: Figure;
+  spaces: number;
+  balance_annual_mxn: number | null;
+  completion: { gaps: { code: string; place: Place }[]; percent: number };
+}
 export interface FormView {
   spec: FormSpec;
   values: FormValues;

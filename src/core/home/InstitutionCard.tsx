@@ -6,7 +6,6 @@ import { profileGet } from "../../lib/tauri";
 import { accessTeam } from "../access/api";
 import { useAvatarTone } from "../access/avatarColor";
 import { useSession } from "../access/session";
-import { ONBOARDING_KEY, onboardingStatus } from "../onboarding/api";
 import { useFillGaps } from "../profile/gaps";
 
 const t = es.home.institutionCard;
@@ -18,7 +17,6 @@ const SHOWN = 4;
  */
 export function InstitutionCard({ onOpen }: { onOpen: () => void }) {
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
-  const status = useQuery({ queryKey: ONBOARDING_KEY, queryFn: onboardingStatus });
   const team = useQuery({ queryKey: ["access", "team"], queryFn: accessTeam });
   const fill = useFillGaps();
   const access = useSession();
@@ -26,10 +24,8 @@ export function InstitutionCard({ onOpen }: { onOpen: () => void }) {
 
   const name = profile.data?.input.institution.name?.trim() || es.nav.profile;
   const complete = fill.ready && fill.gaps.length === 0;
-  const steps = status.data?.steps ?? [];
-  const done = steps.filter((s) => s.complete).length;
-  // with every step done but something still missing (nobody registered yet) it never reads 100 %
-  const percent = steps.length === 0 ? 0 : Math.min(Math.round((done / steps.length) * 100), fill.gaps.length > 0 ? 99 : 100);
+  // how far the data are, as Rust counts it: it reads 100 % only with nothing missing
+  const percent = fill.percent;
   const people = team.data ?? [];
 
   return (
@@ -50,7 +46,7 @@ export function InstitutionCard({ onOpen }: { onOpen: () => void }) {
           </span>
         )
       ) : (
-        fill.ready && status.data && (
+        fill.ready && (
           <span className="flex flex-col gap-1.5">
             <Bar percent={percent} label={t.progress(percent)} />
             <span className="inst-caption">{`${t.progress(percent)} · ${es.profile.completion.pending(fill.gaps.length)}`}</span>

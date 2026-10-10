@@ -209,7 +209,7 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
   - La ventana «Su institución» se dibuja desde Rust (`form_get` y `form_save`, `FormRenderer`) y «Mi institución» muestra a quién y cómo atiende.
   - La ficha de la IA lo dice («A quién atiende», «Cómo atiende», «Áreas de atención»).
   - Una prueba exige las palabras de cada campo y de cada código en `es-MX.ts`.
-- [ ] **N2** La pantalla ya no decide: `institution_overview` en Rust.
+- [x] **N2** La pantalla ya no decide (2026-10-09): `institution_overview` (`core/overview.rs`) compone en Rust la cifra de cada módulo (y si es la cifra rápida del primer inicio), la ocupación y los lugares vacíos, el balance, el porcentaje de avance (100 solo sin nada pendiente) y lo que falta con el lugar donde se llena, ahora con «a quién atienden» y «cómo los atienden». «Mi institución», la tarjeta de la institución y las cifras de Inicio solo lo dibujan.
 - [ ] **IA1–IA2** Bucle de agentes, `ai_proposal`, manual del ERP y «?» por campo.
 - [ ] **N3** Datos nuevos de «Mi institución» en el catálogo, patronato, cuentas, origen por campo, historial ligero; ejemplo I.A.P.
 - [ ] **IA3–IA4** Asistente en toda la app y Capturista.

@@ -110,6 +110,16 @@ fn main_site(conn: &Connection) -> Result<Option<SiteData>, ServiceError> {
     Ok(crate::modules::facilities::api::summaries(conn)?.into_iter().next().map(|s| s.site))
 }
 
+/// What each step still needs now, and what the modules hold (for the overview of the institution, ADR-033).
+pub fn steps_now(conn: &Connection) -> Result<(Vec<StepStatus>, Records), ServiceError> {
+    let input = profile_store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
+    let money = crate::modules::finance::api::lines(conn)?;
+    let site = main_site(conn)?;
+    let r = records(conn)?;
+    let steps = onboarding::steps(&Facts { input: &input, money: &money, served_in_module: r.served, staff_in_module: r.staff, fee_payers: r.fee_payers, site: site.as_ref() });
+    Ok((steps, r))
+}
+
 pub fn status(conn: &Connection, user: &CurrentUser) -> Result<OnboardingStatus, ServiceError> {
     let input = profile_store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
     let money = crate::modules::finance::api::lines(conn)?;

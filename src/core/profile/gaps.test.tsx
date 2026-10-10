@@ -3,22 +3,18 @@ import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../onboarding/api", async (orig) => ({ ...(await orig<typeof import("../onboarding/api")>()), onboardingStatus: vi.fn() }));
-vi.mock("../../modules/facilities/api", () => ({ facilitiesOverview: vi.fn() }));
-vi.mock("../../modules/facilities/FacilitiesTab", () => ({ FACILITIES_KEY: ["facilities"] }));
+vi.mock("../../lib/tauri", () => ({ institutionOverview: vi.fn() }));
 
-import { facilitiesOverview } from "../../modules/facilities/api";
-import { onboardingStatus } from "../onboarding/api";
-import type { OnboardingStatus } from "../onboarding/api";
+import { institutionOverview } from "../../lib/tauri";
+import type { InstitutionOverview, Place } from "../../lib/types";
 import { useFillGaps } from "./gaps";
 
-const KEYS = ["institution", "location", "people", "team", "money", "building"];
-
-function status(missing: Record<string, string[]>, records = { served: 3, staff: 2, fee_payers: 0 }): OnboardingStatus {
+// what is missing and how far, as Rust lists it (core/overview.rs, with its own tests): here only the words
+function overview(gaps: [string, Place][], percent: number): InstitutionOverview {
   return {
-    done: true, ready: false, welcomed: true, can_postpone: true, setup: null, records,
-    steps: KEYS.map((key) => ({ key, missing: missing[key] ?? [], complete: (missing[key] ?? []).length === 0 })),
-  } as OnboardingStatus;
+    people: { value: 0, approx: false }, capacity: null, occupied_percent: null, vacant: null, staff: { value: 0, approx: false }, spaces: 0,
+    balance_annual_mxn: null, completion: { gaps: gaps.map(([code, place]) => ({ code, place })), percent },
+  };
 }
 
 function run() {
@@ -28,47 +24,33 @@ function run() {
 }
 
 describe("what the institution still has to fill in", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(facilitiesOverview).mockResolvedValue({ indicators: { spaces: 5 } } as Awaited<ReturnType<typeof facilitiesOverview>>);
-  });
+  beforeEach(() => vi.clearAllMocks());
 
   it("is not ready until Rust says what is missing", () => {
-    vi.mocked(onboardingStatus).mockReturnValue(new Promise(() => {}));
-    const { result } = run();
-    expect(result.current).toEqual({ ready: false, gaps: [] });
+    vi.mocked(institutionOverview).mockReturnValue(new Promise(() => {}));
+    expect(run().result.current).toEqual({ ready: false, gaps: [], percent: 0 });
   });
 
   it("with nothing missing the data are complete", async () => {
-    vi.mocked(onboardingStatus).mockResolvedValue(status({}));
+    vi.mocked(institutionOverview).mockResolvedValue(overview([], 100));
     const { result } = run();
     await waitFor(() => expect(result.current.ready).toBe(true));
-    await waitFor(() => expect(vi.mocked(facilitiesOverview)).toHaveBeenCalled());
-    expect(result.current.gaps).toEqual([]);
+    expect(result.current).toEqual({ ready: true, gaps: [], percent: 100 });
   });
 
-  it("names each missing piece in the order of the steps and says where it is filled in", async () => {
-    vi.mocked(onboardingStatus).mockResolvedValue(status({ institution: ["mission"], location: ["state", "legal_form"], people: ["capacity_total"], money: ["income"], building: ["floors"] }));
+  it("names each missing piece in the words of the person and keeps where Rust says it is filled in", async () => {
+    vi.mocked(institutionOverview).mockResolvedValue(
+      overview([["mission", "institution"], ["populations", "institution"], ["state", "contact"], ["staff_records", "staff"], ["spaces", "facilities"]], 80),
+    );
     const { result } = run();
     await waitFor(() => expect(result.current.ready).toBe(true));
-    expect(result.current.gaps.map((g) => [g.code, g.where])).toEqual([
-      ["mission", "institution"],
-      ["state", "contact"],
-      ["legal_form", "legal"],
-      ["capacity_total", "capacity"],
-      ["income", "finance"],
-      ["floors", "facilities"],
+    expect(result.current.gaps.map((g) => [g.text, g.where])).toEqual([
+      ["A qué se dedica", "institution"],
+      ["A quién atienden", "institution"],
+      ["El estado", "contact"],
+      ["Todavía no registra a su personal", "staff"],
+      ["Todavía no registra sus instalaciones", "facilities"],
     ]);
-    expect(result.current.gaps[0]!.text).toBe("A qué se dedica");
-  });
-
-  it("reminds of the people and the spaces nobody registered, unless the data above already cover them", async () => {
-    vi.mocked(onboardingStatus).mockResolvedValue(status({ team: ["staff"] }, { served: 0, staff: 0, fee_payers: 0 }));
-    vi.mocked(facilitiesOverview).mockResolvedValue({ indicators: { spaces: 0 } } as Awaited<ReturnType<typeof facilitiesOverview>>);
-    const { result } = run();
-    await waitFor(() => expect(result.current.gaps.map((g) => g.code)).toEqual(["staff", "served_records", "spaces"]));
-    // the quick figure of the staff is asked for, so «register your staff» does not repeat it
-    expect(result.current.gaps.find((g) => g.code === "staff_records")).toBeUndefined();
-    expect(result.current.gaps.map((g) => g.where)).toEqual(["capacity", "people", "facilities"]);
+    expect(result.current.percent).toBe(80);
   });
 });

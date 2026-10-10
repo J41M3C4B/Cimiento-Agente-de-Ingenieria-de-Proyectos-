@@ -87,6 +87,7 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("profile_get", Need::Permission(Permission::Use)),
     ("profile_save", Need::Permission(Permission::Use)),
     ("form_get", Need::Permission(Permission::Use)),
+    ("institution_overview", Need::Permission(Permission::Use)),
     ("form_save", Need::Permission(Permission::Use)),
     ("profile_confirm", Need::Permission(Permission::Use)),
     // the money (ADR-032)
