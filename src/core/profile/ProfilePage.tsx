@@ -1,15 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Card, Eyebrow, FactRow, Facts, Inset, Status, TextButton, Toast } from "../../components/ui";
+import { Alert, Button, Card, Eyebrow, FactRow, Facts, IconButton, Inset, ListRow, Status, TextButton, Toast } from "../../components/ui";
 import type { Page } from "../../components/Shell";
 import { ModuleCard } from "../../components/ModuleCard";
 import type { ModuleId } from "../../components/modules";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileGet, toAppError } from "../../lib/tauri";
-import type { FormValue } from "../../lib/types";
+import type { BankAccount, BoardMember, FormValue, ListKind } from "../../lib/types";
 import { CapacityCard } from "./CapacityCard";
 import { FormWindow } from "./FormWindow";
+import { LISTS_KEY, ListWindow, useInstitutionLists } from "./ListWindow";
+import type { ListRowRef } from "./ListWindow";
 import { fromOverview, OVERVIEW_KEY, useOverview } from "./gaps";
 import type { Where } from "./gaps";
 import { FINANCE_KEY } from "../../modules/finance/api";
@@ -36,13 +38,21 @@ const FORM_OF: Record<Edit["kind"], string> = {
   capacity: "institution.capacity",
 };
 
+/** A date `YYYY-MM-DD` as people write it: «1 de mayo de 2020». */
+const dateText = (v: string) => new Date(`${v}T12:00:00`).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+
+/** A person of the board in a line: the role, and since when. */
+const memberDetail = (m: BoardMember) =>
+  [m.role === "other" && m.role_other ? m.role_other : codesText("institution.board.role", [m.role]), m.since && t.lists.since(dateText(m.since))].filter(Boolean).join(" · ");
+
+/** An account in a line: what it is for and whether it goes in the documents. */
+const accountDetail = (a: BankAccount) => [codesText("institution.bank.purpose", a.purpose), a.in_documents ? t.lists.inDocuments : t.lists.notInDocuments].filter(Boolean).join(" · ");
+
 /** A datum kept by the catalog, in words: a code by its label, a date as people write it. Empty is `null`. */
 function detailText(details: Record<string, FormValue> | null | undefined, field: string): string | null {
   const v = details?.[field];
   if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0)) return null;
-  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
-    return new Date(`${v}T12:00:00`).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
-  }
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return dateText(v);
   const options = es.forms.fields[field]?.options;
   return typeof v === "string" && options ? (options[v] ?? v) : String(v);
 }
@@ -61,6 +71,9 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
   const overview = useOverview();
 
   const [edit, setEdit] = useState<Edit | null>(null);
+  // the board and the accounts of the institution (ADR-033 §3): never to the AI
+  const lists = useInstitutionLists();
+  const [list, setList] = useState<{ kind: ListKind; row: ListRowRef } | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
@@ -84,6 +97,7 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
       await qc.invalidateQueries({ queryKey: FACILITIES_KEY });
       await qc.invalidateQueries({ queryKey: FINANCE_KEY });
       await qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
+      await qc.invalidateQueries({ queryKey: LISTS_KEY });
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
     } finally {
@@ -112,7 +126,8 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
 
   // what is still missing, each one leading to where it is filled in (Rust says what the data still need)
   const { ready: gapsReady, gaps } = fromOverview(overview.data);
-  const goTo = (w: Where) => (w === "institution" || w === "contact" || w === "legal" || w === "capacity" ? open({ kind: w }) : onGo(w));
+  const goTo = (w: Where) =>
+    w === "board" ? setList({ kind: "board_member", row: null }) : w === "institution" || w === "contact" || w === "legal" || w === "capacity" ? open({ kind: w }) : onGo(w);
 
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 
@@ -263,6 +278,48 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
                   ]}
                 />
               </FactRow>
+              <FactRow
+                title={t.cards.board}
+                note={t.lists.boardNote}
+                action={<TextButton onClick={() => setList({ kind: "board_member", row: null })}>{t.lists.addMember}</TextButton>}
+              >
+                {lists.data?.board.length ? (
+                  <ul className="-mx-2">
+                    {lists.data.board.map((m) => (
+                      <ListRow
+                        key={m.id}
+                        title={m.name}
+                        detail={memberDetail(m)}
+                        state={!m.active && <Status kind="idle">{t.lists.left}</Status>}
+                        actions={<IconButton icon="pencil" label={t.edit} variant="plain" size="sm" onClick={() => setList({ kind: "board_member", row: m })} />}
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  lists.isSuccess && <p className="text-ui text-ink-3">{t.lists.noBoard}</p>
+                )}
+              </FactRow>
+              <FactRow
+                title={t.cards.accounts}
+                note={t.lists.accountsNote}
+                action={<TextButton onClick={() => setList({ kind: "bank_account", row: null })}>{t.lists.addAccount}</TextButton>}
+              >
+                {lists.data?.accounts.length ? (
+                  <ul className="-mx-2">
+                    {lists.data.accounts.map((a) => (
+                      <ListRow
+                        key={a.id}
+                        title={<span className="tabular">{`${a.bank ?? t.lists.clabe} •••• ${a.masked.slice(-4)}`}</span>}
+                        detail={accountDetail(a)}
+                        state={!a.active && <Status kind="idle">{t.lists.closed}</Status>}
+                        actions={<IconButton icon="pencil" label={t.edit} variant="plain" size="sm" onClick={() => setList({ kind: "bank_account", row: a })} />}
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  lists.isSuccess && <p className="text-ui text-ink-3">{t.lists.noAccounts}</p>
+                )}
+              </FactRow>
             </Card>
 
             <CapacityCard view={view} onEdit={() => open({ kind: "capacity" })} />
@@ -290,6 +347,8 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
           onClose={() => setEdit(null)}
         />
       )}
+
+      {list && <ListWindow kind={list.kind} row={list.row} onDone={(text) => setToast({ tone: "ok", text })} onClose={() => setList(null)} />}
 
       {toast && <Toast tone={toast.tone}>{toast.text}</Toast>}
     </div>

@@ -58,7 +58,7 @@ export interface FormSpec {
 export type FormValue = string | number | boolean | string[];
 export type FormValues = Record<string, FormValue>;
 // The institution at a glance (ADR-033, core/overview.rs): composed in Rust, the screen only draws it.
-export type Place = "institution" | "contact" | "legal" | "capacity" | "finance" | "facilities" | "staff" | "people";
+export type Place = "institution" | "contact" | "legal" | "board" | "capacity" | "finance" | "facilities" | "staff" | "people";
 export interface Figure {
   value: number;
   /** the quick figure of the first start, while the module has no records */
@@ -86,6 +86,42 @@ export interface FieldOrigin {
   source_ref: string | null;
   confirmed_at: string | null;
 }
+// The board and the bank accounts of the institution (ADR-033 §3, core/protected): never to the AI.
+export type ListKind = "board_member" | "bank_account";
+export interface BoardMember {
+  id: string;
+  name: string;
+  /** a code of `forms.fields["institution.board.role"]` */
+  role: string;
+  role_other: string | null;
+  since: string | null;
+  active: boolean;
+  origin: FieldOrigin["origin"];
+  confirmed_at: string | null;
+}
+export interface BankAccount {
+  id: string;
+  /** the CLABE covered: only its last four digits show */
+  masked: string;
+  bank: string | null;
+  purpose: string[];
+  in_documents: boolean;
+  active: boolean;
+  origin: FieldOrigin["origin"];
+  confirmed_at: string | null;
+}
+export interface InstitutionLists {
+  board: BoardMember[];
+  accounts: BankAccount[];
+}
+export interface ListForm {
+  spec: FormSpec;
+  values: FormValues;
+  missing: string[];
+  /** the CLABE of a saved account, covered (the form no longer asks it) */
+  masked: string | null;
+}
+export type ListOutcome = { status: "saved"; lists: InstitutionLists } | { status: "invalid"; issues: ProfileIssue[] };
 // The manual of the program (ADR-034, core/manual): in the program, with no AI and no internet.
 export interface ManualEntry {
   id: string;

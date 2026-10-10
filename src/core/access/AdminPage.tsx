@@ -197,7 +197,7 @@ function PeopleTab({ data, onData }: { data: AdminOverview; onData: (o: AdminOve
   );
 }
 
-const KIND_ICON: Record<string, IconName> = { document: "file", hr_person: "user", beneficiary: "heart", project: "folder", roster_field: "sliders", hr_field: "sliders" };
+const KIND_ICON: Record<string, IconName> = { document: "file", hr_person: "user", beneficiary: "heart", project: "folder", roster_field: "sliders", hr_field: "sliders", board_member: "user", bank_account: "lock" };
 
 function RequestsTab({ data, onData }: { data: AdminOverview; onData: (o: AdminOverview) => void }) {
   const r = t.requests;

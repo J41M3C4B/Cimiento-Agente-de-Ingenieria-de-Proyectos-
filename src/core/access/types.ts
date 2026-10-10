@@ -52,7 +52,7 @@ export interface PersonAccess {
   user_id: string | null;
   suggested_username: string;
 }
-export type DeletionKind = "document" | "hr_person" | "beneficiary" | "project" | "roster_field" | "hr_field";
+export type DeletionKind = "document" | "hr_person" | "beneficiary" | "project" | "roster_field" | "hr_field" | "board_member" | "bank_account";
 export interface RequestRow {
   id: string;
   kind: DeletionKind;

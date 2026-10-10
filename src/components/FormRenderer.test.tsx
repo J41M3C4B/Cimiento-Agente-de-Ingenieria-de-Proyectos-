@@ -62,6 +62,15 @@ describe("FormRenderer", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Elija una opción de la lista.");
   });
 
+  it("a yes or no travels as true or false", () => {
+    const spec: FormSpec = { id: "institution.bank_account", sections: [{ id: "bank_use", columns: 1, fields: [field("institution.bank.in_documents", { kind: "yes_no" })] }] };
+    const seen = vi.fn();
+    render(<FormRenderer spec={spec} values={{ "institution.bank.in_documents": false }} onChange={seen} />);
+    expect(screen.getByLabelText("No")).toBeChecked();
+    fireEvent.click(screen.getByLabelText("Sí"));
+    expect(seen).toHaveBeenCalledWith({ "institution.bank.in_documents": true });
+  });
+
   it("decides whether a field applies the way Rust does", () => {
     const sex = SPEC.sections[1]!.fields[1]!;
     expect(applies(sex, {})).toBe(false);

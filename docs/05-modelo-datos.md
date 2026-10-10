@@ -147,6 +147,20 @@ CREATE TABLE income_source (
 --              changed_at, changed_by. Solo crece: triggers impiden UPDATE y DELETE. Se escribe en la misma
 --              transacción del guardado (profile::storage::save_with). value_at(field, fecha) dice cómo estaba.
 
+-- Patronato y cuentas bancarias de la institución (ADR-033 §3; migración 0026; código en core/protected/).
+-- Datos institutional_private: nunca a la IA ni a las herramientas de los agentes; los pone el código en los
+-- documentos. Quien sale o una cuenta que se cierra se marca (active = 0), no se borra; borrar sigue el ADR-028
+-- (hidden = 1 mientras la persona administradora decide). Cada cambio deja en core_change una línea sin valor
+-- (field = institution.board_member o institution.bank_account). Todas llevan origin, source_ref y confirmación.
+-- core_board_member  id, name, role (president|vice_president|secretary|treasurer|member|other), role_other,
+--                    since (YYYY-MM-DD), active, hidden, origin, source_ref, confirmed_at, confirmed_by, created_at,
+--                    updated_at. A la IA solo llega cuántas personas activas y qué cargos (protected::ai_board).
+-- core_bank_account  id, clabe (18 dígitos con su dígito verificador; única), bank (de la CLABE si se deja vacío),
+--                    purpose (JSON: donations|operations), in_documents, active, hidden, origin, source_ref,
+--                    confirmed_at, confirmed_by, created_at, updated_at. La CLABE se pide solo al agregarla; en
+--                    pantalla va tapada y mostrarla queda en la bitácora (institution.sensitive_viewed, sin el valor).
+-- access_request.kind admite además board_member y bank_account (la tabla se reconstruye en 0026, mismas filas).
+
 -- Módulo de Instalaciones (ADR-030, migración 0018; elimina facility).
 -- fac_site       un inmueble (la pantalla maneja uno): name, land_m2, built_m2, floors, floor_access JSON
 --                (ramp|elevator|stair_lift|none), built_year, tenure (own|loan|rent|borrowed|other), tenure_until,
@@ -391,7 +405,7 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
 | Dueño | Tablas |
 |---|---|
 | Base | `schema_migrations`, `app_settings`, `audit_log`, `ai_usage` |
-| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
+| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`, `core_board_member`, `core_bank_account`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
 | Personal (`hr_*`) | `hr_modality`, `hr_position`, `hr_person`, `hr_job`, `hr_emergency_contact`, `hr_custom_field` |
 | Beneficiarios (`care_*`) | `care_group`, `care_person`, `care_contact`, `care_custom_field`, `care_waitlist` |
 | Instalaciones (`fac_*`) | `fac_site`, `fac_space`, `fac_equipment` |

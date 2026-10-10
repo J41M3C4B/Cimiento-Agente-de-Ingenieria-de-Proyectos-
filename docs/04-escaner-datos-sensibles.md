@@ -33,7 +33,7 @@ Todos los patrones se aplican sobre el texto normalizado a mayúsculas y sin ace
 | Clave de elector | `\b[A-Z]{6}\d{8}[HMX]\d{3}\b` | — | Block |
 | Teléfono MX | `(\+?52[\s-]?)?(\(?\d{2,3}\)?[\s-]?)\d{3,4}[\s-]?\d{4}` que sume 10 dígitos | Excluir si coincide con el teléfono institucional registrado | Warn |
 | Correo | Patrón estándar de correo | Excluir correo institucional registrado | Warn |
-| CLABE | `\b\d{18}\b` | Dígito de control CLABE | Block |
+| CLABE | `\b\d{18}\b` | Dígito de control CLABE; excluir solo si es exactamente una cuenta registrada de la institución (con o sin espacios) | Block |
 | Tarjeta | 13 a 19 dígitos con separadores opcionales | Algoritmo de Luhn | Block |
 | NSS | `\b\d{11}\b` | Dígito verificador (Luhn) | Block |
 | Nombre de persona | Heurística (ver abajo) | Contexto | Warn |
@@ -92,3 +92,4 @@ Si un archivo tiene más de N hallazgos `Block` (inicial: 5) o un patrón de tab
 - Las listas `scanner/data/given_names.txt` (~245) y `surnames.txt` (~155) son una primera versión, **más cortas que las ~2,000 previstas**. Ampliarlas es trabajo pendiente; cada falso negativo reportado se agrega a `fixtures/escaner/positivos.txt`.
 - Rendimiento: ~520 KB (unas 100 páginas) en menos de 1 s incluso en compilación de desarrollo.
 - Los datos de contacto institucionales (teléfono, correo, RFC, representante) no se escanean y su teléfono/correo no se marcan en otros textos.
+- Las cuentas de la institución y los nombres de su patronato (ADR-033 §3) tampoco: `ScannerConfig.institutional_clabes` deja pasar una CLABE solo si es exactamente una de sus cuentas, escrita con o sin espacios o guiones (nada de lo que se encuentre dentro de ella cuenta). Cualquier otra CLABE, aunque difiera en un dígito, sigue bloqueada. Los nombres del patronato van en `safe_phrases`.

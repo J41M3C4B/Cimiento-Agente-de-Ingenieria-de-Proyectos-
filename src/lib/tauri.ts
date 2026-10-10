@@ -36,7 +36,11 @@ import type {
   FormView,
   ManualEntry,
   ManualHit,
+  InstitutionLists,
   InstitutionOverview,
+  ListForm,
+  ListKind,
+  ListOutcome,
   ProjectColor,
   ProjectRow,
   ReadingDetail,
@@ -72,6 +76,15 @@ export const institutionOverview = () => invoke<InstitutionOverview>("institutio
 export const formGet = (id: string) => invoke<FormView>("form_get", { id });
 export const formSave = (id: string, values: FormValues, decision?: Decision) =>
   invoke<SaveProfileOutcome>("form_save", { id, values, decision: decision ?? null });
+// The board and the bank accounts of the institution (ADR-033 §3)
+export const institutionLists = () => invoke<InstitutionLists>("institution_lists");
+export const institutionListForm = (kind: ListKind, id: string | null) => invoke<ListForm>("institution_list_form", { kind, id });
+export const institutionListSave = (kind: ListKind, id: string | null, values: FormValues) =>
+  invoke<ListOutcome>("institution_list_save", { kind, id, values });
+export const institutionListSetActive = (kind: ListKind, id: string, active: boolean) =>
+  invoke<InstitutionLists>("institution_list_set_active", { kind, id, active });
+export const institutionListDelete = (kind: ListKind, id: string) => invoke<InstitutionLists>("institution_list_delete", { kind, id });
+export const institutionClabeReveal = (id: string) => invoke<string>("institution_clabe_reveal", { id });
 // The manual of the program (ADR-034): the «?» of each field and the search in Ayuda, offline
 export const manualEntry = (id: string) => invoke<ManualEntry | null>("manual_entry", { id });
 export const manualSearch = (query: string) => invoke<ManualHit[]>("manual_search", { query });

@@ -116,6 +116,16 @@ function Field({ f, value, error, onChange, aside }: { f: FieldSpec; value: Form
           onChange={(e) => onChange(e.target.value)}
         />
       );
+    case "yes_no":
+      return (
+        <Pills label={w.label} hint={w.hint} error={error} required={f.required} labelAside={aside}>
+          {([true, false] as const).map((answer) => (
+            <Choice key={String(answer)} name={f.id} checked={value === answer} onChange={() => onChange(answer)}>
+              {answer ? es.common.yes : es.common.no}
+            </Choice>
+          ))}
+        </Pills>
+      );
     case "number":
     case "money":
     case "year":

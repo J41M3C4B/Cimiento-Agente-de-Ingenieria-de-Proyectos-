@@ -30,6 +30,7 @@ cargo test care                                        # módulo de Beneficiario
 cargo test overview                                    # la institución de un vistazo (ADR-033): cifras de cada módulo, cifra rápida, ocupación, avance y lo que falta
 cargo test core::history                               # origen por dato e historial ligero (ADR-033 §4): solo lo que cambia, lo protegido sin valor, cómo estaba en una fecha, solo crece
 cargo test profile::forms                              # las cuatro ventanas de «Mi institución»: guardado, reglas, Junta, escáner e historial en la misma transacción
+cargo test core::protected                             # patronato y cuentas (ADR-033 §3): qué se pide, CLABE tapada y en bitácora, historial sin valor, lo que llega a la IA, escáner y lo que falta
 cargo test forms                                       # formularios descritos como datos (ADR-033): validador, perfil de atención, «Su institución» y las palabras de cada campo en es-MX.ts
 cargo test onboarding                                  # primer inicio (ADR-031): pasos, cifras rápidas, cierre, bienvenida y lo que llega a la IA
 cargo test facilit                                     # módulo de Instalaciones (ADR-030): inmueble, grupos con conteo por estado, traslado, tablero, escáner y lo que llega a la IA

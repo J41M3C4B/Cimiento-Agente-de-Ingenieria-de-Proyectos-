@@ -6,6 +6,8 @@
 
 **Identificadores del personal (ADR-027):** CURP, RFC, NSS y CLABE se guardan en la base cifrada, se validan con su dígito verificador, nunca salen del servicio en claro y en pantalla se ven tapados. Mostrarlos queda en la bitácora (`hr.sensitive_viewed`, con el campo y nunca el valor). Borrar a una persona elimina todo lo suyo y queda registrado (`hr.person_deleted`). Los datos de salud del personal no se recogen.
 
+**Patronato y cuentas de la institución (ADR-033 §3):** son datos de la institución, no de una persona atendida ni del personal, y se guardan con nombre y CLABE (`institutional_private`). Nunca llegan a la IA ni a las herramientas de los agentes: de la institución, la IA solo sabe cuántas personas forman el patronato y qué cargos tienen. La CLABE se valida con su dígito verificador, en pantalla se ve tapada y mostrarla queda en la bitácora (`institution.sensitive_viewed`, con el campo y nunca el valor). El historial (`core_change`) anota que la lista cambió, sin el valor. La CLABE de una persona del personal sigue siendo dato personal del módulo de Personal.
+
 ## Niveles de datos
 
 | Nivel | Qué incluye | Se guarda | Se envía a la IA |
