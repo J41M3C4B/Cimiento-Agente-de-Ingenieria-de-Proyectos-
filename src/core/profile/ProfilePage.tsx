@@ -62,7 +62,7 @@ function detailText(details: Record<string, FormValue> | null | undefined, field
  * (name, mission, state) and its four figures; below, its data and a line for each module, which opens it. What is
  * on the screen is what is saved: «Editar» opens a window with just those fields, so there is no half-edited page.
  */
-export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
+export function ProfilePage({ onGo, openWindow }: { onGo: (page: Page) => void; /** a window to open on arrival (the Assistant's «Ir a…») */ openWindow?: { where: Where; n: number } | null }) {
   const qc = useQueryClient();
   // the example data replaces records: only the administrator, in development (ADR-028)
   const access = useSession();
@@ -128,6 +128,12 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
   const { ready: gapsReady, gaps } = fromOverview(overview.data);
   const goTo = (w: Where) =>
     w === "board" ? setList({ kind: "board_member", row: null }) : w === "institution" || w === "contact" || w === "legal" || w === "capacity" ? open({ kind: w }) : onGo(w);
+
+  // the Assistant sent the person to a window: it opens once per request
+  useEffect(() => {
+    if (openWindow) goTo(openWindow.where);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openWindow?.n]);
 
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 

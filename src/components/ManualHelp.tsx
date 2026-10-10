@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "./icons";
-import { Inset } from "./ui";
+import { Inset, TextButton } from "./ui";
+import { useAssistant } from "../core/assistant/Assistant";
 import { es } from "../i18n/es-MX";
 import { manualEntry } from "../lib/tauri";
 import type { ManualEntry } from "../lib/types";
@@ -62,12 +63,17 @@ export function ManualText({ entry }: { entry: ManualEntry }) {
 /** What the manual says of a field, under it. It is in the program: it answers at once and costs nothing. */
 export function ManualPanel({ id, panelId }: { id: string; panelId: string }) {
   const entry = useQuery({ queryKey: ["manual", id], queryFn: () => manualEntry(id), staleTime: Infinity });
+  // «Preguntar más» opens the Assistant about this field, with the question written (ADR-034 §4)
+  const assistant = useAssistant();
   if (entry.isPending) return null;
   return (
     <Inset className="mt-3">
       <div id={panelId} role="region" aria-label={entry.data?.title ?? t.missing}>
         {entry.data ? <ManualText entry={entry.data} /> : <p className="text-ui text-ink-2">{t.missing}</p>}
-        <p className="mt-3 text-small text-ink-3">{t.offline}</p>
+        <p className="mt-3 flex flex-wrap items-center justify-between gap-2 text-small text-ink-3">
+          {t.offline}
+          {assistant && <TextButton onClick={() => assistant.open({ field: id, question: es.assistant.fieldQuestion })}>{t.askMore}</TextButton>}
+        </p>
       </div>
     </Inset>
   );

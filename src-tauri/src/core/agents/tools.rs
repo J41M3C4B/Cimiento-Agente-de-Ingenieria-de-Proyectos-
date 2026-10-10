@@ -31,7 +31,68 @@ impl Ctx {
 /// The tools of the core for one person (by the role of their session).
 pub fn toolbox(db: Arc<Mutex<Connection>>, role: Option<Role>) -> Vec<Box<dyn Tool>> {
     let ctx = Ctx { db, role };
-    vec![Box::new(FillState(ctx.clone())), Box::new(SheetSection(ctx))]
+    vec![Box::new(FillState(ctx.clone())), Box::new(SheetSection(ctx.clone())), Box::new(ManualSearch(ctx.clone())), Box::new(ManualEntry(ctx))]
+}
+
+/// The most entries a search of the manual hands back.
+const MANUAL_HITS: usize = 4;
+
+/// An entry of the manual as an agent reads it: its title, its text and what uses the field.
+fn entry_json(id: &str) -> Option<Value> {
+    let e = crate::core::manual::entry(id)?;
+    Some(json!({ "id": e.entry.id, "title": e.entry.title, "text": e.entry.paragraphs.join("\n"), "used_by": e.used_by }))
+}
+
+/// Searches the manual of the program (ADR-034 §3): how the program works, never data of the institution.
+struct ManualSearch(Ctx);
+
+impl Tool for ManualSearch {
+    fn name(&self) -> &'static str {
+        "manual_search"
+    }
+    fn description(&self) -> &'static str {
+        "Busca en el manual del programa: qué es cada pantalla y cada campo, qué poner, para qué sirve y cómo se hace cada cosa. Devuelve hasta cuatro entradas con su `id`, título y texto. `query` son dos a cinco palabras clave."
+    }
+    fn args_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"],
+            "additionalProperties": false
+        })
+    }
+    fn run(&self, args: &Value) -> Result<Value, ToolError> {
+        let conn = self.0.open()?;
+        let query = args["query"].as_str().unwrap_or_default();
+        let hits = crate::core::manual::search(&conn, query, MANUAL_HITS).map_err(|_| ToolError::Failed)?;
+        Ok(json!({ "entries": hits.iter().filter_map(|h| entry_json(&h.id)).collect::<Vec<_>>() }))
+    }
+}
+
+/// One entry of the manual by its id (a screen, a window or a field of the catalog).
+struct ManualEntry(Ctx);
+
+impl Tool for ManualEntry {
+    fn name(&self) -> &'static str {
+        "manual_entry"
+    }
+    fn description(&self) -> &'static str {
+        "Devuelve una entrada del manual por su `id`: una pantalla (`screen.institution`), una ventana (`institution.legal`) o un campo (`institution.legal_rfc`)."
+    }
+    fn args_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": { "id": { "type": "string" } },
+            "required": ["id"],
+            "additionalProperties": false
+        })
+    }
+    fn run(&self, args: &Value) -> Result<Value, ToolError> {
+        // like every tool: only for whoever may use the app
+        drop(self.0.open()?);
+        let id = args["id"].as_str().unwrap_or_default();
+        entry_json(id).ok_or_else(|| ToolError::BadArgs(format!("no entry {id}")))
+    }
 }
 
 /// What is missing, said as the first start and «Mi institución» say it.

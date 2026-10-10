@@ -75,6 +75,7 @@ pub fn run() {
             commands::institution::institution_list_delete,
             commands::institution::institution_clabe_reveal,
             commands::manual_entry,
+            commands::assistant::assistant_ask,
             commands::manual_search,
             commands::profile_confirm,
             commands::document_add_text,

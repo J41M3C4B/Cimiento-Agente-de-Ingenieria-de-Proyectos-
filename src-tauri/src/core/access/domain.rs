@@ -100,6 +100,8 @@ pub const COMMANDS: &[(&str, Need)] = &[
     // the manual of the program (ADR-034): help for anyone who is in, with no data of the institution
     ("manual_entry", Need::Session),
     ("manual_search", Need::Session),
+    // the Assistant (ADR-034 §4): its tools read only what the person may see
+    ("assistant_ask", Need::Permission(Permission::Use)),
     // the money (ADR-032)
     ("finance_get", Need::Permission(Permission::Use)),
     ("finance_save", Need::Permission(Permission::Use)),

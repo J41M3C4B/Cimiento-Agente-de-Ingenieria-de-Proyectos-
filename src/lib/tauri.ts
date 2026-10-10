@@ -11,6 +11,8 @@ import type {
   AiStatusView,
   AnswerOutcome,
   AppError,
+  AssistantAsk,
+  AssistantOutcome,
   BackupFile,
   ScanSummary,
   BudgetItemInput,
@@ -85,6 +87,8 @@ export const institutionListSetActive = (kind: ListKind, id: string, active: boo
   invoke<InstitutionLists>("institution_list_set_active", { kind, id, active });
 export const institutionListDelete = (kind: ListKind, id: string) => invoke<InstitutionLists>("institution_list_delete", { kind, id });
 export const institutionClabeReveal = (id: string) => invoke<string>("institution_clabe_reveal", { id });
+// The Assistant (ADR-034 §4): a question from any screen
+export const assistantAsk = (ask: AssistantAsk, decision?: Decision) => invoke<AssistantOutcome>("assistant_ask", { ask, decision: decision ?? null });
 // The manual of the program (ADR-034): the «?» of each field and the search in Ayuda, offline
 export const manualEntry = (id: string) => invoke<ManualEntry | null>("manual_entry", { id });
 export const manualSearch = (query: string) => invoke<ManualHit[]>("manual_search", { query });

@@ -3,10 +3,12 @@ import { useState } from "react";
 import { Shell } from "./components/Shell";
 import type { Page } from "./components/Shell";
 import { AiSettingsPage } from "./core/ai/AiSettingsPage";
+import { AssistantProvider } from "./core/assistant/Assistant";
 import { HomePage } from "./core/home/HomePage";
 import { DocumentsPage } from "./core/documents/DocumentsPage";
 import { HelpPage } from "./core/help/HelpPage";
 import { ProfilePage } from "./core/profile/ProfilePage";
+import type { Where } from "./core/profile/gaps";
 import { ProjectsPage } from "./modules/projects/ProjectsPage";
 import { StaffPage } from "./modules/hr/StaffPage";
 import { CarePage } from "./modules/care/CarePage";
@@ -22,6 +24,8 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // a window of «Mi institución» to open when arriving there (the Assistant's «Ir a…»); `n` makes each request new
+  const [profileWindow, setProfileWindow] = useState<{ where: Where; n: number } | null>(null);
   // the app is shown only with a person inside (AccessGate, ADR-028); what they may do shapes the menu
   const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
@@ -35,6 +39,12 @@ export default function App() {
   };
   const goProfile = () => setPage("profile");
   const navigate = (p: Page) => setPage(p);
+  // where the Assistant sends the person: a page, or a window of «Mi institución» (`profile.legal`)
+  const goTo = (place: string) => {
+    const [target, part] = place.split(".");
+    setPage(target as Page);
+    if (target === "profile" && part) setProfileWindow({ where: part as Where, n: Date.now() });
+  };
   const newProject = () => {
     setOpenId(null);
     setCreating(true);
@@ -42,6 +52,7 @@ export default function App() {
   };
 
   return (
+    <AssistantProvider screen={page} onGo={goTo}>
     <Shell page={page} onNavigate={navigate} institution={institution} access={access}>
       {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
           project, the project that was open and what they were writing are still there when they come back */}
@@ -49,7 +60,7 @@ export default function App() {
         <ProjectsPage openId={openId} onOpen={setOpenId} creating={creating} onCreating={setCreating} />
       </div>
       {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGo={navigate} onGoAi={() => setPage("ai")} />}
-      {page === "profile" && <ProfilePage onGo={navigate} />}
+      {page === "profile" && <ProfilePage onGo={navigate} openWindow={profileWindow} />}
       {page === "staff" && <StaffPage />}
       {page === "people" && <CarePage />}
       {page === "facilities" && <FacilitiesPage />}
@@ -60,5 +71,6 @@ export default function App() {
       {page === "security" && <SecurityPage />}
       {page === "help" && <HelpPage />}
     </Shell>
+    </AssistantProvider>
   );
 }

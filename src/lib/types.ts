@@ -122,6 +122,27 @@ export interface ListForm {
   masked: string | null;
 }
 export type ListOutcome = { status: "saved"; lists: InstitutionLists } | { status: "invalid"; issues: ProfileIssue[] };
+// The Assistant (ADR-034 §4, core/agents/assistant.rs): the conversation lives only on the screen.
+export interface AssistantTurn {
+  from: "person" | "assistant";
+  text: string;
+}
+export interface AssistantAsk {
+  /** the page where the person is */
+  screen: string;
+  /** the field whose «?» opened the question */
+  field: string | null;
+  question: string;
+  history: AssistantTurn[];
+}
+export interface ManualSource {
+  id: string;
+  title: string;
+}
+export type AssistantOutcome =
+  | { status: "answered"; asked: string; text: string; go_to: string | null; sources: ManualSource[] }
+  | { status: "manual"; asked: string; reason: string; hits: ManualSource[] }
+  | { status: "quarantine"; report: QuarantineReport };
 // The manual of the program (ADR-034, core/manual): in the program, with no AI and no internet.
 export interface ManualEntry {
   id: string;

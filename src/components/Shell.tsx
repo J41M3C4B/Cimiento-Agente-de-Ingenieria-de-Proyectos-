@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { es } from "../i18n/es-MX";
 import { useTheme } from "../lib/theme";
 import { PersonMenu } from "../core/access/PersonMenu";
+import { useAssistant } from "../core/assistant/Assistant";
 import type { SessionApi } from "../core/access/session";
 import type { IconName } from "./icons";
 import { accentOf } from "./modules";
@@ -54,6 +55,7 @@ export function Shell({
   children: ReactNode;
 }) {
   const [theme, toggleTheme] = useTheme();
+  const assistant = useAssistant();
   const nav = useRef<HTMLElement>(null);
 
   // in a narrow window the tabs scroll: the one the person is in always stays in view
@@ -85,6 +87,7 @@ export function Shell({
             </div>
           </nav>
           <div className="topbar-tools">
+            {assistant && <IconButton variant="plain" icon="sparkles" label={es.assistant.open} aria-expanded={assistant.isOpen} onClick={assistant.toggle} />}
             <IconButton variant="plain" icon={theme === "dark" ? "sun" : "moon"} label={theme === "dark" ? es.nav.themeLight : es.nav.themeDark} onClick={toggleTheme} />
             <SettingsMenu items={more} current={page} onNavigate={onNavigate} />
             {access ? (
