@@ -29,35 +29,109 @@ fn list(v: Option<&Value>) -> Vec<String> {
     v.and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default()
 }
 
-/// The values of a form, read from the profile.
+fn number(v: Option<&Value>) -> Option<i64> {
+    v.and_then(Value::as_i64)
+}
+
+/// The values of a form, read from the profile. The data that live as details go by their id
+/// (`storage::DETAILS`); the older columns are named here one by one.
 fn values_of(id: &str, p: &ProfileInput) -> Values {
     let i = &p.institution;
     let a = i.attention.clone().unwrap_or_default();
     let mut v = Values::new();
-    if id == "institution.identity" {
-        v.insert("institution.name".into(), json!(i.name));
-        v.insert("institution.mission".into(), json!(i.mission));
-        v.insert("institution.populations".into(), json!(a.populations));
-        v.insert("institution.sex_served".into(), json!(a.sex_served));
-        v.insert("institution.modalities".into(), json!(a.modalities));
-        v.insert("institution.care_areas".into(), json!(a.care_areas));
+    let mut put = |field: &str, value: Value| {
+        v.insert(field.to_string(), value);
+    };
+    match id {
+        "institution.identity" => {
+            put("institution.name", json!(i.name));
+            put("institution.mission", json!(i.mission));
+            put("institution.populations", json!(a.populations));
+            put("institution.sex_served", json!(a.sex_served));
+            put("institution.modalities", json!(a.modalities));
+            put("institution.care_areas", json!(a.care_areas));
+        }
+        "institution.contact" => {
+            put("institution.contact_phone", json!(i.contact_phone));
+            put("institution.contact_email", json!(i.contact_email));
+            put("institution.state", json!(i.state));
+            put("institution.municipality", json!(i.municipality));
+        }
+        "institution.legal" => {
+            put("institution.legal_rfc", json!(i.legal_rfc));
+            put("institution.legal_rep_name", json!(i.legal_rep_name));
+            put("institution.legal_form", json!(i.legal_form));
+            put("institution.founded_year", json!(i.founded_year));
+            put("institution.authorized_donee", json!(i.authorized_donee));
+            put("institution.cluni", json!(i.cluni));
+        }
+        "institution.capacity" => {
+            put("institution.capacity_total", json!(p.capacity_total));
+            put("institution.served_estimate", json!(p.served_estimate));
+            put("institution.staff_paid_estimate", json!(p.staff_paid_estimate));
+            put("institution.staff_volunteer_estimate", json!(p.staff_volunteer_estimate));
+            put("institution.notes", json!(p.notes));
+        }
+        _ => {}
     }
-    v.retain(|_, x| !x.is_null());
+    if let (Some(spec), Some(details)) = (form(id), &i.details) {
+        for f in spec.fields().filter(|f| store::is_detail(f.id)) {
+            if let Some(x) = details.get(f.id) {
+                v.insert(f.id.to_string(), x.clone());
+            }
+        }
+    }
+    v.retain(|_, x| crate::common::forms::is_filled(Some(x)));
     v
 }
 
-/// Writes the values of a form into the profile.
+/// Writes the values of a form into the profile. A field of the form left empty is emptied; the fields of the other
+/// forms stay as they are.
 fn apply(id: &str, v: &Values, p: &mut ProfileInput) {
-    if id == "institution.identity" {
-        let i = &mut p.institution;
-        i.name = text(v.get("institution.name")).unwrap_or_default();
-        i.mission = text(v.get("institution.mission"));
-        i.attention = Some(Attention {
-            populations: list(v.get("institution.populations")),
-            sex_served: text(v.get("institution.sex_served")),
-            modalities: list(v.get("institution.modalities")),
-            care_areas: list(v.get("institution.care_areas")),
-        });
+    let i = &mut p.institution;
+    match id {
+        "institution.identity" => {
+            i.name = text(v.get("institution.name")).unwrap_or_default();
+            i.mission = text(v.get("institution.mission"));
+            i.attention = Some(Attention {
+                populations: list(v.get("institution.populations")),
+                sex_served: text(v.get("institution.sex_served")),
+                modalities: list(v.get("institution.modalities")),
+                care_areas: list(v.get("institution.care_areas")),
+            });
+        }
+        "institution.contact" => {
+            i.contact_phone = text(v.get("institution.contact_phone"));
+            i.contact_email = text(v.get("institution.contact_email"));
+            i.state = text(v.get("institution.state"));
+            i.municipality = text(v.get("institution.municipality"));
+        }
+        "institution.legal" => {
+            // the RFC goes in capitals, as the SAT writes it
+            i.legal_rfc = text(v.get("institution.legal_rfc")).map(|r| r.to_uppercase());
+            i.legal_rep_name = text(v.get("institution.legal_rep_name"));
+            i.legal_form = text(v.get("institution.legal_form"));
+            i.founded_year = number(v.get("institution.founded_year"));
+            i.authorized_donee = text(v.get("institution.authorized_donee"));
+            i.cluni = text(v.get("institution.cluni"));
+        }
+        "institution.capacity" => {
+            p.capacity_total = number(v.get("institution.capacity_total"));
+            p.served_estimate = number(v.get("institution.served_estimate"));
+            p.staff_paid_estimate = number(v.get("institution.staff_paid_estimate"));
+            p.staff_volunteer_estimate = number(v.get("institution.staff_volunteer_estimate"));
+            p.notes = text(v.get("institution.notes"));
+        }
+        _ => {}
+    }
+    if let Some(spec) = form(id) {
+        let details = p.institution.details.get_or_insert_with(Values::new);
+        for f in spec.fields().filter(|f| store::is_detail(f.id)) {
+            match v.get(f.id) {
+                Some(x) if crate::common::forms::is_filled(Some(x)) => details.insert(f.id.to_string(), x.clone()),
+                _ => details.remove(f.id),
+            };
+        }
     }
 }
 
@@ -162,6 +236,100 @@ mod tests {
         let p = saved(save(&mut c, "institution.identity", v, Some(Decision::Redact)).unwrap());
         assert_eq!(p.input.institution.attention.unwrap().sex_served, None, "it does not apply without populations");
         assert!(!p.input.institution.mission.unwrap().contains("maria.lopez"));
+    }
+
+    fn invalid(out: SaveProfileOutcome) -> Vec<(&'static str, String)> {
+        match out {
+            SaveProfileOutcome::Invalid { issues } => issues.into_iter().map(|i| (i.code, i.field)).collect(),
+            other => panic!("not refused: {other:?}"),
+        }
+    }
+
+    /// Each window of «Mi institución» saves its own fields, the new ones included, and leaves the others as they were.
+    #[test]
+    fn every_window_saves_its_fields_and_keeps_the_rest() {
+        let (_d, mut c) = conn();
+        let identity = values(json!({
+            "institution.name": "Asilo Ficticio", "institution.mission": "Cuidar.", "institution.populations": ["older_adults"],
+            "institution.modalities": ["residential"], "institution.age_min": 60, "institution.services": "Residencia y comedor.",
+        }));
+        saved(save(&mut c, "institution.identity", identity, None).unwrap());
+        let contact = values(json!({
+            "institution.contact_phone": "55 5555 0101", "institution.street": "Calle Ficticia", "institution.ext_number": "12",
+            "institution.postal_code": "45010", "institution.state": "jal", "institution.municipality": "Zapopan",
+        }));
+        saved(save(&mut c, "institution.contact", contact, None).unwrap());
+        let legal = values(json!({
+            "institution.legal_name": "Asilo Ficticio, I.A.P.", "institution.purpose": "La asistencia a personas mayores.",
+            "institution.legal_form": "iap", "institution.founded_year": 1987, "institution.junta_folio": "JAP-0001",
+            "institution.legal_rfc": "afi870101ab1", "institution.tax_regime": "non_profit", "institution.authorized_donee": "yes",
+            "institution.donee_category": "assistance", "institution.cluni": "no", "institution.cluni_key": "kept only with yes",
+        }));
+        saved(save(&mut c, "institution.legal", legal, None).unwrap());
+        let capacity = values(json!({ "institution.capacity_total": 25, "institution.served_estimate": 18, "institution.notes": "Notas." }));
+        let p = saved(save(&mut c, "institution.capacity", capacity, None).unwrap());
+
+        // every window kept what the others saved
+        let i = &p.input.institution;
+        assert_eq!((i.name.as_str(), i.contact_phone.as_deref(), i.legal_rfc.as_deref()), ("Asilo Ficticio", Some("55 5555 0101"), Some("AFI870101AB1")));
+        assert_eq!((p.input.capacity_total, p.input.served_estimate), (Some(25), Some(18)));
+        let d = i.details.as_ref().unwrap();
+        assert_eq!(d["institution.age_min"], json!(60));
+        assert_eq!(d["institution.street"], json!("Calle Ficticia"));
+        assert_eq!(d["institution.junta_folio"], json!("JAP-0001"));
+        assert!(!d.contains_key("institution.cluni_key"), "it does not apply without a CLUNI");
+
+        // what each window shows, and what is still missing in it
+        assert!(get(&c, "institution.legal").unwrap().missing.is_empty());
+        let contact = get(&c, "institution.contact").unwrap();
+        assert_eq!(contact.values["institution.postal_code"], json!("45010"));
+        assert!(contact.missing.is_empty());
+        assert_eq!(get(&c, "institution.identity").unwrap().values["institution.services"], json!("Residencia y comedor."));
+
+        // emptying a field of a window empties it, and only that one
+        let contact = values(json!({ "institution.state": "jal", "institution.municipality": "Zapopan", "institution.street": "Calle Ficticia" }));
+        saved(save(&mut c, "institution.contact", contact, None).unwrap());
+        assert_eq!(get(&c, "institution.contact").unwrap().missing, vec!["institution.postal_code"]);
+        assert_eq!(get(&c, "institution.legal").unwrap().values["institution.junta_folio"], json!("JAP-0001"));
+        assert_eq!(get(&c, "institution.identity").unwrap().values["institution.age_min"], json!(60));
+    }
+
+    #[test]
+    fn a_wrong_postal_code_rfc_date_or_age_range_is_refused() {
+        let (_d, mut c) = conn();
+        saved(save(&mut c, "institution.identity", values(json!({ "institution.name": "Casa" })), None).unwrap());
+        assert_eq!(invalid(save(&mut c, "institution.contact", values(json!({ "institution.postal_code": "4501" })), None).unwrap()), vec![("postal_code_invalid", "institution.postal_code".into())]);
+        let legal = values(json!({ "institution.legal_rfc": "AFI870101AB12", "institution.authorized_donee": "yes", "institution.donee_letter_date": "2023-02-30" }));
+        assert_eq!(
+            invalid(save(&mut c, "institution.legal", legal, None).unwrap()),
+            vec![("rfc_moral_invalid", "institution.legal_rfc".into()), ("date_invalid", "institution.donee_letter_date".into())]
+        );
+        let ages = values(json!({ "institution.name": "Casa", "institution.populations": ["adults"], "institution.age_min": 70, "institution.age_max": 30 }));
+        assert_eq!(invalid(save(&mut c, "institution.identity", ages, None).unwrap()), vec![("age_range", "institution.age_max".into())]);
+    }
+
+    /// The folio of the Junta is asked only of the legal forms a Junta watches over.
+    #[test]
+    fn the_junta_is_asked_only_of_an_iap_ibp_or_abp() {
+        let (_d, mut c) = conn();
+        saved(save(&mut c, "institution.identity", values(json!({ "institution.name": "Casa" })), None).unwrap());
+        let ac = values(json!({ "institution.legal_form": "ac", "institution.junta_folio": "JAP-1" }));
+        saved(save(&mut c, "institution.legal", ac, None).unwrap());
+        let view = get(&c, "institution.legal").unwrap();
+        assert!(!view.missing.contains(&"institution.junta_folio") && !view.values.contains_key("institution.junta_folio"));
+        saved(save(&mut c, "institution.legal", values(json!({ "institution.legal_form": "iap" })), None).unwrap());
+        assert!(get(&c, "institution.legal").unwrap().missing.contains(&"institution.junta_folio"));
+    }
+
+    /// The long texts that may reach the AI go through the scanner; the address, folios and keys do not.
+    #[test]
+    fn the_objeto_social_goes_through_the_scanner_and_the_address_does_not() {
+        let (_d, mut c) = conn();
+        saved(save(&mut c, "institution.identity", values(json!({ "institution.name": "Casa" })), None).unwrap());
+        let legal = values(json!({ "institution.purpose": "Escribir a maria.lopez@example.com" }));
+        assert!(matches!(save(&mut c, "institution.legal", legal, None).unwrap(), SaveProfileOutcome::Quarantine { .. }));
+        let contact = values(json!({ "institution.street": "Calle de María López", "institution.contact_email": "contacto@casa.org" }));
+        saved(save(&mut c, "institution.contact", contact, None).unwrap());
     }
 
     #[test]

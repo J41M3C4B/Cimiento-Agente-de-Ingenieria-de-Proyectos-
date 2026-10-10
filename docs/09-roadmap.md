@@ -220,6 +220,10 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
   - En Ayuda, «Buscar en el manual» (FTS5 sin acentos, migración 0023) funciona sin conexión.
   - El principio 1 se amplía como dice el ADR-034 §6.
 - [ ] **N3** Datos nuevos de «Mi institución» en el catálogo, patronato, cuentas, origen por campo, historial ligero; ejemplo I.A.P.
+  - [x] **N3a** Las ventanas de «Mi institución» en el catálogo, con los datos nuevos (2026-10-10): «Contacto y ubicación», «Datos legales y fiscales» y «Capacidad y cifras rápidas» se describen en `core/institution/forms.rs` y se dibujan con `FormWindow`, como «Su institución»; se borraron `ProfileEdit` y `profileForm`. Datos nuevos (migración 0024): nombre legal, objeto social, servicios, edades y criterios de ingreso, domicilio, régimen fiscal y su código postal, folio ante la Junta (solo I.A.P., I.B.P., A.B.P.), rubro, número y fecha del oficio de donataria, clave CLUNI y vigencia del poder. Reglas con nombre en `common/forms` (código postal, RFC de persona moral) y fechas que existen. Lo que falta y el porcentaje cuentan los obligatorios de las cuatro ventanas. La ficha de la IA lleva solo lo permitido por el catálogo; el escáner revisa los textos largos que llegan a la IA, no el domicilio ni los folios. Cada campo tiene su entrada en el manual.
+  - [ ] **N3b** Origen por campo y `core_change` (historial).
+  - [ ] **N3c** Patronato y cuentas bancarias de la institución.
+  - [ ] **N3d** `core_snapshot` (foto mensual) y ejemplo I.A.P.
 - [ ] **IA3–IA4** Asistente en toda la app y Capturista.
 - [ ] **N4** Expediente (`core_record`) y subir PDF y Word.
 - [ ] **IA5–IA6** Embeddings guardados, búsqueda híbrida y Lector de documentos.

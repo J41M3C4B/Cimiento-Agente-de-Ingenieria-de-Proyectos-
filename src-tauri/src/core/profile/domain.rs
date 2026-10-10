@@ -117,6 +117,10 @@ pub struct InstitutionInput {
     /// Whom and how it serves (ADR-033 §2). `None` when the screen did not send it: what is saved stays.
     #[serde(default)]
     pub attention: Option<Attention>,
+    /// The data kept as fields of the catalog (ADR-033 §1), by field id (`institution.legal_name`); the columns are
+    /// in `storage::DETAILS`. `None` when the screen did not send them: what is saved stays.
+    #[serde(default)]
+    pub details: Option<crate::common::forms::Values>,
 }
 
 /// The attention profile: codes of `institution::catalog`. It reaches the AI (nothing in it is personal).
@@ -378,6 +382,14 @@ impl ProfileInput {
             }
         }
         let inst = &self.institution;
+        if let Some(d) = &inst.details {
+            let age = |id: &str| d.get(id).and_then(serde_json::Value::as_i64);
+            if let (Some(min), Some(max)) = (age("institution.age_min"), age("institution.age_max")) {
+                if min > max {
+                    add("age_range", "institution.age_max".into(), true);
+                }
+            }
+        }
         if inst.founded_year.is_some_and(|y| !(crate::core::institution::catalog::OLDEST_YEAR..=year).contains(&y)) {
             add("year_invalid", "institution.founded_year".into(), true);
         }
@@ -499,6 +511,15 @@ impl ProfileInput {
         }
         opt("institution.mission", &mut self.institution.mission, f);
         opt("institution.municipality", &mut self.institution.municipality, f);
+        // the long texts of the catalog that may reach the AI (objeto social, services, admission); the address, the
+        // folios and the keys are the institution's own and are not scanned, like its contact
+        if let Some(d) = &mut self.institution.details {
+            for id in scanned_details() {
+                if let Some(serde_json::Value::String(text)) = d.get_mut(id) {
+                    f(id, text);
+                }
+            }
+        }
         opt("notes", &mut self.notes, f);
         for (i, g) in self.population.iter_mut().enumerate() {
             f(&format!("population[{i}].label"), &mut g.label);
@@ -510,6 +531,16 @@ impl ProfileInput {
             opt(&format!("staff[{i}].notes"), &mut s.notes, f);
         }
     }
+}
+
+/// The fields kept as details that the scanner reads before saving: the long texts that may reach the AI.
+fn scanned_details() -> impl Iterator<Item = &'static str> {
+    use crate::common::forms::{AiUse, FieldKind};
+    crate::core::institution::forms::FORMS
+        .iter()
+        .flat_map(|f| f.fields())
+        .filter(|f| f.kind == FieldKind::LongText && f.ai != AiUse::Never && crate::core::profile::storage::is_detail(f.id))
+        .map(|f| f.id)
 }
 
 #[cfg(test)]

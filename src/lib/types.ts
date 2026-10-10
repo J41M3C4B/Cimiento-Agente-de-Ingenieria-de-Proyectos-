@@ -20,6 +20,8 @@ export interface InstitutionInput {
   cluni: string | null;
   /** Whom and how it serves (ADR-033); left out when a window does not edit it, so what is saved stays. */
   attention?: Attention | null;
+  /** The data kept as fields of the catalog (ADR-033), by field id: legal name, address, fiscal data… */
+  details?: Record<string, FormValue> | null;
 }
 /** The attention profile: codes of `core::institution::catalog`. */
 export interface Attention {

@@ -131,6 +131,15 @@ CREATE TABLE income_source (
 --              (women|men|all). `kind` se deduce de populations (solo personas mayores = elderly_home; solo menores =
 --              children_home; mixto = other); los datos anteriores se trasladaron desde su kind.
 
+-- Datos nuevos de «Mi institución» (ADR-033 N3a, migración 0024), cada uno un campo del catálogo de
+-- core::institution::forms; storage::DETAILS dice su columna y viajan por id en InstitutionInput.details.
+-- institution  legal_name, purpose (objeto social), services, age_min, age_max, admission_criteria;
+--              street, ext_number, int_number, neighborhood, postal_code (domicilio, nunca a la IA);
+--              tax_regime (non_profit|general|other), fiscal_postal_code, junta_folio (solo I.A.P., I.B.P., A.B.P.),
+--              donee_category (rubro), donee_letter_number, donee_letter_date, cluni_key, legal_rep_valid_until.
+--              A la IA llegan el nombre legal, el objeto social, los servicios, las edades, los criterios, el
+--              régimen y el rubro; de la Junta, solo que está registrada. Nunca el domicilio, el RFC, folios ni claves.
+
 -- Módulo de Instalaciones (ADR-030, migración 0018; elimina facility).
 -- fac_site       un inmueble (la pantalla maneja uno): name, land_m2, built_m2, floors, floor_access JSON
 --                (ramp|elevator|stair_lift|none), built_year, tenure (own|loan|rent|borrowed|other), tenure_until,

@@ -59,6 +59,16 @@ pub enum AiUse {
     Never,
 }
 
+/// A check of a text with a name, beyond its kind: the code says what is wrong (ADR-033 §1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Rule {
+    /// Five digits.
+    PostalCode,
+    /// The RFC of an organization (persona moral): three letters, the date it was set up and three characters.
+    RfcMoral,
+}
+
 /// When a field applies. A field that does not apply is not shown, not asked and not kept.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(tag = "when", rename_all = "snake_case")]
@@ -87,12 +97,13 @@ pub struct FieldSpec {
     pub used_by: &'static [&'static str],
     pub min: Option<i64>,
     pub max: Option<i64>,
+    pub rule: Option<Rule>,
 }
 
 impl FieldSpec {
     /// A field that applies always, is public, may reach the AI as it is and is not required.
     pub const fn new(id: &'static str, kind: FieldKind) -> Self {
-        FieldSpec { id, kind, options: &[], required: false, applies_when: Condition::Always, sensitivity: Sensitivity::Public, ai: AiUse::AsIs, used_by: &[], min: None, max: None }
+        FieldSpec { id, kind, options: &[], required: false, applies_when: Condition::Always, sensitivity: Sensitivity::Public, ai: AiUse::AsIs, used_by: &[], min: None, max: None, rule: None }
     }
     pub const fn options(mut self, options: &'static [&'static str]) -> Self {
         self.options = options;
@@ -118,6 +129,10 @@ impl FieldSpec {
     pub const fn range(mut self, min: i64, max: i64) -> Self {
         self.min = Some(min);
         self.max = Some(max);
+        self
+    }
+    pub const fn rule(mut self, rule: Rule) -> Self {
+        self.rule = Some(rule);
         self
     }
 }
@@ -243,8 +258,50 @@ pub fn problem(f: &FieldSpec, v: &Value) -> Option<&'static str> {
             None => Some("wrong_type"),
         },
         FieldKind::YesNo => v.as_bool().map_or(Some("wrong_type"), |_| None),
-        FieldKind::Text | FieldKind::LongText | FieldKind::Email | FieldKind::Phone | FieldKind::Date => v.as_str().map_or(Some("wrong_type"), |_| None),
+        FieldKind::Date => match v.as_str() {
+            Some(s) if is_date(s.trim()) => None,
+            Some(_) => Some("date_invalid"),
+            None => Some("wrong_type"),
+        },
+        FieldKind::Text | FieldKind::LongText | FieldKind::Email | FieldKind::Phone => match (v.as_str(), f.rule) {
+            (None, _) => Some("wrong_type"),
+            (Some(s), Some(Rule::PostalCode)) if !is_postal_code(s.trim()) => Some("postal_code_invalid"),
+            (Some(s), Some(Rule::RfcMoral)) if !is_rfc_moral(s.trim()) => Some("rfc_moral_invalid"),
+            _ => None,
+        },
     }
+}
+
+/// `YYYY-MM-DD`, a day that exists.
+pub fn is_date(s: &str) -> bool {
+    let b = s.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return false;
+    }
+    let num = |r: std::ops::Range<usize>| s.get(r).filter(|x| x.bytes().all(|c| c.is_ascii_digit())).and_then(|x| x.parse::<u32>().ok());
+    let (Some(y), Some(m), Some(d)) = (num(0..4), num(5..7), num(8..10)) else { return false };
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let days = match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    y >= 1800 && (1..=days).contains(&d)
+}
+
+pub fn is_postal_code(s: &str) -> bool {
+    s.len() == 5 && s.bytes().all(|c| c.is_ascii_digit())
+}
+
+/// Three letters (Ñ and & count), the date `YYMMDD` and a check of three letters or digits. Upper or lower case.
+pub fn is_rfc_moral(s: &str) -> bool {
+    let c: Vec<char> = s.to_uppercase().chars().collect();
+    c.len() == 12
+        && c[..3].iter().all(|x| x.is_ascii_uppercase() || *x == 'Ñ' || *x == '&')
+        && is_date(&format!("20{}-{}-{}", c[3..5].iter().collect::<String>(), c[5..7].iter().collect::<String>(), c[7..9].iter().collect::<String>()))
+        && c[9..].iter().all(|x| x.is_ascii_uppercase() || x.is_ascii_digit())
 }
 
 #[cfg(test)]
@@ -266,6 +323,9 @@ mod tests {
                 FieldSpec::new("people", FieldKind::Number).range(0, 100),
                 FieldSpec::new("year", FieldKind::Year).range(1800, 2026),
                 FieldSpec::new("secret", FieldKind::Text).sensitivity(Sensitivity::InstitutionalPrivate, AiUse::Never),
+                FieldSpec::new("zip", FieldKind::Text).rule(Rule::PostalCode),
+                FieldSpec::new("rfc", FieldKind::Text).rule(Rule::RfcMoral),
+                FieldSpec::new("since", FieldKind::Date),
             ],
         }],
     };
@@ -303,6 +363,33 @@ mod tests {
         let wrong = values(json!({ "name": 3, "kinds": ["a", "a"], "people": -1, "main": "z" }));
         let codes: Vec<_> = FORM.validate(&wrong).into_iter().map(|i| (i.field, i.code)).collect();
         assert_eq!(codes, vec![("name", "wrong_type"), ("kinds", "repeated"), ("main", "code_unknown"), ("people", "negative_number")]);
+    }
+
+    #[test]
+    fn a_rule_and_a_date_check_the_text() {
+        let ok = values(json!({ "name": "Casa", "kinds": ["a"], "zip": "06700", "rfc": "abc010203xy9", "since": "2024-02-29" }));
+        assert!(FORM.validate(&ok).is_empty(), "{:?}", FORM.validate(&ok));
+        let bad = values(json!({ "name": "Casa", "kinds": ["a"], "zip": "0670", "rfc": "ABC0102031", "since": "2023-02-29" }));
+        let codes: Vec<_> = FORM.validate(&bad).into_iter().map(|i| (i.field, i.code)).collect();
+        assert_eq!(codes, vec![("zip", "postal_code_invalid"), ("rfc", "rfc_moral_invalid"), ("since", "date_invalid")]);
+    }
+
+    #[test]
+    fn dates_postal_codes_and_rfc_of_an_organization() {
+        for good in ["2026-10-09", "2000-02-29", "1800-01-01"] {
+            assert!(is_date(good), "{good}");
+        }
+        for bad in ["2026-13-01", "2026-04-31", "1900-02-29", "26-10-09", "2026/10/09", "2026-1-09", "1799-12-31", ""] {
+            assert!(!is_date(bad), "{bad}");
+        }
+        assert!(is_postal_code("01000") && !is_postal_code("1000") && !is_postal_code("0100A") && !is_postal_code("010000"));
+        for good in ["ABC010203XY9", "AÑ&991231AB1", "abc010203xy9"] {
+            assert!(is_rfc_moral(good), "{good}");
+        }
+        // a person's RFC has 13 characters; a wrong date or a sign does not pass
+        for bad in ["ABCD010203XY9", "ABC011303XY9", "AB1010203XY9", "ABC010203XY-", ""] {
+            assert!(!is_rfc_moral(bad), "{bad}");
+        }
     }
 
     #[test]

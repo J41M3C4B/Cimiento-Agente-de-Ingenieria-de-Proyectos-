@@ -10,6 +10,74 @@ use serde::Serialize;
 use serde_json::json;
 use ulid::Ulid;
 
+/// The data of the institution kept as fields of the catalog (ADR-033 §1): field id → its column of `institution`.
+/// The forms read and write them by id (`InstitutionInput::details`); no screen maps them one by one.
+pub const DETAILS: &[(&str, &str)] = &[
+    ("institution.legal_name", "legal_name"),
+    ("institution.purpose", "purpose"),
+    ("institution.services", "services"),
+    ("institution.age_min", "age_min"),
+    ("institution.age_max", "age_max"),
+    ("institution.admission_criteria", "admission_criteria"),
+    ("institution.street", "street"),
+    ("institution.ext_number", "ext_number"),
+    ("institution.int_number", "int_number"),
+    ("institution.neighborhood", "neighborhood"),
+    ("institution.postal_code", "postal_code"),
+    ("institution.tax_regime", "tax_regime"),
+    ("institution.fiscal_postal_code", "fiscal_postal_code"),
+    ("institution.junta_folio", "junta_folio"),
+    ("institution.donee_category", "donee_category"),
+    ("institution.donee_letter_number", "donee_letter_number"),
+    ("institution.donee_letter_date", "donee_letter_date"),
+    ("institution.cluni_key", "cluni_key"),
+    ("institution.legal_rep_valid_until", "legal_rep_valid_until"),
+];
+
+pub fn is_detail(field: &str) -> bool {
+    DETAILS.iter().any(|(id, _)| *id == field)
+}
+
+/// The details as they are saved: a text or a whole number by field id; what is empty is left out.
+fn load_details(conn: &Connection) -> Result<crate::common::forms::Values, StorageError> {
+    use rusqlite::types::ValueRef;
+    let cols: Vec<&str> = DETAILS.iter().map(|(_, c)| *c).collect();
+    let found = conn
+        .query_row(&format!("SELECT {} FROM institution LIMIT 1", cols.join(", ")), [], |r| {
+            let mut v = crate::common::forms::Values::new();
+            for (n, (id, _)) in DETAILS.iter().enumerate() {
+                match r.get_ref(n)? {
+                    ValueRef::Text(t) => {
+                        v.insert(id.to_string(), json!(String::from_utf8_lossy(t)));
+                    }
+                    ValueRef::Integer(i) => {
+                        v.insert(id.to_string(), json!(i));
+                    }
+                    _ => {}
+                }
+            }
+            Ok(v)
+        })
+        .optional()?;
+    Ok(found.unwrap_or_default())
+}
+
+/// Writes every detail: what the values do not carry is emptied (a form sends all of its fields).
+fn save_details(tx: &rusqlite::Transaction<'_>, institution_id: &str, details: &crate::common::forms::Values) -> Result<(), StorageError> {
+    use rusqlite::types::Value as Sql;
+    let sets: Vec<String> = DETAILS.iter().enumerate().map(|(n, (_, c))| format!("{c}=?{}", n + 2)).collect();
+    let mut values: Vec<Sql> = vec![Sql::Text(institution_id.to_string())];
+    for (id, _) in DETAILS {
+        values.push(match details.get(*id) {
+            Some(serde_json::Value::String(s)) if !s.trim().is_empty() => Sql::Text(s.trim().to_string()),
+            Some(serde_json::Value::Number(n)) => n.as_i64().map_or(Sql::Null, Sql::Integer),
+            _ => Sql::Null,
+        });
+    }
+    tx.execute(&format!("UPDATE institution SET {} WHERE id=?1", sets.join(", ")), rusqlite::params_from_iter(values))?;
+    Ok(())
+}
+
 fn id(prefix: &str) -> String {
     format!("{prefix}_{}", Ulid::generate())
 }
@@ -83,6 +151,7 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
                             modalities: codes(r.get(24)?),
                             care_areas: codes(r.get(25)?),
                         }),
+                        details: None,
                     },
                     r.get::<_, String>(8)?,
                     r.get::<_, i64>(9)?,
@@ -94,11 +163,12 @@ pub fn load_current(conn: &Connection) -> Result<Option<StoredProfile>, StorageE
             },
         )
         .optional()?;
-    let Some((institution_id, institution, profile_id, version, confirmed_at, capacity_total, notes, [served_estimate, staff_paid_estimate, staff_volunteer_estimate])) =
+    let Some((institution_id, mut institution, profile_id, version, confirmed_at, capacity_total, notes, [served_estimate, staff_paid_estimate, staff_volunteer_estimate])) =
         head
     else {
         return Ok(None);
     };
+    institution.details = Some(load_details(conn)?);
 
     let population = conn
         .prepare("SELECT label, age_min, age_max, count, dependency_level, notes, paying_count, monthly_fee_mxn FROM population_group WHERE profile_id = ?1 ORDER BY rowid")?
@@ -197,6 +267,10 @@ pub fn save(conn: &mut Connection, input: &ProfileInput) -> Result<StoredProfile
             iid
         }
     };
+
+    if let Some(details) = &inst.details {
+        save_details(&tx, &institution_id, details)?;
+    }
 
     let latest: Option<(String, i64, Option<String>)> = tx
         .query_row(

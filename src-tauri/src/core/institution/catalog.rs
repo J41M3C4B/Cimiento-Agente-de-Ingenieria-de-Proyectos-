@@ -43,6 +43,21 @@ pub const LEGAL_FORMS: &[&str] = &["ac", "iap", "ibp", "sc", "abp", "religious",
 /// Answers for «donataria autorizada» and «CLUNI».
 pub const REGISTRY: &[&str] = &["yes", "in_progress", "no"];
 pub const OLDEST_YEAR: i64 = 1800;
+/// The codes of `STATES`, in the same order (the options of a select).
+pub const STATE_CODES: &[&str] = &[
+    "ags", "bc", "bcs", "camp", "coah", "col", "chis", "chih", "cdmx", "dgo", "gto", "gro", "hgo", "jal", "mex", "mich", "mor",
+    "nay", "nl", "oax", "pue", "qro", "qroo", "slp", "sin", "son", "tab", "tamps", "tlax", "ver", "yuc", "zac",
+];
+/// The legal forms watched over by the Junta de Asistencia (o Beneficencia) Privada of their state.
+pub const UNDER_A_JUNTA: &[&str] = &["iap", "ibp", "abp"];
+/// The tax regime of the institution (its constancia de situación fiscal): personas morales con fines no
+/// lucrativos (603), régimen general de ley (601), or another.
+pub const TAX_REGIMES: &[&str] = &["non_profit", "general", "other"];
+/// The activity an authorized donee is authorized for (rubro autorizado, Ley del ISR art. 79 and 82).
+pub const DONEE_CATEGORIES: &[&str] = &[
+    "assistance", "education", "research", "culture", "scholarships", "ecology", "species", "support_donees", "public_works",
+    "libraries", "museums", "social_development",
+];
 /// The most people a quick figure may say.
 pub const MAX_ESTIMATE: i64 = 100_000;
 
@@ -90,6 +105,12 @@ pub fn attention_of_kind(kind: &str) -> (&'static [&'static str], &'static [&'st
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_state_codes_are_the_states() {
+        assert_eq!(STATE_CODES.len(), STATES.len());
+        assert!(STATES.iter().zip(STATE_CODES).all(|((c, _), code)| c == code));
+    }
 
     fn v(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()

@@ -507,10 +507,74 @@ fn render_attention(s: &mut String, attention: Option<&crate::core::profile::dom
     }
 }
 
-/// Where the institution is and what it is, legally (ADR-031): most calls filter by these. None of it is personal.
+/// A datum kept as a field of the catalog (ADR-033), if it may reach the AI and is written. A field the catalog
+/// keeps from the AI never comes out of here, whatever the caller asks.
+fn detail<'a>(inst: &'a crate::core::profile::domain::InstitutionInput, id: &str) -> Option<&'a serde_json::Value> {
+    use crate::common::forms::AiUse;
+    let allowed = crate::core::institution::forms::FORMS.iter().find_map(|f| f.field(id)).is_some_and(|f| f.ai != AiUse::Never);
+    inst.details.as_ref().and_then(|d| d.get(id)).filter(|v| allowed && crate::common::forms::is_filled(Some(v)))
+}
+
+fn detail_text<'a>(inst: &'a crate::core::profile::domain::InstitutionInput, id: &str) -> Option<&'a str> {
+    detail(inst, id).and_then(serde_json::Value::as_str).map(str::trim)
+}
+
+fn tax_regime_text(code: &str) -> &'static str {
+    match code {
+        "non_profit" => "persona moral con fines no lucrativos",
+        "general" => "régimen general de ley",
+        _ => "otro",
+    }
+}
+
+fn donee_category_text(code: &str) -> &'static str {
+    match code {
+        "assistance" => "asistencial",
+        "education" => "educativa",
+        "research" => "investigación científica o tecnológica",
+        "culture" => "cultural",
+        "scholarships" => "becante",
+        "ecology" => "ecológica",
+        "species" => "protección de especies en peligro",
+        "support_donees" => "apoyo económico a otras donatarias",
+        "public_works" => "obras o servicios públicos",
+        "libraries" => "bibliotecas privadas",
+        "museums" => "museos privados",
+        _ => "desarrollo social",
+    }
+}
+
+/// Whom it takes in, beyond whom it serves: the ages, the services and the rules of admission (ADR-033).
+fn render_admission(s: &mut String, inst: &crate::core::profile::domain::InstitutionInput) {
+    let age = |id| detail(inst, id).and_then(serde_json::Value::as_i64);
+    match (age("institution.age_min"), age("institution.age_max")) {
+        (Some(a), Some(b)) => s.push_str(&format!("Edades que recibe: de {a} a {b} años.\n")),
+        (Some(a), None) => s.push_str(&format!("Edades que recibe: desde {a} años.\n")),
+        (None, Some(b)) => s.push_str(&format!("Edades que recibe: hasta {b} años.\n")),
+        (None, None) => {}
+    }
+    if let Some(x) = detail_text(inst, "institution.services") {
+        s.push_str(&format!("Servicios o programas: {x}\n"));
+    }
+    if let Some(x) = detail_text(inst, "institution.admission_criteria") {
+        s.push_str(&format!("Criterios de ingreso: {x}\n"));
+    }
+}
+
+/// Where the institution is and what it is, legally (ADR-031): most calls filter by these. None of it is personal:
+/// the address, the RFC, the folios and the keys never come here.
 fn render_identity(s: &mut String, inst: &crate::core::profile::domain::InstitutionInput, year: i64, missing: &mut Vec<&str>) {
-    use crate::core::institution::catalog::state_name;
+    use crate::core::institution::catalog::{state_name, UNDER_A_JUNTA};
+    match detail_text(inst, "institution.legal_name") {
+        Some(n) => s.push_str(&format!("Nombre legal: {n}.\n")),
+        None => missing.push("el nombre legal"),
+    }
+    match detail_text(inst, "institution.purpose") {
+        Some(p) => s.push_str(&format!("Objeto social (lo que dicen sus estatutos): {p}\n")),
+        None => missing.push("el objeto social"),
+    }
     render_attention(s, inst.attention.as_ref(), missing);
+    render_admission(s, inst);
     let state = inst.state.as_deref().and_then(state_name);
     match (text(&inst.municipality), state) {
         (Some(m), Some(st)) => s.push_str(&format!("Ubicación: {m}, {st}.\n")),
@@ -544,9 +608,27 @@ fn render_identity(s: &mut String, inst: &crate::core::profile::domain::Institut
         Some("no") => Some("no"),
         _ => None,
     };
+    if inst.legal_form.as_deref().is_some_and(|f| UNDER_A_JUNTA.contains(&f)) {
+        // that it is registered, never its folio
+        let registered = inst.details.as_ref().is_some_and(|d| crate::common::forms::is_filled(d.get("institution.junta_folio")));
+        if registered {
+            s.push_str("Registrada ante la Junta de Asistencia Privada de su estado.\n");
+        } else {
+            missing.push("su registro ante la Junta de Asistencia Privada");
+        }
+    }
+    match detail_text(inst, "institution.tax_regime") {
+        Some(r) => s.push_str(&format!("Régimen fiscal: {}.\n", tax_regime_text(r))),
+        None => missing.push("el régimen fiscal"),
+    }
     match registry(&inst.authorized_donee) {
         Some(w) => s.push_str(&format!("Donataria autorizada por el SAT: {w}.\n")),
         None => missing.push("si es donataria autorizada"),
+    }
+    if inst.authorized_donee.as_deref() == Some("yes") {
+        if let Some(c) = detail_text(inst, "institution.donee_category") {
+            s.push_str(&format!("Rubro autorizado como donataria: {}.\n", donee_category_text(c)));
+        }
     }
     match registry(&inst.cluni) {
         Some(w) => s.push_str(&format!("CLUNI (registro federal de organizaciones de la sociedad civil): {w}.\n")),
@@ -774,6 +856,27 @@ pub(crate) mod tests {
                 legal_form: Some("ac".into()),
                 authorized_donee: Some("yes".into()),
                 cluni: Some("no".into()),
+                details: Some(
+                    serde_json::from_value(serde_json::json!({
+                        "institution.legal_name": "Asilo Ficticio, A.C.",
+                        "institution.purpose": "Dar asistencia a personas mayores sin familia.",
+                        "institution.services": "Residencia, comedor y terapia física.",
+                        "institution.age_min": 60,
+                        "institution.age_max": 95,
+                        "institution.admission_criteria": "Personas mayores que no pueden vivir solas.",
+                        "institution.tax_regime": "non_profit",
+                        "institution.donee_category": "assistance",
+                        // the institution's own: never to the AI
+                        "institution.street": "Avenida Escondida",
+                        "institution.ext_number": "4321",
+                        "institution.postal_code": "45010",
+                        "institution.fiscal_postal_code": "45011",
+                        "institution.donee_letter_number": "600-04-02-777",
+                        "institution.donee_letter_date": "2015-05-04",
+                        "institution.legal_rep_valid_until": "2030-01-31",
+                    }))
+                    .unwrap(),
+                ),
                 ..Default::default()
             },
             capacity_total: Some(25),
@@ -959,6 +1062,13 @@ pub(crate) mod tests {
         "Hallazgo: 3 de 3 baños no tienen barras de apoyo.",
         "Hallazgo: Hay 20 camas para 12 personas atendidas y una capacidad de 25.",
         "Notas de la institución: Perfil ficticio para pruebas.",
+        "Nombre legal: Asilo Ficticio, A.C.",
+        "Objeto social (lo que dicen sus estatutos): Dar asistencia a personas mayores sin familia.",
+        "Edades que recibe: de 60 a 95 años.",
+        "Servicios o programas: Residencia, comedor y terapia física.",
+        "Criterios de ingreso: Personas mayores que no pueden vivir solas.",
+        "Régimen fiscal: persona moral con fines no lucrativos.",
+        "Rubro autorizado como donataria: asistencial.",
     ];
 
     #[test]
@@ -1015,12 +1125,28 @@ pub(crate) mod tests {
         }
         assert!(!ctx.contains("Cuotas aprox."), "a fee estimate left out of the sums is not shown either:\n{ctx}");
         // pay, the fee a person pays, contact data, RFC and the representative; names and identifiers of the staff
-        for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante", "Secreta", "Oculta", "HEGG", "Reservada", "Privada", "Callada", "Discreto"] {
+        for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante", "Secreta", "Oculta", "HEGG", "Reservada", "Privada", "Callada", "Discreto",
+                       "Escondida", "4321", "45010", "45011", "600-04", "2015", "2030"] {
             assert!(!ctx.contains(secret), "«{secret}» leaked:\n{ctx}");
         }
         // the age of a group of one person would be that person's age
         assert!(ctx.contains("Población: Hombres de 90 años o más — 1 persona."), "{ctx}");
         assert!(!ctx.contains("93"), "{ctx}");
+    }
+
+    /// An I.A.P. says it is registered before its Junta, never the folio; without the folio, the registry is missing.
+    #[test]
+    fn the_junta_is_said_without_its_folio() {
+        let mut p = rich();
+        p.institution.legal_form = Some("iap".into());
+        let (_d, c) = saved(&p, true);
+        let ctx = profile_context(&c).unwrap();
+        assert!(ctx.contains("No capturado en «Mi institución»: su registro ante la Junta de Asistencia Privada."), "{ctx}");
+        p.institution.details.as_mut().unwrap().insert("institution.junta_folio".into(), serde_json::json!("JAP-FOLIO-99"));
+        let (_d, c) = saved(&p, true);
+        let ctx = profile_context(&c).unwrap();
+        assert!(ctx.contains("Registrada ante la Junta de Asistencia Privada de su estado."), "{ctx}");
+        assert!(!ctx.contains("JAP-FOLIO") && !ctx.contains("No capturado"), "{ctx}");
     }
 
     #[test]

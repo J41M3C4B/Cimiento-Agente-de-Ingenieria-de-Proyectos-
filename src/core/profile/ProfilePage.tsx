@@ -5,18 +5,13 @@ import { Alert, Button, Card, Eyebrow, FactRow, Facts, Inset, Status, TextButton
 import type { Page } from "../../components/Shell";
 import { ModuleCard } from "../../components/ModuleCard";
 import type { ModuleId } from "../../components/modules";
-import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
-import { devLoadFixture, profileGet, profileSave, toAppError } from "../../lib/tauri";
-import type { Decision, ProfileInput, ProfileIssue, QuarantineReport } from "../../lib/types";
+import { devLoadFixture, profileGet, toAppError } from "../../lib/tauri";
+import type { FormValue } from "../../lib/types";
 import { CapacityCard } from "./CapacityCard";
-import { ProfileEdit } from "./ProfileEdit";
 import { FormWindow } from "./FormWindow";
-import type { Edit } from "./ProfileEdit";
-import { toInput } from "./profileForm";
 import { fromOverview, OVERVIEW_KEY, useOverview } from "./gaps";
 import type { Where } from "./gaps";
-import { ONBOARDING_KEY } from "../onboarding/api";
 import { FINANCE_KEY } from "../../modules/finance/api";
 import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { CARE_KEY } from "../../modules/care/CareTab";
@@ -29,6 +24,28 @@ const peso = (n: number) => `$${count(n)}`;
 /** The codes of a field in words, as its form names them («Niñez, Adolescencia»). */
 const codesText = (field: string, codes?: string[] | null) =>
   codes?.length ? codes.map((c) => es.forms.fields[field]?.options?.[c] ?? c).join(", ") : null;
+/** The label of a field of the catalog. */
+const labelOf = (field: string) => es.forms.fields[field]?.label ?? field;
+
+/** The windows of «Mi institución»: each one is a form described in Rust (ADR-033). */
+type Edit = { kind: "institution" | "contact" | "legal" | "capacity" };
+const FORM_OF: Record<Edit["kind"], string> = {
+  institution: "institution.identity",
+  contact: "institution.contact",
+  legal: "institution.legal",
+  capacity: "institution.capacity",
+};
+
+/** A datum kept by the catalog, in words: a code by its label, a date as people write it. Empty is `null`. */
+function detailText(details: Record<string, FormValue> | null | undefined, field: string): string | null {
+  const v = details?.[field];
+  if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0)) return null;
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return new Date(`${v}T12:00:00`).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+  }
+  const options = es.forms.fields[field]?.options;
+  return typeof v === "string" && options ? (options[v] ?? v) : String(v);
+}
 
 /**
  * Mi institución (docs/13 §10), the core of the app (ADR-032). One header tray in two halves: who the institution is
@@ -46,8 +63,6 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
   const [edit, setEdit] = useState<Edit | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
-  const [issues, setIssues] = useState<ProfileIssue[]>([]);
-  const [quarantine, setQuarantine] = useState<{ input: ProfileInput; report: QuarantineReport; onSaved?: () => void } | null>(null);
 
   const view = profile.data ?? null;
   const o = overview.data ?? null;
@@ -59,32 +74,6 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
     const id = window.setTimeout(() => setToast(null), 3500);
     return () => window.clearTimeout(id);
   }, [toast]);
-
-  /** Saves the whole profile with a change. Returns whether it was saved; a window closes only then. */
-  async function commit(input: ProfileInput, decision?: Decision, onSaved?: () => void): Promise<boolean> {
-    setBusy(true);
-    setIssues([]);
-    try {
-      const out = await profileSave(input, decision);
-      if (out.status === "saved") {
-        setQuarantine(null);
-        qc.setQueryData(["profile"], out.profile);
-        void qc.invalidateQueries({ queryKey: ONBOARDING_KEY });
-        void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
-        setToast({ tone: "ok", text: es.common.saved });
-        onSaved?.();
-        return true;
-      }
-      if (out.status === "invalid") setIssues(out.issues);
-      else setQuarantine({ input, report: out.report, onSaved });
-      return false;
-    } catch (e) {
-      setToast({ tone: "error", text: toAppError(e).message });
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function loadExample(name: "asilo" | "casa-hogar") {
     setBusy(true);
@@ -102,13 +91,24 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
     }
   }
 
-  const open = (e: Edit) => {
-    setIssues([]);
-    setEdit(e);
-  };
+  const open = (e: Edit) => setEdit(e);
 
 
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
+  const d = inst?.details;
+  const dt = (field: string) => detailText(d, field);
+  // the address in one line, as it goes on an envelope
+  const address =
+    [
+      [dt("institution.street"), dt("institution.ext_number")].filter(Boolean).join(" "),
+      dt("institution.int_number") && `${t.addressInterior} ${dt("institution.int_number")}`,
+      dt("institution.neighborhood"),
+      dt("institution.postal_code") && `${t.addressPostal} ${dt("institution.postal_code")}`,
+    ]
+      .filter(Boolean)
+      .join(", ") || null;
+  // a row that shows only when it has something: what applies is decided in Rust, which keeps nothing that does not
+  const onlyIf = (row: [string, string | null]): [string, string | null][] => (row[1] ? [row] : []);
 
   // what is still missing, each one leading to where it is filled in (Rust says what the data still need)
   const { ready: gapsReady, gaps } = fromOverview(overview.data);
@@ -228,6 +228,7 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
                     [t.fields.name, inst?.name],
                     [t.fields.attention, codesText("institution.populations", inst?.attention?.populations)],
                     [t.fields.modalities, codesText("institution.modalities", inst?.attention?.modalities)],
+                    [labelOf("institution.services"), dt("institution.services")],
                   ]}
                 />
               </FactRow>
@@ -237,8 +238,9 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
                   items={[
                     [t.fields.phone, inst?.contact_phone],
                     [t.fields.email, inst?.contact_email],
-                    [es.institution.state, inst?.state ? es.institution.states[inst.state] : null],
+                    [t.fields.address, address],
                     [es.institution.municipality, inst?.municipality],
+                    [es.institution.state, inst?.state ? es.institution.states[inst.state] : null],
                   ]}
                 />
               </FactRow>
@@ -246,12 +248,18 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
                 <Facts
                   columns={2}
                   items={[
-                    [t.fields.rfc, inst?.legal_rfc],
-                    [t.fields.legalRep, inst?.legal_rep_name],
+                    [labelOf("institution.legal_name"), dt("institution.legal_name")],
+                    [t.fields.rfc, inst?.legal_rfc ?? null],
                     [es.institution.legalForm, inst?.legal_form ? es.institution.legalForms[inst.legal_form] : null],
-                    [es.institution.foundedYear, inst?.founded_year?.toString()],
+                    [es.institution.foundedYear, inst?.founded_year?.toString() ?? null],
+                    ...onlyIf([labelOf("institution.junta_folio"), dt("institution.junta_folio")]),
+                    [labelOf("institution.tax_regime"), dt("institution.tax_regime")],
                     [es.institution.authorizedDonee, inst?.authorized_donee ? es.institution.registry[inst.authorized_donee] : null],
+                    ...onlyIf([labelOf("institution.donee_category"), dt("institution.donee_category")]),
                     [es.institution.cluni, inst?.cluni ? es.institution.registry[inst.cluni] : null],
+                    ...onlyIf([labelOf("institution.cluni_key"), dt("institution.cluni_key")]),
+                    [labelOf("institution.legal_rep_name"), inst?.legal_rep_name ?? null],
+                    ...onlyIf([labelOf("institution.legal_rep_valid_until"), dt("institution.legal_rep_valid_until")]),
                   ]}
                 />
               </FactRow>
@@ -274,28 +282,12 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
         </p>
       )}
 
-      {edit?.kind === "institution" && (
-        <FormWindow id="institution.identity" title={t.modal.institution} onSaved={() => setToast({ tone: "ok", text: es.common.saved })} onClose={() => setEdit(null)} />
-      )}
-
-      {edit && edit.kind !== "institution" && (
-        <ProfileEdit
-          edit={edit}
-          view={view}
-          issues={issues}
-          busy={busy}
-          onCommit={(values, onSaved) => void commit(toInput(values), undefined, onSaved)}
+      {edit && (
+        <FormWindow
+          id={FORM_OF[edit.kind]}
+          title={t.modal[edit.kind]}
+          onSaved={() => setToast({ tone: "ok", text: es.common.saved })}
           onClose={() => setEdit(null)}
-        />
-      )}
-
-      {quarantine && (
-        <QuarantineDialog
-          report={quarantine.report}
-          busy={busy}
-          onRedact={() => void commit(quarantine.input, "redact", quarantine.onSaved)}
-          onNotPersonal={() => void commit(quarantine.input, "not_personal", quarantine.onSaved)}
-          onCancel={() => setQuarantine(null)}
         />
       )}
 

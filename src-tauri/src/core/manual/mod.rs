@@ -228,7 +228,7 @@ mod tests {
         assert_eq!(hits[0].id, "institution.mission", "{hits:?}");
         // without accents, and a plural finds the singular
         assert_eq!(search(&c, "respaldo computadora", 3).unwrap()[0].id, "howto.backup");
-        assert!(search(&c, "Convocatorias", 10).unwrap().iter().any(|h| h.id == "institution.populations"));
+        assert!(search(&c, "Convocatorias: ¿a quién atienden?", 3).unwrap().iter().any(|h| h.id == "institution.populations"));
         assert!(search(&c, "nómina aguinaldo", 3).unwrap().iter().any(|h| h.id == "screen.staff"));
         assert!(search(&c, "que como", 5).unwrap().is_empty(), "only empty words: nothing");
         // what the person writes never reaches FTS5 as syntax
