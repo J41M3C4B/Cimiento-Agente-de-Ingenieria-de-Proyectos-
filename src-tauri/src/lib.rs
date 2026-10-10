@@ -66,6 +66,8 @@ pub fn run() {
             commands::form_get,
             commands::institution_overview,
             commands::form_save,
+            commands::manual_entry,
+            commands::manual_search,
             commands::profile_confirm,
             commands::document_add_text,
             commands::documents_list,

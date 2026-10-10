@@ -123,6 +123,21 @@ pub fn form_save(session: State<'_, Session>, db: State<Db>,
     Ok(crate::core::profile::forms::save(&mut conn, &id, values, decision)?)
 }
 
+/// What the manual says of a screen, a form or a field (the «?»): in the program, with no AI and no internet.
+#[tauri::command]
+pub fn manual_entry(session: State<'_, Session>, id: String) -> Result<Option<crate::core::manual::EntryView>, UiError> {
+    guard(&session, "manual_entry")?;
+    Ok(crate::core::manual::entry(&id))
+}
+
+/// Searches the manual (ADR-034 §4): it works offline.
+#[tauri::command]
+pub fn manual_search(session: State<'_, Session>, db: State<Db>, query: String) -> Result<Vec<crate::core::manual::Hit>, UiError> {
+    guard(&session, "manual_search")?;
+    let conn = lock(&db)?;
+    Ok(crate::core::manual::search(&conn, &query, 8)?)
+}
+
 #[tauri::command]
 pub fn profile_confirm(session: State<'_, Session>, db: State<Db>) -> Result<ProfileView, UiError> {
     guard(&session, "profile_confirm")?;

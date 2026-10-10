@@ -34,6 +34,8 @@ import type {
   DraftMode,
   FormValues,
   FormView,
+  ManualEntry,
+  ManualHit,
   InstitutionOverview,
   ProjectColor,
   ProjectRow,
@@ -70,6 +72,9 @@ export const institutionOverview = () => invoke<InstitutionOverview>("institutio
 export const formGet = (id: string) => invoke<FormView>("form_get", { id });
 export const formSave = (id: string, values: FormValues, decision?: Decision) =>
   invoke<SaveProfileOutcome>("form_save", { id, values, decision: decision ?? null });
+// The manual of the program (ADR-034): the «?» of each field and the search in Ayuda, offline
+export const manualEntry = (id: string) => invoke<ManualEntry | null>("manual_entry", { id });
+export const manualSearch = (query: string) => invoke<ManualHit[]>("manual_search", { query });
 // Documents of the institution (global): the files of a call come in with their project
 export const documentAddText = (displayName: string, text: string, decision?: Decision) =>
   invoke<AddDocumentOutcome>("document_add_text", {

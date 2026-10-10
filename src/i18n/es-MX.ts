@@ -913,6 +913,29 @@ export const es = {
       },
     } as Record<string, { label: string; hint?: string; options?: Record<string, string> }>,
   },
+  // The manual of the program (ADR-034): the «?» next to each field and the search in Ayuda. No AI, no internet.
+  manual: {
+    about: "¿Qué pongo aquí?",
+    // the start of a paragraph of the manual that goes in bold
+    leads: ["Qué poner:", "Para qué sirve:"],
+    usedBy: "Lo usan:",
+    who: {
+      care: "Beneficiarios",
+      hr: "Personal",
+      facilities: "Instalaciones",
+      finance: "Finanzas",
+      projects: "Proyectos",
+      ai: "la ayuda automática",
+      documents: "los documentos que arma el programa",
+    } as Record<string, string>,
+    offline: "Esta ayuda no usa internet ni gasta nada.",
+    missing: "Todavía no hay una explicación de este dato.",
+    searchTitle: "Buscar en el manual",
+    searchHelp: "Escriba su duda con sus palabras. Funciona sin internet.",
+    searchLabel: "Buscar en el manual",
+    searchPlaceholder: "Por ejemplo: ¿qué pongo en «a qué se dedica»?",
+    noResults: "No encontramos nada con esas palabras. Pruebe con otras.",
+  },
   // The first start (ADR-031): the welcome of each person, the setup of the administrator and the data of the institution
   onboarding: {
     welcome: {

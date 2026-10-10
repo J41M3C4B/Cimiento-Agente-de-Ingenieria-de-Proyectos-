@@ -1,6 +1,11 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../lib/tauri", () => ({ manualEntry: vi.fn() }));
+
+import { manualEntry } from "../lib/tauri";
 import type { FieldSpec, FormSpec, FormValues } from "../lib/types";
 import { applies, FormRenderer } from "./FormRenderer";
 
@@ -65,5 +70,37 @@ describe("FormRenderer", () => {
     const onlyB = field("x", { applies_when: { when: "any_of", field: "kinds", values: ["b"] } });
     expect(applies(onlyB, { kinds: ["a", "b"] })).toBe(true);
     expect(applies(onlyB, { kinds: "a" })).toBe(false);
+  });
+
+  it("the «?» of a field shows what the manual says of it, and the label still leads to its field", async () => {
+    vi.mocked(manualEntry).mockResolvedValue({
+      id: "institution.name",
+      title: "Nombre de la institución",
+      paragraphs: ["Qué poner: el nombre con el que se presentan.", "Para qué sirve: aparece en sus proyectos."],
+      used_by: ["projects", "ai"],
+    });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <Harness start={{}} seen={() => {}} />
+      </QueryClientProvider>,
+    );
+    // the label names the field, without the «?» in its name
+    expect(screen.getByRole("textbox", { name: "Nombre de la institución*" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Nombre de la institución"));
+    expect(screen.queryByText("Qué poner:")).toBeNull();
+
+    const toggles = screen.getAllByRole("button", { name: "¿Qué pongo aquí?" });
+    expect(toggles).toHaveLength(2); // one per field shown: the name and whom they serve
+    fireEvent.click(toggles[0]!);
+    expect(await screen.findByText("Qué poner:")).toBeInTheDocument();
+    expect(screen.getByText(/aparece en sus proyectos/)).toBeInTheDocument();
+    expect(screen.getByText(/Proyectos y la ayuda automática\./)).toBeInTheDocument();
+    expect(toggles[0]).toHaveAttribute("aria-expanded", "true");
+    expect(manualEntry).toHaveBeenCalledWith("institution.name");
+
+    // one at a time, and the same «?» closes it
+    fireEvent.click(toggles[0]!);
+    expect(screen.queryByText("Qué poner:")).toBeNull();
   });
 });

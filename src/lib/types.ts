@@ -77,6 +77,19 @@ export interface FormView {
   values: FormValues;
   missing: string[];
 }
+// The manual of the program (ADR-034, core/manual): in the program, with no AI and no internet.
+export interface ManualEntry {
+  id: string;
+  title: string;
+  paragraphs: string[];
+  /** what uses the field (codes of `used_by` in the catalog); empty for a screen */
+  used_by: string[];
+}
+export interface ManualHit {
+  id: string;
+  title: string;
+  snippet: string;
+}
 export interface PopulationGroupInput {
   label: string;
   age_min: number | null;

@@ -90,6 +90,9 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("institution_overview", Need::Permission(Permission::Use)),
     ("form_save", Need::Permission(Permission::Use)),
     ("profile_confirm", Need::Permission(Permission::Use)),
+    // the manual of the program (ADR-034): help for anyone who is in, with no data of the institution
+    ("manual_entry", Need::Session),
+    ("manual_search", Need::Session),
     // the money (ADR-032)
     ("finance_get", Need::Permission(Permission::Use)),
     ("finance_save", Need::Permission(Permission::Use)),

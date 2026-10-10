@@ -12,6 +12,7 @@ pub mod bridge;
 pub mod error;
 pub mod insights;
 pub mod institution;
+pub mod manual;
 pub mod onboarding;
 pub mod overview;
 pub mod profile;
