@@ -94,7 +94,7 @@ fn version() -> String {
 }
 
 fn field_spec(id: &str) -> Option<&'static FieldSpec> {
-    crate::core::institution::forms::FORMS.iter().find_map(|f| f.field(id))
+    crate::core::institution::forms::field(id)
 }
 
 /// The entry of a screen, a form or a field, with what uses it. No AI and no base: it is in the program.
@@ -165,7 +165,7 @@ pub fn search(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Hit>, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::institution::forms::FORMS;
+    use crate::core::institution::forms::{FORMS, LIST_FORMS};
 
     fn conn() -> (tempfile::TempDir, Connection) {
         let dir = tempfile::tempdir().unwrap();
@@ -177,7 +177,7 @@ mod tests {
     /// what to put and what it is for, and every form has one too.
     #[test]
     fn every_field_of_the_catalog_has_its_entry_in_the_manual() {
-        for form in FORMS {
+        for form in FORMS.iter().chain(LIST_FORMS) {
             assert!(entry(form.id).is_some(), "the form {} has no entry in docs/manual", form.id);
             for f in form.fields() {
                 let e = entry(f.id).unwrap_or_else(|| panic!("the field {} has no entry in docs/manual", f.id));
@@ -195,7 +195,7 @@ mod tests {
         assert!((1..ids.len()).all(|i| !ids[..i].contains(&ids[i])), "repeated key in {ids:?}");
         for id in &ids {
             let kind = id.split('.').next().unwrap();
-            if !matches!(kind, "screen" | "howto") && FORMS.iter().all(|f| f.id != *id) {
+            if !matches!(kind, "screen" | "howto") && FORMS.iter().chain(LIST_FORMS).all(|f| f.id != *id) {
                 assert!(field_spec(id).is_some(), "the manual speaks of «{id}», which is not in the catalog");
             }
         }

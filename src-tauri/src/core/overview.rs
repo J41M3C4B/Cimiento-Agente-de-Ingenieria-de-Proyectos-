@@ -15,6 +15,8 @@ pub enum Place {
     Institution,
     Contact,
     Legal,
+    /// The board and the bank accounts of «Mi institución» (ADR-033 §3).
+    Board,
     Capacity,
     Finance,
     Facilities,
@@ -66,6 +68,7 @@ fn place_of(code: &str) -> Place {
         "legal_form" | "founded_year" | "authorized_donee" | "cluni" | "legal_name" | "purpose" | "legal_rfc" | "tax_regime" | "junta_folio" => {
             Place::Legal
         }
+        "board" => Place::Board,
         "capacity_total" | "served" | "staff" => Place::Capacity,
         "expenses" | "income" => Place::Finance,
         "floors" | "tenure" => Place::Facilities,
@@ -82,8 +85,9 @@ fn rank(p: Place) -> u8 {
         Place::Institution => 0,
         Place::Contact => 1,
         Place::Legal => 2,
-        Place::Capacity => 3,
-        _ => 4,
+        Place::Board => 3,
+        Place::Capacity => 4,
+        _ => 5,
     }
 }
 
@@ -137,6 +141,9 @@ pub fn completion(steps: &[StepStatus], forms_missing: &[&'static str], extra_ch
     Completion { gaps: codes.into_iter().map(|code| Gap { code, place: place_of(code) }).collect(), percent }
 }
 
+/// What stands for the board in the list of what is missing: someone active in it.
+const BOARD: &str = "institution.board";
+
 /// The required fields of the forms of «Mi institución» that apply and are still empty, in the order of the page,
 /// and how many required fields they ask beyond what the first start counts.
 fn forms_missing(conn: &Connection) -> Result<(Vec<&'static str>, usize), ServiceError> {
@@ -151,6 +158,11 @@ fn forms_missing(conn: &Connection) -> Result<(Vec<&'static str>, usize), Servic
                 extra.push(code);
             }
         }
+    }
+    // the board is asked of every institution: someone governs it (ADR-033 §3); the accounts are optional
+    extra.push(code_of(BOARD));
+    if !crate::core::protected::has_board(conn)? {
+        missing.push(BOARD);
     }
     Ok((missing, extra.len()))
 }

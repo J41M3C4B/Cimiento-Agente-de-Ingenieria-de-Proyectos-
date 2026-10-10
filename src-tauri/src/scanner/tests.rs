@@ -99,12 +99,26 @@ fn institutional_phone_and_email_are_not_flagged() {
     let s = RegexScanner::new(ScannerConfig {
         institutional_phones: vec!["+52 55 1234 5678".into()],
         institutional_emails: vec!["Contacto@CasaHogar.org".into()],
-        safe_phrases: vec![],
+        ..Default::default()
     });
     let r = s.scan("Llamar al 55 1234 5678 o escribir a contacto@casahogar.org");
     assert!(r.is_clean(), "{:?}", kinds(&r));
     let r = s.scan("Otro teléfono 55 9999 0000 y otro@correo.com");
     assert_eq!(kinds(&r), vec!["phone", "email"]);
+}
+
+/// ADR-033 §3: a CLABE of the institution is its own; any other CLABE, even one digit away, is still blocked.
+#[test]
+fn only_exactly_an_account_of_the_institution_is_let_through() {
+    let own = RegexScanner::new(ScannerConfig { institutional_clabes: vec!["002 010 07777777777 1".into()], ..Default::default() });
+    assert!(own.scan("Donativos a la CLABE 002010077777777771, a nombre de la casa.").is_clean());
+    assert!(own.scan("CLABE: 002 010 07777777777 1").is_clean(), "written in groups too");
+    // a person's account, valid and different: blocked as before
+    let r = own.scan("La CLABE de la cocinera es 012180001234567899.");
+    assert_eq!(kinds(&r), vec!["clabe"]);
+    assert!(r.has_blocking());
+    // without the accounts of the institution, the same text is blocked
+    assert_eq!(kinds(&scanner().scan("Donativos a la CLABE 002010077777777771.")), vec!["clabe"]);
 }
 
 #[test]

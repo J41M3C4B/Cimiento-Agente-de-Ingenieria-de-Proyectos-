@@ -53,10 +53,7 @@ pub struct Change {
 
 /// Whether a datum is the institution's own and protected: its value never goes into the history.
 fn protected(field: &str) -> bool {
-    crate::core::institution::forms::FORMS
-        .iter()
-        .find_map(|f| f.field(field))
-        .is_some_and(|f| matches!(f.sensitivity, Sensitivity::InstitutionalPrivate | Sensitivity::Personal))
+    crate::core::institution::forms::field(field).is_some_and(|f| matches!(f.sensitivity, Sensitivity::InstitutionalPrivate | Sensitivity::Personal))
 }
 
 /// Writes what changed between two sets of values of the catalog: a line in the history for each datum whose value
@@ -96,6 +93,18 @@ pub fn record(conn: &Connection, before: &Values, after: &Values, source: &Sourc
         changed += 1;
     }
     Ok(changed)
+}
+
+/// Writes that a list of the institution's own and protected changed (a board member, a bank account): one line with
+/// the id of its form and no value, ever (ADR-033 §4).
+pub fn record_list_change(conn: &Connection, form: &str, source: &Source) -> Result<(), StorageError> {
+    conn.execute_batch("CREATE TEMP TABLE IF NOT EXISTS session_actor (user_id TEXT);")?;
+    conn.execute(
+        "INSERT INTO core_change (field, value_json, protected, origin, changed_at, changed_by)
+         VALUES (?1, NULL, 1, ?2, strftime('%Y-%m-%dT%H:%M:%SZ','now'), (SELECT user_id FROM temp.session_actor LIMIT 1))",
+        params![form, source.origin],
+    )?;
+    Ok(())
 }
 
 /// The origin of each written datum of these values. One with no row was written by a person before origins were

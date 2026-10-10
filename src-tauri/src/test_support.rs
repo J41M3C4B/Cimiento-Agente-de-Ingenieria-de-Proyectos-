@@ -61,6 +61,7 @@ pub fn rich_profile_db() -> (tempfile::TempDir, SharedDb) {
     crate::core::ai_sheet::tests::seed_rich_staff(&mut conn);
     crate::core::ai_sheet::tests::seed_rich_people(&mut conn);
     crate::core::ai_sheet::tests::seed_rich_facilities(&conn);
+    crate::core::ai_sheet::tests::seed_rich_board(&mut conn);
     profile::save(&mut conn, &crate::core::ai_sheet::tests::rich()).unwrap();
     crate::modules::finance::storage::save(&mut conn, &crate::core::ai_sheet::tests::rich_money()).unwrap();
     profile::confirm(&mut conn).unwrap();

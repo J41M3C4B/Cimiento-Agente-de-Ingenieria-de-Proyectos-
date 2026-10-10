@@ -123,6 +123,9 @@ pub struct ScannerConfig {
     pub institutional_emails: Vec<String>,
     /// Names of the institution, places, foundations and public representatives.
     pub safe_phrases: Vec<String>,
+    /// The CLABE of each bank account of the institution (ADR-033 §3): a CLABE in a text is let through only when it
+    /// is exactly one of these.
+    pub institutional_clabes: Vec<String>,
 }
 
 pub trait SensitiveScanner: Send + Sync {
@@ -168,6 +171,8 @@ pub struct RegexScanner {
     cfg: ScannerConfig,
     phones: Vec<String>,
     emails: Vec<String>,
+    /// Each account of the institution, with or without spaces or dashes between its digits.
+    own_accounts: Vec<Regex>,
 }
 
 impl RegexScanner {
@@ -185,7 +190,14 @@ impl RegexScanner {
             .iter()
             .map(|e| e.trim().to_uppercase())
             .collect();
-        RegexScanner { cfg, phones, emails }
+        let own_accounts = cfg
+            .institutional_clabes
+            .iter()
+            .map(|c| digits(c))
+            .filter(|d| d.len() == 18)
+            .filter_map(|d| Regex::new(&format!(r"\b{}\b", d.chars().map(String::from).collect::<Vec<_>>().join("[ -]?"))).ok())
+            .collect();
+        RegexScanner { cfg, phones, emails, own_accounts }
     }
 
     /// True when the text looks like a list of people (a record file) and must be rejected whole.
@@ -273,6 +285,10 @@ impl SensitiveScanner for RegexScanner {
                 push(FindingKind::Email, Severity::Warn, m.range(), 1.0);
             }
         }
+
+        // an account of the institution is its own, not a person's: nothing found inside exactly one of them counts
+        let own: Vec<Range<usize>> = self.own_accounts.iter().flat_map(|r| r.find_iter(t).map(|m| norm.orig_span(m.range())).collect::<Vec<_>>()).collect();
+        found.retain(|f| !own.iter().any(|o| o.start <= f.span.start && f.span.end <= o.end));
 
         let name_findings = names::find_names(text, &self.cfg);
         let health = names::find_health(&norm, &name_findings);

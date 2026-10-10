@@ -263,6 +263,41 @@ fn a_deletion_asked_by_direction_hides_the_person_until_the_administrator_decide
     }
 }
 
+/// ADR-033 §3: a person of the board or an account written by mistake follows the same rules of deletion.
+#[test]
+fn a_board_member_or_an_account_deleted_by_direction_waits_for_the_administrator() {
+    use crate::core::protected::{self, ListKind, ListOutcome};
+    let (_d, mut c) = conn();
+    let (s, _) = with_admin(&mut c);
+    let a = admin(&s);
+    let (_, rosa_session) = manager(&mut c, &s);
+    let rosa = rosa_session.current().unwrap();
+    let v = serde_json::from_value(serde_json::json!({ "institution.board.name": "Vocal Ficticia", "institution.board.role": "member" })).unwrap();
+    let ListOutcome::Saved { lists } = protected::save(&mut c, ListKind::BoardMember, None, v).unwrap() else { panic!("saved") };
+    let member = lists.board[0].id.clone();
+    let v = serde_json::from_value(serde_json::json!({ "institution.bank.clabe": "002010077777777771", "institution.bank.purpose": ["donations"] })).unwrap();
+    let ListOutcome::Saved { lists } = protected::save(&mut c, ListKind::BankAccount, None, v).unwrap() else { panic!("saved") };
+    let account = lists.accounts[0].id.clone();
+
+    request_deletion(&mut c, &rosa, DeletionKind::BoardMember, &member).unwrap();
+    request_deletion(&mut c, &rosa, DeletionKind::BankAccount, &account).unwrap();
+    let l = protected::lists(&c).unwrap();
+    assert!(l.board.is_empty() && l.accounts.is_empty(), "hidden for everyone meanwhile");
+    let pending = admin_overview(&c).unwrap().pending;
+    let labels: Vec<&str> = pending.iter().map(|r| r.target_label.as_str()).collect();
+    assert!(labels.contains(&"Vocal Ficticia") && labels.contains(&"Cuenta ••••••••••••••7771"), "{labels:?}");
+    assert!(!labels.iter().any(|l| l.contains("002010")), "the administrator sees the account covered");
+
+    // the member comes back; the account goes for good
+    let of = |k: DeletionKind| pending.iter().find(|r| r.kind == k).unwrap().id.clone();
+    resolve_request(&mut c, &a, &of(DeletionKind::BoardMember), false, &no_project).unwrap();
+    resolve_request(&mut c, &a, &of(DeletionKind::BankAccount), true, &no_project).unwrap();
+    let l = protected::lists(&c).unwrap();
+    assert_eq!((l.board.len(), l.accounts.len()), (1, 0));
+    let left: i64 = c.query_row("SELECT count(*) FROM core_bank_account", [], |r| r.get(0)).unwrap();
+    assert_eq!(left, 0);
+}
+
 #[test]
 fn a_hidden_field_keeps_its_values_and_a_document_hides_too() {
     use crate::modules::care::domain::person::BeneficiaryData;

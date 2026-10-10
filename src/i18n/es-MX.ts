@@ -883,6 +883,9 @@ export const es = {
       capacity_people: "Lugares y personas",
       capacity_staff: "Personal, más o menos",
       capacity_notes: "Notas",
+      board_member: "Quién es y qué cargo tiene",
+      bank_clabe: "La cuenta",
+      bank_use: "Banco y uso",
     } as Record<string, string>,
     fields: {
       "institution.name": { label: "Nombre de la institución" },
@@ -1007,6 +1010,30 @@ export const es = {
       "institution.staff_paid_estimate": { label: "¿Cuántas personas trabajan con sueldo?" },
       "institution.staff_volunteer_estimate": { label: "¿Cuántas ayudan como voluntarias?" },
       "institution.notes": { label: "Notas generales" },
+      "institution.board.name": { label: "Nombre completo", hint: "Como aparece en el acta de la asamblea que la nombró." },
+      "institution.board.role": {
+        label: "Cargo",
+        options: {
+          president: "Presidencia",
+          vice_president: "Vicepresidencia",
+          secretary: "Secretaría",
+          treasurer: "Tesorería",
+          member: "Vocal",
+          other: "Otro",
+        },
+      },
+      "institution.board.role_other": { label: "¿Qué cargo?", hint: "Por ejemplo: comisario o patrono fundador." },
+      "institution.board.since": { label: "¿Desde cuándo tiene el cargo?", hint: "Déjelo vacío si no lo sabe." },
+      "institution.bank.clabe": { label: "CLABE", hint: "Son 18 números. Vienen en su estado de cuenta." },
+      "institution.bank.bank": { label: "Banco", hint: "Si lo deja vacío, lo tomamos de la CLABE." },
+      "institution.bank.purpose": {
+        label: "¿Para qué se usa?",
+        options: { donations: "Recibir donativos", operations: "Pagar los gastos de la institución" },
+      },
+      "institution.bank.in_documents": {
+        label: "¿Se pone en los documentos?",
+        hint: "Por ejemplo, en una solicitud de donativo, para que sepan dónde depositar.",
+      },
     } as Record<string, { label: string; hint?: string; options?: Record<string, string> }>,
   },
   // The manual of the program (ADR-034): the «?» next to each field and the search in Ayuda. No AI, no internet.
@@ -1557,6 +1584,9 @@ export const es = {
     repeated: "Una opción quedó marcada dos veces.",
     number_too_small: "Este número es demasiado pequeño.",
     served_over_capacity: "Algo no cuadra: atienden a más personas de las que caben según la capacidad que puso.",
+    required: "Este dato hace falta para guardar.",
+    clabe_invalid: "Esa CLABE no es válida. Son 18 números; revise que estén completos.",
+    clabe_repeated: "Esa cuenta ya está registrada.",
   } as Record<string, string>,
   quarantine: {
     title: "Ojo: encontramos datos de personas",

@@ -67,6 +67,8 @@ pub enum Rule {
     PostalCode,
     /// The RFC of an organization (persona moral): three letters, the date it was set up and three characters.
     RfcMoral,
+    /// A CLABE: eighteen digits and its check digit (`common::ids`).
+    Clabe,
 }
 
 /// When a field applies. A field that does not apply is not shown, not asked and not kept.
@@ -267,6 +269,7 @@ pub fn problem(f: &FieldSpec, v: &Value) -> Option<&'static str> {
             (None, _) => Some("wrong_type"),
             (Some(s), Some(Rule::PostalCode)) if !is_postal_code(s.trim()) => Some("postal_code_invalid"),
             (Some(s), Some(Rule::RfcMoral)) if !is_rfc_moral(s.trim()) => Some("rfc_moral_invalid"),
+            (Some(s), Some(Rule::Clabe)) if !crate::common::ids::clabe_is_valid(s) => Some("clabe_invalid"),
             _ => None,
         },
     }

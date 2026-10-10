@@ -60,6 +60,11 @@ pub const DONEE_CATEGORIES: &[&str] = &[
 ];
 /// The most people a quick figure may say.
 pub const MAX_ESTIMATE: i64 = 100_000;
+/// The roles of the board of trustees or governing body (ADR-033 §3): presidencia, vicepresidencia, secretaría,
+/// tesorería, vocal, or another one the institution names.
+pub const BOARD_ROLES: &[&str] = &["president", "vice_president", "secretary", "treasurer", "member", "other"];
+/// What a bank account of the institution is used for: receiving donations, paying for its operation.
+pub const BANK_PURPOSES: &[&str] = &["donations", "operations"];
 
 pub fn state_name(code: &str) -> Option<&'static str> {
     STATES.iter().find(|(c, _)| *c == code).map(|(_, n)| *n)

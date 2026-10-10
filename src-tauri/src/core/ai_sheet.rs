@@ -23,6 +23,7 @@ use crate::modules::hr::api::{Count, MIN_GROUP};
 use crate::modules::hr::domain::aggregate::StaffSummary;
 use crate::core::error::ServiceError;
 use crate::core::profile::storage::{self as profile_store, StoredProfile};
+use crate::core::protected::BoardSheet;
 use rusqlite::Connection;
 
 /// The people served as their module tells them now (ADR-029): counts, attributes of groups of three or more, and
@@ -59,6 +60,7 @@ pub fn profile_context(conn: &Connection) -> Result<String, ServiceError> {
             &crate::modules::hr::api::ai_summary(conn)?,
             &people_sheet(conn)?,
             &facilities_sheet(conn)?,
+            &crate::core::protected::ai_board(conn)?,
         ),
         None => "Perfil: sin datos. Todavía no hay nada capturado en «Mi institución»; de la institución solo se sabe lo que la persona diga.".into(),
     })
@@ -563,6 +565,34 @@ fn render_admission(s: &mut String, inst: &crate::core::profile::domain::Institu
 
 /// Where the institution is and what it is, legally (ADR-031): most calls filter by these. None of it is personal:
 /// the address, the RFC, the folios and the keys never come here.
+/// The board of the institution: how many people and which roles, never a name (ADR-033 §3).
+fn render_board(s: &mut String, board: &BoardSheet, missing: &mut Vec<&str>) {
+    if board.total == 0 {
+        missing.push("su patronato u órgano de gobierno");
+        return;
+    }
+    let roles: Vec<String> = board
+        .roles
+        .iter()
+        .map(|(code, n)| {
+            let word = match *code {
+                "president" => "presidencia",
+                "vice_president" => "vicepresidencia",
+                "secretary" => "secretaría",
+                "treasurer" => "tesorería",
+                "member" => "vocal",
+                _ => "otro cargo",
+            };
+            if *n == 1 {
+                word.to_string()
+            } else {
+                format!("{word} ({n} personas)")
+            }
+        })
+        .collect();
+    s.push_str(&format!("Patronato u órgano de gobierno: {} — {}. Sus nombres no se comparten.\n", people(board.total as i64), roles.join(", ")));
+}
+
 fn render_identity(s: &mut String, inst: &crate::core::profile::domain::InstitutionInput, year: i64, missing: &mut Vec<&str>) {
     use crate::core::institution::catalog::{state_name, UNDER_A_JUNTA};
     match detail_text(inst, "institution.legal_name") {
@@ -656,8 +686,8 @@ struct Composed {
     missing: Vec<String>,
 }
 
-pub fn render(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> String {
-    let c = compose(p, fin, staff, people, facilities);
+pub fn render(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet, board: &BoardSheet) -> String {
+    let c = compose(p, fin, staff, people, facilities, board);
     let mut s = c.text;
     if !c.missing.is_empty() {
         s.push_str(&format!(
@@ -670,8 +700,16 @@ pub fn render(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, peopl
 
 /// One part of the sheet (`SECTIONS`), with the line of whether it is confirmed and what is missing in it. The
 /// notes of the institution go with its own part. `None` for a part that does not exist.
-pub fn render_section(key: &str, p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> Option<String> {
-    let c = compose(p, fin, staff, people, facilities);
+pub fn render_section(
+    key: &str,
+    p: &StoredProfile,
+    fin: &FinanceInput,
+    staff: &StaffSummary,
+    people: &PeopleSheet,
+    facilities: &FacilitiesSheet,
+    board: &BoardSheet,
+) -> Option<String> {
+    let c = compose(p, fin, staff, people, facilities, board);
     let part = c.parts.iter().find(|x| x.key == key)?;
     let mut s = format!("{}{}", &c.text[c.header.clone()], &c.text[part.text.clone()]);
     if key == "institution" {
@@ -697,13 +735,14 @@ pub fn section_context(conn: &Connection, key: &str) -> Result<Option<String>, S
             &crate::modules::hr::api::ai_summary(conn)?,
             &people_sheet(conn)?,
             &facilities_sheet(conn)?,
+            &crate::core::protected::ai_board(conn)?,
         )
         .unwrap_or_default(),
         None => "Perfil: sin datos. Todavía no hay nada capturado en «Mi institución».".into(),
     }))
 }
 
-fn compose(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet) -> Composed {
+fn compose(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: &PeopleSheet, facilities: &FacilitiesSheet, board: &BoardSheet) -> Composed {
     let i = &p.input;
     let t = i.totals(p.as_of_year);
     let money = balance::finances(fin, &crate::core::bridge::finance::derived_from(&t));
@@ -729,6 +768,7 @@ fn compose(p: &StoredProfile, fin: &FinanceInput, staff: &StaffSummary, people: 
         None => missing.push("a qué se dedica"),
     }
     render_identity(&mut s, &i.institution, p.as_of_year, &mut missing);
+    render_board(&mut s, board, &mut missing);
     match i.capacity_total {
         Some(c) => s.push_str(&format!("Capacidad total: {c} personas.\n")),
         None => missing.push("capacidad total"),
@@ -963,6 +1003,16 @@ pub(crate) mod tests {
 
     /// The facilities of `rich()` in their module: a house of two floors with only stairs, three bathrooms on the
     /// ground floor (one in poor state, none with grab bars), a kitchen, six bedrooms upstairs and two washers.
+    pub(crate) fn seed_rich_board(c: &mut Connection) {
+        use crate::core::protected::{save, ListKind};
+        for (name, role) in [("Presidenta Ficticia", "president"), ("Tesorero Ficticio", "treasurer"), ("Vocal Ficticia", "member")] {
+            let v = serde_json::from_value(serde_json::json!({ "institution.board.name": name, "institution.board.role": role })).unwrap();
+            save(c, ListKind::BoardMember, None, v).unwrap();
+        }
+        let v = serde_json::from_value(serde_json::json!({ "institution.bank.clabe": "002010077777777771", "institution.bank.purpose": ["donations"] })).unwrap();
+        save(c, ListKind::BankAccount, None, v).unwrap();
+    }
+
     pub(crate) fn seed_rich_facilities(c: &Connection) {
         use crate::modules::facilities::domain::group::{EquipmentData, SpaceData, States};
         use crate::modules::facilities::domain::site::SiteData;
@@ -1001,6 +1051,7 @@ pub(crate) mod tests {
         seed_rich_staff(&mut c);
         seed_rich_people(&mut c);
         seed_rich_facilities(&c);
+        seed_rich_board(&mut c);
         profile_store::save(&mut c, input).unwrap();
         crate::modules::finance::storage::save(&mut c, money).unwrap();
         if confirm {
@@ -1018,6 +1069,7 @@ pub(crate) mod tests {
         "Donataria autorizada por el SAT: sí.",
         "CLUNI (registro federal de organizaciones de la sociedad civil): no.",
         "Capacidad total: 25 personas.",
+        "Patronato u órgano de gobierno: 3 personas — presidencia, tesorería, vocal. Sus nombres no se comparten.",
         "Gasto anual aproximado (cifra a ojo de la persona, todo incluido): $1,800,000 pesos.",
         "Ingreso — cuotas de los beneficiarios (del padrón): las pagan 5 personas; el monto no se comparte.",
         "Ingreso — donante fijo: Padrinos — $10,000 pesos al mes ($120,000 al año).",
@@ -1126,7 +1178,7 @@ pub(crate) mod tests {
         assert!(!ctx.contains("Cuotas aprox."), "a fee estimate left out of the sums is not shown either:\n{ctx}");
         // pay, the fee a person pays, contact data, RFC and the representative; names and identifiers of the staff
         for secret in ["7777", "7,777", "3333", "3,333", "AFI200101", "55 5555", "Rosa Representante", "Secreta", "Oculta", "HEGG", "Reservada", "Privada", "Callada", "Discreto",
-                       "Escondida", "4321", "45010", "45011", "600-04", "2015", "2030"] {
+                       "Escondida", "4321", "45010", "45011", "600-04", "2015", "2030", "Presidenta Ficticia", "Tesorero", "002010", "Banamex"] {
             assert!(!ctx.contains(secret), "«{secret}» leaked:\n{ctx}");
         }
         // the age of a group of one person would be that person's age
@@ -1216,7 +1268,7 @@ pub(crate) mod tests {
         crate::modules::finance::storage::save(&mut c, &money).unwrap();
 
         let stored = profile_store::load_current(&c).unwrap().unwrap();
-        let ctx = render(&stored, &money, &crate::modules::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap(), &facilities_sheet(&c).unwrap());
+        let ctx = render(&stored, &money, &crate::modules::hr::api::ai_summary(&c).unwrap(), &people_sheet(&c).unwrap(), &facilities_sheet(&c).unwrap(), &BoardSheet::default());
         assert!(ctx.contains("Personal: "), "{ctx}");
         assert!(ctx.contains("Población: "), "{ctx}");
         assert!(ctx.contains("Total de personas atendidas: "), "{ctx}");

@@ -201,6 +201,58 @@ Para qué sirve: va en las solicitudes y documentos que necesitan una firma. No 
 Qué poner: la fecha en que vence el poder de quien representa a la institución. Si el poder no vence, déjela vacía.
 Para qué sirve: algunas convocatorias piden un poder vigente. Con esta fecha el programa podrá avisarle antes de que venza.
 
+# Patronato u órgano de gobierno {#institution.board_member}
+
+En «Patronato y cuentas» registra a cada persona del patronato, del consejo o del órgano que gobierna a la institución, con su cargo.
+Sus nombres se quedan en este equipo: el programa los pone en los documentos que lo piden, y la ayuda automática solo sabe cuántas personas son y qué cargos tienen.
+Cuando alguien deja el cargo, márquelo con «Ya no forma parte»: sigue en la lista, aparte, y no se pierde lo que se registró. Borrar es solo para lo que se escribió por error.
+
+## Nombre completo {#institution.board.name}
+
+Qué poner: el nombre completo de la persona, como aparece en el acta de la asamblea que la nombró.
+Para qué sirve: algunas convocatorias y trámites piden la lista del patronato con nombres y cargos. El programa la pone en esos documentos.
+
+## Cargo {#institution.board.role}
+
+Qué poner: el cargo que tiene: presidencia, vicepresidencia, secretaría, tesorería o vocal. Si su cargo tiene otro nombre, elija «Otro» y escríbalo.
+Para qué sirve: los documentos ordenan al patronato por cargo. La ayuda automática sabe qué cargos están cubiertos, nunca quién los ocupa.
+
+## ¿Qué cargo? {#institution.board.role_other}
+
+Qué poner: el nombre del cargo cuando no está en la lista. Por ejemplo: comisario o patrono fundador.
+Para qué sirve: aparece así en los documentos.
+
+## ¿Desde cuándo tiene el cargo? {#institution.board.since}
+
+Qué poner: la fecha en que la nombraron, si la sabe. Viene en el acta de la asamblea.
+Para qué sirve: algunos trámites ante la Junta piden desde cuándo está cada persona en el patronato.
+
+# Cuentas bancarias {#institution.bank_account}
+
+En «Patronato y cuentas» registra las cuentas de banco de la institución, no las de su personal.
+La CLABE se pide una sola vez, al agregar la cuenta, y después se ve tapada; para verla completa use «Mostrar», y queda anotado que alguien la vio.
+Si la institución cambia de cuenta, marque la anterior con «Cuenta cerrada» y agregue la nueva.
+
+## CLABE {#institution.bank.clabe}
+
+Qué poner: los 18 números de la CLABE, como vienen en su estado de cuenta. Puede escribirlos con o sin espacios.
+Para qué sirve: el programa la revisa con su número de control para que no tenga errores, y la pone en las solicitudes de donativo para que sepan dónde depositar. Nunca llega a la ayuda automática.
+
+## Banco {#institution.bank.bank}
+
+Qué poner: el nombre del banco. Si lo deja vacío, el programa lo toma de la CLABE.
+Para qué sirve: acompaña a la CLABE en los documentos.
+
+## ¿Para qué se usa? {#institution.bank.purpose}
+
+Qué poner: marque si la cuenta es para recibir donativos, para pagar los gastos de la institución o para las dos cosas.
+Para qué sirve: el programa ofrece en las solicitudes la cuenta de donativos, no la de los gastos.
+
+## ¿Se pone en los documentos? {#institution.bank.in_documents}
+
+Qué poner: «Sí» si quiere que esta cuenta aparezca en los documentos que arma el programa, como una solicitud de donativo.
+Para qué sirve: así decide usted qué cuenta se muestra a los donantes. Una cuenta con «No» solo se ve aquí.
+
 # Capacidad y cifras rápidas {#institution.capacity}
 
 La ventana «Capacidad y cifras rápidas» dice cuántas personas caben y, mientras no registre a cada una, cuántas atienden y cuántas trabajan, más o menos.

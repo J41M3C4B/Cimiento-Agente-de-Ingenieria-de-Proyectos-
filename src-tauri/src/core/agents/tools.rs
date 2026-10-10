@@ -64,6 +64,7 @@ fn gap_words(code: &str) -> &'static str {
         "staff_records" => "Registrar al personal",
         "served_records" => "Registrar a las personas que atienden",
         "spaces" => "Registrar los espacios del inmueble",
+        "board" => "Registrar a quienes forman el patronato u órgano de gobierno",
         _ => "Otro dato",
     }
 }
@@ -73,6 +74,7 @@ fn place_words(p: Place) -> &'static str {
         Place::Institution => "Mi institución, ventana «Su institución»",
         Place::Contact => "Mi institución, ventana «Contacto y ubicación»",
         Place::Legal => "Mi institución, ventana «Datos legales y fiscales»",
+        Place::Board => "Mi institución, apartado «Patronato y cuentas»",
         Place::Capacity => "Mi institución, ventana «Capacidad y cifras rápidas»",
         Place::Finance => "el módulo de Finanzas",
         Place::Facilities => "el módulo de Instalaciones",
@@ -157,7 +159,7 @@ mod tests {
     use crate::ai::mock::MockProvider;
     use crate::ai::pipeline::SqliteLedger;
     use crate::ai::{AiResponse, ModelTier, Usage};
-    use crate::core::ai_sheet::tests::{rich, rich_money, seed_rich_facilities, seed_rich_people, seed_rich_staff};
+    use crate::core::ai_sheet::tests::{rich, rich_money, seed_rich_board, seed_rich_facilities, seed_rich_people, seed_rich_staff};
     use crate::scanner::{RegexScanner, ScannerConfig};
 
     const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
@@ -169,6 +171,7 @@ mod tests {
         seed_rich_staff(&mut c);
         seed_rich_people(&mut c);
         seed_rich_facilities(&c);
+        seed_rich_board(&mut c);
         crate::core::profile::storage::save(&mut c, &rich()).unwrap();
         crate::modules::finance::storage::save(&mut c, &rich_money()).unwrap();
         crate::core::profile::storage::confirm(&mut c).unwrap();

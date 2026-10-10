@@ -4,6 +4,7 @@
 use crate::audit::{self, AuditKind};
 use crate::core::access::domain::{self as rules, DeletionKind, Permission, Role};
 use crate::core::profile::sync as profile_sync;
+use crate::core::protected::{self, ListKind};
 use crate::core::security::{self as security_service, Attempts, Verify};
 use crate::core::error::ServiceError;
 use crate::core::access::storage::{self as store, NewUser, RequestRow, StoredUser};
@@ -533,6 +534,8 @@ fn hide(conn: &Connection, kind: DeletionKind, target: &str, hidden: bool) -> Re
         DeletionKind::HrField => Some(crate::modules::hr::service::set_field_hidden(conn, target, hidden)?),
         DeletionKind::Beneficiary => Some(crate::modules::care::service::set_person_hidden(conn, target, hidden)?),
         DeletionKind::CareField => Some(crate::modules::care::service::set_field_hidden(conn, target, hidden)?),
+        DeletionKind::BoardMember => protected::set_hidden(conn, ListKind::BoardMember, target, hidden)?,
+        DeletionKind::BankAccount => protected::set_hidden(conn, ListKind::BankAccount, target, hidden)?,
     };
     label.ok_or(ServiceError::NotFound)
 }
@@ -584,6 +587,8 @@ fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str, dele
         DeletionKind::CareField => {
             crate::modules::care::service::delete_custom_field(conn, target)?;
         }
+        DeletionKind::BoardMember => protected::delete(conn, ListKind::BoardMember, target)?,
+        DeletionKind::BankAccount => protected::delete(conn, ListKind::BankAccount, target)?,
     }
     Ok(())
 }

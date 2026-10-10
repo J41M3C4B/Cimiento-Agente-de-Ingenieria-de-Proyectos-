@@ -89,6 +89,13 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("form_get", Need::Permission(Permission::Use)),
     ("institution_overview", Need::Permission(Permission::Use)),
     ("form_save", Need::Permission(Permission::Use)),
+    // the board and the bank accounts of the institution (ADR-033 §3)
+    ("institution_lists", Need::Permission(Permission::Use)),
+    ("institution_list_form", Need::Permission(Permission::Use)),
+    ("institution_list_save", Need::Permission(Permission::Use)),
+    ("institution_list_set_active", Need::Permission(Permission::Use)),
+    ("institution_list_delete", Need::DeleteOrRequest),
+    ("institution_clabe_reveal", Need::Permission(Permission::Use)),
     ("profile_confirm", Need::Permission(Permission::Use)),
     // the manual of the program (ADR-034): help for anyone who is in, with no data of the institution
     ("manual_entry", Need::Session),
@@ -204,11 +211,23 @@ pub enum DeletionKind {
     /// A field of their own of the form of the people served (stored as `roster_field`, its name before ADR-029).
     CareField,
     HrField,
+    /// A person of the board of the institution (ADR-033 §3).
+    BoardMember,
+    /// A bank account of the institution.
+    BankAccount,
 }
 
 impl DeletionKind {
-    pub const ALL: [DeletionKind; 6] =
-        [DeletionKind::Document, DeletionKind::HrPerson, DeletionKind::Beneficiary, DeletionKind::Project, DeletionKind::CareField, DeletionKind::HrField];
+    pub const ALL: [DeletionKind; 8] = [
+        DeletionKind::Document,
+        DeletionKind::HrPerson,
+        DeletionKind::Beneficiary,
+        DeletionKind::Project,
+        DeletionKind::CareField,
+        DeletionKind::HrField,
+        DeletionKind::BoardMember,
+        DeletionKind::BankAccount,
+    ];
     pub fn as_db(self) -> &'static str {
         match self {
             DeletionKind::Document => "document",
@@ -217,6 +236,8 @@ impl DeletionKind {
             DeletionKind::Project => "project",
             DeletionKind::CareField => "roster_field",
             DeletionKind::HrField => "hr_field",
+            DeletionKind::BoardMember => "board_member",
+            DeletionKind::BankAccount => "bank_account",
         }
     }
     pub fn from_db(s: &str) -> Option<Self> {

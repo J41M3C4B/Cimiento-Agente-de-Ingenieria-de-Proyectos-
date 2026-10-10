@@ -2,7 +2,7 @@
 //! screen draws them; the words live in `src/i18n/es-MX.ts` under `forms.fields` with the same id.
 
 use super::catalog::{
-    CARE_AREAS, DONEE_CATEGORIES, LEGAL_FORMS, MAX_ESTIMATE, MODALITIES, OLDEST_YEAR, POPULATIONS, REGISTRY, SEXES_SERVED, STATE_CODES,
+    BANK_PURPOSES, BOARD_ROLES, CARE_AREAS, DONEE_CATEGORIES, LEGAL_FORMS, MAX_ESTIMATE, MODALITIES, OLDEST_YEAR, POPULATIONS, REGISTRY, SEXES_SERVED, STATE_CODES,
     TAX_REGIMES, UNDER_A_JUNTA,
 };
 use crate::common::forms::{AiUse, Condition, FieldKind, FieldSpec, FormSpec, Rule, SectionSpec, Sensitivity};
@@ -189,6 +189,60 @@ pub fn form(id: &str) -> Option<&'static FormSpec> {
     FORMS.iter().copied().find(|f| f.id == id)
 }
 
+// ------------------------------------------------------------------ the lists of the institution (ADR-033 §3)
+
+/// «Patronato u órgano de gobierno», one form per person. The names never reach the AI: it learns how many people
+/// there are and which roles (`core::protected`).
+pub const BOARD_MEMBER: FormSpec = FormSpec {
+    id: "institution.board_member",
+    sections: &[SectionSpec {
+        id: "board_member",
+        columns: 2,
+        fields: &[
+            private(FieldSpec::new("institution.board.name", FieldKind::Text)).required().used_by(&["documents"]),
+            internal(FieldSpec::new("institution.board.role", FieldKind::Select)).options(BOARD_ROLES).required().used_by(&["documents", "ai"]),
+            private(FieldSpec::new("institution.board.role_other", FieldKind::Text))
+                .required()
+                .when(Condition::AnyOf { field: "institution.board.role", values: &["other"] })
+                .used_by(&["documents"]),
+            private(FieldSpec::new("institution.board.since", FieldKind::Date)).used_by(&["documents"]),
+        ],
+    }],
+};
+
+/// The CLABE of an account: asked once, when the account is added. To change it, the account is closed and another
+/// one is added; afterwards it is only shown covered.
+const BANK_CLABE: SectionSpec = SectionSpec {
+    id: "bank_clabe",
+    columns: 1,
+    fields: &[private(FieldSpec::new("institution.bank.clabe", FieldKind::Text)).rule(Rule::Clabe).required().used_by(&["documents", "finance"])],
+};
+
+/// The bank (read from the CLABE when it is left empty) and what the account is for.
+const BANK_USE: SectionSpec = SectionSpec {
+    id: "bank_use",
+    columns: 1,
+    fields: &[
+        private(FieldSpec::new("institution.bank.bank", FieldKind::Text)).used_by(&["documents", "finance"]),
+        private(FieldSpec::new("institution.bank.purpose", FieldKind::MultiSelect)).options(BANK_PURPOSES).required().used_by(&["documents", "finance"]),
+        private(FieldSpec::new("institution.bank.in_documents", FieldKind::YesNo)).used_by(&["documents"]),
+    ],
+};
+
+/// «Cuentas bancarias» of the institution, one form per account: never to the AI, shown covered.
+pub const BANK_ACCOUNT: FormSpec = FormSpec { id: "institution.bank_account", sections: &[BANK_CLABE, BANK_USE] };
+
+/// The same account once it is saved: its CLABE is no longer asked (`BANK_CLABE`).
+pub const BANK_ACCOUNT_SAVED: FormSpec = FormSpec { id: "institution.bank_account", sections: &[BANK_USE] };
+
+/// The forms of the lists, one row each: they do not belong to the profile, so they are kept apart from `FORMS`.
+pub const LIST_FORMS: &[&FormSpec] = &[&BOARD_MEMBER, &BANK_ACCOUNT];
+
+/// A field of any form of the core, of the profile or of its lists.
+pub fn field(id: &str) -> Option<&'static FieldSpec> {
+    FORMS.iter().chain(LIST_FORMS).find_map(|f| f.field(id))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,7 +254,7 @@ mod tests {
         let es = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/i18n/es-MX.ts")).unwrap();
         let start = es.find("forms: {").expect("es-MX.ts has a `forms` block");
         let block = &es[start..];
-        for f in FORMS.iter().flat_map(|f| f.fields()) {
+        for f in FORMS.iter().chain(LIST_FORMS).flat_map(|f| f.fields()) {
             let head = format!("\"{}\": {{", f.id);
             let at = block.find(&head).unwrap_or_else(|| panic!("{} has no words in es-MX.ts (forms.fields)", f.id));
             let rest = &block[at + head.len()..];
@@ -224,9 +278,25 @@ mod tests {
 
     #[test]
     fn the_forms_have_unique_ids() {
-        let ids: Vec<&str> = FORMS.iter().flat_map(|f| f.fields()).map(|f| f.id).collect();
+        let ids: Vec<&str> = FORMS.iter().chain(LIST_FORMS).flat_map(|f| f.fields()).map(|f| f.id).collect();
         assert!((1..ids.len()).all(|i| !ids[..i].contains(&ids[i])), "{ids:?}");
         assert!(form("institution.identity").is_some() && form("nope").is_none());
+        assert!(form("institution.board_member").is_none(), "a list is not a window of the profile");
+        assert!(field("institution.board.name").is_some() && field("institution.legal_rfc").is_some() && field("nope").is_none());
+        // the saved account asks the same, but its CLABE
+        assert!(BANK_ACCOUNT_SAVED.fields().all(|f| BANK_ACCOUNT.field(f.id) == Some(f)) && BANK_ACCOUNT_SAVED.field("institution.bank.clabe").is_none());
+    }
+
+    /// ADR-033 §3: of the board only the roles reach the AI (counted); the names, the CLABE and the rest never.
+    #[test]
+    fn of_the_board_and_the_accounts_only_the_roles_reach_the_ai() {
+        for f in LIST_FORMS.iter().flat_map(|f| f.fields()) {
+            if f.id == "institution.board.role" {
+                assert_eq!((f.sensitivity, f.ai), (Sensitivity::Internal, AiUse::AsIs));
+            } else {
+                assert_eq!((f.sensitivity, f.ai), (Sensitivity::InstitutionalPrivate, AiUse::Never), "{}", f.id);
+            }
+        }
     }
 
     /// The contact, the address, the RFC, the folios and the keys of the institution never reach the AI (ADR-033 §3).

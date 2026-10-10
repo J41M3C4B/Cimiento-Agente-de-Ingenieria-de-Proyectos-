@@ -419,12 +419,15 @@ pub fn scanner_config(conn: &Connection) -> Result<ScannerConfig, StorageError> 
             |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, Option<String>>(3)?)),
         )
         .optional()?;
+    // the accounts and the board are the institution's own too (ADR-033 §3)
+    let (clabes, board) = crate::core::protected::storage::own_clabes_and_names(conn)?;
     Ok(match row {
-        None => ScannerConfig::default(),
+        None => ScannerConfig { institutional_clabes: clabes, safe_phrases: board, ..Default::default() },
         Some((name, phone, email, rep)) => ScannerConfig {
             institutional_phones: phone.into_iter().collect(),
             institutional_emails: email.into_iter().collect(),
-            safe_phrases: std::iter::once(name).chain(rep).collect(),
+            safe_phrases: std::iter::once(name).chain(rep).chain(board).collect(),
+            institutional_clabes: clabes,
         },
     })
 }

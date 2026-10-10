@@ -17,5 +17,6 @@ pub mod manual;
 pub mod onboarding;
 pub mod overview;
 pub mod profile;
+pub mod protected;
 pub mod screen;
 pub mod security;

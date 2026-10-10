@@ -51,6 +51,8 @@ pub enum AuditKind {
     InstitutionOnboarded,
     /// An errand of an agent ended (ADR-034): agent, steps, tools used (counts) and result; never content.
     AiRun,
+    /// A protected datum of the institution was shown in full (ADR-033 §3): which field, never the value.
+    InstitutionSensitiveViewed,
 }
 
 impl AuditKind {
@@ -90,6 +92,7 @@ impl AuditKind {
             AuditKind::FacilitiesImported => "facilities.imported",
             AuditKind::InstitutionOnboarded => "institution.onboarded",
             AuditKind::AiRun => "ai.run",
+            AuditKind::InstitutionSensitiveViewed => "institution.sensitive_viewed",
         }
     }
 }
