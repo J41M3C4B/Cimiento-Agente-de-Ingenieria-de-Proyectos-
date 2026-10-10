@@ -211,6 +211,17 @@ pub fn finish(conn: &mut Connection, user: &CurrentUser) -> Result<OnboardingSta
     status(conn, user)
 }
 
+/// What «Mi institución» saves. Once the institution finished its first start, what the person types there is
+/// confirmed at once: the profile never waits for a «review» that nobody could do any more, and the AI sheet and the
+/// stage of a project keep reading it as confirmed. Before that (the administrator left the data to the direction) it
+/// stays a draft, and finishing the first start confirms it.
+pub fn save_profile_confirmed(conn: &mut Connection, input: ProfileInput, decision: Option<Decision>) -> Result<SaveProfileOutcome, ServiceError> {
+    match service::save_profile(conn, input, decision)? {
+        SaveProfileOutcome::Saved { .. } if onboarded(conn)? => Ok(SaveProfileOutcome::Saved { profile: service::confirm_profile(conn)? }),
+        other => Ok(other),
+    }
+}
+
 /// The person saw the welcome; it does not show again.
 pub fn welcome_done(conn: &Connection, user: &CurrentUser) -> Result<(), ServiceError> {
     conn.execute("UPDATE app_user SET welcomed_at = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ?1 AND welcomed_at IS NULL", [&user.id])?;

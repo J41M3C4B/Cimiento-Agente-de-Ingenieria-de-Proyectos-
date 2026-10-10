@@ -351,6 +351,21 @@ pub fn recover(conn: &Connection, session: &Session, username: &str, code: &str,
     Ok(SetupOutcome { session: view_of(&current, false), recovery_code: next })
 }
 
+// ------------------------------------------------------------------ who is in
+
+/// Someone who has access, as Inicio shows them: a name and a role, nothing else.
+#[derive(Debug, Serialize)]
+pub struct TeamMember {
+    pub display_name: String,
+    pub role: Role,
+}
+
+/// The people who run the platform (the accounts that are active). Any signed-in person sees it: it carries no data of
+/// the accounts, only who is in.
+pub fn team(conn: &Connection) -> Result<Vec<TeamMember>, ServiceError> {
+    Ok(store::users(conn)?.into_iter().filter(|u| u.active).map(|u| TeamMember { display_name: u.display_name, role: u.role }).collect())
+}
+
 // ------------------------------------------------------------------ the administration panel
 
 #[derive(Debug, Serialize)]

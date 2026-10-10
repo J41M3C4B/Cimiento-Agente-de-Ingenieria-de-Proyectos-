@@ -45,7 +45,7 @@ export function DocColumn({
   const searching = query.trim() !== "";
 
   return (
-    <Folder tone="ink" title={c.title} chip={<span className="folder-count tabular">{items.length}</span>} bodyClassName="!gap-4">
+    <Folder tone="ac" title={c.title} chip={<span className="folder-count tabular">{items.length}</span>} bodyClassName="!gap-4">
       <p className="text-ui text-ink-2">{c.note}</p>
 
       {items.length === 0 ? (

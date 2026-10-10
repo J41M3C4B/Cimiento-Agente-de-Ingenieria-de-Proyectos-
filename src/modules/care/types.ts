@@ -146,6 +146,8 @@ export interface Indicators {
   average_years: number | null;
   admitted_this_year: number;
   discharged_this_year: number;
+  /** which of the two happened last, ever (the counts above are of this year) */
+  latest_movement: "admitted" | "discharged" | null;
   deceased_this_year: number;
   discharge_reasons_this_year: Count[];
   few_visits: number;

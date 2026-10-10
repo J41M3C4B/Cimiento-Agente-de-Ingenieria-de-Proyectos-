@@ -69,6 +69,15 @@ La institución pidió un primer inicio que obligue a llenar los datos básicos 
   - Validar el municipio contra el catálogo del INEGI.
   - Que la IA cruce el estado y la figura jurídica con los requisitos de cada convocatoria.
 
+## Actualización (2026-10-08): «Mi institución» ya no pide revisar
+
+Después del primer inicio, «Mi institución» mostraba «Falta que usted lo revise» / «Revisado por usted» y un botón «Confirmar». Eran un recordatorio que no servía de nada (la persona ya había escrito esos datos) y escondían lo que sí hace falta: terminar de llenar la información.
+
+- **Qué se muestra:** el estado del llenado, «Datos completos» o «Faltan N datos por llenar», con la lista de lo que falta y a dónde ir a llenarlo. Sale de `onboarding_status` (lo que Rust dice que falta en cada paso) más las personas y los espacios que nadie ha registrado. Lo usan «Mi institución» y la tarjeta de la institución en Inicio (`useFillGaps`).
+- **Qué se confirma:** `profile_save` pasa por `onboarding::service::save_profile_confirmed`: **una vez terminado el primer inicio, lo que se guarda se confirma en el acto.** Antes de terminarlo (el administrador dejó los datos a la dirección) sigue siendo borrador y terminar el primer inicio lo confirma, como hasta ahora. Hacía falta porque el botón era la única forma de confirmar, y la ficha de la IA («BORRADOR») y la etapa «Perfil» de un proyecto leen la confirmación.
+- **Cada guardado congela una versión** (antes, una por cada «Confirmar»).
+- **Pendiente:** la etapa «Perfil» de un proyecto exige una confirmación de menos de 365 días (`PROFILE_MAX_AGE_DAYS`). Quien no edite sus datos en un año tendrá que guardarlos de nuevo; falta un aviso de «¿sigue vigente?» que lo pida.
+
 ## Alternativas descartadas
 
 - **Que solo el administrador llene los datos:** él no conoce el día a día de la institución, y la dirección entraría a una app que no reconoce.

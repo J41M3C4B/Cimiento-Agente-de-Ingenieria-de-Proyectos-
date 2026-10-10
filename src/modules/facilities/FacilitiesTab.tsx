@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { AddSlot, Alert, Button, Inset, RowActions, Segmented, Tag, THead } from "../../components/ui";
+import { AddSlot, Alert, Button, Inset, RowActions, Tag, THead } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
@@ -15,7 +15,7 @@ import type { EquipmentData, EquipmentRow, FacilitiesOutcome, FacilitiesOverview
 
 const f = es.facilities;
 export const FACILITIES_KEY = ["facilities"] as const;
-type View = "spaces" | "building" | "equipment" | "board";
+export type FacilitiesView = "spaces" | "building" | "equipment" | "board";
 
 /** The whole of something at a glance: how many there are and how they are, in one bar. */
 function Summary({ title, total, s, count }: { title: string; total: string; s: States; count: number }) {
@@ -54,10 +54,9 @@ const equipmentName = (r: EquipmentRow) => (r.kind === "other" ? (r.label ?? f.e
  * services and safety, the equipment, and the board that turns them into arguments for a project. Names and notes go
  * through the scanner, because they reach the automatic help.
  */
-export function FacilitiesTab({ onNotice }: { onNotice?: (text: string) => void }) {
+export function FacilitiesTab({ view, onView, onNotice }: { view: FacilitiesView; onView: (v: FacilitiesView) => void; onNotice?: (text: string) => void }) {
   const qc = useQueryClient();
   const overview = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
-  const [view, setView] = useState<View>("spaces");
   const [space, setSpace] = useState<{ id: string | null; start: SpaceData } | null>(null);
   const [item, setItem] = useState<{ id: string | null; start: EquipmentData } | null>(null);
   const [quarantine, setQuarantine] = useState<{ report: QuarantineReport; retry: (d: Decision) => void; cancel: () => void } | null>(null);
@@ -120,33 +119,24 @@ export function FacilitiesTab({ onNotice }: { onNotice?: (text: string) => void 
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <Segmented
-          label={f.title}
-          value={view}
-          onChange={setView}
-          items={[
-            { id: "spaces", label: f.tabs.spaces, count: total },
-            { id: "building", label: f.tabs.building },
-            { id: "equipment", label: f.tabs.equipment, count: data.indicators.equipment },
-            { id: "board", label: f.tabs.board, count: data.board.insights.length },
-          ]}
-        />
-        <span className="flex-1" />
-        {view === "spaces" && (
-          <Button variant="primary" onClick={() => setSpace({ id: null, start: emptySpace(data.space_kinds[0]) })}>
-            <Icon name="plus" size={16} strokeWidth={2.4} />
-            {f.spaces.add}
-          </Button>
-        )}
-        {view === "equipment" && (
-          <Button variant="primary" onClick={() => setItem({ id: null, start: emptyEquipment(data.equipment_kinds[0]) })}>
-            <Icon name="plus" size={16} strokeWidth={2.4} />
-            {f.equipment.add}
-          </Button>
-        )}
-      </div>
-      {view !== "board" && <p className="max-w-[80ch] text-ui text-ink-2">{f.help}</p>}
+      {(view === "spaces" || view === "equipment") && (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="max-w-[80ch] flex-1 text-ui text-ink-2">{f.help}</p>
+          {view === "spaces" && (
+            <Button variant="primary" onClick={() => setSpace({ id: null, start: emptySpace(data.space_kinds[0]) })}>
+              <Icon name="plus" size={16} strokeWidth={2.4} />
+              {f.spaces.add}
+            </Button>
+          )}
+          {view === "equipment" && (
+            <Button variant="primary" onClick={() => setItem({ id: null, start: emptyEquipment(data.equipment_kinds[0]) })}>
+              <Icon name="plus" size={16} strokeWidth={2.4} />
+              {f.equipment.add}
+            </Button>
+          )}
+        </div>
+      )}
+      {view === "building" && <p className="max-w-[80ch] text-ui text-ink-2">{f.help}</p>}
       {error && <Alert tone="error">{error}</Alert>}
 
       {view === "spaces" && <Summary title={f.board.spacesState} total={f.spaces.total(total)} s={data.indicators.spaces_states} count={total} />}
@@ -247,7 +237,7 @@ export function FacilitiesTab({ onNotice }: { onNotice?: (text: string) => void 
           </div>
         ))}
 
-      {view === "board" && <FacilitiesBoard board={data.board} onGo={setView} />}
+      {view === "board" && <FacilitiesBoard board={data.board} onGo={onView} />}
 
       {space && (
         <SpaceDialog

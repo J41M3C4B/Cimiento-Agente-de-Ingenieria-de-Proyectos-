@@ -75,6 +75,7 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("access_lock", Need::Session),
     ("access_logout", Need::Session),
     ("access_change_password", Need::Session),
+    ("access_team", Need::Permission(Permission::Use)),
     ("admin_overview", Need::Permission(Permission::Administer)),
     ("admin_user_create", Need::Permission(Permission::Administer)),
     ("admin_user_update", Need::Permission(Permission::Administer)),

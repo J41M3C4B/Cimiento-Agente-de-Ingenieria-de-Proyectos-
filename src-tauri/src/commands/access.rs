@@ -2,7 +2,7 @@
 //! `core::access`.
 
 use super::guard;
-use crate::core::access::service::{self as svc, AccessStatus, AdminOverview, LoginOutcome, NewAccount, Session, SessionView, SetupOutcome};
+use crate::core::access::service::{self as svc, AccessStatus, AdminOverview, LoginOutcome, NewAccount, Session, SessionView, SetupOutcome, TeamMember};
 use crate::core::access::domain::Role;
 use crate::error::UiError;
 use crate::core::security::Attempts;
@@ -86,6 +86,14 @@ pub fn access_change_password(session: State<'_, Session>, db: State<'_, Db>, cu
     guard(&session, "access_change_password")?;
     let conn = lock(&db)?;
     Ok(svc::change_password(&conn, &session, &current, &new_password)?)
+}
+
+/// Who has access to the platform: the names Inicio shows with the institution.
+#[tauri::command]
+pub fn access_team(session: State<'_, Session>, db: State<'_, Db>) -> Result<Vec<TeamMember>, UiError> {
+    guard(&session, "access_team")?;
+    let conn = lock(&db)?;
+    Ok(svc::team(&conn)?)
 }
 
 #[tauri::command]

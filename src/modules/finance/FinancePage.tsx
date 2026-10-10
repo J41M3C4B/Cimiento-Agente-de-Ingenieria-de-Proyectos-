@@ -78,6 +78,7 @@ export function FinancePage() {
       module="finance"
       title={es.modules.finance.title}
       intro={es.modules.finance.intro}
+      tab={es.modules.finance.tab}
       notice={notice}
       after={
         money && (

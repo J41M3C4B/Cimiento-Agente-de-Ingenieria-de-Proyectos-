@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Icon } from "../../components/icons";
-import { AddSlot, Alert, Avatar, Bar, Button, Inset, Search, Select, StatusDot, Tag, THead, toneOfText } from "../../components/ui";
+import { AddSlot, Alert, Avatar, Bar, Button, Inset, Search, Select, StatusDot, Tag, THead } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
@@ -127,7 +127,7 @@ export function StaffTab({ onProfile, onNotice }: { onProfile: (p: ProfileView) 
                         </span>
                       </button>
                     </td>
-                    <td>{p.position_id ? <Tag tone={toneOfText(titleOf(p.position_id))}>{titleOf(p.position_id)}</Tag> : "—"}</td>
+                    <td>{p.position_id ? <Tag>{titleOf(p.position_id)}</Tag> : "—"}</td>
                     <td className="max-w-[220px]">
                       <span className="line-clamp-1">{modalityOf(p.modality, data?.modalities ?? [])}</span>
                     </td>
@@ -143,7 +143,7 @@ export function StaffTab({ onProfile, onNotice }: { onProfile: (p: ProfileView) 
                     <td className="min-w-[160px]">
                       <div className="flex items-center gap-3">
                         <div className="min-w-0 flex-1">
-                          <Bar percent={p.progress} label={h.progress(p.progress)} tone={p.progress === 100 ? "green" : "ink"} />
+                          <Bar percent={p.progress} label={h.progress(p.progress)} tone={p.progress === 100 ? "green" : "ac"} />
                         </div>
                         <span className="tabular w-10 shrink-0 text-right text-small font-bold">{h.progress(p.progress)}</span>
                       </div>

@@ -1,25 +1,24 @@
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { es } from "../i18n/es-MX";
-import { projectTone } from "../lib/palette";
 import { useTheme } from "../lib/theme";
-import type { ProjectRow } from "../lib/types";
 import { PersonMenu } from "../core/access/PersonMenu";
 import type { SessionApi } from "../core/access/session";
-import { PROJECT_STEPS, stepIndex } from "../modules/projects/steps";
 import type { IconName } from "./icons";
-import { MODULE_META } from "./modules";
+import { accentOf } from "./modules";
 import type { ModuleId } from "./modules";
-import { Avatar, IconButton, Logo, StepDots } from "./ui";
+import { SettingsMenu } from "./SettingsMenu";
+import { Avatar, IconButton, LogoMark } from "./ui";
 
-/** The sections of the rail: the core (Inicio, Mi institución, Documentos), the modules (ADR-032) and the settings. */
+/** The sections of the bar: the core (Inicio, Mi institución, Documentos), the modules (ADR-032) and the settings. */
 export type Page = "home" | "profile" | "documents" | "projects" | "staff" | "people" | "facilities" | "finance" | "ai" | "security" | "admin" | "help";
 
-const CORE: [Page, string, IconName][] = [
-  ["home", es.nav.home, "home"],
-  ["profile", es.nav.profile, "idcard"],
-  ["documents", es.nav.documents, "file"],
+const CORE: [Page, string][] = [
+  ["home", es.nav.home],
+  ["profile", es.nav.profile],
+  ["documents", es.nav.documents],
 ];
-/** One button per module of the institution (ADR-032), each in its own color (components/modules.ts). */
+/** One tab per module of the institution (ADR-032). */
 const MODULES: [ModuleId, string][] = [
   ["projects", es.nav.projects],
   ["staff", es.nav.staff],
@@ -27,98 +26,76 @@ const MODULES: [ModuleId, string][] = [
   ["facilities", es.nav.facilities],
   ["finance", es.nav.finance],
 ];
-/** The sections below the line; some only for whoever may use them (ADR-028). */
-const MORE: [Page, string, IconName, "settings" | "administer" | null][] = [
-  ["ai", es.nav.ai, "sparkles", "settings"],
-  ["security", es.nav.security, "shield", null],
-  ["admin", es.nav.admin, "users", "administer"],
+/** What the gear opens; some only for whoever may use them (ADR-028). */
+const MORE: { page: Page; label: string; icon: IconName; needs: "settings" | "administer" | null }[] = [
+  { page: "ai", label: es.nav.ai, icon: "sparkles", needs: "settings" },
+  { page: "security", label: es.nav.security, icon: "shield", needs: null },
+  { page: "admin", label: es.nav.admin, icon: "users", needs: "administer" },
+  { page: "help", label: es.nav.help, icon: "help", needs: null },
 ];
 
 /**
- * The layout of the whole program (docs/13 §6): a rail of round buttons on the left, a
- * capsule on top that says where the person is, and the page in the middle.
+ * The layout of the whole program (docs/13 §6): a bar on top (the logo in the accent of the page, the sections with their names, and
+ * on the right the theme, the settings and the person) and the page below it. The window carries the accent of the
+ * page the person is in (docs/13 §3.7), which the pieces with tone="ac" take.
  */
 export function Shell({
   page,
   onNavigate,
   institution,
-  focus,
-  onOpenFocus,
   access,
   children,
 }: {
   page: Page;
   onNavigate: (page: Page) => void;
   institution: string;
-  /** the project the capsule talks about: the one open, or else the one in progress */
-  focus: ProjectRow | undefined;
-  onOpenFocus: () => void;
-  /** the person inside: the menu shows what they may use, and the rail locks or closes the session */
+  /** the person inside: the menu shows what they may use, and lets them lock or close the session */
   access: SessionApi | null;
   children: ReactNode;
 }) {
   const [theme, toggleTheme] = useTheme();
-  const rail = ([id, label, icon]: [Page, string, IconName]) => (
-    <IconButton key={id} icon={icon} label={label} tip={label} aria-current={page === id ? "page" : undefined} onClick={() => onNavigate(id)} />
+  const nav = useRef<HTMLElement>(null);
+
+  // in a narrow window the tabs scroll: the one the person is in always stays in view
+  useEffect(() => {
+    nav.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView?.({ inline: "nearest", block: "nearest" });
+  }, [page]);
+
+  const tab = ([id, label]: [Page, string]) => (
+    <button key={id} type="button" className="topnav-tab" aria-current={page === id ? "page" : undefined} onClick={() => onNavigate(id)}>
+      {label}
+    </button>
   );
-  const moduleButton = ([id, label]: [ModuleId, string]) => (
-    <IconButton key={id} icon={MODULE_META[id].icon} label={label} tip={label} tone={MODULE_META[id].tone} aria-current={page === id ? "page" : undefined} onClick={() => onNavigate(id)} />
-  );
-  const done = focus?.stage === "READY";
-  const at = focus ? stepIndex(focus.stage) : -1;
-  const tone = focus ? projectTone(focus.color, focus.id) : "sky";
+  const more = MORE.filter(({ needs }) => !needs || access?.can(needs));
 
   return (
-    <div className="shell">
+    <div className={`shell accent-${accentOf(page)}`}>
       <div className="frame">
         <header className="topbar">
-          <Logo className="h-8" />
-          <div className="capsule" aria-label={es.nav.openProject}>
-            {focus ? (
-              <>
-                <b className="min-w-0 max-w-[40%] truncate text-ui font-bold" title={focus.title}>
-                  {focus.title}
-                </b>
-                <StepDots total={PROJECT_STEPS.length} at={at} done={done} tone={tone} className="hidden shrink-0 sm:flex" />
-                <span className="min-w-0 flex-1 truncate text-small font-semibold text-ink-2">
-                  {done ? es.projects.guideReady : at >= 0 ? es.projects.stepLabel(at + 1, PROJECT_STEPS.length, es.steps[focus.stage]) : es.steps[focus.stage]}
-                </span>
-                <IconButton icon="arrowUpRight" label={es.nav.openProject} size="sm" onClick={onOpenFocus} />
-              </>
-            ) : (
-              <b className="text-ui font-bold">{es.app.name}</b>
-            )}
-          </div>
-          <div className="ml-auto flex items-center gap-3">
-            <IconButton icon={theme === "dark" ? "sun" : "moon"} label={theme === "dark" ? es.nav.themeLight : es.nav.themeDark} onClick={toggleTheme} />
+          <span className="topbar-mark">
+            <LogoMark accent className="h-ctl-sm" />
+          </span>
+          <nav ref={nav} aria-label={es.nav.mainSections} className="topnav">
+            <div role="group" aria-label={es.nav.coreGroup} className="topnav-group">
+              {CORE.map(tab)}
+            </div>
+            <span className="topnav-sep" aria-hidden="true" />
+            <div role="group" aria-label={es.nav.modulesGroup} className="topnav-group">
+              {MODULES.map(tab)}
+            </div>
+          </nav>
+          <div className="topbar-tools">
+            <IconButton variant="plain" icon={theme === "dark" ? "sun" : "moon"} label={theme === "dark" ? es.nav.themeLight : es.nav.themeDark} onClick={toggleTheme} />
+            <SettingsMenu items={more} current={page} onNavigate={onNavigate} />
             {access ? (
               <PersonMenu access={access} />
             ) : (
-              <button type="button" onClick={() => onNavigate("profile")} title={es.nav.profile} className="flex items-center gap-2.5 border-l border-line pl-4 text-ui font-bold">
-                <span className="hidden max-w-[220px] truncate md:inline">{institution}</span>
+              <button type="button" onClick={() => onNavigate("profile")} aria-label={institution} title={institution} className="topbar-person">
                 <Avatar name={institution} tone="violet" />
               </button>
             )}
           </div>
         </header>
-        <nav aria-label={es.nav.mainSections} className="rail">
-          <div role="group" aria-label={es.nav.coreGroup} className="rail-core">
-            {CORE.map(rail)}
-          </div>
-          <div role="group" aria-label={es.nav.modulesGroup} className="rail-group">
-            {MODULES.map(moduleButton)}
-          </div>
-          <span className="rail-sep" aria-hidden="true" />
-          {MORE.filter(([, , , needs]) => !needs || access?.can(needs)).map(([id, label, icon]) => rail([id, label, icon]))}
-          <span className="rail-gap" aria-hidden="true" />
-          {rail(["help", es.nav.help, "help"])}
-          {access && (
-            <>
-              <IconButton icon="lock" label={es.access.menu.lock} tip={es.access.menu.lock} onClick={access.lock} />
-              <IconButton icon="x" label={`${es.access.menu.logout} (${access.session.display_name})`} tip={es.access.menu.logout} variant="danger" onClick={access.logout} />
-            </>
-          )}
-        </nav>
         <main className="frame-main min-w-0">{children}</main>
       </div>
     </div>

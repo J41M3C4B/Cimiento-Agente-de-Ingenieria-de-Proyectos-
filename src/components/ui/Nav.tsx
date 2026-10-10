@@ -90,7 +90,7 @@ export function StepNav({
   current: number;
   onSelect: (index: number) => void;
   label: string;
-  /** the first start: done in the blue of the brand and the current one in its navy */
+  /** the first start: done and current in the blue of the brand; the current one with a halo and its number */
   brand?: boolean;
 }) {
   const here = steps[current];
@@ -107,7 +107,7 @@ export function StepNav({
           const prevDone = i > 0 && state(steps[i - 1]!).done;
           const name = [s.label, s.na ? s.naLabel : known ? s.caption : null, s.warn ? s.warnLabel : null].filter(Boolean).join(", ");
           // the ring: a track, with the part that is filled in green; done and current are solid
-          const ring = done ? (brand ? "bg-brand" : "bg-green") : now ? (brand ? "bg-brand-ink" : "bg-ink") : "bg-line";
+          const ring = done ? (brand ? "bg-brand" : "bg-green") : now ? (brand ? "bg-brand step-here" : "bg-ink") : "bg-line";
           return (
             <li key={s.key} className="relative min-w-0">
               {i > 0 && <span aria-hidden="true" className={`absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2 ${prevDone ? (brand ? "bg-brand" : "bg-green") : "bg-line"}`} />}
@@ -117,7 +117,7 @@ export function StepNav({
                   className={`relative z-10 grid h-8 w-8 place-items-center rounded-pill p-[3px] ${ring}`}
                   style={!done && !now && percent > 0 ? { background: `conic-gradient(var(${brand ? "--color-brand" : "--color-green"}) ${percent}%, var(--line) 0)` } : undefined}
                 >
-                  <span className={`grid h-full w-full place-items-center rounded-pill text-caption font-extrabold ${done ? (brand ? "bg-brand text-on-brand" : "bg-green text-onc") : now ? (brand ? "bg-brand-ink text-on-brand" : "bg-ink text-on-ink") : "bg-card text-ink-2"}`}>
+                  <span className={`grid h-full w-full place-items-center rounded-pill text-caption font-extrabold ${done ? (brand ? "bg-brand text-on-brand" : "bg-green text-onc") : now ? (brand ? "bg-brand text-on-brand" : "bg-ink text-on-ink") : "bg-card text-ink-2"}`}>
                     {done ? <Icon name="check" size={14} strokeWidth={3} /> : s.na ? "–" : i + 1}
                   </span>
                   {s.warn ? <span className="absolute -right-1 -top-1 z-20 h-3.5 w-3.5 rounded-pill border-2 border-card bg-amber" /> : null}
@@ -195,16 +195,5 @@ export function THead({ columns }: { columns: { key: string; title: string; alig
         ))}
       </tr>
     </thead>
-  );
-}
-
-/** The progress of a flow as small dots in one color: what is done is full, where the person is has a ring. */
-export function StepDots({ total, at, done, tone = "pc", className = "" }: { total: number; at: number; done?: boolean; tone?: Tone; className?: string }) {
-  return (
-    <span className={`dots tone-${tone} ${className}`} aria-hidden="true">
-      {Array.from({ length: total }, (_, i) => (
-        <i key={i} className={done || i < at ? "on" : i === at ? "on now" : ""} />
-      ))}
-    </span>
   );
 }

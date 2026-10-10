@@ -1,35 +1,30 @@
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "../../components/icons";
-import { Alert, Avatar, Button, Calendar, Card, Folder, NextBox, Segments, Steps, Tag, Tile, PageHeader } from "../../components/ui";
+import { MODULE_META } from "../../components/modules";
+import type { ModuleId } from "../../components/modules";
+import { Alert, Button, Card, Segments, Tile, PageHeader } from "../../components/ui";
+import type { Tone } from "../../components/ui";
 import type { IconName } from "../../components/icons";
 import { es } from "../../i18n/es-MX";
-import { projectTone } from "../../lib/palette";
-import { profileGet, projectList } from "../../lib/tauri";
-import type { ProfileView, ProjectRow } from "../../lib/types";
+import { dayPartOf, firstName } from "../../lib/greeting";
+import { projectList } from "../../lib/tauri";
 import { useSession } from "../access/session";
 import { facilitiesOverview } from "../../modules/facilities/api";
 import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { ONBOARDING_KEY, onboardingStatus } from "../onboarding/api";
 import { resumeOnboarding } from "../onboarding/OnboardingGate";
+import { GlobalFigures } from "./GlobalFigures";
+import { InstitutionCard } from "./InstitutionCard";
+import { Ongoing } from "./Ongoing";
+import { TodoCard } from "./TodoCard";
 import type { Page } from "../../components/Shell";
-import { shortDate, stepInfo, useProjectCall } from "../../modules/projects/projectCall";
-import { ProjectFolder } from "../../modules/projects/ProjectFolder";
-import { stepsForView } from "../../modules/projects/steps";
 
 const t = es.home;
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** The state of the institution's sheet, in words and a color. */
-function sheetState(profile: ProfileView | null | undefined): { tone: "green" | "amber"; text: string } {
-  if (!profile) return { tone: "amber", text: es.profile.status.none };
-  return profile.is_draft ? { tone: "amber", text: es.profile.status.draft } : { tone: "green", text: es.profile.status.confirmed };
-}
-
 /**
- * Inicio (docs/13 §10): answers «¿qué hago ahora?» and «¿se me viene un plazo?». The project in progress as a big
- * folder with its one next step, the date it closes, the sheet of the institution in one small tray and the other
- * projects as small folders.
+ * Inicio (docs/13 §10): answers «¿qué hago ahora?» and «¿se me viene un plazo?». At the top the figures of the whole
+ * institution, «Por hacer» and the dark card of «Mi institución»; below, the long folder with what is under way and the
+ * notices; and, when it applies, the next steps to get to know the institution better.
  */
 export function HomePage({
   onOpenProject,
@@ -43,26 +38,22 @@ export function HomePage({
   onNewProject: () => void;
   onGoProjects: () => void;
   onGoProfile: () => void;
-  /** opens a section or a module of the rail */
+  /** opens a section or a module of the top bar */
   onGo: (page: Page) => void;
   onGoAi: () => void;
 }) {
   const projects = useQuery({ queryKey: ["projects"], queryFn: projectList });
-  const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
 
   const all = projects.data ?? [];
-  // the project in progress is the most recent one that is not ready; if all are ready, the most recent
-  const current = all.find((p) => p.stage !== "READY") ?? all[0];
-  const others = all.filter((p) => p.id !== current?.id);
-  const today = capitalize(new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" }));
-  const institution = profile.data?.input.institution.name?.trim() || es.nav.profile;
-  const sheet = sheetState(profile.data);
+  const access = useSession();
+  const name = firstName(access?.session.display_name);
+  const greeting = t.greeting[dayPartOf(new Date().getHours())];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t.greeting}
-        intro={today}
+        title={name ? `${greeting}, ${name}` : greeting}
+        intro={t.greetingIntro}
         action={
           <Button variant="primary" onClick={onNewProject}>
             <Icon name="plus" />
@@ -73,118 +64,20 @@ export function HomePage({
 
       <PendingData />
 
-      {projects.isSuccess && !current && (
-        <Card className="flex flex-col items-center gap-3 py-12 text-center">
-          <span className="grid h-ctl w-ctl place-items-center rounded-pill bg-inset text-ink-2">
-            <Icon name="folder" size={22} />
-          </span>
-          <p className="text-body font-bold">{t.emptyTitle}</p>
-          <p className="max-w-md text-ui text-ink-2">{t.emptyHelp}</p>
-          <Button variant="primary" onClick={onNewProject}>
-            <Icon name="plus" />
-            {t.newProject}
-          </Button>
-        </Card>
-      )}
-
-      {current && (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <CurrentProject project={current} onOpen={() => onOpenProject(current.id)} />
-          <div className="flex min-w-0 flex-col gap-4">
-            <DeadlineCard project={current} />
-            <Card small className="space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <Avatar name={institution} />
-                <div className="min-w-[10rem] flex-1">
-                  <b className="block truncate font-bold leading-tight">{institution}</b>
-                  <span className="block text-small text-ink-3">{t.institutionOwner}</span>
-                </div>
-                <Tag tone={sheet.tone} icon={sheet.tone === "green" ? "check" : undefined}>
-                  {sheet.text}
-                </Tag>
-              </div>
-              <p className="text-ui text-ink-2">{t.institutionNote}</p>
-              <button type="button" onClick={() => onGoProfile()} className="inline-flex items-center gap-1 text-ui font-bold text-ink underline underline-offset-4">
-                {t.goProfile}
-                <Icon name="next" size={16} />
-              </button>
-            </Card>
+      <GlobalFigures
+        onGo={onGo}
+        aside={
+          <div className="fig-stack">
+            <TodoCard />
+            <InstitutionCard onOpen={onGoProfile} />
           </div>
-        </div>
-      )}
+        }
+      />
+
+      <Ongoing projects={all} loaded={projects.isSuccess} onOpenProject={onOpenProject} onNewProject={onNewProject} onGoProjects={onGoProjects} />
 
       <NextSteps onGo={onGo} onGoAi={onGoAi} />
-
-      {others.length > 0 && (
-        <section className="space-y-3" aria-labelledby="home-others">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="home-others" className="text-heading font-bold">
-              {t.others}
-            </h2>
-            <button type="button" onClick={onGoProjects} className="inline-flex items-center gap-1 text-ui font-bold text-ink underline underline-offset-4">
-              {t.seeAll}
-              <Icon name="next" size={16} />
-            </button>
-          </div>
-          <ul className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))]">
-            {others.slice(0, 3).map((p) => (
-              <ProjectFolder key={p.id} project={p} onOpen={() => onOpenProject(p.id)} />
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
-  );
-}
-
-/** The big folder: the project in progress, where it is and the one thing to do now. */
-function CurrentProject({ project, onOpen }: { project: ProjectRow; onOpen: () => void }) {
-  const { funder, closes } = useProjectCall(project);
-  const step = stepInfo(project);
-  const [title, detail] = t.nextByStage[project.stage] ?? t.nextByStage.CALL_SELECTION!;
-
-  return (
-    <Folder
-      tone={projectTone(project.color, project.id)}
-      title={<span title={project.title}>{project.title}</span>}
-      chip={
-        closes && (
-          <span className="folder-chip">
-            <Icon name="calendar" size={16} />
-            <span>
-              <span className="max-sm:hidden">{t.closes} </span>
-              {shortDate(closes)}
-            </span>
-          </span>
-        )
-      }
-    >
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <Tag tone="pc" icon={step.done ? "check" : undefined}>
-          {step.done ? es.steps.READY : step.tag}
-        </Tag>
-        {funder && <span className="min-w-0 truncate text-ui text-ink-3">{funder}</span>}
-      </div>
-      <Steps steps={stepsForView} current={step.done ? stepsForView.length - 1 : step.at} />
-      <NextBox eyebrow={step.done ? t.nextDone : t.next} title={title} detail={detail} goLabel={step.done ? t.goReady : t.go} onGo={onOpen} />
-    </Folder>
-  );
-}
-
-/** When the call closes, as a calendar. Only when the call says so: nothing is made up. */
-function DeadlineCard({ project }: { project: ProjectRow }) {
-  const { closes, days } = useProjectCall(project);
-  if (!closes || days === null) return null;
-  return (
-    <Card small className="space-y-3">
-      <h2 className="text-heading font-bold">{t.deadlineTitle}</h2>
-      <Calendar
-        weekday={capitalize(closes.toLocaleDateString("es-MX", { weekday: "long" }))}
-        day={String(closes.getDate())}
-        month={`${capitalize(closes.toLocaleDateString("es-MX", { month: "long" }))} ${closes.getFullYear()}`}
-        note={days < 0 ? t.closed : t.daysToDeliver(days)}
-      />
-    </Card>
   );
 }
 
@@ -222,11 +115,13 @@ function NextSteps({ onGo, onGoAi }: { onGo: (page: Page) => void; onGoAi: () =>
   const facilities = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
   const s = status.data;
   if (!s || !s.done) return null;
-  const all: { key: string; icon: IconName; tone: "teal" | "violet" | "sky" | "amber"; todo: boolean; go: () => void }[] = [
-    { key: "staff", icon: "briefcase", tone: "teal", todo: s.records.staff === 0, go: () => onGo("staff") },
-    { key: "people", icon: "heart", tone: "violet", todo: s.records.served === 0, go: () => onGo("people") },
-    ...(facilities.isSuccess ? [{ key: "facilities", icon: "building" as IconName, tone: "sky" as const, todo: facilities.data.indicators.spaces === 0, go: () => onGo("facilities") }] : []),
-    ...(s.setup && access?.can("settings") ? [{ key: "ai", icon: "sparkles" as IconName, tone: "amber" as const, todo: !s.setup.ai_ready, go: onGoAi }] : []),
+  type Step = { key: string; icon: IconName; tone: Tone; todo: boolean; go: () => void };
+  const of = (module: Exclude<ModuleId, "projects">, todo: boolean): Step => ({ key: module, icon: MODULE_META[module].icon, tone: "ink", todo, go: () => onGo(module) });
+  const all: Step[] = [
+    of("staff", s.records.staff === 0),
+    of("people", s.records.served === 0),
+    ...(facilities.isSuccess ? [of("facilities", facilities.data.indicators.spaces === 0)] : []),
+    ...(s.setup && access?.can("settings") ? [{ key: "ai", icon: "sparkles" as IconName, tone: "ink" as const, todo: !s.setup.ai_ready, go: onGoAi }] : []),
   ];
   const pending = all.filter((x) => x.todo);
   if (pending.length === 0) return null;
@@ -240,7 +135,7 @@ function NextSteps({ onGo, onGoAi }: { onGo: (page: Page) => void; onGoAi: () =>
         </div>
         <div className="flex min-w-[140px] flex-col gap-1.5">
           <span className="text-small font-semibold text-ink-2">{n.progress(all.length - pending.length, all.length)}</span>
-          <Segments total={all.length} filled={all.length - pending.length} label={n.progress(all.length - pending.length, all.length)} tone="green" />
+          <Segments total={all.length} filled={all.length - pending.length} label={n.progress(all.length - pending.length, all.length)} tone="ac" />
         </div>
       </div>
       <ul className="grid gap-3 md:grid-cols-2">

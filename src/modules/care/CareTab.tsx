@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Icon } from "../../components/icons";
-import { AddSlot, Alert, Avatar, Bar, Button, Inset, Search, Segmented, StatusDot, Tag, THead, toneOfText } from "../../components/ui";
+import { AddSlot, Alert, Avatar, Bar, Button, Inset, Search, StatusDot, Tag, THead, toneOfText } from "../../components/ui";
 import type { Tone } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
@@ -14,7 +14,7 @@ import type { BeneficiaryView, CareChange, CareOverview } from "./types";
 
 const c = es.care;
 export const CARE_KEY = ["care"] as const;
-type View = "people" | "board" | "waitlist";
+export type CareView = "people" | "board" | "waitlist";
 
 /** Active is the usual and gets a green dot; the other situations show as a soft tag. */
 const STATUS_TONE: Record<string, Tone> = { hospitalized: "amber", discharged: "neutral", deceased: "neutral" };
@@ -23,10 +23,9 @@ const STATUS_TONE: Record<string, Tone> = { hospitalized: "amber", discharged: "
  * The people served (ADR-029): their records in five steps, the board that turns small data into arguments for a
  * project, and the waiting list. Everything stays in this computer; the profile and the AI only get counts.
  */
-export function CareTab({ onProfile, onNotice }: { onProfile: (p: ProfileView) => void; onNotice?: (text: string) => void }) {
+export function CareTab({ view, onProfile, onNotice }: { view: CareView; onProfile: (p: ProfileView) => void; onNotice?: (text: string) => void }) {
   const qc = useQueryClient();
   const overview = useQuery({ queryKey: CARE_KEY, queryFn: careOverview });
-  const [view, setView] = useState<View>("people");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState<{ person: BeneficiaryView | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,27 +53,15 @@ export function CareTab({ onProfile, onNotice }: { onProfile: (p: ProfileView) =
   if (!data) return overview.isError ? <Alert tone="error">{toAppError(overview.error).message}</Alert> : null;
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <Segmented
-          label={c.title}
-          value={view}
-          onChange={setView}
-          items={[
-            { id: "people", label: c.tabs.people, count: data.board.indicators.served },
-            { id: "board", label: c.tabs.board },
-            { id: "waitlist", label: c.tabs.waitlist, count: data.board.waiting },
-          ]}
-        />
-        {view === "people" && (
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Search label={c.search} placeholder={c.search} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-[260px]" />
-            <Button variant="primary" onClick={() => setOpen({ person: null })}>
-              <Icon name="plus" size={18} />
-              {c.add}
-            </Button>
-          </div>
-        )}
-      </div>
+      {view === "people" && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Search label={c.search} placeholder={c.search} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-[260px]" />
+          <Button variant="primary" onClick={() => setOpen({ person: null })}>
+            <Icon name="plus" size={18} />
+            {c.add}
+          </Button>
+        </div>
+      )}
       {error && <Alert tone="error">{error}</Alert>}
 
       {view === "board" && <CareBoard board={data.board} flavor={data.flavor} />}

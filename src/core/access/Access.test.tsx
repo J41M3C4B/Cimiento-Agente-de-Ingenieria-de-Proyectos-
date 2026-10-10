@@ -74,23 +74,88 @@ describe("entering the app", () => {
 });
 
 describe("the menu shows what each person may use", () => {
-  const shell = (permissions: SessionView["permissions"]) =>
+  const shell = (permissions: SessionView["permissions"], page: Parameters<typeof Shell>[0]["page"] = "home", onNavigate = vi.fn()) =>
     render(
-      <Shell page="home" onNavigate={vi.fn()} institution="Asilo" focus={undefined} onOpenFocus={vi.fn()} access={{ session: { ...session, permissions }, can: (p) => permissions.includes(p), lock: vi.fn(), logout: vi.fn() }}>
+      <Shell page={page} onNavigate={onNavigate} institution="Asilo" access={{ session: { ...session, permissions }, can: (p) => permissions.includes(p), lock: vi.fn(), logout: vi.fn() }}>
         <p>contenido</p>
       </Shell>,
     );
+  const openSettings = () => userEvent.click(screen.getByRole("button", { name: "Configuración" }));
 
-  it("the administrator sees the administration and the AI settings", () => {
-    shell(["use", "delete", "settings", "administer"]);
-    expect(screen.getByRole("button", { name: "Administración" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ayuda automática" })).toBeInTheDocument();
+  it("the bar names every section of the work, with the page in view marked", () => {
+    shell(["use"], "finance");
+    for (const name of ["Inicio", "Mi institución", "Documentos", "Mis proyectos", "Personal", "Beneficiarios", "Instalaciones", "Finanzas"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Finanzas" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Inicio" })).not.toHaveAttribute("aria-current");
   });
 
-  it("direction and accounting do not", () => {
+  it("the window takes the accent of the page: the institution's, or the module's own", () => {
+    const { container, unmount } = shell(["use"], "profile");
+    expect(container.querySelector(".shell")).toHaveClass("accent-institution");
+    unmount();
+    const again = shell(["use"], "staff");
+    expect(again.container.querySelector(".shell")).toHaveClass("accent-staff");
+  });
+
+  it("the administrator sees the administration and the AI settings in the gear", async () => {
+    shell(["use", "delete", "settings", "administer"]);
+    await openSettings();
+    expect(screen.getByRole("menuitem", { name: "Administración" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Ayuda automática" })).toBeInTheDocument();
+  });
+
+  it("direction and accounting do not", async () => {
     shell(["use"]);
-    expect(screen.queryByRole("button", { name: "Administración" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ayuda automática" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Seguridad" })).toBeInTheDocument();
+    await openSettings();
+    expect(screen.queryByRole("menuitem", { name: "Administración" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Ayuda automática" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Seguridad" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Ayuda" })).toBeInTheDocument();
+  });
+
+  it("an entry of the gear takes the person to its page and closes the menu", async () => {
+    const onNavigate = vi.fn();
+    shell(["use"], "home", onNavigate);
+    await openSettings();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Seguridad" }));
+    expect(onNavigate).toHaveBeenCalledWith("security");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("each account keeps its own avatar color, the same on every page", async () => {
+    window.localStorage.clear();
+    const person = (page: Parameters<typeof Shell>[0]["page"]) => (
+      <Shell page={page} onNavigate={vi.fn()} institution="Asilo" access={{ session, can: () => true, lock: vi.fn(), logout: vi.fn() }}>
+        <p>contenido</p>
+      </Shell>
+    );
+    const { container, rerender } = render(person("home"));
+    const avatar = () => container.querySelector(".topbar-person .avatar");
+    expect(avatar()).toHaveClass("tone-violet");
+    await userEvent.click(screen.getByRole("button", { name: /Mi cuenta/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Turquesa" }));
+    expect(avatar()).toHaveClass("tone-teal");
+    rerender(person("staff"));
+    expect(avatar()).toHaveClass("tone-teal");
+    expect(window.localStorage.getItem(`cimiento.avatar.${session.username}`)).toBe("teal");
+    window.localStorage.clear();
+  });
+
+  it("the person menu, at the right of the bar, locks and closes the session", async () => {
+    const lock = vi.fn();
+    const logout = vi.fn();
+    render(
+      <Shell page="home" onNavigate={vi.fn()} institution="Asilo" access={{ session, can: () => true, lock, logout }}>
+        <p>contenido</p>
+      </Shell>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Mi cuenta/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Bloquear" }));
+    expect(lock).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: /Mi cuenta/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Cerrar sesión" }));
+    expect(logout).toHaveBeenCalled();
   });
 });

@@ -53,6 +53,7 @@ pub fn run() {
             commands::access::access_lock,
             commands::access::access_logout,
             commands::access::access_change_password,
+            commands::access::access_team,
             commands::access::admin_overview,
             commands::access::admin_user_create,
             commands::access::admin_user_update,

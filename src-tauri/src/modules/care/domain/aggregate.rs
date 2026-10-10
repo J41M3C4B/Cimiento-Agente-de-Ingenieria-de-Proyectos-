@@ -92,6 +92,8 @@ pub struct Indicators {
     pub average_years: Option<f64>,
     pub admitted_this_year: i64,
     pub discharged_this_year: i64,
+    /// Which of the two happened last, ever: `admitted` or `discharged` (a tie says `admitted`); none when nothing was ever recorded.
+    pub latest_movement: Option<String>,
     pub deceased_this_year: i64,
     pub discharge_reasons_this_year: Vec<Count>,
     /// People served that are visited rarely or never.
@@ -154,6 +156,14 @@ pub fn indicators(people: &[Member], flavor: Flavor, today: &str, progress: impl
     i.average_years = (!years.is_empty()).then(|| years.iter().sum::<i64>() as f64 / years.len() as f64);
     i.admitted_this_year = people.iter().filter(|m| this_year(&m.data.entry_date)).count() as i64;
     i.discharged_this_year = people.iter().filter(|m| m.data.status == "discharged" && this_year(&m.data.status_date)).count() as i64;
+    let last_in = people.iter().filter_map(|m| m.data.entry_date.as_deref()).filter(|d| !d.is_empty()).max();
+    let last_out = people.iter().filter(|m| m.data.status == "discharged").filter_map(|m| m.data.status_date.as_deref()).filter(|d| !d.is_empty()).max();
+    i.latest_movement = match (last_in, last_out) {
+        (Some(a), Some(b)) => Some(if b > a { "discharged" } else { "admitted" }.into()),
+        (Some(_), None) => Some("admitted".into()),
+        (None, Some(_)) => Some("discharged".into()),
+        (None, None) => None,
+    };
     i.deceased_this_year = people.iter().filter(|m| m.data.status == "deceased" && this_year(&m.data.status_date)).count() as i64;
     i.discharge_reasons_this_year = counts(
         catalog::DISCHARGE_REASONS,
@@ -267,6 +277,11 @@ mod tests {
         let i = indicators(&members(&data), Flavor::ElderlyHome, "2026-10-07", |_| 10);
         assert_eq!((i.served, i.few_visits, i.without_contact, i.with_program, i.incomplete), (3, 2, 2, 1, 3));
         assert_eq!((i.admitted_this_year, i.discharged_this_year), (1, 1));
+        assert_eq!(i.latest_movement.as_deref(), Some("discharged"), "the discharge of May is later than the entry of February");
+        // later in the year nobody else came in or left, but the last movement stays the last one
+        let later = indicators(&members(&data), Flavor::ElderlyHome, "2027-01-15", |_| 10);
+        assert_eq!((later.admitted_this_year, later.discharged_this_year), (0, 0));
+        assert_eq!(later.latest_movement.as_deref(), Some("discharged"));
         assert_eq!(i.mobility, vec![Count { code: "wheelchair".into(), count: 3 }]);
         assert_eq!(i.chronic, vec![Count { code: "diabetes".into(), count: 3 }, Count { code: "dementia".into(), count: 1 }]);
         assert!(i.pyramid.contains(&("80_89".into(), "female".into(), 2)));

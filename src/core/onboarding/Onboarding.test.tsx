@@ -70,7 +70,7 @@ describe("the first start", () => {
     vi.mocked(api.onboardingSave).mockResolvedValue({ status: "saved", onboarding: status() });
     gate();
     expect(await screen.findByRole("heading", { name: "Su institución" })).toBeInTheDocument();
-    expect(screen.queryByText("Dejarlos a la dirección y entrar")).not.toBeInTheDocument();
+    expect(screen.queryByText("Lo hará la dirección")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Guardar y seguir" }));
     await waitFor(() => expect(screen.getByText(/Para seguir falta: El nombre, A qué se dedica\./)).toBeInTheDocument());
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
@@ -79,18 +79,53 @@ describe("the first start", () => {
   it("the administrator may leave the data to the direction and enter", async () => {
     vi.mocked(api.onboardingStatus).mockResolvedValue(status({ can_postpone: true, setup: { ai_ready: false, managers: 0 } }));
     gate();
-    await userEvent.click(await screen.findByRole("button", { name: "Dejarlos a la dirección y entrar" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Lo hará la dirección" }));
     expect(screen.getByText("La app")).toBeInTheDocument();
   });
 
   it("the administrator who left the data can take them up again from Inicio", async () => {
     vi.mocked(api.onboardingStatus).mockResolvedValue(status({ can_postpone: true, setup: { ai_ready: false, managers: 0 } }));
     gate();
-    await userEvent.click(await screen.findByRole("button", { name: "Dejarlos a la dirección y entrar" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Lo hará la dirección" }));
     expect(screen.getByText("La app")).toBeInTheDocument();
     act(() => resumeOnboarding());
     expect(await screen.findByRole("heading", { name: "Su institución" })).toBeInTheDocument();
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
+  });
+
+  it("the screens regroup Rust's steps: «Dónde y quiénes son» is two screens and it opens on the one that is missing", async () => {
+    const steps = KEYS.map((key) => ({ key, missing: key === "location" ? ["state", "legal_form"] : [], complete: key !== "location" }));
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ steps }));
+    gate();
+    // the place is missing too, so it opens there; the legal data come after it
+    expect(await screen.findByRole("heading", { name: "Ubicación y contacto" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /datos legales/i })).toBeInTheDocument();
+  });
+
+  it("a screen is done when nothing is missing for it, even if Rust's step is not", async () => {
+    const steps = KEYS.map((key) => ({ key, missing: key === "location" ? ["legal_form"] : [], complete: key !== "location" }));
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ steps }));
+    gate();
+    expect(await screen.findByRole("heading", { name: "Datos legales" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ubicación y contacto, Listo" })).toBeInTheDocument();
+  });
+
+  it("the people served and the team are one screen", async () => {
+    const steps = KEYS.map((key) => ({ key, missing: key === "team" ? ["staff"] : [], complete: key !== "team" }));
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ steps }));
+    gate();
+    expect(await screen.findByRole("heading", { name: "Personas y equipo" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/¿Cuántas personas trabajan con sueldo?/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/¿Cuántas personas atienden hoy?/)).toBeInTheDocument();
+  });
+
+  it("the setup tells what is ready from what is pending with words, not only with color", async () => {
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ can_postpone: true, setup: { ai_ready: true, managers: 0 } }));
+    gate();
+    expect(await screen.findByText("Llave puesta")).toBeInTheDocument();
+    expect(screen.getByText("Lista")).toBeInTheDocument();
+    expect(screen.getByText("Todavía no hay cuentas")).toBeInTheDocument();
+    expect(screen.getAllByText("Pendiente")).toHaveLength(2);
   });
 
   it("a finished institution opens the app", async () => {

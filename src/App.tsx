@@ -16,7 +16,7 @@ import { AdminPage } from "./core/access/AdminPage";
 import { useSession } from "./core/access/session";
 import { SecurityPage } from "./core/security/SecurityPage";
 import { es } from "./i18n/es-MX";
-import { profileGet, projectList } from "./lib/tauri";
+import { profileGet } from "./lib/tauri";
 
 export default function App() {
   const [page, setPage] = useState<Page>("home");
@@ -25,18 +25,14 @@ export default function App() {
   // the app is shown only with a person inside (AccessGate, ADR-028); what they may do shapes the menu
   const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
-  const projects = useQuery({ queryKey: ["projects"], queryFn: projectList });
 
   const institution = profile.data?.input.institution.name?.trim() || es.nav.profile;
 
-  // the capsule talks about the project that is open or, failing that, the one in progress
-  const focus = projects.data?.find((p) => p.id === openId) ?? projects.data?.find((p) => p.stage !== "READY") ?? projects.data?.[0];
   const openProject = (id: string) => {
     setOpenId(id);
     setCreating(false);
     setPage("projects");
   };
-  const openFocus = () => focus && openProject(focus.id);
   const goProfile = () => setPage("profile");
   const navigate = (p: Page) => setPage(p);
   const newProject = () => {
@@ -46,7 +42,7 @@ export default function App() {
   };
 
   return (
-    <Shell page={page} onNavigate={navigate} institution={institution} focus={focus} onOpenFocus={openFocus} access={access}>
+    <Shell page={page} onNavigate={navigate} institution={institution} access={access}>
       {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
           project, the project that was open and what they were writing are still there when they come back */}
       <div hidden={page !== "projects"}>

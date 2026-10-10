@@ -28,6 +28,11 @@ export type LoginOutcome =
   | { status: "waiting"; wait_secs: number }
   | { status: "disabled" };
 
+/** Someone who has access, as Inicio shows them. */
+export interface TeamMember {
+  display_name: string;
+  role: Role;
+}
 export interface UserRow {
   id: string;
   username: string;

@@ -1,18 +1,21 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Card, Eyebrow, FactRow, Facts, Inset, Metric, Tag, TextButton, Tile, Toast } from "../../components/ui";
+import { Alert, Button, Card, Eyebrow, FactRow, Facts, Inset, Status, TextButton, Toast } from "../../components/ui";
 import type { Page } from "../../components/Shell";
-import { MODULE_META } from "../../components/modules";
+import { ModuleCard } from "../../components/ModuleCard";
 import type { ModuleId } from "../../components/modules";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
-import { devLoadFixture, profileConfirm, profileGet, profileSave, toAppError } from "../../lib/tauri";
+import { devLoadFixture, profileGet, profileSave, toAppError } from "../../lib/tauri";
 import type { Decision, ProfileInput, ProfileIssue, ProfileTotals, QuarantineReport } from "../../lib/types";
 import { CapacityCard } from "./CapacityCard";
 import { ProfileEdit } from "./ProfileEdit";
 import type { Edit } from "./ProfileEdit";
 import { toInput } from "./profileForm";
+import { useFillGaps } from "./gaps";
+import type { Where } from "./gaps";
+import { ONBOARDING_KEY } from "../onboarding/api";
 import { FINANCE_KEY, financeGet } from "../../modules/finance/api";
 import { careOverview } from "../../modules/care/api";
 import { facilitiesOverview } from "../../modules/facilities/api";
@@ -77,6 +80,7 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
       if (out.status === "saved") {
         setQuarantine(null);
         qc.setQueryData(["profile"], out.profile);
+        void qc.invalidateQueries({ queryKey: ONBOARDING_KEY });
         setToast({ tone: "ok", text: es.common.saved });
         onSaved?.();
         return true;
@@ -87,18 +91,6 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
       return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function confirm() {
-    setBusy(true);
-    try {
-      qc.setQueryData(["profile"], await profileConfirm());
-      setToast({ tone: "ok", text: t.confirmed });
-    } catch (e) {
-      setToast({ tone: "error", text: toAppError(e).message });
     } finally {
       setBusy(false);
     }
@@ -131,22 +123,37 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
   const spacesCount = facilitiesModule.data?.indicators.spaces ?? 0;
   const headsUp = (view?.issues ?? []).filter((i) => !i.blocking);
 
-  // what is still missing, each one leading to where it is filled in
-  const todo: { text: string; go: () => void }[] = [];
-  if (view) {
-    if (!inst?.contact_phone && !inst?.contact_email) todo.push({ text: t.todo.contact, go: () => open({ kind: "contact" }) });
-    if (staffModule.isSuccess && staffCount === 0) todo.push({ text: t.todo.staff, go: () => onGo("staff") });
-    if (peopleModule.isSuccess && peopleCount === 0) todo.push({ text: t.todo.population, go: () => onGo("people") });
-    if (facilitiesModule.isSuccess && spacesCount === 0) todo.push({ text: t.todo.facilities, go: () => onGo("facilities") });
-  }
+  // what is still missing, each one leading to where it is filled in (Rust says what the data still need)
+  const { ready: gapsReady, gaps } = useFillGaps();
+  const goTo = (w: Where) => (w === "institution" || w === "contact" || w === "legal" || w === "capacity" ? open({ kind: w }) : onGo(w));
 
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 
-  // a line for each module: what it has, and the way into it
+  const capacity = view?.input.capacity_total ?? 0;
+  // while nobody is registered in the modules, the quick figures the person gave at the start stand in, and say so
+  const servedEstimate = view?.input.served_estimate ?? null;
+  const paidEstimate = view?.input.staff_paid_estimate ?? 0;
+  const volunteerEstimate = view?.input.staff_volunteer_estimate ?? 0;
+  const peopleApprox = servedEstimate !== null && peopleCount === 0 && totals.population === 0;
+  const staffApprox = staffCount === 0 && totals.staff_paid + totals.staff_volunteer === 0 && view?.input.staff_paid_estimate != null;
+
+  // a tile for each module: what it has, and the way into it
   const balance = money?.finances.balance_annual_mxn ?? null;
-  const modules: { page: Exclude<ModuleId, "projects">; title: string; figure: string; label: string }[] = [
-    { page: "staff", title: es.nav.staff, figure: count(staffCount), label: t.modules.unit.staff(staffCount) },
-    { page: "people", title: es.nav.people, figure: count(peopleCount), label: t.modules.unit.people(peopleCount) },
+  const modules: { page: Exclude<ModuleId, "projects">; title: string; figure: string; label: string; approx?: boolean }[] = [
+    {
+      page: "people",
+      title: es.nav.people,
+      figure: peopleApprox ? `≈ ${count(servedEstimate!)}` : count(peopleCount),
+      label: capacity ? t.kpi.peopleOf(count(capacity)) : t.modules.unit.people(peopleCount),
+      approx: peopleApprox,
+    },
+    {
+      page: "staff",
+      title: es.nav.staff,
+      figure: staffApprox ? `≈ ${count(paidEstimate + volunteerEstimate)}` : count(staffCount),
+      label: t.modules.unit.staff(staffApprox ? paidEstimate + volunteerEstimate : staffCount),
+      approx: staffApprox,
+    },
     { page: "facilities", title: es.nav.facilities, figure: count(spacesCount), label: t.modules.unit.facilities(spacesCount) },
     {
       page: "finance",
@@ -157,13 +164,6 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
   ];
 
   const [showTodo, setShowTodo] = useState(false);
-  const capacity = view?.input.capacity_total ?? 0;
-  // while nobody is registered in the modules, the quick figures the person gave at the start stand in, and say so
-  const servedEstimate = view?.input.served_estimate ?? null;
-  const paidEstimate = view?.input.staff_paid_estimate ?? 0;
-  const volunteerEstimate = view?.input.staff_volunteer_estimate ?? 0;
-  const peopleApprox = servedEstimate !== null && peopleCount === 0 && totals.population === 0;
-  const staffApprox = staffCount === 0 && totals.staff_paid + totals.staff_volunteer === 0 && view?.input.staff_paid_estimate != null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -176,32 +176,24 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
           </div>
           {view && (
             <div className="flex flex-wrap items-center gap-3">
-              <Tag tone={view.is_draft ? "amber" : "green"} icon={view.is_draft ? "warn" : "check"}>
-                {view.is_draft ? t.status.draft : t.status.confirmed}
-              </Tag>
-              {view.is_draft && (
-                <Button size="sm" variant="primary" onClick={confirm} disabled={busy}>
-                  <Icon name="check" size={16} strokeWidth={2.4} />
-                  {t.confirm}
-                </Button>
+              {gapsReady && (gaps.length === 0 ? <Status kind="ok">{t.completion.done}</Status> : <Status kind="pending">{t.completion.pending(gaps.length)}</Status>)}
+              {gaps.length > 0 && (
+                <TextButton aria-expanded={showTodo} onClick={() => setShowTodo((v) => !v)} className="inline-flex items-center gap-1">
+                  {showTodo ? t.completion.hide : t.completion.show}
+                  <Icon name="down" size={14} className={`transition-transform ${showTodo ? "rotate-180" : ""}`} />
+                </TextButton>
               )}
               <Button size="sm" variant="secondary" onClick={() => open({ kind: "institution" })}>
                 <Icon name="pencil" size={16} />
                 {t.edit}
               </Button>
-              {todo.length > 0 && (
-                <TextButton aria-expanded={showTodo} onClick={() => setShowTodo((v) => !v)} className="inline-flex items-center gap-1">
-                  {t.todo.summary(todo.length)}
-                  <Icon name="down" size={14} className={`transition-transform ${showTodo ? "rotate-180" : ""}`} />
-                </TextButton>
-              )}
             </div>
           )}
-          {showTodo && todo.length > 0 && (
+          {showTodo && gaps.length > 0 && (
             <ul className="flex flex-wrap gap-2">
-              {todo.map((x) => (
-                <li key={x.text}>
-                  <Button size="sm" variant="soft" onClick={x.go}>
+              {gaps.map((x) => (
+                <li key={x.code}>
+                  <Button size="sm" variant="soft" onClick={() => goTo(x.where)}>
                     {x.text}
                     <Icon name="next" size={14} />
                   </Button>
@@ -212,29 +204,13 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
         </div>
 
         {view ? (
-          <div className="grid min-w-0 grid-cols-2 gap-3 max-[520px]:grid-cols-1">
-            <Metric
-              icon="heart"
-              tone="violet"
-              label={t.kpi.people}
-              value={peopleApprox ? `≈ ${count(servedEstimate!)}` : count(totals.population)}
-              approx={peopleApprox ? t.kpi.approx : undefined}
-              hint={peopleApprox ? t.kpi.approxNote : undefined}
-              sub={capacity ? t.kpi.peopleOf(count(capacity)) : undefined}
-              fill={capacity ? ((peopleApprox ? servedEstimate! : totals.population) / capacity) * 100 : undefined}
-            />
-            <Metric
-              icon="briefcase"
-              tone="teal"
-              label={t.kpi.staff}
-              value={staffApprox ? `≈ ${count(paidEstimate + volunteerEstimate)}` : count(staffModule.isSuccess ? staffCount : totals.staff_paid + totals.staff_volunteer)}
-              approx={staffApprox ? t.kpi.approx : undefined}
-              hint={staffApprox ? t.kpi.approxNote : undefined}
-              sub={t.kpi.staffPaid(staffApprox ? paidEstimate : totals.staff_paid)}
-            />
-            <Metric icon="banknote" tone="amber" label={t.finance.payroll.label} value={peso(totals.payroll_cost_annual_mxn)} sub={t.finance.payroll.sub(peso(totals.payroll_annual_mxn), peso(totals.payroll_benefits_annual_mxn))} note={totals.benefits_assumed > 0 ? t.finance.payroll.assumed(totals.benefits_assumed) : undefined} />
-            <Metric icon="wallet" tone="green" label={t.kpi.fees} value={peso(totals.fees_monthly_mxn)} sub={t.kpi.payers(totals.fee_payers)} />
-          </div>
+          <ul className="grid min-w-0 grid-cols-2 gap-3 max-[520px]:grid-cols-1">
+            {modules.map((m) => (
+              <li key={m.page}>
+                <ModuleCard module={m.page} title={m.title} figure={m.figure} label={m.label} approx={m.approx ? t.kpi.approx : undefined} note={m.approx ? t.kpi.approxNote : undefined} onOpen={() => onGo(m.page)} />
+              </li>
+            ))}
+          </ul>
         ) : (
           profile.isSuccess && (
             <Inset className="flex flex-col justify-center gap-4 !p-6">
@@ -298,32 +274,6 @@ export function ProfilePage({ onGo }: { onGo: (page: Page) => void }) {
 
             <CapacityCard view={view} onEdit={() => open({ kind: "capacity" })} />
           </div>
-          <Card className="flex flex-col gap-4">
-            <div>
-              <h2 className="text-heading font-bold">{t.modules.title}</h2>
-              <p className="mt-1 text-small text-ink-3">{t.modules.help}</p>
-            </div>
-            <ul className="grid gap-3 sm:grid-cols-2 min-[1200px]:grid-cols-4">
-              {modules.map((m) => (
-                <li key={m.page}>
-                  <button type="button" onClick={() => onGo(m.page)} className={`module-tile tone-${MODULE_META[m.page].tone}`}>
-                    <span className="flex w-full items-center gap-3">
-                      <Tile icon={MODULE_META[m.page].icon} tone={MODULE_META[m.page].tone} />
-                      <b className="text-ui font-bold">{m.title}</b>
-                    </span>
-                    <span className="block">
-                      <span className="tabular block text-title font-normal leading-none tracking-tight">{m.figure}</span>
-                      <span className="mt-1.5 block text-small text-ink-2">{m.label}</span>
-                    </span>
-                    <span className="module-tile-go">
-                      {t.modules.open}
-                      <Icon name="next" size={14} strokeWidth={2.6} />
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Card>
         </>
       )}
 

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon } from "../../components/icons";
-import { Alert, Button, Card, Modal, PageHeader } from "../../components/ui";
+import { MODULE_META } from "../../components/modules";
+import { Alert, Button, Folder, Modal, PageHeader } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { projectDelete, projectList, projectSetColor, projectSetDonorKind, toAppError } from "../../lib/tauri";
 import type { DonorKind, ProjectColor, ProjectRow } from "../../lib/types";
@@ -99,7 +100,16 @@ export function ProjectsPage({ openId, onOpen, creating, onCreating }: { openId:
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
       {projects.data?.length === 0 && (
-        <Card className="flex flex-col items-center gap-3 py-12 text-center">
+        <Folder
+          tone="ac"
+          title={
+            <span className="inline-flex items-center gap-2.5">
+              <Icon name={MODULE_META.projects.icon} size={20} />
+              {t.tab}
+            </span>
+          }
+          bodyClassName="items-center !gap-3 py-12 text-center"
+        >
           <span className="grid h-ctl w-ctl place-items-center rounded-pill bg-inset text-ink-2">
             <Icon name="folder" size={22} />
           </span>
@@ -109,7 +119,7 @@ export function ProjectsPage({ openId, onOpen, creating, onCreating }: { openId:
             <Icon name="plus" />
             {t.newProject}
           </Button>
-        </Card>
+        </Folder>
       )}
 
       <ul className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))]">

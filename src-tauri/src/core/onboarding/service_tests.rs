@@ -172,3 +172,40 @@ fn the_welcome_is_once_per_person() {
     assert!(status(&c, &rosa).unwrap().welcomed);
     assert!(!status(&c, &lupe).unwrap().welcomed);
 }
+
+#[test]
+fn what_mi_institucion_saves_is_confirmed_once_the_first_start_is_finished_and_not_before() {
+    let (_d, mut c) = conn();
+    let rosa = user(&c, "rosa", Role::Manager);
+    let mut d = OnboardingData::default();
+    d.institution.name = "Asilo Ficticio".into();
+    d.institution.mission = Some("Un hogar digno.".into());
+    saved(save(&mut c, &rosa, d, None).unwrap());
+
+    // before the first start is finished the profile is a draft, and saving from the page keeps it so
+    let mut input = profile_store::load_current(&c).unwrap().unwrap().input;
+    input.institution.mission = Some("Un hogar digno para adultos mayores.".into());
+    match save_profile_confirmed(&mut c, input, None).unwrap() {
+        SaveProfileOutcome::Saved { profile } => assert!(profile.is_draft, "not finished yet: still a draft"),
+        other => panic!("not saved: {other:?}"),
+    }
+
+    // the institution finishes (everything the steps ask for) and from then on every save is confirmed
+    c.execute("UPDATE institution SET onboarded_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')", []).unwrap();
+    let mut input = profile_store::load_current(&c).unwrap().unwrap().input;
+    input.institution.mission = Some("Un hogar digno y seguro para adultos mayores.".into());
+    match save_profile_confirmed(&mut c, input, None).unwrap() {
+        SaveProfileOutcome::Saved { profile } => {
+            assert!(!profile.is_draft && profile.confirmed_at.is_some(), "after the first start a save is confirmed at once");
+            assert_eq!(profile.input.institution.mission.as_deref(), Some("Un hogar digno y seguro para adultos mayores."));
+        }
+        other => panic!("not saved: {other:?}"),
+    }
+    let sheet = crate::core::ai_sheet::profile_context(&c).unwrap();
+    assert!(!sheet.contains("BORRADOR"), "the AI reads it as confirmed:\n{sheet}");
+
+    // what is invalid is still not saved, and nothing is confirmed
+    let mut bad = profile_store::load_current(&c).unwrap().unwrap().input;
+    bad.institution.founded_year = Some(3000);
+    assert!(matches!(save_profile_confirmed(&mut c, bad, None).unwrap(), SaveProfileOutcome::Invalid { .. }));
+}

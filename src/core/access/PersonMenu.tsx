@@ -4,6 +4,7 @@ import { Alert, Avatar, Button, Inset, Modal, Tag, TextInput, Toast } from "../.
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
 import { accessChangePassword } from "./api";
+import { AVATAR_TONES, useAvatarTone } from "./avatarColor";
 import type { SessionApi } from "./session";
 
 const t = es.access;
@@ -59,15 +60,18 @@ function ChangePasswordDialog({ onDone, onClose }: { onDone: () => void; onClose
   );
 }
 
+const MENU_ITEM = "flex h-ctl w-full items-center gap-3 rounded-field px-3 text-left text-ui font-bold transition-colors hover:bg-inset";
+
 /**
- * Who is inside, at the top right: their name and role, and what they can do about their own account (change the
- * password). Locking and closing the session stay in the rail (ADR-028).
+ * Who is inside, at the right of the top bar: their avatar, and in the menu their name and role, what they can do about
+ * their own account (change the password) and locking or closing the session (ADR-028).
  */
 export function PersonMenu({ access }: { access: SessionApi }) {
   const [open, setOpen] = useState(false);
   const [changing, setChanging] = useState(false);
   const [notice, setNotice] = useState(false);
   const { display_name: name, username, role } = access.session;
+  const [tone, setTone] = useAvatarTone(username);
 
   return (
     <div className="relative">
@@ -77,18 +81,16 @@ export function PersonMenu({ access }: { access: SessionApi }) {
         aria-expanded={open}
         aria-label={`${t.menu.account}: ${name}`}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2.5 border-l border-line pl-4 text-ui font-bold"
+        className="topbar-person"
       >
-        <span className="hidden max-w-[220px] truncate md:inline">{name}</span>
-        <Avatar name={name} tone="violet" />
-        <Icon name="down" size={16} className={`hidden text-ink-3 transition-transform md:block ${open ? "rotate-180" : ""}`} />
+        <Avatar name={name} tone={tone} />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
           <div role="menu" className="absolute right-0 top-14 z-50 w-72 rounded-inset bg-card p-2 shadow-float">
             <Inset className="flex items-center gap-3 !p-3">
-              <Avatar name={name} tone="violet" />
+              <Avatar name={name} tone={tone} />
               <div className="min-w-0 flex-1">
                 <b className="block truncate font-bold">{name}</b>
                 <span className="block truncate text-small text-ink-3">@{username}</span>
@@ -99,6 +101,24 @@ export function PersonMenu({ access }: { access: SessionApi }) {
                 {t.roles[role]}
               </Tag>
             </div>
+            <div role="group" aria-label={t.menu.color} className="px-3 pb-3 pt-1">
+              <span className="mb-2 block text-small font-bold text-ink-3">{t.menu.color}</span>
+              <div className="flex flex-wrap gap-2">
+                {AVATAR_TONES.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={option === tone}
+                    aria-label={t.menu.colors[option] ?? option}
+                    title={t.menu.colors[option] ?? option}
+                    onClick={() => setTone(option)}
+                    className={`avatar-swatch tone-${option}`}
+                  >
+                    {option === tone && <Icon name="check" size={14} strokeWidth={3} />}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
               type="button"
               role="menuitem"
@@ -106,10 +126,34 @@ export function PersonMenu({ access }: { access: SessionApi }) {
                 setOpen(false);
                 setChanging(true);
               }}
-              className="flex h-ctl w-full items-center gap-3 rounded-field px-3 text-left text-ui font-bold transition-colors hover:bg-inset"
+              className={MENU_ITEM}
+            >
+              <Icon name="pencil" size={16} className="text-ink-2" />
+              {t.menu.changePassword}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                access.lock();
+              }}
+              className={MENU_ITEM}
             >
               <Icon name="lock" size={16} className="text-ink-2" />
-              {t.menu.changePassword}
+              {t.menu.lock}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                access.logout();
+              }}
+              className={`${MENU_ITEM} text-red-ink`}
+            >
+              <Icon name="x" size={16} />
+              {t.menu.logout}
             </button>
           </div>
         </>

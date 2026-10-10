@@ -93,7 +93,7 @@ pub fn profile_save(session: State<'_, Session>, db: State<Db>,
 ) -> Result<SaveProfileOutcome, UiError> {
     guard(&session, "profile_save")?;
     let mut conn = lock(&db)?;
-    Ok(service::save_profile(&mut conn, input, decision)?)
+    Ok(crate::core::onboarding::service::save_profile_confirmed(&mut conn, input, decision)?)
 }
 
 #[tauri::command]

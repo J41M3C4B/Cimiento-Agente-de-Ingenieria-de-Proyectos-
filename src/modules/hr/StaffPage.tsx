@@ -15,7 +15,7 @@ export function StaffPage() {
     void qc.invalidateQueries({ queryKey: FINANCE_KEY });
   };
   return (
-    <ModulePage module="staff" title={es.modules.staff.title} intro={es.modules.staff.intro} notice={notice}>
+    <ModulePage module="staff" title={es.modules.staff.title} intro={es.modules.staff.intro} tab={es.modules.staff.tab} notice={notice}>
       <StaffTab onProfile={onProfile} onNotice={notify} />
     </ModulePage>
   );

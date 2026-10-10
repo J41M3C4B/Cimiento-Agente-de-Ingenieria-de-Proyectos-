@@ -175,6 +175,20 @@ fn administration_rules_keep_one_administrator_and_one_account_per_person() {
 }
 
 #[test]
+fn the_team_lists_only_the_accounts_that_are_active() {
+    let (_d, mut c) = conn();
+    let (s, _) = with_admin(&mut c);
+    let (_, _) = manager(&mut c, &s);
+    let a = admin(&s);
+    let all = team(&c).unwrap();
+    assert_eq!(all.len(), 2, "the administrator and the direction");
+    assert!(all.iter().any(|m| m.display_name == "Jaime Caballero" && m.role == Role::Admin));
+    let rosa = admin_overview(&c).unwrap().users.into_iter().find(|u| u.role == Role::Manager).unwrap();
+    update_user(&c, &a, &rosa.id, Role::Manager, false).unwrap();
+    assert_eq!(team(&c).unwrap().len(), 1, "an account that was turned off is no longer in");
+}
+
+#[test]
 fn a_person_who_leaves_the_institution_loses_access() {
     let (_d, mut c) = conn();
     let (s, _) = with_admin(&mut c);

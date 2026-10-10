@@ -21,7 +21,6 @@ export function IconButton({
   label,
   size = "md",
   variant = "default",
-  tip,
   tone,
   className = "",
   ...props
@@ -30,15 +29,13 @@ export function IconButton({
   label: string;
   size?: "sm" | "md";
   variant?: "default" | "plain" | "danger";
-  /** a label that opens to the side on hover (used by the left rail) */
-  tip?: string;
   /** the color of a module: tinted at rest, solid when it is the page the person is on */
   tone?: Tone;
 }) {
   const v = variant === "default" ? "" : `icon-btn--${variant}`;
   const t = tone ? `tone-${tone} icon-btn--tone` : "";
   return (
-    <button type="button" aria-label={label} title={tip ? undefined : label} data-tip={tip} {...props} className={`icon-btn ${size === "sm" ? "icon-btn--sm" : ""} ${v} ${t} ${className}`}>
+    <button type="button" aria-label={label} title={label} {...props} className={`icon-btn ${size === "sm" ? "icon-btn--sm" : ""} ${v} ${t} ${className}`}>
       <Icon name={icon} size={size === "sm" ? 16 : 18} />
     </button>
   );
