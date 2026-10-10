@@ -24,7 +24,8 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  // a window of «Mi institución» to open when arriving there (the Assistant's «Ir a…»); `n` makes each request new
+  // a window of «Mi institución» to open when arriving there (the Assistant's «Ir a…»); `n` makes each request new.
+  // It is used once: coming back to the page later must not open it again
   const [profileWindow, setProfileWindow] = useState<{ where: Where; n: number } | null>(null);
   // the app is shown only with a person inside (AccessGate, ADR-028); what they may do shapes the menu
   const access = useSession();
@@ -60,7 +61,7 @@ export default function App() {
         <ProjectsPage openId={openId} onOpen={setOpenId} creating={creating} onCreating={setCreating} />
       </div>
       {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGo={navigate} onGoAi={() => setPage("ai")} />}
-      {page === "profile" && <ProfilePage onGo={navigate} openWindow={profileWindow} />}
+      {page === "profile" && <ProfilePage onGo={navigate} openWindow={profileWindow} onWindowOpened={() => setProfileWindow(null)} />}
       {page === "staff" && <StaffPage />}
       {page === "people" && <CarePage />}
       {page === "facilities" && <FacilitiesPage />}
