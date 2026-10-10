@@ -66,6 +66,7 @@ Dos tablas pequeñas y solo de agregar:
 
 - **`core_change`:** cada cambio de un dato de la institución con sensibilidad `public` o `internal`. Guarda el campo, el valor nuevo, el `origin`, cuándo y quién. Basta para reconstruir cómo estaba antes. Los `institutional_private` registran **solo que cambiaron**, sin el valor.
 - **`core_snapshot`:** una foto por mes (`YYYY-MM`) de los indicadores que ya calculan los módulos (personas atendidas, lista de espera, personal, espacios por estado, balance en palabras, porcentaje de llenado, expediente vigente). Son cifras agregadas: con eso se arman las gráficas de progreso sin guardar fichas viejas. Se toma al abrir la app si el mes no tiene foto.
+  - *Precisión al aplicarlo (N3d, 2026-10-10, decisión de la institución):* la foto del mes en curso se vuelve a tomar cada vez que se abre la app, así dice cómo terminó el mes; al cambiar de mes queda fija. Un mes pasado nunca se cambia ni se borra. «Expediente vigente» se agrega con el expediente (N4).
 - **Resuelve el D6 de la auditoría:** los datos de `institution` pasan a llevar `origin`, `source_ref` y confirmación por campo. La versión del perfil deja de ser la única historia.
 
 ### 5. El expediente

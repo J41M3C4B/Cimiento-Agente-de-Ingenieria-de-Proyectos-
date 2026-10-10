@@ -10,6 +10,9 @@ pub mod api;
 pub mod archive;
 pub mod bridge;
 pub mod error;
+/// The fictitious institutions of `fixtures/`: only in development and in the tests.
+#[cfg(any(debug_assertions, test))]
+pub mod examples;
 pub mod history;
 pub mod insights;
 pub mod institution;
@@ -20,3 +23,4 @@ pub mod profile;
 pub mod protected;
 pub mod screen;
 pub mod security;
+pub mod snapshot;

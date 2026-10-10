@@ -4,8 +4,8 @@ Todo lo que hay en esta carpeta es **inventado**. Sirve para desarrollar y proba
 
 | Archivo | Uso |
 |---|---|
-| `institucion-asilo.json` | Perfil ficticio de un asilo |
-| `institucion-casa-hogar.json` | Perfil ficticio de una casa hogar de niñas |
+| `institucion-asilo.json` | Perfil ficticio de un asilo, I.A.P., con todos los datos de «Mi institución», su patronato (`board`) y su cuenta (`bank_accounts`) |
+| `institucion-casa-hogar.json` | Perfil ficticio de una casa hogar de niñas, I.A.P., con los mismos datos |
 | `caso-dorado-bano.md` | Caso de referencia del diagnóstico: entrada y resultado esperado |
 | `escaner/positivos.txt` | Textos que el escáner debe detectar (formato `tipo ¦ texto` con barra vertical) |
 | `escaner/negativos.txt` | Textos que el escáner NO debe detectar |

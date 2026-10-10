@@ -185,34 +185,8 @@ pub fn dev_load_fixture(session: State<'_, Session>, db: State<Db>, name: String
     guard(&session, "dev_load_fixture")?;
     #[cfg(debug_assertions)]
     {
-        let (raw, padron, facilities) = match name.as_str() {
-            "asilo" => (
-                include_str!("../../../fixtures/institucion-asilo.json"),
-                include_str!("../../../fixtures/padron-asilo.json"),
-                include_str!("../../../fixtures/instalaciones-asilo.json"),
-            ),
-            "casa-hogar" => (
-                include_str!("../../../fixtures/institucion-casa-hogar.json"),
-                include_str!("../../../fixtures/padron-casa-hogar.json"),
-                include_str!("../../../fixtures/instalaciones-casa-hogar.json"),
-            ),
-            _ => return Err(UiError::new("unknown_fixture", "No existe ese perfil de ejemplo.")),
-        };
-        let input: ProfileInput = serde_json::from_str(raw).map_err(|_| UiError::internal())?;
         let mut conn = lock(&db)?;
-        // the institution first, so the forms of the roster start with its kind; then the people of the example,
-        // and the profile adds them up again
-        service::save_profile(&mut conn, input.clone(), None)?;
-        crate::core::profile::sync::seed_examples(&mut conn, padron)?;
-        crate::core::bridge::facilities::seed_example(&mut conn, facilities)?;
-        // an example is a finished institution: it does not go through the first start (ADR-031)
-        crate::core::onboarding::service::mark_done(&conn)?;
-        let money: crate::modules::finance::domain::lines::FinanceInput = serde_json::from_str(raw).map_err(|_| UiError::internal())?;
-        crate::modules::finance::storage::save(&mut conn, &money).map_err(crate::core::error::ServiceError::from)?;
-        return match service::save_profile(&mut conn, input, None)? {
-            SaveProfileOutcome::Saved { profile } => Ok(profile),
-            _ => Err(UiError::internal()),
-        };
+        return crate::core::examples::load(&mut conn, &name)?.ok_or_else(|| UiError::new("unknown_fixture", "No existe ese perfil de ejemplo."));
     }
     #[cfg(not(debug_assertions))]
     {

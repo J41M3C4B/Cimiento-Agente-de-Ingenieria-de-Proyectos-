@@ -35,6 +35,8 @@ pub fn run() {
             let conn = storage::open_encrypted(&dir.join("cimiento.db"), &key)?;
             // a reading that was running when the program was closed waits to be resumed
             let _ = modules::projects::storage::calls::mark_interrupted(&conn);
+            // the photo of this month (ADR-033 §4): taken again at each opening until the month ends
+            let _ = core::snapshot::take(&conn);
             let db = Arc::new(Mutex::new(conn));
             // who is using the app (ADR-028): nobody until they enter
             app.manage(core::access::service::Session::new(db.clone()));

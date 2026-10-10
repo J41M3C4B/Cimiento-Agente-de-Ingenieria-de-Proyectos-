@@ -161,6 +161,12 @@ CREATE TABLE income_source (
 --                    pantalla va tapada y mostrarla queda en la bitácora (institution.sensitive_viewed, sin el valor).
 -- access_request.kind admite además board_member y bank_account (la tabla se reconstruye en 0026, mismas filas).
 
+-- Foto mensual (ADR-033 §4; migración 0027; código en core/snapshot.rs). Solo cifras, nunca una persona.
+-- core_snapshot  month (YYYY-MM, hora de este equipo) PK, taken_at, figures_json (snapshot::Figures: people,
+--                people_approx, capacity, waiting, staff, staff_approx, spaces y por estado, balance en palabras
+--                surplus|even|deficit, percent, board). Se toma al abrir la app; la del mes en curso se actualiza y un
+--                mes pasado queda fijo (trigger); no se borra.
+
 -- Módulo de Instalaciones (ADR-030, migración 0018; elimina facility).
 -- fac_site       un inmueble (la pantalla maneja uno): name, land_m2, built_m2, floors, floor_access JSON
 --                (ramp|elevator|stair_lift|none), built_year, tenure (own|loan|rent|borrowed|other), tenure_until,
@@ -405,7 +411,7 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
 | Dueño | Tablas |
 |---|---|
 | Base | `schema_migrations`, `app_settings`, `audit_log`, `ai_usage` |
-| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`, `core_board_member`, `core_bank_account`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
+| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`, `core_board_member`, `core_bank_account`, `core_snapshot`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
 | Personal (`hr_*`) | `hr_modality`, `hr_position`, `hr_person`, `hr_job`, `hr_emergency_contact`, `hr_custom_field` |
 | Beneficiarios (`care_*`) | `care_group`, `care_person`, `care_contact`, `care_custom_field`, `care_waitlist` |
 | Instalaciones (`fac_*`) | `fac_site`, `fac_space`, `fac_equipment` |

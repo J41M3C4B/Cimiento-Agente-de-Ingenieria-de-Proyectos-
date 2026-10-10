@@ -1,18 +1,52 @@
 {
   "institution": {
-    "name": "Casa Hogar Luz de Esperanza, I.A.P.",
+    "name": "Casa Hogar Luz de Esperanza",
     "kind": "children_home",
     "mission": "Ofrecer un espacio seguro, educación y acompañamiento a niñas en situación de abandono o riesgo.",
     "legal_rfc": "CLE190101CD2",
     "contact_phone": "55 5555 0202",
     "contact_email": "contacto@casahogar-ejemplo.org",
-    "legal_rep_name": null,
+    "legal_rep_name": "Teresa Ejemplo Luna",
     "state": "cdmx",
     "municipality": "Coyoacán",
     "founded_year": 2001,
     "legal_form": "iap",
     "authorized_donee": "yes",
-    "cluni": "in_progress"
+    "cluni": "in_progress",
+    "attention": {
+      "populations": [
+        "childhood",
+        "adolescence"
+      ],
+      "sex_served": "women",
+      "modalities": [
+        "residential"
+      ],
+      "care_areas": [
+        "care",
+        "education",
+        "food"
+      ]
+    },
+    "details": {
+      "institution.legal_name": "Casa Hogar Luz de Esperanza, I.A.P.",
+      "institution.purpose": "La asistencia a niñas y adolescentes en situación de abandono o riesgo: casa, alimentación, educación y acompañamiento.",
+      "institution.services": "Residencia, apoyo escolar, atención psicológica y talleres.",
+      "institution.age_min": 6,
+      "institution.age_max": 17,
+      "institution.admission_criteria": "Niñas de 6 a 17 años canalizadas por el DIF o por la Fiscalía.",
+      "institution.street": "Avenida Ejemplo",
+      "institution.ext_number": "45",
+      "institution.neighborhood": "Del Carmen",
+      "institution.postal_code": "04100",
+      "institution.tax_regime": "non_profit",
+      "institution.fiscal_postal_code": "04100",
+      "institution.junta_folio": "JAP-CDMX-EJEMPLO-002",
+      "institution.donee_category": "assistance",
+      "institution.donee_letter_number": "OFICIO-EJEMPLO-002",
+      "institution.donee_letter_date": "2005-08-22",
+      "institution.legal_rep_valid_until": "2027-06-30"
+    }
   },
   "capacity_total": 40,
   "annual_budget_mxn": 2400000,
@@ -35,6 +69,42 @@
       "kind": "other",
       "amount_mxn": 400000,
       "period": "annual"
+    }
+  ],
+  "board": [
+    {
+      "institution.board.name": "Teresa Ejemplo Luna",
+      "institution.board.role": "president",
+      "institution.board.since": "2018-01-20"
+    },
+    {
+      "institution.board.name": "Raúl Ejemplo Vega",
+      "institution.board.role": "vice_president"
+    },
+    {
+      "institution.board.name": "Sofía Ejemplo Pardo",
+      "institution.board.role": "secretary",
+      "institution.board.since": "2020-02-11"
+    },
+    {
+      "institution.board.name": "Elena Ejemplo Ríos",
+      "institution.board.role": "treasurer",
+      "institution.board.since": "2020-02-11"
+    },
+    {
+      "institution.board.name": "Pedro Ejemplo Gil",
+      "institution.board.role": "other",
+      "institution.board.role_other": "Comisario"
+    }
+  ],
+  "bank_accounts": [
+    {
+      "institution.bank.clabe": "012180001234567899",
+      "institution.bank.purpose": [
+        "donations",
+        "operations"
+      ],
+      "institution.bank.in_documents": true
     }
   ]
 }
