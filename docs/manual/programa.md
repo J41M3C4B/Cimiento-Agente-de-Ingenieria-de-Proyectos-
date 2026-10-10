@@ -52,6 +52,13 @@ Es la parte del programa que hace preguntas, sugiere y redacta. Es opcional: sin
 Nunca hace las cuentas ni guarda nada por su cuenta. Lo que sugiere, usted lo revisa y lo confirma.
 Esta ayuda del «?» no la usa: funciona sin internet y no gasta nada.
 
+# Preguntarle al asistente {#howto.assistant}
+
+El botón con la estrella, arriba a la derecha, abre el asistente desde cualquier pantalla. Escriba su duda con sus palabras: qué poner en un dato, para qué sirve, cómo se hace algo o qué le falta por llenar.
+Bajo el «?» de cada dato, «Preguntar más» lo abre con la pregunta ya escrita. Cuando conviene, le ofrece un botón para ir al lugar donde se hace.
+El asistente no guarda ni cambia nada: le dice dónde hacerlo. Sin internet o sin la ayuda automática, le responde con lo que dice este manual.
+La conversación se borra al cerrar el programa. No escriba nombres ni datos de personas: el programa los busca y le pregunta antes de enviar.
+
 # Cambiar de computadora o hacer un respaldo {#howto.backup}
 
 En «Seguridad» cree un respaldo con contraseña, llévelo a la otra computadora y restáurelo ahí.

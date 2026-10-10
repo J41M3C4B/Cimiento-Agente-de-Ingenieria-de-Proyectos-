@@ -134,6 +134,20 @@ fn source(id: &str) -> Option<Source> {
     crate::core::manual::entry(id).map(|e| Source { id: e.entry.id, title: e.entry.title })
 }
 
+/// Where a field of the catalog is filled in, as a place of `GO_TO`: the code knows it, the AI does not guess it.
+pub fn place_of_field(field: &str) -> Option<&'static str> {
+    use crate::core::institution::forms::{FORMS, LIST_FORMS};
+    let form = FORMS.iter().chain(LIST_FORMS).find(|f| f.field(field).is_some())?;
+    Some(match form.id {
+        "institution.identity" => "profile.institution",
+        "institution.contact" => "profile.contact",
+        "institution.legal" => "profile.legal",
+        "institution.capacity" => "profile.capacity",
+        "institution.board_member" | "institution.bank_account" => "profile.board",
+        _ => "profile",
+    })
+}
+
 /// What the Assistant is told besides the question: where the person is, the field and what the manual says of it,
 /// and the last turns of the conversation. Ids, never the content of a record.
 pub fn context(ask: &Ask) -> Vec<String> {
@@ -146,7 +160,12 @@ pub fn context(ask: &Ask) -> Vec<String> {
     place.push('.');
     out.push(place);
     if let Some(e) = ask.field.as_deref().and_then(crate::core::manual::entry) {
-        out.push(format!("Preguntó desde el campo «{}» (`{}`). El manual dice de él:\n{}", e.entry.title, e.entry.id, e.entry.paragraphs.join("\n")));
+        let mut s = format!("Preguntó desde el campo «{}» (`{}`).", e.entry.title, e.entry.id);
+        if let Some(place) = place_of_field(&e.entry.id) {
+            s.push_str(&format!(" Ese campo se llena en el lugar `{place}`."));
+        }
+        s.push_str(&format!(" El manual dice de él:\n{}", e.entry.paragraphs.join("\n")));
+        out.push(s);
     }
     let turns: Vec<&Turn> = ask.history.iter().rev().take(HISTORY_TURNS).collect::<Vec<_>>().into_iter().rev().collect();
     if !turns.is_empty() {
@@ -318,6 +337,7 @@ mod tests {
             assert!(reqs[0].system.contains("Usted es el Asistente"), "its trade");
             if case.ask.field.is_some() {
                 assert!(reqs[0].context.iter().any(|c| c.contains("El manual dice de él") && c.contains("Junta de Asistencia Privada de su estado")), "{:?}", reqs[0].context);
+                assert!(reqs[0].context.iter().any(|c| c.contains("se llena en el lugar `profile.legal`")), "the code says where the field is");
             }
             if !case.seen.is_empty() {
                 assert!(reqs.last().unwrap().user.contains(case.seen), "{}: {}", case.ask.question, reqs.last().unwrap().user);
@@ -377,6 +397,19 @@ mod tests {
         let AssistantOutcome::Answered { text, go_to, sources, .. } = answered(&a, "q".into()) else { panic!() };
         assert_eq!((text.as_str(), go_to), ("Hola", None));
         assert_eq!(sources, vec![Source { id: "institution.name".into(), title: "Nombre de la institución".into() }]);
+    }
+
+    /// Every field of the catalog has its place, and it is one the Assistant may offer.
+    #[test]
+    fn every_field_has_the_place_where_it_is_filled_in() {
+        use crate::core::institution::forms::{FORMS, LIST_FORMS};
+        for f in FORMS.iter().chain(LIST_FORMS).flat_map(|f| f.fields()) {
+            let place = place_of_field(f.id).unwrap();
+            assert!(GO_TO.contains(&place) && place != "profile", "{}: {place}", f.id);
+        }
+        assert_eq!(place_of_field("institution.junta_folio"), Some("profile.legal"));
+        assert_eq!(place_of_field("institution.bank.clabe"), Some("profile.board"));
+        assert_eq!(place_of_field("nope"), None);
     }
 
     /// Every place the trade offers is one the code knows, and the other way round.

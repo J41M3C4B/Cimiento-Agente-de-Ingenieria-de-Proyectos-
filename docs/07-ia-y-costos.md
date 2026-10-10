@@ -59,10 +59,11 @@ Si la calidad de una tarea Light no alcanza en pruebas, se sube a Strong y se do
 - **Protocolo en JSON sobre el recorrido de siempre** (`prompts/agent_protocol.v1.md`): en cada paso el modelo responde `{"tool", "args", "answer"}`. Cada paso pasa por presupuesto, escáner, ritmo, validación del esquema y `ai_usage`, igual con Gemini, Anthropic u Ollama.
 - Rust revisa que la herramienta sea de la lista del agente y que los argumentos tengan su forma, la corre y le devuelve el resultado en el paso siguiente. Una herramienta fuera de la lista nunca corre; el modelo se entera y sigue.
 - Al llegar al tope de pedidos se le pide responder con lo que tiene; si vuelve a pedir, el encargo termina (`step_limit`). Al pasar el tope de texto, también (`token_limit`).
-- Las herramientas solo leen y revisan el permiso de quien pregunta. Las del núcleo hoy: `fill_state` (qué tan completos están los datos y qué falta, sin valores) y `sheet_section` (una parte de la ficha de la institución: `institution`, `money`, `people`, `staff` o `facilities`, con las mismas reglas de la ficha completa).
+- Las herramientas solo leen y revisan el permiso de quien pregunta. Las del núcleo hoy: `fill_state` (qué tan completos están los datos y qué falta, sin valores) y `sheet_section` (una parte de la ficha de la institución: `institution`, `money`, `people`, `staff` o `facilities`, con las mismas reglas de la ficha completa), `manual_search` y `manual_entry` (el manual del programa, nunca datos de la institución).
 - El prompt del agente (oficio, protocolo y herramientas) es el mismo en todos los pasos, así que el proveedor lo puede guardar en caché.
 - Lo que la IA quiera cambiar es una propuesta (`ai_proposal`) que acepta una persona.
 - El manual del programa (`docs/manual/`) responde el «?» de cada campo y la búsqueda de Ayuda **sin IA**: no gasta nada.
+- **El Asistente (IA3, `core/agents/assistant.rs`):** modelo ligero, hasta 4 pedidos de herramientas y 40,000 tokens por pregunta. Herramientas: `manual_entry`, `manual_search`, `fill_state` y `sheet_section`; no recibe la ficha completa, pide la parte que toca. El código le dice la pantalla, el campo, su entrada del manual y la ventana donde se llena; revisa que «Ir a…» sea un lugar conocido y que cada fuente sea una entrada del manual. Sin IA, responde el manual. **Costo medido** (2026-10-10, Gemini `gemini-3.5-flash-lite`, 3 preguntas): de 1 a 2 llamadas, 1,850 a 3,780 tokens de entrada y unos 110 de salida; **de $0.015 a $0.027 MXN por pregunta**, de 2 a 3 segundos.
 
 ## Técnicas de ahorro
 
