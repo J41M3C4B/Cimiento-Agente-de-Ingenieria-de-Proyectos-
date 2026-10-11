@@ -7,6 +7,7 @@ import { ManualText } from "../../components/ManualHelp";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Alert, Button, Inset, Modal } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { useReadingProgress } from "../../lib/files";
 import {
   institutionRecordAttach,
   institutionRecordDetach,
@@ -52,6 +53,9 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
   const [failure, setFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [held, setHeld] = useState<{ report: QuarantineReport; retry: (d: Decision) => void } | null>(null);
+  // a scan or a photo is read as pictures, a few seconds a page (OCR, ADR-035)
+  const [reading, setReading] = useState(false);
+  const progress = useReadingProgress(reading);
 
   // what is saved is the starting point, once
   useEffect(() => {
@@ -101,7 +105,8 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
       const chosen =
         path ?? (await pickFile({ multiple: false, directory: false, title: t.pickTitle, filters: [{ name: t.pickFilter, extensions: EXTENSIONS }] }));
       if (typeof chosen !== "string") return;
-      const out = await institutionRecordAttach(record.type, id, chosen, decision);
+      setReading(true);
+      const out = await institutionRecordAttach(record.type, id, chosen, decision).finally(() => setReading(false));
       if (out.status === "quarantine") {
         setHeld({ report: out.report, retry: (d) => void attach(chosen, d) });
         return;
@@ -116,7 +121,15 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
       // a document with its file is had; what the person typed stays
       setValues((v) => ({ ...(v ?? {}), "institution.record.status": "have" }));
       void form.refetch();
-      setNotice(out.readable ? t.attached : t.attachedNoText);
+      setNotice(
+        !out.readable
+          ? t.attachedNoText
+          : out.doubtful.length > 0
+            ? t.attachedDoubtful(es.common.pageList(out.doubtful))
+            : out.from_picture
+              ? t.attachedFromPicture
+              : t.attached,
+      );
     });
 
   const open = () =>
@@ -162,10 +175,12 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
                 <Icon name="file" size={16} />
                 <span className="min-w-0 truncate font-semibold">{file.name}</span>
                 {!file.readable && <span className="text-small text-ink-3">{t.noText}</span>}
+                {file.from_picture && <span className="text-small text-ink-3">{t.fromPicture}</span>}
               </p>
             ) : (
               <p className="text-ui text-ink-3">{t.noFile}</p>
             )}
+            {reading && <p className="text-small text-ink-2">{progress ? es.common.readingPictures(progress.done, progress.total) : es.common.loading}</p>}
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" disabled={busy} onClick={() => void attach()}>
                 <Icon name="upload" size={16} />

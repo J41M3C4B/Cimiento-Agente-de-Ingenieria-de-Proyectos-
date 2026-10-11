@@ -4,6 +4,7 @@ Mantén este documento actualizado.
 
 ```bash
 pnpm install          # dependencias
+powershell -ExecutionPolicy Bypass -File scripts/fetch-ocr.ps1   # una vez: Tesseract, sus modelos y Pdfium en src-tauri/resources/ocr (OCR, ADR-035); sin esto no compila el instalador ni pasan las pruebas de OCR
 pnpm tauri dev        # desarrollo
 # probar el primer inicio desde cero sin tocar los datos ni los ejemplos (solo en desarrollo):
 #   $env:CIMIENTO_DATA_DIR="D:\Agente Proyectos\cimiento-vacio"; pnpm tauri dev
@@ -35,6 +36,8 @@ cargo test overview                                    # la institución de un v
 cargo test core::history                               # origen por dato e historial ligero (ADR-033 §4): solo lo que cambia, lo protegido sin valor, cómo estaba en una fecha, solo crece
 cargo test profile::forms                              # las cuatro ventanas de «Mi institución»: guardado, reglas, Junta, escáner e historial en la misma transacción
 cargo test core::snapshot                              # foto mensual (ADR-033 §4): solo cifras, el mes en curso se actualiza, un mes pasado queda fijo y nada se borra
+cargo test documents::reading                          # leer escaneos y fotos (OCR, ADR-035): páginas sin texto dibujadas y leídas, la «@» de un correo, una página desteñida «con dudas», la carpeta temporal se borra
+cargo test core::archive                               # Documentos: texto pegado y archivos (PDF, Word, Excel, fotos) con escáner, solo el texto limpio y las páginas leídas de imagen
 cargo test core::records                               # expediente (ADR-033 §5, N4): qué documentos tocan a cada institución, estado y vigencia, folio protegido, PDF y Word con escáner, escaneados y fotos, solo el texto limpio y dónde está el original
 cargo test core::examples                              # los dos ejemplos I.A.P. cargan completos al 100 % y sin nombres, folios ni CLABE hacia la IA
 cargo test core::protected                             # patronato y cuentas (ADR-033 §3): qué se pide, CLABE tapada y en bitácora, historial sin valor, lo que llega a la IA, escáner y lo que falta

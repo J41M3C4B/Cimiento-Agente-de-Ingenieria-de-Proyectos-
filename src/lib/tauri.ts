@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { es } from "../i18n/es-MX";
 import type {
   AddDocumentOutcome,
+  AddFileOutcome,
   AddNeedOutcome,
   AiCheckView,
   AiModelsView,
@@ -118,6 +119,9 @@ export const documentAddText = (displayName: string, text: string, decision?: De
     text,
     decision: decision ?? null,
   });
+// a PDF, Word, Excel or a photo, in base64: Rust reads it (a scan as pictures) and keeps only its clean text
+export const documentAddFile = (displayName: string, fileName: string, data: string, decision?: Decision) =>
+  invoke<AddFileOutcome>("document_add_file", { displayName, fileName, data, decision: decision ?? null });
 export const documentsList = () => invoke<DocumentSummary[]>("documents_list");
 export const documentEmergencyDelete = (id: string) =>
   invoke<DeleteSummary>("document_emergency_delete", { id });

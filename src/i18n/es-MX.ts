@@ -71,6 +71,11 @@ export const es = {
     unknown: "No sé",
     optional: "Opcional",
     loading: "Un momento, por favor…",
+    // reading scanned pages or photos (OCR, ADR-035): a few seconds a page
+    readingPictures: (done: number, total: number) =>
+      total === 1 ? "Leyendo el texto de la imagen…" : `Leyendo las páginas escaneadas: ${done} de ${total}`,
+    pageList: (pages: number[]) =>
+      pages.length === 1 ? `la página ${pages[0]}` : `las páginas ${pages.slice(0, -1).join(", ")} y ${pages[pages.length - 1]}`,
     close: "Cerrar",
     review: {
       title: (n: number) => (n === 1 ? "Hay 1 cosa por revisar" : `Hay ${n} cosas por revisar`),
@@ -217,7 +222,9 @@ export const es = {
       expiredOn: (date: string) => `Venció el ${date}`,
       stateExpiring: "Por vencer",
       stateExpired: "Vencido",
-      noText: "sin texto (escaneado o foto)",
+      noText: "sin texto que se pueda leer",
+      fromPicture: "leído de una imagen",
+      checkPages: (pages: string) => `con dudas en ${pages}`,
       types: {
         articles_of_incorporation: "Acta constitutiva",
         bylaws_amendments: "Reformas a los estatutos",
@@ -249,7 +256,11 @@ export const es = {
       open: "Abrir el original",
       openMissing: "El original ya no está donde estaba. Elíjalo otra vez con «Cambiar archivo».",
       attached: "Se guardó el archivo.",
-      attachedNoText: "Se guardó dónde está el archivo. No tiene texto que leer (está escaneado o es una foto): cuenta como que lo tienen, pero el programa no puede leerlo.",
+      attachedNoText:
+        "Se guardó dónde está el archivo, pero no pudimos leer su texto: la imagen no se ve clara o no tiene letras. Cuenta como que lo tienen.",
+      attachedFromPicture: "Se guardó el archivo. Su texto se leyó de la imagen.",
+      attachedDoubtful: (pages: string) =>
+        `Se guardó el archivo, pero ${pages} se leyó con dudas: su texto puede traer errores. Si importa, súbalo otra vez con un escaneo más claro.`,
       pickTitle: "Elija el archivo del documento",
       pickFilter: "PDF, Word o foto",
       unreadable: {
@@ -257,6 +268,7 @@ export const es = {
         too_large: "El archivo es muy grande: más de 40 MB.",
         not_found: "No se encontró el archivo. Elíjalo otra vez.",
         damaged: "El archivo está dañado o no se pudo abrir.",
+        too_many_pages: "Ese archivo tiene más de 100 páginas escaneadas: son demasiadas para leerlas. Súbalo en partes.",
         roster: "Ese archivo es una lista de personas. Las fichas de personas van en Personal o en Beneficiarios, no en el expediente.",
       } as Record<string, string>,
     },
@@ -1862,11 +1874,12 @@ export const es = {
       interrupted: "Se cerró el programa mientras la leíamos. Toque «Leer otra vez».",
     } as Record<string, string>,
     unreadable: {
-      unsupported_type: "Ese archivo no es un PDF, un Word ni un Excel.",
+      unsupported_type: "Ese archivo no es un PDF, un Word, un Excel ni una foto.",
       too_large: "Ese archivo es demasiado grande. El máximo es de 40 MB.",
       damaged: "No pudimos abrir ese archivo. Puede estar dañado.",
       scanned:
-        "Ese PDF es una foto de las hojas y no tiene texto que podamos leer. Por ahora solo leemos PDF con texto.",
+        "No pudimos leer el texto de las imágenes de ese archivo. Pruebe con un escaneo más claro o pida a quien convoca el archivo original.",
+      too_many_pictures: "Ese archivo tiene más de 100 páginas escaneadas: son demasiadas para leerlas. Pida a quien convoca el archivo original.",
       empty: "Ese archivo no tiene texto que podamos leer.",
       roster: "Ese archivo parece una lista de personas y esas no se guardan.",
       no_files: "Elija al menos un archivo.",
@@ -2004,6 +2017,17 @@ export const es = {
     list: "Documentos guardados",
     fragments: (n: number) => (n === 1 ? "1 fragmento" : `${n} fragmentos`),
     covered: (n: number) => (n === 0 ? "" : n === 1 ? "1 dato tapado" : `${n} datos tapados`),
+    fromPicture: (n: number) => (n === 1 ? "1 página leída de imagen" : `${n} páginas leídas de imagen`),
+    doubtful: (pages: string) => `con dudas en ${pages}`,
+    savedDoubtful: (pages: string) =>
+      `Se guardó, pero ${pages} se leyó con dudas: su texto puede traer errores. Si importa, súbalo otra vez con un escaneo más claro.`,
+    fileUnreadable: {
+      unsupported_type: "Ese tipo de archivo no se puede leer. Use un PDF, un Word, un Excel o una foto (JPG o PNG).",
+      too_large: "El archivo es muy grande: más de 40 MB.",
+      damaged: "No pudimos abrir ese archivo. Puede estar dañado.",
+      too_many_pages: "Ese archivo tiene más de 100 páginas escaneadas: son demasiadas para leerlas. Súbalo en partes.",
+      no_text: "No pudimos leer texto en ese archivo: la imagen no se ve clara o no tiene letras. Pruebe con un escaneo más claro.",
+    } as Record<string, string>,
     delete: "Borrar esto y todo lo que salió de ahí",
     deleteTitle: "¿Borrar este documento?",
     deleteBody:
@@ -2056,11 +2080,13 @@ export const es = {
       fileSection: "Archivo",
       fileLabel: "Documento",
       drop: "Elija un archivo o arrástrelo aquí",
-      dropHint: "Texto, PDF, Word, Excel o CSV",
+      dropHint: "PDF, Word, Excel, foto o texto",
+      fileRead: "Lo leemos al guardarlo. Si está escaneado o es una foto, leemos las imágenes: tarda unos segundos por página.",
       change: "pulse para cambiarlo",
       unreadable:
-        "Todavía no podemos leer este tipo de archivo en este equipo. Escriba o pegue abajo el texto del documento y lo guardamos igual.",
+        "Este tipo de archivo todavía no lo leemos. Guárdelo como PDF o Word, o pegue abajo su texto y lo guardamos igual.",
       pasteSection: "Texto",
+      nameSection: "Nombre",
       pasteHint: "Antes de guardarlo revisamos que no traiga datos de personas.",
       donor: "Donante",
       donorPh: "Por ejemplo: Nacional Monte de Piedad",
@@ -2245,7 +2271,7 @@ export const es = {
     filesStep: "Archivos",
     dataStep: "Datos",
     step1Title: "El archivo de la convocatoria",
-    step1Help: "Solo leemos PDF con texto, no hojas escaneadas.",
+    step1Help: "Un PDF, un Word, un Excel o fotos. Si está escaneado, leemos las imágenes: tarda unos segundos por página.",
     dropTitle: "Arrastre el archivo aquí",
     dropTitleMany: "Arrastre los archivos aquí",
     dropOr: "o",
@@ -2690,7 +2716,7 @@ export const es = {
     problemsTitle: "Si algo no funciona",
     problems: [
       ["La ayuda automática no responde", "Lo que escribió queda guardado. Revise su internet y su clave en «Ayuda automática» y toque el botón para intentar otra vez."],
-      ["Un PDF no se puede leer", "Por ahora solo leemos PDF con texto, no hojas escaneadas. Pida a quien convoca el archivo original."],
+      ["Un PDF no se puede leer", "Si está escaneado, el programa lee las imágenes; si la copia no se ve clara, puede leer mal o no leer nada. Escanéelo otra vez con más luz o pida el archivo original."],
       ["Olvidé mi PIN", "Cierre y vuelva a abrir el programa; después de cinco intentos hay que esperar medio minuto. Si ya no lo recuerda, restaure un respaldo."],
       ["Quiero cambiar de computadora", "En «Seguridad» cree un respaldo, llévelo a la otra computadora y restáurelo ahí."],
     ] as [string, string][],

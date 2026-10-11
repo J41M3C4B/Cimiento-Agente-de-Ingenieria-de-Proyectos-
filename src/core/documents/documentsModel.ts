@@ -36,6 +36,8 @@ export type Draft = {
   donor: string;
   kind: string;
   file: { name: string; size: string; ext: string } | null;
+  /** a file Rust reads (PDF, Word, Excel or a photo): it goes as it is, with no text to paste */
+  blob?: File | null;
   target: UploadTarget | null;
 };
 
@@ -53,9 +55,26 @@ export function fileSize(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-/** Plain text files can be read in the browser; the rest (PDF, Word, Excel…) cannot be read here yet. */
+/** Plain text files are read in the browser. */
 export function isPlainText(file: File): boolean {
   return ["txt", "md", "csv"].includes(extOf(file.name)) || file.type.startsWith("text/");
+}
+
+/** The files Rust reads (a scan or a photo as pictures, OCR, ADR-035); the rest (.doc, .ppt…) ask to paste their text. */
+export function isReadableFile(file: File): boolean {
+  return ["pdf", "docx", "xlsx", "xlsm", "jpg", "jpeg", "png"].includes(extOf(file.name));
+}
+
+/** The kind of file of a saved document, for its tile: by its type, or by its name when it was pasted text. */
+function extOfDocument(d: DocumentSummary): string {
+  const byMime: Record<string, string> = {
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+  };
+  return byMime[d.mime] ?? (extOf(d.display_name) || "txt");
 }
 
 const kindLabel = (kind: string) => t.kinds[kind] ?? t.kindOther;
@@ -68,10 +87,19 @@ export function institutionItems(docs: DocumentSummary[]): DocItem[] {
     return {
       id: d.id,
       name: d.display_name,
-      ext: extOf(d.display_name) || "txt",
+      ext: extOfDocument(d),
       type,
       year,
-      detail: [type, t.fragments(d.chunks), year, d.redactions_count > 0 ? t.covered(d.redactions_count) : ""].filter(Boolean).join(" · "),
+      detail: [
+        type,
+        t.fragments(d.chunks),
+        year,
+        d.redactions_count > 0 ? t.covered(d.redactions_count) : "",
+        d.picture_pages > 0 ? t.fromPicture(d.picture_pages) : "",
+        d.doubtful_pages.length > 0 ? t.doubtful(es.common.pageList(d.doubtful_pages)) : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
     };
   });
 }

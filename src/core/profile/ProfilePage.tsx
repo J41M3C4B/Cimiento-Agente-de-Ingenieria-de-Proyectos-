@@ -60,7 +60,12 @@ const recordDetail = (r: InstitutionRecord) =>
         : r.validity === "valid" && r.valid_until
           ? t.records.validUntil(dateText(r.valid_until))
           : null,
-    r.file && (r.file.readable ? r.file.name : `${r.file.name}, ${t.records.noText}`),
+    r.file &&
+      (!r.file.readable
+        ? `${r.file.name}, ${t.records.noText}`
+        : r.file.doubtful.length > 0
+          ? `${r.file.name}, ${t.records.checkPages(es.common.pageList(r.file.doubtful))}`
+          : r.file.name),
   ]
     .filter(Boolean)
     .join(" · ");

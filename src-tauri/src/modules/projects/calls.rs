@@ -10,12 +10,13 @@ use crate::ai::pipeline::{self, AiCall, SqliteLedger};
 use crate::ai::settings::{self, ProviderKind};
 use crate::ai::{self, AiProvider, AiTask, ModelTier};
 use crate::modules::projects::diagnosis::{AiStatus, SharedDb};
-use crate::core::api::guard_texts;
+use crate::core::api::{guard_texts, PageMarks};
 use crate::ai::figures;
 use crate::modules::projects::domain::stage::{self, Stage};
 use crate::documents::canonical::assemble::{assemble, Reading};
 use crate::documents::canonical::card::{card_of, CallCard};
-use crate::documents::canonical::package::{read_pieces, Package};
+use crate::documents::canonical::package::Package;
+use crate::documents::reading::{read_upload, ReadError};
 use crate::documents::canonical::retrieve::{Embedder, GeminiEmbedder, RetrieverKind};
 use crate::documents::canonical::run::{read_canonical, Options, Strategy};
 use crate::documents::canonical::summary::{summarize, CallSummary};
@@ -28,9 +29,7 @@ use crate::modules::projects::storage::projects::{self as projects, ProjectRow};
 use crate::storage;
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::path::PathBuf;
 use std::sync::Arc;
-use ulid::Ulid;
 
 /// The embedding model that chooses, for each block of the call, the pages worth reading (ADR-015).
 const EMBEDDING_MODEL: &str = "gemini-embedding-2";
@@ -57,8 +56,10 @@ pub enum Unreadable {
     UnsupportedType,
     TooLarge,
     Damaged,
-    /// A PDF that is a picture of the pages: there is no text to read (OCR is out of scope, ADR-011).
+    /// A scanned PDF or a photo whose pictures had no text that could be read (OCR, ADR-035).
     Scanned,
+    /// More scanned pages than can be read in one file (`reading::MAX_PICTURE_PAGES`).
+    TooManyPictures,
     Empty,
     /// It looks like a list of people, which is never saved (`scanner`).
     Roster,
@@ -83,29 +84,14 @@ pub enum NewProjectOutcome {
     Unreadable { file: String, reason: Unreadable },
 }
 
-/// A folder for one upload that is gone when it is dropped, whatever happens in between.
-struct Scratch(PathBuf);
-
-impl Scratch {
-    fn new() -> std::io::Result<Scratch> {
-        let dir = std::env::temp_dir().join(format!("cimiento-{}", Ulid::generate()));
-        std::fs::create_dir_all(&dir)?;
-        Ok(Scratch(dir))
-    }
-}
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
 fn extension(name: &str) -> Option<&'static str> {
     match name.rsplit('.').next().map(str::to_lowercase).as_deref() {
         Some("pdf") => Some("pdf"),
         Some("docx") => Some("docx"),
         Some("xlsx") => Some("xlsx"),
         Some("xlsm") => Some("xlsm"),
+        Some("jpg") | Some("jpeg") => Some("jpg"),
+        Some("png") => Some("png"),
         _ => None,
     }
 }
@@ -114,6 +100,8 @@ fn mime_of(ext: &str) -> &'static str {
     match ext {
         "pdf" => "application/pdf",
         "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "jpg" => "image/jpeg",
+        "png" => "image/png",
         _ => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }
 }
@@ -130,16 +118,16 @@ fn prepare(file: &UploadedFile, role: FileRole, scanner: &PublicDocScanner) -> R
     if file.bytes.len() > MAX_FILE_BYTES {
         return Err(Unreadable::TooLarge);
     }
-    let scratch = Scratch::new().map_err(|_| Unreadable::Damaged)?;
-    let path = scratch.0.join(format!("upload.{ext}"));
-    std::fs::write(&path, &file.bytes).map_err(|_| Unreadable::Damaged)?;
-    let raw = read_pieces(&path).map_err(|_| Unreadable::Damaged)?;
-    drop(scratch);
+    // a scanned page or a photo is read as a picture (OCR, ADR-035)
+    let raw = read_upload(&format!("upload.{ext}"), &file.bytes).map_err(|e| match e {
+        ReadError::TooManyPictures => Unreadable::TooManyPictures,
+        _ => Unreadable::Damaged,
+    })?;
 
-    let mut pages: Vec<String> = raw.iter().map(|p| clean_text(p)).collect();
+    let mut pages: Vec<String> = raw.pages.iter().map(|p| clean_text(p)).collect();
     let letters = |t: &str| t.chars().filter(|c| c.is_alphabetic()).count();
     if pages.iter().all(|p| letters(p) < MIN_LETTERS_PER_PAGE) {
-        return Err(if ext == "pdf" && !pages.is_empty() { Unreadable::Scanned } else { Unreadable::Empty });
+        return Err(if matches!(ext, "pdf" | "jpg" | "png") && !pages.is_empty() { Unreadable::Scanned } else { Unreadable::Empty });
     }
     // a list of people is rejected whole; here the whole scanner counts, not only the public one
     let joined = pages.join("\n\n");
@@ -154,7 +142,8 @@ fn prepare(file: &UploadedFile, role: FileRole, scanner: &PublicDocScanner) -> R
             *page = scanner.redact(page, &report);
         }
     }
-    Ok(NewFile { name, mime: mime_of(ext), pages, redactions, role })
+    let marks = PageMarks { from_picture: raw.from_picture, doubtful: raw.doubtful };
+    Ok(NewFile { name, mime: mime_of(ext), pages, redactions, role, marks })
 }
 
 /// Checks and cleans every file of a package. `Ok(Err(..))` says which file was not taken and why; a call with
@@ -639,14 +628,19 @@ mod tests {
         assert!(pages[0].1[0].contains("Convocatoria ficticia 2026"));
     }
 
+    /// A scanned call is read as pictures (OCR, ADR-035): its text is kept like any other, with the pages read
+    /// from a picture and the ones read with doubts.
     #[test]
-    fn the_folder_of_an_upload_is_gone_when_it_is_dropped() {
-        let scratch = Scratch::new().unwrap();
-        let path = scratch.0.clone();
-        std::fs::write(path.join("upload.pdf"), b"x").unwrap();
-        assert!(path.exists());
-        drop(scratch);
-        assert!(!path.exists());
+    fn a_scanned_call_is_read_as_pictures_and_says_which_pages_have_doubts() {
+        let (_d, db) = setup();
+        let r = saved(ingest(&db, vec![upload("acta.pdf", fixture("acta-escaneada.pdf")), upload("foto.jpg", fixture("constancia-foto.jpg"))], None).unwrap());
+        assert_eq!(r.files.iter().map(|f| f.pages).collect::<Vec<_>>(), vec![2, 1]);
+        let pages = calls::pages_of(&lock(&db).unwrap(), &r.id).unwrap();
+        assert!(pages[0].1[0].contains("ACTA CONSTITUTIVA") && pages[1].1[0].contains("CONSTANCIA DE REGISTRO"), "{pages:?}");
+        let marks: Vec<(String, String)> = lock(&db).unwrap()
+            .prepare("SELECT picture_pages, doubtful_pages FROM document ORDER BY display_name").unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
+        assert_eq!(marks, vec![("[1,2]".to_string(), "[2]".to_string()), ("[1]".to_string(), "[]".to_string())]);
     }
 
     #[test]
@@ -670,9 +664,10 @@ mod tests {
             IngestOutcome::Unreadable { reason, .. } => reason,
             IngestOutcome::Saved { .. } => panic!("it was saved"),
         };
-        assert_eq!(why(vec![upload("foto.png", vec![1, 2, 3])]), Unreadable::UnsupportedType);
+        assert_eq!(why(vec![upload("notas.txt", vec![1, 2, 3])]), Unreadable::UnsupportedType);
+        // a picture with no text that can be read
+        assert_eq!(why(vec![upload("foto.png", vec![1, 2, 3])]), Unreadable::Scanned);
         assert_eq!(why(vec![upload("roto.pdf", b"esto no es un pdf".to_vec())]), Unreadable::Damaged);
-        assert_eq!(why(vec![upload("escaneada.pdf", fixture("convocatoria-escaneada.pdf"))]), Unreadable::Scanned);
         assert_eq!(why(vec![]), Unreadable::NoFiles);
         // one bad file among good ones stops the whole call: a call with a document missing gives a wrong picture
         assert_eq!(why(vec![upload("bases.pdf", fixture("convocatoria-con-tablas.pdf")), upload("roto.docx", b"x".to_vec())]), Unreadable::Damaged);

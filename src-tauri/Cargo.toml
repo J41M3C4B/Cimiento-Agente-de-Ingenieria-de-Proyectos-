@@ -34,6 +34,8 @@ sqlite-vec = "0.1.9"
 pdf-extract = "0.12.1"
 # the same version pdf-extract reads with: the content of a page is read here to find the lines of a table
 lopdf = "0.42.0"
+# turns a scanned page into a picture for Tesseract (OCR, ADR-035); pdfium.dll ships in resources/ocr
+pdfium-render = { version = "0.9.4", default-features = false, features = ["pdfium_latest", "thread_safe"] }
 base64 = "0.22.1"
 ulid = "3.0.0"
 sha2 = "0.11.0"

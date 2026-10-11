@@ -136,16 +136,17 @@ fn the_institution_names_its_own_documents_and_their_texts_are_scanned() {
     assert!(matches!(form(&c, "privacy_notice", Some(&id)), Err(ServiceError::NotFound)));
 }
 
-/// A PDF is read page by page and only its clean text is kept; of the original, where it is. A scan has no text and
-/// the document counts as had all the same.
+/// A PDF is read page by page and only its clean text is kept; of the original, where it is. A scan is read as
+/// pictures (OCR, ADR-035), and a picture with no text to read counts as had all the same.
 #[test]
 fn a_file_is_read_and_only_its_clean_text_and_where_it_is_are_kept() {
     let (dir, mut c) = conn();
     let pdf = fixture(dir.path(), "convocatoria-con-tablas.pdf");
-    let AttachOutcome::Attached { id, readable, expediente } = attach(&mut c, "articles_of_incorporation", None, &pdf, Some(Decision::Redact)).unwrap() else { panic!() };
-    assert!(readable);
+    let AttachOutcome::Attached { id, readable, from_picture, expediente, .. } = attach(&mut c, "articles_of_incorporation", None, &pdf, Some(Decision::Redact)).unwrap() else { panic!() };
+    assert!(readable && !from_picture);
     let r = expediente.records.iter().find(|r| r.kind == "articles_of_incorporation").unwrap();
-    assert_eq!((r.status.as_str(), r.file.clone()), ("have", Some(RecordFile { name: "convocatoria-con-tablas.pdf".into(), readable: true })));
+    let file = RecordFile { name: "convocatoria-con-tablas.pdf".into(), readable: true, from_picture: false, doubtful: vec![] };
+    assert_eq!((r.status.as_str(), r.file.clone()), ("have", Some(file)));
     let docs = crate::core::archive::storage::list_institution(&c).unwrap();
     assert_eq!((docs.len(), docs[0].kind.as_str(), docs[0].display_name.as_str()), (1, "internal", "convocatoria-con-tablas.pdf"));
     assert!(docs[0].chunks > 1, "one fragment per page");
@@ -153,17 +154,28 @@ fn a_file_is_read_and_only_its_clean_text_and_where_it_is_are_kept() {
     assert!(blob.is_none(), "the original is never copied in (principle 6)");
     assert_eq!(original(&c, &id).unwrap().as_deref(), Some(pdf.as_path()));
 
-    let scan = fixture(dir.path(), "convocatoria-escaneada.pdf");
-    let AttachOutcome::Attached { readable, .. } = attach(&mut c, "tax_status_certificate", None, &scan, None).unwrap() else { panic!() };
-    assert!(!readable, "a scan has no text to read");
-    assert_eq!(crate::core::archive::storage::list_institution(&c).unwrap().len(), 1, "nothing to keep of a scan but where it is");
+    // a scanned deed is read as pictures: its email waits for the person, and its worn page is read with doubts
+    let scan = fixture(dir.path(), "acta-escaneada.pdf");
+    assert!(matches!(attach(&mut c, "bylaws_amendments", None, &scan, None).unwrap(), AttachOutcome::Quarantine { .. }));
+    let AttachOutcome::Attached { readable, from_picture, doubtful, expediente, .. } = attach(&mut c, "bylaws_amendments", None, &scan, Some(Decision::Redact)).unwrap() else { panic!() };
+    assert_eq!((readable, from_picture, doubtful), (true, true, vec![2]));
+    let r = expediente.records.iter().find(|r| r.kind == "bylaws_amendments").unwrap();
+    assert_eq!(r.file.as_ref().map(|f| (f.from_picture, f.doubtful.clone())), Some((true, vec![2])));
+    assert_eq!(crate::core::archive::storage::list_institution(&c).unwrap().len(), 2);
+
+    // a picture with no text to read: of it, only where it is
+    let blank = dir.path().join("en-blanco.png");
+    std::fs::write(&blank, [1, 2, 3]).unwrap();
+    let AttachOutcome::Attached { readable, .. } = attach(&mut c, "tax_status_certificate", None, &blank, None).unwrap() else { panic!() };
+    assert!(!readable, "a picture with no text has nothing to read");
+    assert_eq!(crate::core::archive::storage::list_institution(&c).unwrap().len(), 2, "nothing to keep of it but where it is");
 
     // taking the file off: the clean text stays in Documentos; once the original is gone it is not opened
     let e = detach(&mut c, &id).unwrap();
     assert!(e.records.iter().find(|r| r.kind == "articles_of_incorporation").unwrap().file.is_none());
-    assert_eq!(crate::core::archive::storage::list_institution(&c).unwrap().len(), 1);
+    assert_eq!(crate::core::archive::storage::list_institution(&c).unwrap().len(), 2);
     let scan_id = store::by_type(&c, "tax_status_certificate").unwrap().unwrap().id;
-    std::fs::remove_file(&scan).unwrap();
+    std::fs::remove_file(&blank).unwrap();
     assert_eq!(original(&c, &scan_id).unwrap(), None);
 }
 

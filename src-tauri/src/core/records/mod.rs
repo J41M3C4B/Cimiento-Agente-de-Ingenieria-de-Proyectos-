@@ -6,10 +6,10 @@
 //!   catalog does not know (`other`).
 //! - **Validity** is reckoned from the date written in each document: valid, expiring (30 days or less) or expired.
 //!   Rules of the Junta or the SAT come later (ADR-033 §5).
-//! - **A file** (PDF or Word) is read with what reads the calls; its text goes through the scanner like any text
-//!   (quarantine) and only the clean text is kept, in `document`. Of the original, only where it is on this computer
-//!   (principle 6). A scanned PDF or a photo has no text: the document counts as had, and the original is still
-//!   opened from where it is.
+//! - **A file** (PDF, Word or a photo) is read with what reads the calls; a scanned page or a photo is read as a
+//!   picture (OCR, ADR-035). Its text goes through the scanner like any text (quarantine) and only the clean text is
+//!   kept, in `document`. Of the original, only where it is on this computer (principle 6). A picture with no text
+//!   that can be read still counts as had, and the original is still opened from where it is.
 //! - **Nothing of it reaches the AI yet** (N5); the folio and the notes never will.
 
 pub mod storage;
@@ -19,7 +19,10 @@ mod tests;
 
 use crate::common::dates::days_between;
 use crate::common::forms::{is_filled, FormSpec, Values};
+use crate::core::archive::service::{guard_pages, GuardedPages};
+use crate::core::archive::storage::PageMarks;
 use crate::core::error::ServiceError;
+use crate::documents::reading::{self, ReadError};
 use crate::core::history::{self, Source};
 use crate::core::institution::catalog::{Applies, MINORS, RECORD_OTHER, RECORD_TYPES, UNDER_A_JUNTA};
 use crate::core::institution::forms::{RECORD, RECORD_KNOWN};
@@ -48,11 +51,14 @@ pub enum Validity {
     Expired,
 }
 
-/// The file of a document, as the screen shows it: its name, and whether its text could be read.
+/// The file of a document, as the screen shows it: its name, whether its text could be read, and whether it was
+/// read from a picture (and which pages with doubts).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RecordFile {
     pub name: String,
     pub readable: bool,
+    pub from_picture: bool,
+    pub doubtful: Vec<usize>,
 }
 
 /// A document of the record, as «Mi institución» shows it. Never its folio nor its notes.
@@ -130,6 +136,8 @@ pub enum Unreadable {
     /// It is not where the person said, or it cannot be opened.
     NotFound,
     Damaged,
+    /// More scanned pages than can be read in one file (`reading::MAX_PICTURE_PAGES`).
+    TooManyPages,
     /// A list of people: it belongs to Personal or Beneficiarios, never to the record.
     Roster,
 }
@@ -137,8 +145,9 @@ pub enum Unreadable {
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum AttachOutcome {
-    /// The file is on the document. `readable = false`: a scan or a photo, with no text to read.
-    Attached { id: String, readable: bool, expediente: Expediente },
+    /// The file is on the document. `readable = false`: a picture with no text that could be read;
+    /// `from_picture`: its text was read from a picture, and `doubtful` are the pages read with doubts.
+    Attached { id: String, readable: bool, from_picture: bool, doubtful: Vec<usize>, expediente: Expediente },
     Quarantine { report: QuarantineReport },
     Unreadable { reason: Unreadable },
 }
@@ -174,7 +183,12 @@ fn today(conn: &Connection) -> Result<String, ServiceError> {
 }
 
 fn file_of(row: &store::Row) -> Option<RecordFile> {
-    row.original_name.clone().map(|name| RecordFile { name, readable: row.document_shown })
+    row.original_name.clone().map(|name| RecordFile {
+        name,
+        readable: row.document_shown,
+        from_picture: row.document_shown && row.picture_pages > 0,
+        doubtful: if row.document_shown { row.doubtful_pages.clone() } else { vec![] },
+    })
 }
 
 fn record(kind: &str, row: Option<&store::Row>, today: &str) -> Record {
@@ -332,14 +346,18 @@ pub fn save(conn: &mut Connection, kind: &str, id: Option<&str>, mut values: Val
     Ok(RecordOutcome::Saved { id, expediente: expediente(conn)? })
 }
 
-/// The text of a file, page by page, or `None` when it has none to read (a scan or a photo).
-struct FileText {
+/// The text of a file, page by page, or `None` when it has none to read (a picture with no text that could be
+/// read), with the pages read from a picture.
+pub struct FileText {
     name: String,
     mime: &'static str,
     pages: Option<Vec<String>>,
+    marks: PageMarks,
 }
 
-fn read_file(path: &Path) -> Result<FileText, Unreadable> {
+/// Reads a file from where it is on this computer. A scanned page or a photo is read as a picture, a few seconds a
+/// page: the caller does it without holding the database.
+pub fn read_original(path: &Path) -> Result<FileText, Unreadable> {
     let name = path.file_name().map(|n| n.to_string_lossy().to_string()).ok_or(Unreadable::NotFound)?;
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
     let mime = match ext.as_str() {
@@ -353,43 +371,47 @@ fn read_file(path: &Path) -> Result<FileText, Unreadable> {
     if size > MAX_FILE_BYTES {
         return Err(Unreadable::TooLarge);
     }
-    if mime.starts_with("image/") {
-        return Ok(FileText { name, mime, pages: None });
-    }
-    let raw = crate::documents::canonical::package::read_pieces(path).map_err(|_| Unreadable::Damaged)?;
-    let pages: Vec<String> = raw.iter().map(|p| crate::documents::text::clean_text(p)).collect();
+    let raw = reading::read_file(path).map_err(|e| match e {
+        ReadError::TooManyPictures => Unreadable::TooManyPages,
+        ReadError::Unsupported => Unreadable::UnsupportedType,
+        ReadError::Damaged => Unreadable::Damaged,
+    })?;
+    let pages: Vec<String> = raw.pages.iter().map(|p| crate::documents::text::clean_text(p)).collect();
     let letters = |t: &str| t.chars().filter(|c| c.is_alphabetic()).count();
     if pages.iter().all(|p| letters(p) < MIN_LETTERS_PER_PAGE) {
-        return Ok(FileText { name, mime, pages: None });
+        return Ok(FileText { name, mime, pages: None, marks: PageMarks::default() });
     }
-    Ok(FileText { name, mime, pages: Some(pages) })
+    Ok(FileText { name, mime, pages: Some(pages), marks: PageMarks { from_picture: raw.from_picture, doubtful: raw.doubtful } })
 }
 
-/// Puts a file on a document: a PDF, a Word file or a photo, read from where it is on this computer. Its text goes
-/// through the scanner (a deed names people: «Tapar y seguir»); only the clean text is kept, and of the original
-/// only where it is. A document of the catalog with nothing written is created as had; an `other` must exist.
+/// `read_original` and `attach_read` in one go. The command reads first without holding the database.
+#[cfg(test)]
 pub fn attach(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path, decision: Option<Decision>) -> Result<AttachOutcome, ServiceError> {
     let row = row_of(conn, kind, id)?;
     if kind == RECORD_OTHER && row.is_none() {
         return Err(ServiceError::NotFound);
     }
-    let file = match read_file(path) {
-        Ok(f) => f,
-        Err(reason) => return Ok(AttachOutcome::Unreadable { reason }),
-    };
+    match read_original(path) {
+        Ok(file) => attach_read(conn, kind, id, path, file, decision),
+        Err(reason) => Ok(AttachOutcome::Unreadable { reason }),
+    }
+}
+
+/// Puts a file already read (`read_original`) on a document: a PDF, a Word file or a photo, from where it is on this
+/// computer. Its text goes through the scanner (a deed names people: «Tapar y seguir»); only the clean text is kept,
+/// and of the original only where it is. A document of the catalog with nothing written is created as had; an
+/// `other` must exist.
+pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path, file: FileText, decision: Option<Decision>) -> Result<AttachOutcome, ServiceError> {
+    let row = row_of(conn, kind, id)?;
+    if kind == RECORD_OTHER && row.is_none() {
+        return Err(ServiceError::NotFound);
+    }
     let mut clean: Option<(Vec<String>, i64)> = None;
     if let Some(pages) = &file.pages {
-        let scanner = crate::core::screen::scanner_for(conn)?;
-        let joined = pages.join("\n\n");
-        let whole = crate::scanner::SensitiveScanner::scan(&scanner, &joined);
-        if scanner.looks_like_roster(&joined, &whole) {
-            return Ok(AttachOutcome::Unreadable { reason: Unreadable::Roster });
-        }
-        let fields: Vec<(String, String)> = pages.iter().enumerate().map(|(i, p)| (format!("page_{}", i + 1), p.clone())).collect();
-        let redactions = if decision == Some(Decision::Redact) { whole.findings.len() as i64 } else { 0 };
-        match crate::core::screen::guard_texts(conn, "core_record", &fields, decision)? {
-            Ok(texts) => clean = Some((texts, redactions)),
-            Err(report) => return Ok(AttachOutcome::Quarantine { report }),
+        match guard_pages(conn, "core_record", None, pages, decision)? {
+            GuardedPages::Clean { pages, redactions, .. } => clean = Some((pages, redactions)),
+            GuardedPages::Quarantine(report) => return Ok(AttachOutcome::Quarantine { report }),
+            GuardedPages::Roster => return Ok(AttachOutcome::Unreadable { reason: Unreadable::Roster }),
         }
     }
     let tx = conn.transaction()?;
@@ -398,13 +420,15 @@ pub fn attach(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path, 
         None => store::save(&tx, None, kind, &store::Input { custom_name: None, status: "have", issued_on: None, valid_until: None, reference: None, notes: None })?,
     };
     let doc = match &clean {
-        Some((pages, redactions)) => Some(crate::core::archive::storage::add_paged_document(&tx, "internal", &file.name, file.mime, pages, *redactions)?),
+        Some((pages, redactions)) => Some(crate::core::archive::storage::add_paged_document(&tx, "internal", &file.name, file.mime, pages, *redactions, &file.marks)?),
         None => None,
     };
     store::set_file(&tx, &id, doc.as_deref(), &path.to_string_lossy(), &file.name)?;
     history::record_list_change(&tx, HISTORY_FIELD, &Source::user())?;
     tx.commit()?;
-    Ok(AttachOutcome::Attached { id, readable: doc.is_some(), expediente: expediente(conn)? })
+    let readable = doc.is_some();
+    let (from_picture, doubtful) = if readable { (!file.marks.from_picture.is_empty(), file.marks.doubtful) } else { (false, vec![]) };
+    Ok(AttachOutcome::Attached { id, readable, from_picture, doubtful, expediente: expediente(conn)? })
 }
 
 /// Takes the file off a document. Its clean text stays in Documentos, where it is deleted as any document.

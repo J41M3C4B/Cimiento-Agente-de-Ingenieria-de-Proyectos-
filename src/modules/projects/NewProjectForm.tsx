@@ -4,6 +4,7 @@ import { Icon } from "../../components/icons";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Alert, Button, Card, FileTile, Inset, RadioCard, Select, Steps, Switch, Tag, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { toBase64, useReadingProgress } from "../../lib/files";
 import { projectCreateFromCall, projectSetDonorKind, toAppError } from "../../lib/tauri";
 import type { Decision, DonorKind, FileRole, ProjectRow, QuarantineReport } from "../../lib/types";
 
@@ -16,18 +17,6 @@ export interface PackageItem {
 
 /** The roles a person can give to a file that is not the call itself. */
 const EXTRA_ROLES: FileRole[] = ["annex", "guide", "form", "notice", "other"];
-
-function toBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const s = String(reader.result);
-      resolve(s.slice(s.indexOf(",") + 1));
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 /** The files as the person picked them: the first one is taken as the call and the rest as annexes, until they say otherwise. */
 export function itemsOf(files: File[]): PackageItem[] {
@@ -103,6 +92,9 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
     },
   });
 
+  // a scanned call is read as pictures while it is saved: the person sees how far it goes
+  const reading = useReadingProgress(create.isPending);
+
   function choose(files: File[]) {
     if (files.length === 0) return;
     setItems(itemsOf(hasExtras ? files : files.slice(0, 1)));
@@ -158,7 +150,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
               choose(Array.from(e.dataTransfer.files));
             }}
           >
-            <input ref={input} id="call-files" type="file" multiple={hasExtras} accept=".pdf,.docx,.xlsx,.xlsm" aria-label={inputLabel} onChange={(e) => choose(Array.from(e.target.files ?? []))} />
+            <input ref={input} id="call-files" type="file" multiple={hasExtras} accept=".pdf,.docx,.xlsx,.xlsm,.jpg,.jpeg,.png" aria-label={inputLabel} onChange={(e) => choose(Array.from(e.target.files ?? []))} />
             <span className="grid h-ctl w-ctl place-items-center rounded-pill bg-inset text-ink-2">
               <Icon name="upload" size={20} />
             </span>
@@ -255,7 +247,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
             </fieldset>
             {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
             <Alert tone="info">
-              <p className="text-ink-2">{t.startNote}</p>
+              <p className="text-ink-2">{reading ? es.common.readingPictures(reading.done, reading.total) : t.startNote}</p>
             </Alert>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">

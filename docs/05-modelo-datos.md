@@ -432,3 +432,4 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
   - Un tipo sin fila está «Falta»; hay a lo más una fila por tipo y sede, y tantas `other` como la institución nombre.
   - `document_id` apunta al texto limpio del archivo (`document`, `kind = 'internal'`, una parte por página). Del original solo se guardan `original_path` y `original_name`, nunca su contenido (principio 6).
   - Cada cambio deja en `core_change` una línea `institution.record` sin valor.
+- **0029 `document.picture_pages`, `document.doubtful_pages`:** las páginas de un archivo cuyo texto se leyó de una imagen (OCR, ADR-035) y, de ellas, las leídas con dudas (confianza menor a 70), como listas JSON de números de página. El texto mismo sigue en `document_chunk`, limpio y tras el escáner.

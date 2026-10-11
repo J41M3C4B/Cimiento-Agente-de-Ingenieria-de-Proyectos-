@@ -3,22 +3,11 @@ import { useState } from "react";
 import { Alert, Button, DropZone, Modal, Section, TextInput, PageHeader } from "../../components/ui";
 import { extOf, fileSize } from "../documents/documentsModel";
 import { es } from "../../i18n/es-MX";
+import { toBase64 } from "../../lib/files";
 import { backupCreate, backupRestore, securityScan, toAppError } from "../../lib/tauri";
 import { useSession } from "../access/session";
 
 const t = es.security;
-
-function toBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const s = String(reader.result);
-      resolve(s.slice(s.indexOf(",") + 1));
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 function BackupSection() {
   const [password, setPassword] = useState("");

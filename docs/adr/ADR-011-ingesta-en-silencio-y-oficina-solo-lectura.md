@@ -4,7 +4,7 @@
 
 ## Contexto
 Decisiones de Jaime tras la simulación con la convocatoria real de Nacional Monte de Piedad (`docs/11`):
-- **Alcance de formatos:** todo lo que llega (convocatorias, reglas, anexos, guías) es PDF con texto; no hay documento de la JAP de donativos (el PDF que había era un aviso electoral). OCR, formularios y otros formatos se difieren hasta que aparezca uno real.
+- **Alcance de formatos:** todo lo que llega (convocatorias, reglas, anexos, guías) es PDF con texto; no hay documento de la JAP de donativos (el PDF que había era un aviso electoral). OCR, formularios y otros formatos se difieren hasta que aparezca uno real. *(El OCR se aplicó el 2026-10-10: ver ADR-035.)*
 - **Word y Excel pasan a solo lectura.** La IA los usa para guiar; la persona los llena a mano. El trabajo pesado (conceptualizar el proyecto) ya queda hecho en el chat, y llenar los formatos a mano deja la responsabilidad del resultado en la persona y no en la plataforma. Falta además conocer más de esos formatos.
 - **La convocatoria se procesa al subirla, sin que la persona lo note:** el chat arranca ya sabiendo de qué se habla, si el proyecto puede participar y qué requisitos hay, y la IA formula la primera pregunta con ese contexto completo.
 

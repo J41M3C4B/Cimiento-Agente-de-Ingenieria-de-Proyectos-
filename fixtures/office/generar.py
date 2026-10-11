@@ -169,7 +169,72 @@ def pdf():
     img.save("convocatoria-escaneada.pdf", "PDF", resolution=100.0)
 
 
-excel()
-word()
-pdf()
+def scans():
+    """Scanned pages with a known fictitious text, to read them with OCR (Tesseract)."""
+    import random
+    from PIL import ImageFilter, ImageFont
+
+    font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 34)
+    bold = ImageFont.truetype("C:/Windows/Fonts/timesbd.ttf", 40)
+
+    def page(title, lines):
+        # an A4 sheet at 200 dpi, a little off white, as a scanner leaves it
+        img = Image.new("L", (1654, 2339), 246)
+        d = ImageDraw.Draw(img)
+        d.text((160, 180), title, fill=20, font=bold)
+        y = 300
+        for line in lines:
+            d.text((160, y), line, fill=25, font=font)
+            y += 52
+        return img
+
+    def worn(img):
+        # a bad copy: blurred, washed out and dirty
+        img = img.filter(ImageFilter.GaussianBlur(1.7)).point(lambda v: 130 + v * 120 // 255)
+        rnd = random.Random(7)
+        px = img.load()
+        for _ in range(20000):
+            x, y = rnd.randrange(img.width), rnd.randrange(img.height)
+            px[x, y] = rnd.randrange(90, 250)
+        return img
+
+    first = page("ACTA CONSTITUTIVA", [
+        "Casa Hogar Ficticia del Valle, I.A.P.",
+        "",
+        "En la Ciudad de México, a los doce días del mes de marzo de dos mil",
+        "quince, se reunieron los asociados fundadores para constituir una",
+        "institución de asistencia privada sin fines de lucro.",
+        "",
+        "Objeto social: brindar albergue, alimentación y cuidado a personas",
+        "adultas mayores en situación de abandono.",
+        "",
+        "Domicilio social: Calle de los Robles número 45, colonia Centro.",
+        "Para dudas sobre este documento: contacto@casaficticia.example.org",
+    ])
+    second = worn(page("CLÁUSULA SEGUNDA", [
+        "El patrimonio de la institución se integra con las aportaciones",
+        "de los asociados y con los donativos que reciba para su objeto.",
+        "Ningún asociado podrá disponer de ese patrimonio para sí.",
+    ]))
+    first.save("acta-escaneada.pdf", "PDF", resolution=200.0, save_all=True, append_images=[second])
+
+    # a photo of a page taken with a phone: a little turned, on a gray table
+    sheet = page("CONSTANCIA DE REGISTRO", [
+        "La Casa Hogar Ficticia del Valle quedó inscrita en el padrón",
+        "de instituciones de asistencia social de este año.",
+        "Vigente hasta el treinta y uno de diciembre.",
+    ]).crop((0, 0, 1654, 900)).rotate(1.5, expand=True, fillcolor=120)
+    sheet.convert("RGB").save("constancia-foto.jpg", "JPEG", quality=85)
+
+
+import sys
+
+if sys.argv[1:] == ["escaneos"]:
+    # only the scanned pages: the other files stay as they are
+    scans()
+else:
+    excel()
+    word()
+    pdf()
+    scans()
 print("ok")

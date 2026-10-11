@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "../../components/icons";
 import { Alert, Button, DropZone, FormSection, Inset, Modal, RadioCard, Select, TextArea, TextInput } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import { baseName, extOf, fileSize, isPlainText } from "./documentsModel";
+import { baseName, extOf, fileSize, isPlainText, isReadableFile } from "./documentsModel";
 import type { DocCol, Draft, UploadTarget } from "./documentsModel";
 
 const t = es.documents;
@@ -11,7 +11,8 @@ const f = t.form;
 /**
  * The window to upload a document. From a subfolder the destination is known (it shows as a route) and the form only
  * asks for what is missing; from the main button it also asks whose the document is.
- * The text of the document reaches the backend as text: plain files are read here, other kinds ask to paste it.
+ * A PDF, Word, Excel or a photo goes to Rust as it is, which reads it (a scan as pictures, OCR) and keeps only its clean
+ * text; a plain file is read here; other kinds (.doc, .ppt…) ask to paste their text.
  */
 export function UploadModal({
   target,
@@ -42,13 +43,20 @@ export function UploadModal({
   const [donor, setDonor] = useState(initial?.donor ?? target?.donor ?? "");
   const [kind, setKind] = useState(initial?.kind ?? target?.type ?? "");
   const [picked, setPicked] = useState<Draft["file"]>(initial?.file ?? null);
+  const [blob, setBlob] = useState<File | null>(initial?.blob ?? null);
   const [unreadable, setUnreadable] = useState(false);
 
   function take(file: File) {
     setPicked({ name: file.name, size: fileSize(file.size), ext: extOf(file.name) || "txt" });
     setName((n) => (n.trim() ? n : baseName(file.name)));
+    setBlob(null);
+    if (isReadableFile(file)) {
+      setUnreadable(false);
+      setBlob(file);
+      setText("");
+      return;
+    }
     if (!isPlainText(file)) {
-      // TODO(logica): PDF, Word and Excel need a reader in the backend (or a library here); until then the text is pasted
       setUnreadable(true);
       return;
     }
@@ -69,7 +77,7 @@ export function UploadModal({
   const askDonor = col === "donor" && !target?.donor;
   const askKind = !target?.type;
   const kinds = col === "donor" ? f.kindsDonor : f.kindsInst;
-  const ready = name.trim() !== "" && text.trim() !== "" && (!askDonor || donor.trim() !== "");
+  const ready = name.trim() !== "" && (blob !== null || text.trim() !== "") && (!askDonor || donor.trim() !== "");
 
   return (
     <Modal
@@ -91,7 +99,7 @@ export function UploadModal({
         className="space-y-6"
         onSubmit={(e) => {
           e.preventDefault();
-          if (ready) onSubmit({ scope: col, name, text, donor, kind, file: picked, target });
+          if (ready) onSubmit({ scope: col, name, text, donor, kind, file: picked, blob, target });
         }}
       >
         {target ? (
@@ -113,8 +121,9 @@ export function UploadModal({
         <FormSection title={f.fileSection}>
           <div>
             <span className="field-label">{f.fileLabel}</span>
-            <DropZone label={f.drop} hint={f.dropHint} file={picked} changeHint={f.change} onFile={take} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.md" />
+            <DropZone label={f.drop} hint={f.dropHint} file={picked} changeHint={f.change} onFile={take} accept=".pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.ppt,.pptx,.txt,.md,.jpg,.jpeg,.png" />
           </div>
+          {blob && <p className="text-small text-ink-2">{f.fileRead}</p>}
           {unreadable && <Alert tone="warn">{f.unreadable}</Alert>}
           {askDonor && <TextInput label={f.donor} required list="document-donors" placeholder={f.donorPh} value={donor} onChange={(e) => setDonor(e.target.value)} />}
           {askKind && (
@@ -127,9 +136,9 @@ export function UploadModal({
           </datalist>
         </FormSection>
 
-        <FormSection title={f.pasteSection}>
+        <FormSection title={blob ? f.nameSection : f.pasteSection}>
           <TextInput label={t.name} required value={name} onChange={(e) => setName(e.target.value)} />
-          <TextArea label={t.text} hint={f.pasteHint} required rows={8} value={text} onChange={(e) => setText(e.target.value)} />
+          {!blob && <TextArea label={t.text} hint={f.pasteHint} required rows={8} value={text} onChange={(e) => setText(e.target.value)} />}
         </FormSection>
 
         {notice && notice.tone !== "ok" && <Alert tone={notice.tone}>{notice.text}</Alert>}

@@ -14,6 +14,8 @@ dist-ssr
 *.local
 /src-tauri/target/
 /src-tauri/gen/schemas
+# what reads scanned pages (OCR, ADR-035): fetched by scripts/fetch-ocr.ps1, never committed
+/src-tauri/resources/ocr/
 
 # Secrets and local data: nothing real ever goes in this repo
 .env

@@ -212,7 +212,7 @@ Roadmap completo en [`docs/09-roadmap.md`](docs/09-roadmap.md).
 
 - **Muestras pequeñas.** Las mediciones usan tres a cinco convocatorias y varias corridas únicas; sirven para decidir, no para afirmar rendimiento general. La calidad de la lectura se midió por verificación de citas, no contra hechos de referencia en todas las convocatorias, y falta probar paquetes de cientos de páginas.
 - La lectura **no siempre agota las listas largas** y el nombre de la convocatoria no es estable cuando la portada es decorativa; la persona lo revisa y lo corrige.
-- Solo **PDF con texto** (sin OCR); Word y Excel se leen, no se llenan ([ADR-011](docs/adr/ADR-011-ingesta-en-silencio-y-oficina-solo-lectura.md)).
+- Los PDF escaneados y las fotos se leen con OCR (Tesseract, [ADR-035](docs/adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md)), pero no la letra a mano, y una copia poco clara se lee con errores (se avisa qué páginas). Word y Excel se leen, no se llenan ([ADR-011](docs/adr/ADR-011-ingesta-en-silencio-y-oficina-solo-lectura.md)).
 - **Falta la prueba sin acompañamiento.** Las instituciones usaron la herramienta con el autor presente, y el método de los porqués se les explicó en persona; es justo lo que la herramienta debe resolver sola (ver el ajuste de recapitulación arriba). No hay medición de tiempo ahorrado frente a hacerlo a mano.
 - Solo Windows por ahora.
 

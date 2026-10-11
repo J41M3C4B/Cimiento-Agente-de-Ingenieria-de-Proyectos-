@@ -113,8 +113,12 @@ export type ListKind = "board_member" | "bank_account";
 export type RecordStatus = "have" | "in_progress" | "missing" | "not_applicable";
 export interface RecordFile {
   name: string;
-  /** false: a scan or a photo, with no text to read */
+  /** false: a picture with no text that could be read */
   readable: boolean;
+  /** its text was read from a picture (OCR, ADR-035) */
+  from_picture: boolean;
+  /** the pages read with doubts */
+  doubtful: number[];
 }
 export interface InstitutionRecord {
   /** null while nothing was written of it */
@@ -146,7 +150,7 @@ export type RecordOutcome =
   | { status: "invalid"; issues: ProfileIssue[] }
   | { status: "quarantine"; report: QuarantineReport };
 export type AttachOutcome =
-  | { status: "attached"; id: string; readable: boolean; expediente: Expediente }
+  | { status: "attached"; id: string; readable: boolean; from_picture: boolean; doubtful: number[]; expediente: Expediente }
   | { status: "quarantine"; report: QuarantineReport }
   | { status: "unreadable"; reason: string };
 export interface BoardMember {
@@ -373,15 +377,20 @@ export interface DocumentSummary {
   id: string;
   kind: string;
   display_name: string;
+  mime: string;
   data_level: string;
   redactions_count: number;
   chunks: number;
   created_at: string;
+  /** how many pages were read from a picture (OCR, ADR-035), and which of them with doubts */
+  picture_pages: number;
+  doubtful_pages: number[];
 }
 export type AddDocumentOutcome =
   | { status: "saved"; document: DocumentSummary }
   | { status: "quarantine"; report: QuarantineReport }
   | { status: "rejected_roster" };
+export type AddFileOutcome = AddDocumentOutcome | { status: "unreadable"; reason: string };
 
 export interface DeleteSummary {
   chunks: number;

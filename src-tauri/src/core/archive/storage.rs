@@ -14,10 +14,22 @@ pub struct DocumentSummary {
     pub id: String,
     pub kind: String,
     pub display_name: String,
+    pub mime: String,
     pub data_level: String,
     pub redactions_count: i64,
     pub chunks: i64,
     pub created_at: String,
+    /// How many pages were read from a picture (OCR, ADR-035), and which of them with doubts.
+    pub picture_pages: usize,
+    pub doubtful_pages: Vec<usize>,
+}
+
+/// Which pages of a file were read from a picture (OCR, ADR-035) and which of those with doubts; empty for a file
+/// with its own text.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PageMarks {
+    pub from_picture: Vec<usize>,
+    pub doubtful: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -71,13 +83,13 @@ pub fn add_text_document(
 
 /// Saves one file of a call: its clean text per page (one fragment per page, with the page number) and its
 /// search index. The caller owns the transaction, so the files of a call go in together or not at all.
-pub fn add_call_document(conn: &Connection, display_name: &str, mime: &str, pages: &[String], redactions_count: i64) -> Result<String, StorageError> {
-    add_paged_document(conn, "call", display_name, mime, pages, redactions_count)
+pub fn add_call_document(conn: &Connection, display_name: &str, mime: &str, pages: &[String], redactions_count: i64, marks: &PageMarks) -> Result<String, StorageError> {
+    add_paged_document(conn, "call", display_name, mime, pages, redactions_count, marks)
 }
 
 /// Saves the clean text of a file page by page, of a call or of the institution (`internal`, the record of
-/// ADR-033 §5). The caller owns the transaction.
-pub fn add_paged_document(conn: &Connection, kind: &str, display_name: &str, mime: &str, pages: &[String], redactions_count: i64) -> Result<String, StorageError> {
+/// ADR-033 §5, or a file of Documentos). The caller owns the transaction.
+pub fn add_paged_document(conn: &Connection, kind: &str, display_name: &str, mime: &str, pages: &[String], redactions_count: i64, marks: &PageMarks) -> Result<String, StorageError> {
     let doc_id = format!("doc_{}", Ulid::generate());
     let text = pages.join("
 
@@ -85,9 +97,9 @@ pub fn add_paged_document(conn: &Connection, kind: &str, display_name: &str, mim
     let hash = hex::encode(Sha256::digest(text.as_bytes()));
     let level = if kind == "call" { "green" } else { "yellow" };
     conn.execute(
-        "INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,created_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
-        params![doc_id, kind, display_name.trim(), mime, level, hash, text, redactions_count],
+        "INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,picture_pages,doubtful_pages,created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
+        params![doc_id, kind, display_name.trim(), mime, level, hash, text, redactions_count, json!(marks.from_picture).to_string(), json!(marks.doubtful).to_string()],
     )?;
     for (i, page) in pages.iter().enumerate() {
         conn.execute(
@@ -96,7 +108,7 @@ pub fn add_paged_document(conn: &Connection, kind: &str, display_name: &str, mim
         )?;
     }
     conn.execute("INSERT INTO document_chunk_fts(rowid,text) SELECT rowid,text FROM document_chunk WHERE document_id=?1", [&doc_id])?;
-    audit::record(conn, AuditKind::DocumentUploaded, Some("document"), Some(&doc_id), json!({ "kind": kind, "chunks": pages.len(), "redactions": redactions_count }))?;
+    audit::record(conn, AuditKind::DocumentUploaded, Some("document"), Some(&doc_id), json!({ "kind": kind, "chunks": pages.len(), "redactions": redactions_count, "picture_pages": marks.from_picture.len() }))?;
     Ok(doc_id)
 }
 
@@ -112,7 +124,7 @@ pub fn list_institution(conn: &Connection) -> Result<Vec<DocumentSummary>, Stora
 pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
     let mut stmt = conn.prepare(
         "SELECT d.id, d.kind, d.display_name, d.data_level, d.redactions_count, d.created_at,
-                (SELECT count(*) FROM document_chunk c WHERE c.document_id = d.id)
+                (SELECT count(*) FROM document_chunk c WHERE c.document_id = d.id), d.picture_pages, d.doubtful_pages, d.mime
          FROM document d WHERE d.hidden = 0 ORDER BY d.created_at DESC, d.id DESC",
     )?;
     let rows = stmt
@@ -125,10 +137,18 @@ pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
                 redactions_count: r.get(4)?,
                 created_at: r.get(5)?,
                 chunks: r.get(6)?,
+                picture_pages: pages(&r.get::<_, String>(7)?).len(),
+                doubtful_pages: pages(&r.get::<_, String>(8)?),
+                mime: r.get(9)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
+}
+
+/// A list of page numbers kept as a JSON array; anything unreadable is none.
+fn pages(json: &str) -> Vec<usize> {
+    serde_json::from_str(json).unwrap_or_default()
 }
 
 /// The name of a document and how many fragments (pages, for a call) it has, if it exists.

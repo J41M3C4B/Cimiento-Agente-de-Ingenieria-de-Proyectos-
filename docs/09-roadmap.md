@@ -240,6 +240,13 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
   - **Vigencia** con la fecha escrita en el documento: vigente, por vencer (30 días o menos, decisión de la institución) o vencido. Sin reglas de la Junta ni del SAT todavía.
   - **Subir PDF, Word o una foto** desde la ventana del documento, con la ventana de archivos del sistema (`tauri-plugin-dialog`): se lee con lo que lee las convocatorias, el texto pasa por el escáner (cuarentena), se rechaza una lista de personas y solo se guarda el texto limpio (en `document`, «Textos» de Documentos). Del original, solo dónde está en la computadora: «Abrir el original» funciona mientras siga ahí (principio 6, decisión de la institución). Un PDF escaneado o una foto cuenta como «Lo tenemos», sin texto.
   - El folio y las notas nunca llegan a la IA; cada cambio deja una línea sin valor en `core_change`. La foto mensual suma «expediente vigente» (`records_expected`, `records_current`). Los ejemplos traen parte del expediente. El Asistente puede llevar al expediente (`profile.records`, prompt `assistant.v3`), y cada tipo de documento tiene su entrada en el manual.
-  - Queda para después: la ventana «Subir documento» de Documentos sigue tomando solo texto; el Lector (IA6) leerá los documentos para proponer datos, y el expediente llega a Proyectos, la IA e Inicio con N5.
+  - Queda para después: ~~la ventana «Subir documento» de Documentos sigue tomando solo texto~~ (resuelto con el OCR, abajo); el Lector (IA6) leerá los documentos para proponer datos, y el expediente llega a Proyectos, la IA e Inicio con N5.
 - [ ] **IA5–IA6** Embeddings guardados, búsqueda híbrida y Lector de documentos.
+- [x] **OCR** Leer páginas escaneadas y fotos (2026-10-10, ADR-035, migración 0029, `documents/ocr.rs` y `documents/reading.rs`), pedido por la institución antes de IA5:
+  - Tesseract 5.5.3 y Pdfium viajan en el instalador (`scripts/fetch-ocr.ps1` los baja con huella; nunca en el repositorio). Modelo preciso `eng+spa`: el de español no tiene «@» y el escáner perdía los correos.
+  - Una página de PDF sin texto se dibuja y se lee; una foto JPG o PNG también. Por debajo de 70 de confianza, la página se lee otra vez con umbral adaptativo y, si sigue baja, se guarda «con dudas» y se avisa.
+  - El expediente lee escaneos y fotos; **Documentos acepta PDF, Word, Excel y fotos** (ya no pide pegar el texto, comando `document_add_file`); una convocatoria escaneada o en fotos se lee.
+  - Se lee sin tomar la base de datos y la pantalla muestra el avance («Leyendo las páginas escaneadas: 3 de 12», evento `reading-progress`).
+  - Medido con los fixtures: página limpia 91.7 de confianza (~2.3 s, un hilo), página desteñida 65.6 («con dudas»), foto 96 (0.8 s).
+  - Queda para después: imágenes dentro de Word y Excel, enderezar fotos y una vista del texto leído en Documentos.
 - [ ] **N5** El expediente hacia Proyectos, la IA e Inicio.

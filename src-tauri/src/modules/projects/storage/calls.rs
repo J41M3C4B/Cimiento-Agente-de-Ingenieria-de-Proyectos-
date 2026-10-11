@@ -2,7 +2,7 @@
 //! The text of every file is kept per page in `document_chunk`; the canonical document the reading
 //! produced is kept whole in `call_reading`. Nothing of the original file is kept.
 
-use crate::core::api::add_call_document;
+use crate::core::api::{add_call_document, PageMarks};
 use crate::storage::StorageError;
 use crate::audit::{self, AuditKind};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -115,6 +115,8 @@ pub struct NewFile {
     pub pages: Vec<String>,
     pub redactions: i64,
     pub role: FileRole,
+    /// The pages read from a picture (OCR, ADR-035), and the ones read with doubts.
+    pub marks: PageMarks,
 }
 
 /// What the person said about the call.
@@ -133,7 +135,7 @@ fn create_in(tx: &rusqlite::Transaction<'_>, meta: &CallMeta, files: &[NewFile])
         params![id, meta.name.trim(), meta.funder.as_deref().map(str::trim), meta.year],
     )?;
     for (position, f) in files.iter().enumerate() {
-        let doc_id = add_call_document(tx, &f.name, f.mime, &f.pages, f.redactions)?;
+        let doc_id = add_call_document(tx, &f.name, f.mime, &f.pages, f.redactions, &f.marks)?;
         tx.execute(
             "INSERT INTO call_reading_file (reading_id,document_id,position,role) VALUES (?1,?2,?3,?4)",
             params![id, doc_id, position as i64, f.role.as_db()],
@@ -317,8 +319,8 @@ mod tests {
 
     fn files() -> Vec<NewFile> {
         vec![
-            NewFile { name: "bases.pdf".into(), mime: "application/pdf", pages: vec!["Primera página zanahoria.".into(), "Segunda página.".into()], redactions: 0, role: FileRole::Main },
-            NewFile { name: "formato.docx".into(), mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", pages: vec!["Formato de solicitud.".into()], redactions: 1, role: FileRole::Form },
+            NewFile { name: "bases.pdf".into(), mime: "application/pdf", pages: vec!["Primera página zanahoria.".into(), "Segunda página.".into()], redactions: 0, role: FileRole::Main, marks: PageMarks::default() },
+            NewFile { name: "formato.docx".into(), mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", pages: vec!["Formato de solicitud.".into()], redactions: 1, role: FileRole::Form, marks: PageMarks::default() },
         ]
     }
 

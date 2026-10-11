@@ -58,7 +58,8 @@ describe("RecordWindow", () => {
   it("says what the document is, and a file chosen in the system goes through the scanner before it is kept", async () => {
     vi.mocked(institutionRecordAttach)
       .mockResolvedValueOnce({ status: "quarantine", report })
-      .mockResolvedValueOnce({ status: "attached", id: "rec_1", readable: true, expediente });
+      // a scan, read as pictures (OCR): its worn page was read with doubts
+      .mockResolvedValueOnce({ status: "attached", id: "rec_1", readable: true, from_picture: true, doubtful: [2], expediente });
     draw();
     expect(await screen.findByText("El texto que explica a las personas qué datos suyos se piden.")).toBeInTheDocument();
     expect(screen.getByText("Sin archivo. Puede marcarlo aunque no lo suba.")).toBeInTheDocument();
@@ -69,7 +70,7 @@ describe("RecordWindow", () => {
     // the same file again, with the decision: the window of the system is not opened twice
     await waitFor(() => expect(institutionRecordAttach).toHaveBeenLastCalledWith("privacy_notice", null, "C:\\Documentos\\aviso.docx", "redact"));
     expect(pickFile).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText("Se guardó el archivo.")).toBeInTheDocument();
+    expect(await screen.findByText(/pero la página 2 se leyó con dudas/)).toBeInTheDocument();
     // with its file it is had: the state goes with the save
     expect(await screen.findByRole("radio", { name: "Lo tenemos" })).toBeChecked();
   });

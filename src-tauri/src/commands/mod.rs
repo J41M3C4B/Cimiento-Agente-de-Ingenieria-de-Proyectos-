@@ -163,6 +163,33 @@ pub fn document_add_text(session: State<'_, Session>, db: State<Db>,
     Ok(crate::core::archive::service::add_text_document(&mut conn, "internal", &display_name, &text, decision)?)
 }
 
+/// Adds a file to the documents of the institution: a PDF, Word, Excel or a photo, sent in base64. It is read
+/// (a scan as pictures, a few seconds a page) without holding the database; only its clean text is kept.
+#[tauri::command]
+pub async fn document_add_file(session: State<'_, Session>, db: State<'_, Db>,
+    display_name: String,
+    file_name: String,
+    data: String,
+    decision: Option<Decision>,
+) -> Result<crate::core::archive::service::AddFileOutcome, UiError> {
+    use crate::core::archive::service::{add_file_document, read_upload, AddFileOutcome};
+    use base64::Engine;
+    guard(&session, "document_add_file")?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|_| UiError::internal())?;
+    let name = file_name.clone();
+    let read = match tauri::async_runtime::spawn_blocking(move || read_upload(&name, &bytes)).await.map_err(|_| UiError::internal())? {
+        Ok(read) => read,
+        Err(reason) => return Ok(AddFileOutcome::Unreadable { reason }),
+    };
+    let shared = db.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut conn = shared.lock().map_err(|_| UiError::internal())?;
+        Ok(add_file_document(&mut conn, &display_name, &file_name, read, decision)?)
+    })
+    .await
+    .map_err(|_| UiError::internal())?
+}
+
 /// The documents of the institution: those of a call belong to their project and are not listed here.
 #[tauri::command]
 pub fn documents_list(session: State<'_, Session>, db: State<Db>) -> Result<Vec<DocumentSummary>, UiError> {

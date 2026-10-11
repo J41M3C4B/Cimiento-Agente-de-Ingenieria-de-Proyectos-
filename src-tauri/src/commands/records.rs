@@ -44,9 +44,10 @@ pub fn institution_record_save(
     Ok(svc::save(&mut conn, &kind, id.as_deref(), values, decision)?)
 }
 
-/// Puts a file on a document, read from where it is on this computer (`path`, chosen by the person).
+/// Puts a file on a document, read from where it is on this computer (`path`, chosen by the person). A scan or a
+/// photo is read as pictures, a few seconds a page: the file is read without holding the database.
 #[tauri::command]
-pub fn institution_record_attach(
+pub async fn institution_record_attach(
     session: State<'_, Session>,
     db: State<'_, Db>,
     kind: String,
@@ -55,8 +56,17 @@ pub fn institution_record_attach(
     decision: Option<Decision>,
 ) -> Result<AttachOutcome, UiError> {
     guard(&session, "institution_record_attach")?;
-    let mut conn = lock(&db)?;
-    Ok(svc::attach(&mut conn, &kind, id.as_deref(), Path::new(&path), decision)?)
+    let shared = db.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let file = match svc::read_original(Path::new(&path)) {
+            Ok(file) => file,
+            Err(reason) => return Ok(AttachOutcome::Unreadable { reason }),
+        };
+        let mut conn = shared.lock().map_err(|_| UiError::internal())?;
+        Ok(svc::attach_read(&mut conn, &kind, id.as_deref(), Path::new(&path), file, decision)?)
+    })
+    .await
+    .map_err(|_| UiError::internal())?
 }
 
 #[tauri::command]

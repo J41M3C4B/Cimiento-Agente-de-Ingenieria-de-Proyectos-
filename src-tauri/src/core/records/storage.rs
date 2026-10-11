@@ -13,6 +13,9 @@ pub struct Row {
     pub document_id: Option<String>,
     /// The clean text is still there (not hidden while its deletion waits, ADR-028).
     pub document_shown: bool,
+    /// How many pages of its clean text were read from a picture (OCR, ADR-035), and which with doubts.
+    pub picture_pages: usize,
+    pub doubtful_pages: Vec<usize>,
     pub original_path: Option<String>,
     pub original_name: Option<String>,
     pub issued_on: Option<String>,
@@ -24,7 +27,7 @@ pub struct Row {
 }
 
 const COLUMNS: &str = "r.id, r.type, r.custom_name, r.status, r.document_id, (d.id IS NOT NULL AND d.hidden = 0), r.original_path, r.original_name,
-     r.issued_on, r.valid_until, r.reference, r.notes, r.origin, r.confirmed_at";
+     r.issued_on, r.valid_until, r.reference, r.notes, r.origin, r.confirmed_at, coalesce(d.picture_pages, '[]'), coalesce(d.doubtful_pages, '[]')";
 
 fn read(r: &rusqlite::Row) -> rusqlite::Result<Row> {
     Ok(Row {
@@ -42,6 +45,8 @@ fn read(r: &rusqlite::Row) -> rusqlite::Result<Row> {
         notes: r.get(11)?,
         origin: r.get(12)?,
         confirmed_at: r.get(13)?,
+        picture_pages: serde_json::from_str::<Vec<usize>>(&r.get::<_, String>(14)?).unwrap_or_default().len(),
+        doubtful_pages: serde_json::from_str(&r.get::<_, String>(15)?).unwrap_or_default(),
     })
 }
 

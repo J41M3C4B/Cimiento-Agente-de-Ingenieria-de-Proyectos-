@@ -4,7 +4,8 @@ import { Icon } from "../../components/icons";
 import { Alert, Button, Toast, PageHeader } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
-import { documentAddText, documentEmergencyDelete, documentsList, toAppError } from "../../lib/tauri";
+import { toBase64, useReadingProgress } from "../../lib/files";
+import { documentAddFile, documentAddText, documentEmergencyDelete, documentsList, toAppError } from "../../lib/tauri";
 import type { Decision, QuarantineReport } from "../../lib/types";
 import { DocColumn } from "./DocColumn";
 import { addDonorDocument, defaultMode, donorItems, institutionItems } from "./documentsModel";
@@ -39,10 +40,14 @@ export function DocumentsPage() {
     return () => clearTimeout(timer);
   }, [toast]);
 
+  // a scan or a photo is read as pictures while it is saved (OCR, ADR-035): its line says how far it goes
+  const progress = useReadingProgress(pending !== null);
   const inst = useMemo(() => {
     const real = institutionItems(docs.data ?? []);
-    return pending ? [pending, ...real] : real;
-  }, [docs.data, pending]);
+    if (!pending) return real;
+    const detail = progress ? es.common.readingPictures(progress.done, progress.total) : pending.detail;
+    return [{ ...pending, detail }, ...real];
+  }, [docs.data, pending, progress]);
   const donor = useMemo(() => donorItems(), []);
   const donors = useMemo(() => [...new Set(donor.map((d) => d.donor).filter((d): d is string => !!d))], [donor]);
 
@@ -63,14 +68,22 @@ export function DocumentsPage() {
       const year = String(new Date().getFullYear());
       setPending({ id: "pending", name: d.name.trim(), ext: d.file?.ext ?? "txt", type: t.kinds.internal!, year, detail: t.reading, reading: true });
       setOpen((cur) => ({ ...cur, [`inst:type:${t.kinds.internal}`]: true, [`inst:year:${year}`]: true }));
-      const out = await documentAddText(d.name, d.text, decision);
+      const out = d.blob
+        ? await documentAddFile(d.name, d.blob.name, await toBase64(d.blob), decision)
+        : await documentAddText(d.name, d.text, decision);
       if (out.status === "saved") {
         setQuarantine(null);
         draft.current = null;
         setToast(es.common.saved);
+        const doubtful = out.document.doubtful_pages;
+        if (doubtful.length > 0) setNotice({ tone: "warn", text: t.savedDoubtful(es.common.pageList(doubtful)) });
         await qc.invalidateQueries({ queryKey: ["documents"] });
       } else if (out.status === "quarantine") {
         setQuarantine(out.report);
+      } else if (out.status === "unreadable") {
+        setQuarantine(null);
+        setNotice({ tone: "warn", text: t.fileUnreadable[out.reason] ?? es.errors.generic });
+        setForm({ target: d.target, file: null, initial: d });
       } else {
         setQuarantine(null);
         setNotice({ tone: "warn", text: es.quarantine.roster });

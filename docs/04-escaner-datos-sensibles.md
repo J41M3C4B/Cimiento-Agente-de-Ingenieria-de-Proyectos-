@@ -74,6 +74,10 @@ Formato de tapado: `[CURP OCULTA]`, `[TELÉFONO OCULTO]`, `[NOMBRE OCULTO]`, etc
 
 Si un archivo tiene más de N hallazgos `Block` (inicial: 5) o un patrón de tabla con columnas tipo "Nombre / Edad / Diagnóstico", la app lo rechaza completo con el mensaje: *"Este archivo parece una lista de personas. Para cuidarlas, no lo guardamos. Si necesitas esos datos para el proyecto, mejor escribe solo los totales."*
 
+## Texto leído de una imagen (OCR)
+
+El texto de un escaneo o de una foto (ADR-035) pasa por el escáner como cualquier otro, pero puede venir mal leído: una CURP con «O» en lugar de «0» o un correo borroso pueden escapar a los patrones. Por eso la lectura usa el modelo `eng+spa` (el de español no lee la «@» y perdía los correos) y avisa qué páginas leyó con dudas. No hay más protección por ahora.
+
 ## Pruebas obligatorias
 
 - `fixtures/escaner/positivos.txt`: un caso por línea que **debe** detectarse.

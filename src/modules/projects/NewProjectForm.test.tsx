@@ -159,7 +159,7 @@ describe("NewProjectForm", () => {
     await userEvent.click(screen.getByText("Siguiente"));
     await fillText();
     await userEvent.click(screen.getByText("Empezar el proyecto"));
-    expect(await screen.findByText(/hojas.pdf: Ese PDF es una foto de las hojas/)).toBeInTheDocument();
+    expect(await screen.findByText(/hojas.pdf: No pudimos leer el texto de las imágenes/)).toBeInTheDocument();
     expect(screen.getByText("Paso 1 de 2 · Suba la convocatoria")).toBeInTheDocument();
     expect(onCreated).not.toHaveBeenCalled();
   });

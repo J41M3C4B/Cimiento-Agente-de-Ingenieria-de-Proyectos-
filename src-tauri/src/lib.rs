@@ -25,6 +25,13 @@ pub fn run() {
         // the native window to choose a file: the record keeps where its original is (N4)
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // what reads scanned pages and photos (OCR, ADR-035) ships with the program; the screen hears how many
+            // pages are read
+            documents::ocr::set_home(app.path().resource_dir()?.join("ocr"));
+            let handle = app.handle().clone();
+            documents::reading::on_progress(move |done, total| {
+                let _ = tauri::Emitter::emit(&handle, "reading-progress", serde_json::json!({ "done": done, "total": total }));
+            });
             #[allow(unused_mut)]
             let mut dir = app.path().app_data_dir()?;
             // development only: another folder, to try the first start from zero without touching the examples
@@ -89,6 +96,7 @@ pub fn run() {
             commands::manual_search,
             commands::profile_confirm,
             commands::document_add_text,
+            commands::document_add_file,
             commands::documents_list,
             commands::document_emergency_delete,
             commands::dev_load_fixture,

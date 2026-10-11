@@ -86,7 +86,7 @@ mod tests {
         projects::create_project(&mut c, "Proyecto de prueba", Some("Cambiar las tuberías de la cocina")).unwrap();
         // a page of a call, searchable like any other
         c.execute("INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,created_at) VALUES ('d','call','a.pdf','application/pdf','green','h','x',0,'t')", []).unwrap();
-        crate::core::archive::storage::add_call_document(&c, "bases.pdf", "application/pdf", &["Convocatoria zanahoria 2027.".to_string()], 0).unwrap();
+        crate::core::archive::storage::add_call_document(&c, "bases.pdf", "application/pdf", &["Convocatoria zanahoria 2027.".to_string()], 0, &Default::default()).unwrap();
         c
     }
 

@@ -32,6 +32,6 @@ Esta máquina no tiene Excel, Word ni LibreOffice, así que la verificación fue
 
 ### PDF: `pdf-extract 0.12` (solo texto, sin OCR)
 - PDF con tabla: el texto sale completo; las filas de la tabla salen como una línea (`Obra y equipamiento $300,000 12`), suficiente para fragmentar y buscar, no para reconstruir columnas.
-- PDF escaneado (solo imagen): se detecta por páginas con menos de 20 caracteres visibles y se reporta (`PdfText::is_fully_scanned`, `pages_without_text`) para avisar al usuario. No se intenta OCR en v1.
+- PDF escaneado (solo imagen): se detecta por páginas con menos de 20 caracteres visibles y se reporta (`PdfText::is_fully_scanned`, `pages_without_text`) para avisar al usuario. No se intenta OCR en v1. *(Reemplazado por el ADR-035, 2026-10-10: las páginas escaneadas y las fotos se leen con Tesseract; Pdfium las dibuja.)*
 - Archivo dañado: el extractor puede entrar en pánico; se captura y se convierte en error.
 - Las pruebas son `documents::pdf::tests`. No se probó `pdfium-render`; no hizo falta.

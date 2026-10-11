@@ -287,7 +287,7 @@ Para qué sirve: la ayuda automática las lee junto con los demás datos al prep
 
 En «Mi institución», el expediente es la lista de los documentos que la institución debe tener, cada uno con su estado: «Lo tenemos», «En trámite», «Falta» o «No aplica».
 No hace falta subir el archivo para marcarlo: «lo tenemos, pero no lo hemos subido» también sirve. El programa decide qué documentos le tocan según lo que usted dijo de la institución; si tiene otro que no está en la lista, agréguelo con «Agregar otro documento».
-Si sube el archivo (PDF, Word o una foto), el programa guarda su texto ya revisado y recuerda dónde está el original en esta computadora para abrirlo. Si mueve o borra el original, vuelva a elegirlo.
+Si sube el archivo (PDF, Word o una foto), el programa guarda su texto ya revisado y recuerda dónde está el original en esta computadora para abrirlo. Si mueve o borra el original, vuelva a elegirlo. Si está escaneado o es una foto, el programa lee el texto de la imagen: tarda unos segundos por página, no lee letra a mano y avisa qué páginas leyó con dudas.
 
 ## Nombre del documento {#institution.record.custom_name}
 
