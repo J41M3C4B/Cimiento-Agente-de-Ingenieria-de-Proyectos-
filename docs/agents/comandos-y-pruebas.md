@@ -21,6 +21,8 @@ cargo test jobs                                        # un proceso de IA por pr
 cargo test ai::agent                                   # bucle de agentes (ADR-034): herramientas, rechazo de lo no permitido, topes, escáner y ai.run, con modelo simulado
 cargo test core::agents::assistant                     # el Asistente (ADR-034 §4, IA3): batería en seco por pantalla, contexto, cuarentena, sin IA responde el manual, lugares y fuentes que el código conoce
 cargo test assistant_live -- --ignored --nocapture     # 3 preguntas reales desde 3 pantallas con la llave guardada en la app (hasta 5 pasos cada una); imprime respuesta, pasos y costo
+cargo test core::agents::capturist                     # el Capturista (IA4): ninguna sugerencia se guarda sin el clic; lo inventado, lo protegido y lo que no cabe se descarta; lo aceptado pasa por validación, escáner e historial con su origen
+cargo test capturist_live -- --ignored --nocapture     # un párrafo real para «Su institución» (1 llamada); imprime las sugerencias y el costo. Guarde la salida en un archivo: no la filtre
 cargo test core::agents                                # herramientas del núcleo (estado de llenado, partes de la ficha), permisos, lo que nunca llega a la IA, y ai_proposal
 cargo test core::manual                                # manual del programa (ADR-034): cada campo del catálogo con su entrada, lenguaje sencillo y búsqueda sin conexión
 cargo test agent_tools_live -- --ignored --nocapture   # encargo real con las dos herramientas del núcleo (a lo más 4 pasos); imprime pasos, texto y costo

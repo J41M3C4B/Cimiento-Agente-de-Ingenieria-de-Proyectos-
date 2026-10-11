@@ -248,6 +248,20 @@ export function ProfilePage({
             ))}
           </div>
         )}
+
+        {/* the suggestions of the AI still to review, window by window (IA4) */}
+        {o && o.suggestions.length > 0 && (
+          <div className="space-y-2 min-[1000px]:col-span-2">
+            {o.suggestions.map((x) => (
+              <Alert key={x.place} tone="info">
+                <p>{es.suggestions.pending(x.count, es.assistant.places[`profile.${x.place}`] ?? x.place)}</p>
+                <Button size="sm" variant="secondary" className="mt-2" onClick={() => goTo(x.place)}>
+                  {es.suggestions.review}
+                </Button>
+              </Alert>
+            ))}
+          </div>
+        )}
       </Card>
 
       {view && (

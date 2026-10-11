@@ -119,10 +119,12 @@ pub fn form_save(session: State<'_, Session>, db: State<Db>,
     id: String,
     values: crate::common::forms::Values,
     decision: Option<Decision>,
+    used: Option<Vec<String>>,
 ) -> Result<SaveProfileOutcome, UiError> {
     guard(&session, "form_save")?;
     let mut conn = lock(&db)?;
-    Ok(crate::core::profile::forms::save(&mut conn, &id, values, decision)?)
+    // `used`: the suggestions of the AI the person put in their fields (IA4)
+    Ok(crate::core::profile::forms::save_using(&mut conn, &id, values, decision, &used.unwrap_or_default())?)
 }
 
 /// What the manual says of a screen, a form or a field (the «?»): in the program, with no AI and no internet.

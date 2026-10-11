@@ -13,7 +13,7 @@ import { useFillGaps } from "./gaps";
 function overview(gaps: [string, Place][], percent: number): InstitutionOverview {
   return {
     people: { value: 0, approx: false }, capacity: null, occupied_percent: null, vacant: null, staff: { value: 0, approx: false }, spaces: 0,
-    balance_annual_mxn: null, completion: { gaps: gaps.map(([code, place]) => ({ code, place })), percent },
+    balance_annual_mxn: null, completion: { gaps: gaps.map(([code, place]) => ({ code, place })), percent }, suggestions: [],
   };
 }
 

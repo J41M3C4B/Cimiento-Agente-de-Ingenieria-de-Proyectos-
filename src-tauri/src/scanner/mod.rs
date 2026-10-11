@@ -7,7 +7,7 @@ mod checks;
 pub mod guard;
 mod public;
 mod names;
-mod normalize;
+pub mod normalize;
 
 use normalize::Normalized;
 pub use public::PublicDocScanner;

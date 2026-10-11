@@ -49,8 +49,25 @@ pub fn get_profile(conn: &Connection) -> Result<Option<ProfileView>, ServiceErro
 
 pub fn save_profile(
     conn: &mut Connection,
+    input: ProfileInput,
+    decision: Option<Decision>,
+) -> Result<SaveProfileOutcome, ServiceError> {
+    save_profile_from(conn, input, decision, &Taken::default())
+}
+
+/// The suggestions of the AI a person took in this save (IA4): the origin of each datum they filled, and what to
+/// write in the same transaction (they are marked as accepted there, so a suggestion is never taken without its datum).
+#[derive(Default)]
+pub struct Taken<'a> {
+    pub sources: std::collections::BTreeMap<String, crate::core::history::Source>,
+    pub then: Option<Box<dyn Fn(&Connection) -> Result<(), crate::storage::StorageError> + 'a>>,
+}
+
+pub fn save_profile_from(
+    conn: &mut Connection,
     mut input: ProfileInput,
     decision: Option<Decision>,
+    taken: &Taken<'_>,
 ) -> Result<SaveProfileOutcome, ServiceError> {
     // staff and people served are never written here: the profile keeps what the roster adds up to (ADR-020)
     let (staff, population) = crate::core::profile::sync::derive(conn)?;
@@ -85,7 +102,12 @@ pub fn save_profile(
     let before = store::load_current(conn)?.map(|p| crate::core::profile::forms::catalog_values(&p.input)).unwrap_or_default();
     let saved = store::save_with(conn, &input, |tx| {
         let after = store::load_current(tx)?.map(|p| crate::core::profile::forms::catalog_values(&p.input)).unwrap_or_default();
-        crate::core::history::record(tx, &before, &after, &crate::core::history::Source::user()).map(|_| ())
+        let source_of = |field: &str| taken.sources.get(field).cloned().unwrap_or_else(crate::core::history::Source::user);
+        crate::core::history::record_each(tx, &before, &after, &source_of)?;
+        match &taken.then {
+            Some(then) => then(tx),
+            None => Ok(()),
+        }
     })?;
     if let Some((kind, details)) = audit_event {
         audit::record(conn, kind, Some("institution_profile"), Some(&saved.profile_id), details)?;

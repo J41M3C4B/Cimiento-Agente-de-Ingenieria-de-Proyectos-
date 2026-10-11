@@ -8,6 +8,8 @@
 //!   entries that match the question, found with no AI and no cost.
 //! - **The conversation lives only on the screen** and is gone when the app closes: the last turns come with each
 //!   question and nothing of it is saved.
+//! - **It fills nothing:** when the person tells data of the institution it offers «Llenarlo por mí» for a window
+//!   (`fill`), and the Capturist leaves suggestions there (IA4).
 
 use crate::ai::agent::{self, Agent, AgentError, Errand, Tool};
 use crate::ai::pipeline::SqliteLedger;
@@ -20,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// Its trade, versioned like a prompt: changing it is a new file.
-const TRADE: &str = include_str!("assistant.v1.md");
+const TRADE: &str = include_str!("assistant.v2.md");
 
 /// Where the Assistant may send the person: a page, or a window of «Mi institución» (`profile.<window>`).
 pub const GO_TO: &[&str] = &[
@@ -66,9 +68,10 @@ pub fn agent() -> Agent {
             "properties": {
                 "text": { "type": "string" },
                 "go_to": { "anyOf": [{ "type": "string", "enum": GO_TO }, { "type": "null" }] },
-                "sources": { "type": "array", "items": { "type": "string" } }
+                "sources": { "type": "array", "items": { "type": "string" } },
+                "fill": { "anyOf": [{ "type": "string", "enum": crate::core::agents::capturist::FILLABLE.iter().map(|f| f.1).collect::<Vec<_>>() }, { "type": "null" }] }
             },
-            "required": ["text", "go_to", "sources"],
+            "required": ["text", "go_to", "sources", "fill"],
             "additionalProperties": false
         }),
         knows_institution: true,
@@ -105,8 +108,9 @@ pub struct Source {
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum AssistantOutcome {
-    /// The AI answered. `asked` is the question as it went (covered, if the person chose so).
-    Answered { asked: String, text: String, go_to: Option<String>, sources: Vec<Source> },
+    /// The AI answered. `asked` is the question as it went (covered, if the person chose so); `fill`, a window the
+    /// Capturist may fill for the person.
+    Answered { asked: String, text: String, go_to: Option<String>, sources: Vec<Source>, fill: Option<crate::core::agents::capturist::Fill> },
     /// The AI could not answer (`reason`): the manual answers instead.
     Manual { asked: String, reason: &'static str, hits: Vec<Source> },
     /// The question has data of a person: nothing was asked.
@@ -114,7 +118,7 @@ pub enum AssistantOutcome {
 }
 
 /// Why the AI did not answer, in a word the screen puts into words (and says what to do).
-fn reason(e: &AgentError) -> &'static str {
+pub(crate) fn reason(e: &AgentError) -> &'static str {
     match e {
         AgentError::Ai(AiError::NoApiKey) => "not_configured",
         AgentError::Ai(AiError::Offline) => "offline",
@@ -223,7 +227,7 @@ pub async fn ask(db: &SharedDb, provider: Option<&dyn AiProvider>, role: Option<
 }
 
 /// The answer as the screen gets it: a place to go only if it is one of `GO_TO`, and the sources only if they are
-/// entries of the manual (with their titles, from the code).
+/// entries of the manual (with their titles, from the code); a window to fill only if the Capturist may fill it.
 fn answered(a: &Value, asked: String) -> AssistantOutcome {
     let text = a["text"].as_str().unwrap_or_default().trim().to_string();
     let go_to = a["go_to"].as_str().filter(|g| GO_TO.contains(g)).map(str::to_string);
@@ -233,7 +237,8 @@ fn answered(a: &Value, asked: String) -> AssistantOutcome {
             sources.push(s);
         }
     }
-    AssistantOutcome::Answered { asked, text, go_to, sources }
+    let fill = a["fill"].as_str().and_then(crate::core::agents::capturist::fill_of_place);
+    AssistantOutcome::Answered { asked, text, go_to, sources, fill }
 }
 
 #[cfg(test)]
@@ -266,7 +271,7 @@ mod tests {
         reply(json!({ "tool": name, "args": args, "answer": null }))
     }
     fn answer(text: &str, go_to: Option<&str>, sources: &[&str]) -> Result<AiResponse, AiError> {
-        reply(json!({ "tool": null, "args": null, "answer": { "text": text, "go_to": go_to, "sources": sources } }))
+        reply(json!({ "tool": null, "args": null, "answer": { "text": text, "go_to": go_to, "sources": sources, "fill": null } }))
     }
 
     fn question(screen: &str, field: Option<&str>, q: &str) -> Ask {
@@ -410,9 +415,11 @@ mod tests {
     /// The code keeps only places it knows and sources that are entries of the manual.
     #[test]
     fn a_place_or_a_source_the_code_does_not_know_is_dropped() {
-        let a = json!({ "text": " Hola ", "go_to": "somewhere", "sources": ["institution.name", "invented.entry", "institution.name"] });
-        let AssistantOutcome::Answered { text, go_to, sources, .. } = answered(&a, "q".into()) else { panic!() };
-        assert_eq!((text.as_str(), go_to), ("Hola", None));
+        let a = json!({ "text": " Hola ", "go_to": "somewhere", "sources": ["institution.name", "invented.entry", "institution.name"], "fill": "profile.board" });
+        let AssistantOutcome::Answered { text, go_to, sources, fill, .. } = answered(&a, "q".into()) else { panic!() };
+        assert_eq!((text.as_str(), go_to, fill), ("Hola", None, None), "the board is never filled by the AI");
+        let AssistantOutcome::Answered { fill, .. } = answered(&json!({ "text": "x", "fill": "profile.capacity" }), "q".into()) else { panic!() };
+        assert_eq!(fill.map(|f| f.form), Some("institution.capacity"));
         assert_eq!(sources, vec![Source { id: "institution.name".into(), title: "Nombre de la institución".into() }]);
     }
 
@@ -429,11 +436,14 @@ mod tests {
         assert_eq!(place_of_field("nope"), None);
     }
 
-    /// Every place the trade offers is one the code knows, and the other way round.
+    /// Every place the trade offers is one the code knows, and the other way round; so are the windows to fill.
     #[test]
     fn the_trade_names_every_place() {
         for g in GO_TO {
             assert!(TRADE.contains(&format!("`{g}`:")), "{g} is not in the trade");
+        }
+        for (_, place, _) in crate::core::agents::capturist::FILLABLE {
+            assert!(GO_TO.contains(place) && TRADE.contains(&format!("`{place}`")), "{place}");
         }
         assert!(agent().tools.iter().all(|t| crate::core::agents::tools::toolbox(Arc::new(Mutex::new(rusqlite::Connection::open_in_memory().unwrap())), None).iter().any(|b| b.name() == *t)));
     }

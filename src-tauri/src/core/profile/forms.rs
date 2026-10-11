@@ -20,6 +20,10 @@ pub struct FormView {
     pub values: Values,
     pub origins: std::collections::BTreeMap<String, crate::core::history::FieldOrigin>,
     pub missing: Vec<&'static str>,
+    /// The suggestions of the AI waiting in this form (IA4), but the ones that say what is already saved.
+    pub proposals: Vec<crate::core::agents::proposals::Proposal>,
+    /// Whether the Capturist may fill this window («Llenarlo por mí»), and where it is.
+    pub fill: Option<crate::core::agents::capturist::Fill>,
 }
 
 /// Every datum of the catalog the profile holds, by field id: what the history compares (ADR-033 §4).
@@ -146,12 +150,29 @@ pub fn get(conn: &Connection, id: &str) -> Result<FormView, ServiceError> {
     let profile = store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
     let values = values_of(id, &profile);
     let origins = crate::core::history::origins(conn, &values)?;
-    Ok(FormView { spec, missing: spec.missing(&values), origins, values })
+    let proposals = crate::core::agents::proposals::pending(conn, id, None)?
+        .into_iter()
+        .filter(|p| values.get(&p.field_id) != Some(&p.value))
+        .collect();
+    Ok(FormView { spec, missing: spec.missing(&values), origins, values, proposals, fill: crate::core::agents::capturist::fill_of_form(id) })
+}
+
+/// The values of a form as saved now, by field id: what the Capturist must not propose again.
+pub fn saved_values(conn: &Connection, id: &str) -> Result<Values, ServiceError> {
+    let profile = store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
+    Ok(values_of(id, &profile))
 }
 
 /// Saves a form. A value out of its list or range is refused with the field it belongs to; what is missing never
 /// stops the save. Then the profile goes the way of «Mi institución» (`save_profile_confirmed`).
-pub fn save(conn: &mut Connection, id: &str, mut values: Values, decision: Option<Decision>) -> Result<SaveProfileOutcome, ServiceError> {
+pub fn save(conn: &mut Connection, id: &str, values: Values, decision: Option<Decision>) -> Result<SaveProfileOutcome, ServiceError> {
+    save_using(conn, id, values, decision, &[])
+}
+
+/// As `save`, with the suggestions of the AI the person put in their fields (`used`, by id; IA4). Each one is marked
+/// accepted in the same transaction. A datum saved as the suggestion said keeps the origin of the suggestion; one the
+/// person corrected is the person's.
+pub fn save_using(conn: &mut Connection, id: &str, mut values: Values, decision: Option<Decision>, used: &[String]) -> Result<SaveProfileOutcome, ServiceError> {
     let spec = form(id).ok_or(ServiceError::NotFound)?;
     spec.clear_hidden(&mut values);
     let blocking: Vec<ProfileIssue> = spec
@@ -165,7 +186,16 @@ pub fn save(conn: &mut Connection, id: &str, mut values: Values, decision: Optio
     }
     let mut profile = store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
     apply(id, &values, &mut profile);
-    crate::core::onboarding::service::save_profile_confirmed(conn, profile, decision)
+    let taken = crate::core::agents::proposals::waiting(conn, id, used)?;
+    let sources = taken
+        .iter()
+        .filter(|p| values.get(&p.field_id) == Some(&p.value))
+        .map(|p| (p.field_id.clone(), crate::core::history::Source { origin: p.origin.as_str(), source_ref: p.source_ref.clone() }))
+        .collect();
+    let ids: Vec<String> = taken.into_iter().map(|p| p.id).collect();
+    let accept = move |tx: &Connection| crate::core::agents::proposals::accept_in(tx, &ids).map(|_| ()).map_err(Into::into);
+    let taken = crate::core::profile::service::Taken { sources, then: Some(Box::new(accept)) };
+    crate::core::onboarding::service::save_profile_confirmed_from(conn, profile, decision, &taken)
 }
 
 #[cfg(test)]

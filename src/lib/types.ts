@@ -73,6 +73,8 @@ export interface InstitutionOverview {
   spaces: number;
   balance_annual_mxn: number | null;
   completion: { gaps: { code: string; place: Place }[]; percent: number };
+  /** the suggestions of the AI waiting in each window (IA4) */
+  suggestions: { place: Place; count: number }[];
 }
 export interface FormView {
   spec: FormSpec;
@@ -80,6 +82,25 @@ export interface FormView {
   /** Where each saved datum comes from (ADR-033 §4): `user`, `document`, `ai_assumption` or `computed`. */
   origins: Record<string, FieldOrigin>;
   missing: string[];
+  /** the suggestions of the AI waiting in this window (IA4) */
+  proposals: Proposal[];
+  /** whether the Capturist may fill this window */
+  fill: Fill | null;
+}
+/** A window of «Mi institución» the Capturist fills: its form and its place (`profile.institution`). */
+export interface Fill {
+  form: string;
+  place: string;
+}
+/** A suggestion of the AI for a field (ADR-034 §2): nothing is saved until the person uses it and saves. */
+export interface Proposal {
+  id: string;
+  form_id: string;
+  field_id: string;
+  value: FormValue;
+  origin: "ai_assumption" | "document";
+  /** the words of the person it was taken from */
+  said: string | null;
 }
 export interface FieldOrigin {
   origin: "user" | "document" | "ai_assumption" | "computed";
@@ -140,8 +161,18 @@ export interface ManualSource {
   title: string;
 }
 export type AssistantOutcome =
-  | { status: "answered"; asked: string; text: string; go_to: string | null; sources: ManualSource[] }
+  | { status: "answered"; asked: string; text: string; go_to: string | null; sources: ManualSource[]; fill: Fill | null }
   | { status: "manual"; asked: string; reason: string; hits: ManualSource[] }
+  | { status: "quarantine"; report: QuarantineReport };
+// The Capturist (ADR-034, IA4, core/agents/capturist.rs): what the person tells becomes suggestions in a window.
+export interface CaptureAsk {
+  form: string;
+  said: string;
+  history: AssistantTurn[];
+}
+export type CaptureOutcome =
+  | { status: "proposed"; asked: string; form: string; place: string; fields: string[]; dropped: number; note: string }
+  | { status: "unavailable"; asked: string; reason: string }
   | { status: "quarantine"; report: QuarantineReport };
 // The manual of the program (ADR-034, core/manual): in the program, with no AI and no internet.
 export interface ManualEntry {

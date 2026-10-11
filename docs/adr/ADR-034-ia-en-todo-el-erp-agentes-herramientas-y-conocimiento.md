@@ -98,6 +98,14 @@ Cada bloque termina con sus pruebas en seco (modelo simulado, sin gasto) y luego
 | **IA7** | Investigador con herramientas de los módulos y revisión de cifras | Ninguna cifra de la respuesta falta en lo que devolvieron las herramientas (prueba) |
 | **IA8** | Proyectista con herramientas además de la ficha | Medido contra hoy con el caso dorado: igual o mejor calidad con menos tokens; si no, se queda como está |
 
+### Precisiones al aplicar IA4 (2026-10-10)
+
+- **Aceptar es «Usar» y luego «Guardar»:** «Usar» pone la sugerencia en su campo, donde la persona puede corregirla, y el guardado de siempre la marca aceptada en la misma transacción. Un dato guardado tal como se sugirió conserva el origen `ai_assumption`; uno corregido es de la persona.
+- **Una por una:** no hay «Usar todas»; sí «Descartar todas».
+- **Las sugerencias sin revisar se quedan** en `ai_proposal` y «Mi institución» avisa cuántas hay en cada ventana.
+- **«Llenarlo por mí»** se pide desde cada ventana y desde una respuesta del Asistente (`fill`). En ambos casos lo corre el código: el Asistente solo lo ofrece.
+- **El Capturista trabaja con lo que la persona cuenta:** una sola llamada, sin herramientas. Cada sugerencia trae las palabras de la persona y el código las busca en lo que escribió; si no están, la descarta. Proponer desde otras partes del ERP queda para cuando haya módulos con datos que lo pidan (y los documentos, para el Lector, IA6).
+
 ## Consecuencias
 
 - **La ficha de la institución (`ai_sheet`) se queda** como resumen corto que recibe todo agente. El detalle se pide con herramientas. Se mide antes de acortarla.

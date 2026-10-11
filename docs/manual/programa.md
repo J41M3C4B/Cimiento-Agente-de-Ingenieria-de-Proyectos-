@@ -56,8 +56,14 @@ Esta ayuda del «?» no la usa: funciona sin internet y no gasta nada.
 
 El botón con la estrella, arriba a la derecha, abre el asistente desde cualquier pantalla. Escriba su duda con sus palabras: qué poner en un dato, para qué sirve, cómo se hace algo o qué le falta por llenar.
 Bajo el «?» de cada dato, «Preguntar más» lo abre con la pregunta ya escrita. Cuando conviene, le ofrece un botón para ir al lugar donde se hace.
-El asistente no guarda ni cambia nada: le dice dónde hacerlo. Sin internet o sin la ayuda automática, le responde con lo que dice este manual.
+El asistente no guarda nada: le dice dónde hacerlo o, si usted quiere, deja sugerencias en la ventana para que usted las revise (vea «Llenar una ventana con el asistente»). Sin internet o sin la ayuda automática, le responde con lo que dice este manual.
 La conversación se borra al cerrar el programa. No escriba nombres ni datos de personas: el programa los busca y le pregunta antes de enviar.
+
+# Llenar una ventana con el asistente {#howto.fill}
+
+En las ventanas de «Mi institución», «Llenarlo por mí» abre el asistente para que usted le cuente con sus palabras lo que sabe: a quién atienden, cómo, desde cuándo. El asistente también se lo ofrece cuando, platicando, usted le cuenta datos de su institución.
+El asistente deja sugerencias debajo de cada dato, con las palabras suyas de donde las tomó. «Usar» pone la sugerencia en su lugar, donde puede corregirla; «Descartar» la quita. Nada se guarda hasta que pulse «Guardar».
+Las sugerencias que no revise se quedan para después, y «Mi institución» le avisa cuántas hay. El teléfono, el correo, el domicilio, el RFC, los folios, las claves, el representante legal, el patronato y las cuentas los escribe usted: el asistente nunca los ve.
 
 # Cambiar de computadora o hacer un respaldo {#howto.backup}
 

@@ -2,9 +2,9 @@ import { useId, useState } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "./icons";
 import { HelpToggle, ManualPanel } from "./ManualHelp";
-import { Choice, FormSection, Select, TextArea, TextInput } from "./ui";
+import { Button, Choice, FormSection, Inset, Select, TextArea, TextInput } from "./ui";
 import { es } from "../i18n/es-MX";
-import type { FieldSpec, FormSpec, FormValue, FormValues } from "../lib/types";
+import type { FieldSpec, FormSpec, FormValue, FormValues, Proposal } from "../lib/types";
 
 const words = (id: string) => es.forms.fields[id] ?? { label: id };
 /** Up to this many options are shown as pills; more go in a list that drops down. */
@@ -30,14 +30,48 @@ type Props = {
   onChange: (values: FormValues) => void;
   /** The problem of a field, already in words, by field id. */
   errors?: Record<string, string>;
+  /** The suggestions of the AI still to review (IA4): each one under its field, to use or discard. */
+  suggestions?: Proposal[];
+  onUse?: (p: Proposal) => void;
+  onDiscard?: (p: Proposal) => void;
 };
+
+/** A value in the words of its field: the names of its options, or the value as it is. */
+function shownValue(f: FieldSpec, v: FormValue): string {
+  const w = words(f.id);
+  const label = (code: string) => w.options?.[code] ?? code;
+  if (Array.isArray(v)) return v.map(label).join(", ");
+  if (typeof v === "boolean") return v ? es.common.yes : es.common.no;
+  return f.options.length > 0 ? label(String(v)) : String(v);
+}
+
+/** A suggestion of the AI under its field: what it says, the words of the person it came from, and the two choices. */
+function Suggestion({ f, p, onUse, onDiscard }: { f: FieldSpec; p: Proposal; onUse?: (p: Proposal) => void; onDiscard?: (p: Proposal) => void }) {
+  const t = es.suggestions;
+  return (
+    <Inset className="mt-2 space-y-2 !p-3 text-small">
+      <p>
+        <span className="font-semibold">{t.title}</span> {shownValue(f, p.value)}
+      </p>
+      {p.said && <p className="text-ink-3">{t.said(p.said)}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="primary" onClick={() => onUse?.(p)}>
+          {t.use}
+        </Button>
+        <Button size="sm" variant="plain" onClick={() => onDiscard?.(p)}>
+          {t.discard}
+        </Button>
+      </div>
+    </Inset>
+  );
+}
 
 /**
  * A form described in Rust (ADR-033), drawn with the components of the system: a section per group of fields, and
  * per field the input its kind asks for. The words come from `es.forms` under the id of each field; the «?» next to
  * each label opens what the manual says of it (ADR-034), one at a time.
  */
-export function FormRenderer({ spec, values, onChange, errors = {} }: Props) {
+export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard }: Props) {
   const set = (id: string, v: FormValue) => onChange({ ...values, [id]: v });
   const [help, setHelp] = useState<string | null>(null);
   return (
@@ -55,6 +89,11 @@ export function FormRenderer({ spec, values, onChange, errors = {} }: Props) {
                   <div key={f.id} className="min-w-0">
                     <Field f={f} value={values[f.id]} error={errors[f.id]} onChange={(v) => set(f.id, v)} aside={aside} />
                     {help === f.id && <ManualPanel id={f.id} panelId={panelId} />}
+                    {suggestions
+                      .filter((p) => p.field_id === f.id)
+                      .map((p) => (
+                        <Suggestion key={p.id} f={f} p={p} onUse={onUse} onDiscard={onDiscard} />
+                      ))}
                   </div>
                 );
               })}

@@ -1137,6 +1137,15 @@ export const es = {
     meanwhile: "Mientras tanto, le respondo con el manual:",
     retry: "Intentar de nuevo",
     toSettings: "Ir a «Inteligencia artificial»",
+    // «Llenarlo por mí» (IA4): the Capturist leaves suggestions in a window
+    fillMe: "Llenarlo por mí",
+    filling: (place: string) => `Llenando «${place}»`,
+    stopFilling: "Dejar de llenar",
+    fillPlaceholder: "Cuénteme con sus palabras",
+    fillIntro: (place: string) =>
+      `Cuénteme con sus palabras lo que sepa de «${place}». Yo dejo sugerencias en la ventana y usted decide cuáles usar: nada se guarda hasta que pulse «Guardar».`,
+    left: (n: number, place: string) => (n === 1 ? `Dejé 1 sugerencia en «${place}».` : `Dejé ${n} sugerencias en «${place}».`),
+    review: "Revisarlas",
     places: {
       home: "Inicio",
       profile: "Mi institución",
@@ -1153,6 +1162,20 @@ export const es = {
       finance: "Finanzas",
       help: "Ayuda",
     } as Record<string, string>,
+  },
+  // The suggestions of the AI in a window (ADR-034, IA4): the person uses or discards each one
+  suggestions: {
+    title: "Sugerencia de la IA:",
+    said: (quote: string) => `Usted dijo: «${quote}»`,
+    use: "Usar",
+    discard: "Descartar",
+    waiting: (n: number) =>
+      n === 1
+        ? "La IA dejó 1 sugerencia en esta ventana. «Usar» la pone en su campo, donde puede corregirla; se guarda hasta que pulse «Guardar»."
+        : `La IA dejó ${n} sugerencias en esta ventana. Revíselas una por una: «Usar» pone cada una en su campo, donde puede corregirla; se guardan hasta que pulse «Guardar».`,
+    discardAll: "Descartar todas",
+    pending: (n: number, place: string) => `La IA dejó ${n} ${n === 1 ? "sugerencia" : "sugerencias"} en «${place}» para que las revise.`,
+    review: "Revisarlas",
   },
   // The first start (ADR-031): the welcome of each person, the setup of the administrator and the data of the institution
   onboarding: {

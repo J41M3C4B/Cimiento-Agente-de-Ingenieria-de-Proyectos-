@@ -64,6 +64,7 @@ Si la calidad de una tarea Light no alcanza en pruebas, se sube a Strong y se do
 - Lo que la IA quiera cambiar es una propuesta (`ai_proposal`) que acepta una persona.
 - El manual del programa (`docs/manual/`) responde el «?» de cada campo y la búsqueda de Ayuda **sin IA**: no gasta nada.
 - **El Asistente (IA3, `core/agents/assistant.rs`):** modelo ligero, hasta 4 pedidos de herramientas y 40,000 tokens por pregunta. Herramientas: `manual_entry`, `manual_search`, `fill_state` y `sheet_section`; no recibe la ficha completa, pide la parte que toca. El código le dice la pantalla, el campo, su entrada del manual y la ventana donde se llena; revisa que «Ir a…» sea un lugar conocido y que cada fuente sea una entrada del manual. Sin IA, responde el manual. **Costo medido** (2026-10-10, Gemini `gemini-3.5-flash-lite`, 3 preguntas): de 1 a 2 llamadas, 1,850 a 3,780 tokens de entrada y unos 110 de salida; **de $0.015 a $0.027 MXN por pregunta**, de 2 a 3 segundos.
+- **El Capturista (IA4, `core/agents/capturist.rs`):** modelo ligero, una sola llamada y sin herramientas. El código le da la ventana, los campos que la IA puede ver con lo guardado y la conversación; devuelve sugerencias (`ai_proposal`) con las palabras de la persona de donde salieron, y el código descarta lo que no cabe, lo protegido y lo que la persona no dijo. **Costo medido** (2026-10-10, Gemini `gemini-3.5-flash-lite`, un párrafo para «Su institución»): 1 llamada, 1,580 tokens de entrada y 295 de salida; **$0.0224 MXN**, menos de 2 segundos.
 
 ## Técnicas de ahorro
 

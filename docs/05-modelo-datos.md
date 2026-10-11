@@ -425,5 +425,6 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
 - **0022 `ai_proposal`:** lo que la IA propone cambiar (ADR-034 §2). Lleva el formulario, el registro (si es de un módulo) y el campo; el valor ya revisado por el escáner; `origin` (`ai_assumption` o `document`), `source_ref` y el agente; `status` (`pending`, `accepted`, `rejected`), quién lo resolvió y cuándo.
   - El valor debe caber en su campo del catálogo (opción de la lista, número en su rango) o no se guarda; un campo que la IA nunca ve (`AiUse::Never`) no admite propuestas de la IA.
   - Hay a lo más una propuesta pendiente por campo: la nueva reemplaza a la anterior.
-  - Una propuesta no es un guardado: aceptarla corre el guardado de siempre del formulario (IA4).
+  - Una propuesta no es un guardado (IA4): la persona la pone en su campo con «Usar», puede corregirla, y «Guardar» corre el guardado de siempre del formulario y la marca `accepted` en la misma transacción. Si el dato se guardó tal como se sugirió, su origen en `core_field` y `core_change` es el de la propuesta (`ai_assumption`, con la cita en `source_ref`); si la persona lo corrigió, es `user`. «Descartar» la marca `rejected` y no cambia nada más.
+  - `source_ref` del Capturista: `{"from":"chat","quote":"…"}`, las palabras de la persona de donde salió.
 - **0023 `manual_fts`, `manual_index`:** el índice de búsqueda del manual del programa (`docs/manual/`), sin acentos (`unicode61 remove_diacritics 2`). `manual_index` guarda la huella del texto del manual; el índice se rehace solo cuando cambia.

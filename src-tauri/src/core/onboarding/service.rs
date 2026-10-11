@@ -226,7 +226,12 @@ pub fn finish(conn: &mut Connection, user: &CurrentUser) -> Result<OnboardingSta
 /// stage of a project keep reading it as confirmed. Before that (the administrator left the data to the direction) it
 /// stays a draft, and finishing the first start confirms it.
 pub fn save_profile_confirmed(conn: &mut Connection, input: ProfileInput, decision: Option<Decision>) -> Result<SaveProfileOutcome, ServiceError> {
-    match service::save_profile(conn, input, decision)? {
+    save_profile_confirmed_from(conn, input, decision, &service::Taken::default())
+}
+
+/// As `save_profile_confirmed`, with the suggestions of the AI the person took (IA4).
+pub fn save_profile_confirmed_from(conn: &mut Connection, input: ProfileInput, decision: Option<Decision>, taken: &service::Taken<'_>) -> Result<SaveProfileOutcome, ServiceError> {
+    match service::save_profile_from(conn, input, decision, taken)? {
         SaveProfileOutcome::Saved { .. } if onboarded(conn)? => Ok(SaveProfileOutcome::Saved { profile: service::confirm_profile(conn)? }),
         other => Ok(other),
     }

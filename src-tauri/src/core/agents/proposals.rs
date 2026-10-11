@@ -1,6 +1,7 @@
 //! What the AI proposes to change (ADR-034 §2). The AI never writes: a proposal names a field of a form of the
 //! catalog, carries a value that fits that field, says where it comes from and waits until a person accepts or
-//! rejects it. Accepting runs the usual save of the form (IA4); here a proposal is only kept and resolved.
+//! rejects it. Accepting is the usual save of the form (IA4): the person puts the suggestion in its field, may
+//! correct it, and «Guardar» marks it accepted in the same transaction as the datum.
 
 use crate::common::forms::{is_filled, problem, AiUse};
 use crate::core::error::ServiceError;
@@ -19,7 +20,7 @@ pub enum Origin {
 }
 
 impl Origin {
-    fn as_db(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Origin::AiAssumption => "ai_assumption",
             Origin::Document => "document",
@@ -53,6 +54,8 @@ pub struct Proposal {
     pub agent: String,
     pub status: String,
     pub created_at: String,
+    /// The words of the person it was taken from, when it came from the chat (`source_ref`).
+    pub said: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -99,7 +102,7 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
     conn.execute(
         "INSERT INTO ai_proposal (id, form_id, record_id, field_id, value_json, origin, source_ref, agent, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
-        params![id, p.form_id, p.record_id, p.field_id, value.to_string(), p.origin.as_db(), p.source_ref, p.agent],
+        params![id, p.form_id, p.record_id, p.field_id, value.to_string(), p.origin.as_str(), p.source_ref, p.agent],
     )?;
     Ok(ProposeOutcome::Kept { id })
 }
@@ -107,6 +110,11 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
 fn read(r: &rusqlite::Row) -> rusqlite::Result<Proposal> {
     let value: String = r.get(4)?;
     let origin: String = r.get(5)?;
+    let source_ref: Option<String> = r.get(6)?;
+    let said = source_ref
+        .as_deref()
+        .and_then(|s| serde_json::from_str::<Value>(s).ok())
+        .and_then(|v| v["quote"].as_str().map(str::to_string));
     Ok(Proposal {
         id: r.get(0)?,
         form_id: r.get(1)?,
@@ -114,10 +122,11 @@ fn read(r: &rusqlite::Row) -> rusqlite::Result<Proposal> {
         field_id: r.get(3)?,
         value: serde_json::from_str(&value).unwrap_or(Value::Null),
         origin: Origin::from_db(&origin),
-        source_ref: r.get(6)?,
+        source_ref,
         agent: r.get(7)?,
         status: r.get(8)?,
         created_at: r.get(9)?,
+        said,
     })
 }
 
@@ -129,6 +138,43 @@ pub fn pending(conn: &Connection, form_id: &str, record_id: Option<&str>) -> Res
         "SELECT {COLUMNS} FROM ai_proposal WHERE form_id = ?1 AND record_id IS ?2 AND status = 'pending' ORDER BY created_at, id"
     ))?;
     let rows = stmt.query_map(params![form_id, record_id], read)?.collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// The proposals of these ids still waiting for this form: the ones a person took in a save.
+pub fn waiting(conn: &Connection, form_id: &str, ids: &[String]) -> Result<Vec<Proposal>, ServiceError> {
+    Ok(pending(conn, form_id, None)?.into_iter().filter(|p| ids.contains(&p.id)).collect())
+}
+
+/// Marks these waiting proposals as accepted by whoever acts in this connection. Called inside the transaction of
+/// the save that writes their data.
+pub fn accept_in(conn: &Connection, ids: &[String]) -> rusqlite::Result<usize> {
+    conn.execute_batch("CREATE TEMP TABLE IF NOT EXISTS session_actor (user_id TEXT);")?;
+    let mut n = 0;
+    for id in ids {
+        n += conn.execute(
+            "UPDATE ai_proposal SET status = 'accepted', resolved_by = (SELECT user_id FROM temp.session_actor LIMIT 1),
+                    resolved_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')
+             WHERE id = ?1 AND status = 'pending'",
+            [id],
+        )?;
+    }
+    Ok(n)
+}
+
+/// The person discards these suggestions: nothing of the institution changes. Returns how many were waiting.
+pub fn reject(conn: &Connection, ids: &[String], by: Option<&str>) -> Result<usize, ServiceError> {
+    let mut n = 0;
+    for id in ids {
+        n += usize::from(resolve(conn, id, false, by)?.is_some());
+    }
+    Ok(n)
+}
+
+/// How many suggestions wait in each form, for «Mi institución» to say it.
+pub fn pending_counts(conn: &Connection) -> Result<Vec<(String, i64)>, ServiceError> {
+    let mut stmt = conn.prepare("SELECT form_id, count(*) FROM ai_proposal WHERE status = 'pending' GROUP BY form_id ORDER BY form_id")?;
+    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
 

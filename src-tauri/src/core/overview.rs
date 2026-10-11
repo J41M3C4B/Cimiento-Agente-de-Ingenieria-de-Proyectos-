@@ -60,6 +60,33 @@ pub struct InstitutionOverview {
     /// What is left of the year: income minus expenses (`None` while one of them is not known).
     pub balance_annual_mxn: Option<i64>,
     pub completion: Completion,
+    /// The suggestions of the AI waiting in each window (IA4), only where there are.
+    pub suggestions: Vec<Suggestions>,
+}
+
+/// How many suggestions of the AI wait in a window of «Mi institución».
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Suggestions {
+    pub place: Place,
+    pub count: usize,
+}
+
+/// The suggestions waiting in each window the Capturist fills, as the window shows them.
+fn suggestions(conn: &Connection) -> Result<Vec<Suggestions>, ServiceError> {
+    let mut out = Vec::new();
+    for (form, _, _) in crate::core::agents::capturist::FILLABLE {
+        let count = crate::core::profile::forms::get(conn, form)?.proposals.len();
+        let place = match *form {
+            "institution.contact" => Place::Contact,
+            "institution.legal" => Place::Legal,
+            "institution.capacity" => Place::Capacity,
+            _ => Place::Institution,
+        };
+        if count > 0 {
+            out.push(Suggestions { place, count });
+        }
+    }
+    Ok(out)
 }
 
 fn place_of(code: &str) -> Place {
@@ -198,6 +225,7 @@ pub fn institution_overview(conn: &Connection) -> Result<InstitutionOverview, Se
         spaces,
         balance_annual_mxn: crate::core::bridge::finance::finances(conn)?.balance_annual_mxn,
         completion: completion(&steps, &missing, extra_checks, &records, spaces),
+        suggestions: suggestions(conn)?,
     })
 }
 

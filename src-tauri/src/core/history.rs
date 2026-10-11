@@ -60,6 +60,12 @@ fn protected(field: &str) -> bool {
 /// is not the same, and its origin. Returns how many changed. Who acts comes from the session of the connection, as
 /// in the audit log.
 pub fn record(conn: &Connection, before: &Values, after: &Values, source: &Source) -> Result<usize, StorageError> {
+    record_each(conn, before, after, &|_| source.clone())
+}
+
+/// As `record`, with the origin of each datum: a suggestion of the AI a person took as it came keeps its origin
+/// (`ai_assumption`), the rest is the person's (IA4).
+pub fn record_each(conn: &Connection, before: &Values, after: &Values, source_of: &dyn Fn(&str) -> Source) -> Result<usize, StorageError> {
     conn.execute_batch("CREATE TEMP TABLE IF NOT EXISTS session_actor (user_id TEXT);")?;
     let mut fields: Vec<&String> = before.keys().chain(after.keys()).collect();
     fields.sort();
@@ -72,6 +78,7 @@ pub fn record(conn: &Connection, before: &Values, after: &Values, source: &Sourc
         }
         let hidden = protected(field);
         let value = new.filter(|_| !hidden).map(Value::to_string);
+        let source = source_of(field);
         conn.execute(
             "INSERT INTO core_change (field, value_json, protected, origin, changed_at, changed_by)
              VALUES (?1, ?2, ?3, ?4, strftime('%Y-%m-%dT%H:%M:%SZ','now'), (SELECT user_id FROM temp.session_actor LIMIT 1))",

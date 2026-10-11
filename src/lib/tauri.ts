@@ -12,6 +12,8 @@ import type {
   AnswerOutcome,
   AppError,
   AssistantAsk,
+  CaptureAsk,
+  CaptureOutcome,
   AssistantOutcome,
   BackupFile,
   ScanSummary,
@@ -76,8 +78,9 @@ export const profileConfirm = () => invoke<ProfileView>("profile_confirm");
 export const institutionOverview = () => invoke<InstitutionOverview>("institution_overview");
 // Forms of «Mi institución» described as data (ADR-033)
 export const formGet = (id: string) => invoke<FormView>("form_get", { id });
-export const formSave = (id: string, values: FormValues, decision?: Decision) =>
-  invoke<SaveProfileOutcome>("form_save", { id, values, decision: decision ?? null });
+// `used`: the suggestions of the AI the person put in their fields (IA4)
+export const formSave = (id: string, values: FormValues, decision?: Decision, used: string[] = []) =>
+  invoke<SaveProfileOutcome>("form_save", { id, values, decision: decision ?? null, used });
 // The board and the bank accounts of the institution (ADR-033 §3)
 export const institutionLists = () => invoke<InstitutionLists>("institution_lists");
 export const institutionListForm = (kind: ListKind, id: string | null) => invoke<ListForm>("institution_list_form", { kind, id });
@@ -89,6 +92,9 @@ export const institutionListDelete = (kind: ListKind, id: string) => invoke<Inst
 export const institutionClabeReveal = (id: string) => invoke<string>("institution_clabe_reveal", { id });
 // The Assistant (ADR-034 §4): a question from any screen
 export const assistantAsk = (ask: AssistantAsk, decision?: Decision) => invoke<AssistantOutcome>("assistant_ask", { ask, decision: decision ?? null });
+// The Capturist (IA4): suggestions in a window, and discarding them
+export const captureAsk = (capture: CaptureAsk, decision?: Decision) => invoke<CaptureOutcome>("capture_ask", { capture, decision: decision ?? null });
+export const proposalsReject = (ids: string[]) => invoke<number>("proposals_reject", { ids });
 // The manual of the program (ADR-034): the «?» of each field and the search in Ayuda, offline
 export const manualEntry = (id: string) => invoke<ManualEntry | null>("manual_entry", { id });
 export const manualSearch = (query: string) => invoke<ManualHit[]>("manual_search", { query });
