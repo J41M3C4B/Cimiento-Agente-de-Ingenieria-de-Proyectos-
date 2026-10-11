@@ -19,6 +19,9 @@ const MAX_SIDE: f32 = 5000.0;
 /// English first, then Spanish: the Spanish model has no «@», and an email read as «contacto(Dcasa…» would escape
 /// the scanner. Together they read the accents and the emails of Spanish papers (measured on the fixtures).
 const LANGUAGES: &str = "eng+spa";
+/// A gap between two words of a line wider than this many times their height parts two cells of a table: a space
+/// between words is about a third of their height, and a justified line stays under one.
+const COLUMN_GAP: f32 = 1.5;
 /// A page Tesseract has not read in this time is given up.
 const PAGE_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -101,7 +104,9 @@ pub fn read_picture(picture: &[u8], dpi: Option<u32>) -> Result<PageRead, OcrErr
 fn run(picture: &[u8], dpi: Option<u32>, adaptive: bool) -> Result<PageRead, OcrError> {
     let (exe, data) = tesseract().ok_or(OcrError::Missing)?;
     let mut cmd = Command::new(exe);
-    cmd.args(["stdin", "stdout", "--tessdata-dir"]).arg(&data).args(["-l", LANGUAGES, "--oem", "1", "--psm", "3"]);
+    // page segmentation 4 (one column of lines of any size): a table is read row by row; the automatic one (3) cut it
+    // into a block per column. Two columns of prose came out the same with both (measured 2026-10-11)
+    cmd.args(["stdin", "stdout", "--tessdata-dir"]).arg(&data).args(["-l", LANGUAGES, "--oem", "1", "--psm", "4"]);
     if let Some(dpi) = dpi {
         cmd.args(["--dpi", &dpi.to_string()]);
     }
@@ -157,10 +162,13 @@ fn run(picture: &[u8], dpi: Option<u32>, adaptive: bool) -> Result<PageRead, Ocr
 }
 
 /// The text of Tesseract's table of words: a space between words, a line break between lines and an empty line
-/// between paragraphs.
+/// between paragraphs. Words of a line far apart are cells of a table: they are kept apart with « | », as the rows
+/// of a PDF with text are (`pdf_rows`).
 fn from_tsv(tsv: &str) -> PageRead {
     let mut text = String::new();
     let mut at: Option<(&str, &str, &str)> = None;
+    // where the word before ends and how tall it is
+    let (mut right, mut tall) = (0i64, 0i64);
     let (mut letters, mut sum) = (0f32, 0f32);
     for row in tsv.lines().skip(1) {
         let c: Vec<&str> = row.split('\t').collect();
@@ -173,13 +181,17 @@ fn from_tsv(tsv: &str) -> PageRead {
             continue;
         }
         let place = (c[2], c[3], c[4]);
+        let number = |i: usize| c[i].parse::<i64>().unwrap_or(0);
+        let (left, width, height) = (number(6), number(8), number(9));
         match at {
             None => {}
+            Some(p) if p == place && (left - right) as f32 > COLUMN_GAP * tall.max(height) as f32 => text.push_str(" | "),
             Some(p) if p == place => text.push(' '),
             Some(p) if (p.0, p.1) == (place.0, place.1) => text.push('\n'),
             Some(_) => text.push_str("\n\n"),
         }
         at = Some(place);
+        (right, tall) = (left + width, height);
         text.push_str(word);
         let n = word.chars().count() as f32;
         letters += n;
@@ -250,6 +262,14 @@ mod tests {
                    5\t1\t2\t1\t1\t1\t0\t0\t1\t1\t-1\t \n";
         let read = from_tsv(tsv);
         assert_eq!(read.text, "Acta constitutiva\ndel\n\nx");
+
+        // a row of a table: words far apart are cells, words close together are one cell
+        let row = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n\
+                   5\t1\t1\t1\t1\t1\t100\t0\t120\t30\t95\tProducto\n\
+                   5\t1\t1\t1\t1\t2\t230\t0\t15\t30\t95\t1\n\
+                   5\t1\t1\t1\t1\t3\t600\t0\t15\t30\t95\t2\n\
+                   5\t1\t1\t1\t1\t4\t900\t0\t60\t30\t95\t€100\n";
+        assert_eq!(from_tsv(row).text, "Producto 1 | 2 | €100");
         // (4·90 + 12·90 + 3·60 + 1·30) / 20
         assert!((read.confidence - 82.5).abs() < 0.01, "{}", read.confidence);
         assert_eq!(from_tsv("level\n").confidence, 0.0);

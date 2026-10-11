@@ -226,6 +226,26 @@ def scans():
     ]).crop((0, 0, 1654, 900)).rotate(1.5, expand=True, fillcolor=120)
     sheet.convert("RGB").save("constancia-foto.jpg", "JPEG", quality=85)
 
+    # an invoice: a table of concepts, and the email of who sells
+    sans = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 30)
+    inv = Image.new("L", (1654, 800), 250)
+    d = ImageDraw.Draw(inv)
+    d.text((120, 70), "FACTURA", fill=20, font=bold)
+    d.text((120, 150), "Proveedor: Abarrotes Ficticios del Centro", fill=20, font=sans)
+    d.text((120, 200), "Correo: ventas@abarrotesficticios.mx", fill=20, font=sans)
+    rows = [
+        ["Concepto", "Cantidad", "Precio", "Importe"],
+        ["Arroz", "10", "$28.00", "$280.00"],
+        ["Frijol", "5", "$35.00", "$175.00"],
+        ["Aceite", "4", "$45.00", "$180.00"],
+    ]
+    for i, row in enumerate(rows):
+        for x, cell in zip([120, 700, 1000, 1300], row):
+            d.text((x, 300 + i * 60), cell, fill=20, font=sans)
+    d.text((1000, 580), "Total", fill=20, font=sans)
+    d.text((1300, 580), "$635.00", fill=20, font=sans)
+    inv.convert("RGB").save("factura-foto.jpg", "JPEG", quality=88)
+
 
 import sys
 

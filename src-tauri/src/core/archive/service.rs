@@ -95,9 +95,10 @@ pub enum GuardedPages {
 }
 
 /// Passes the pages of a file through the scanner (each page a field, `page_1`…), for the table `entity`, with the
-/// name the person gave it when there is one.
-pub fn guard_pages(conn: &Connection, entity: &str, name: Option<&str>, pages: &[String], decision: Option<Decision>) -> Result<GuardedPages, ServiceError> {
-    let scanner = scanner_for(conn)?;
+/// name the person gave it when there is one. `pictures`: some page was read from a picture, where an email may come
+/// with its «@» misread (OCR, ADR-035).
+pub fn guard_pages(conn: &Connection, entity: &str, name: Option<&str>, pages: &[String], pictures: bool, decision: Option<Decision>) -> Result<GuardedPages, ServiceError> {
+    let scanner = if pictures { scanner_for(conn)?.reading_pictures() } else { scanner_for(conn)? };
     let joined = pages.join("\n\n");
     let whole = scanner.scan(&joined);
     if scanner.looks_like_roster(&joined, &whole) {
@@ -107,7 +108,7 @@ pub fn guard_pages(conn: &Connection, entity: &str, name: Option<&str>, pages: &
     let mut fields: Vec<(String, String)> = name.map(|n| ("display_name".to_string(), n.to_string())).into_iter().collect();
     fields.extend(pages.iter().enumerate().map(|(i, p)| (format!("page_{}", i + 1), p.clone())));
     let redactions = if decision == Some(Decision::Redact) { whole.findings.len() as i64 } else { 0 };
-    Ok(match crate::core::screen::guard_texts(conn, entity, &fields, decision)? {
+    Ok(match crate::scanner::guard::screen_texts(conn, &scanner, entity, &fields, decision)? {
         Ok(mut texts) => {
             let name = name.map(|_| texts.remove(0));
             GuardedPages::Clean { name, pages: texts, redactions }
@@ -180,7 +181,8 @@ pub fn add_file_document(conn: &mut Connection, display_name: &str, file_name: &
     if pages.iter().all(|p| letters(p) < MIN_LETTERS_PER_PAGE) {
         return Ok(AddFileOutcome::Unreadable { reason: FileUnreadable::NoText });
     }
-    let (name, pages, redactions) = match guard_pages(conn, "document", Some(display_name.trim()), &pages, decision)? {
+    let pictures = !read.from_picture.is_empty();
+    let (name, pages, redactions) = match guard_pages(conn, "document", Some(display_name.trim()), &pages, pictures, decision)? {
         GuardedPages::Clean { name, pages, redactions } => (name.unwrap_or_default(), pages, redactions),
         GuardedPages::Quarantine(report) => return Ok(AddFileOutcome::Quarantine { report }),
         GuardedPages::Roster => return Ok(AddFileOutcome::RejectedRoster),

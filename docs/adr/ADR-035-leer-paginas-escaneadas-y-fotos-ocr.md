@@ -24,8 +24,13 @@ Decisiones de la institución (2026-10-10): Tesseract dentro del instalador, pre
    - La página se dibuja a 300 ppp en gris y llega a Tesseract por su entrada estándar: **ninguna imagen se escribe en disco** (principio 6).
    - Un archivo que llega de la pantalla (Documentos, convocatorias) vive en una carpeta temporal solo mientras se lee.
 3. **Modelo preciso, inglés primero y luego español** (`tessdata_best`, `-l eng+spa`).
-   - El modelo de español no tiene el signo «@»: un correo se leía «contacto(Dcasa…» y el **escáner no lo encontraba**. Con `eng+spa` se leen bien los correos en Arial, Times, Calibri y Verdana, se conservan los acentos y la confianza sube (página limpia: 87.9 → 91.7).
+   - El modelo de español no tiene el signo «@»: un correo se leía «contacto(Dcasa…» y el **escáner no lo encontraba**. Con `eng+spa` se leen bien los correos en Arial, Times, Calibri y Verdana y la confianza sube (página limpia: 87.9 → 91.7).
    - Cuesta 15 MB más y un 25 % más de tiempo por página.
+   - *Corrección (2026-10-11):* no siempre conserva los acentos. Cuando elige el modelo de inglés para un renglón, lo lee sin acentos («situacion», «numero»). Medido en nueve muestras:
+     - con `spa+eng`, la «@» se pierde en Arial, Calibri y Verdana, y en la factura;
+     - con `eng+spa`, se pierden los acentos en un texto de dos columnas.
+
+     Se queda `eng+spa`: proteger un correo (principio 5) pesa más que un acento, y la IA entiende «situacion».
 4. **Qué se lee como imagen:**
    - las páginas de un PDF con menos de 20 caracteres de texto;
    - un PDF cuyo texto no se puede sacar (se intenta dibujarlo);
@@ -44,7 +49,11 @@ Decisiones de la institución (2026-10-10): Tesseract dentro del instalador, pre
    - Las páginas se leen de dos a cuatro a la vez, un hilo cada Tesseract.
    - La pantalla oye el avance por el evento `reading-progress`: «Leyendo las páginas escaneadas: 3 de 12».
    - El último archivo leído como imagen se recuerda **en memoria**, por la huella de sus bytes: al volver de la cuarentena con «Tapar y seguir» no se lee otra vez.
-8. **Topes.**
+8. **Tablas y correos mal leídos** (2026-10-11, tras probar una factura real):
+   - Tesseract lee la página renglón por renglón (`--psm 4`). El modo automático (3) partía la tabla de la factura en un bloque por columna. Un texto a dos columnas salió igual con los dos modos.
+   - Dos palabras de un renglón separadas por más de 1.5 veces su altura son celdas distintas y se unen con « | », como las filas de un PDF con texto (`pdf_rows`). Ejemplo: «Arroz | 10 | $28.00 | $280.00».
+   - Aun con `eng+spa`, la factura real traía «infoGorlandojuan.es» (la «@» leída como «G») y el correo no se tapó. En un texto leído de imagen, el escáner toma como posible correo una dirección con un dominio conocido pegada a otra palabra, si su renglón habla de correo o un signo ocupa el lugar de la «@» (`RegexScanner::reading_pictures`). Es un aviso: la persona decide.
+9. **Topes.**
    - 100 páginas escaneadas por archivo; con más, se pide subirlo en partes o pedir el original.
    - 120 segundos por página.
    - 40 MB por archivo, como ya estaba.

@@ -107,6 +107,31 @@ fn institutional_phone_and_email_are_not_flagged() {
     assert_eq!(kinds(&r), vec!["phone", "email"]);
 }
 
+/// OCR (ADR-035): in a text read from a picture, an email whose «@» was misread is still found when its line speaks
+/// of mail or a sign stands in place of the «@»; a web address, the email of the institution and a typed text are not.
+#[test]
+fn an_email_with_its_at_sign_misread_is_found_in_a_text_read_from_a_picture() {
+    let cfg = ScannerConfig { institutional_emails: vec!["contacto@casaficticia.org".into()], ..Default::default() };
+    let pictures = RegexScanner::new(cfg.clone()).reading_pictures();
+    for misread in ["Email: infoGorlandojuan.es", "Correo electrónico: ventas.norteGempresa.com.mx", "Escriba a maria(lopez.mx o pase"] {
+        let r = pictures.scan(misread);
+        assert_eq!(kinds(&r), vec!["email"], "{misread}");
+        assert!(!pictures.redact(misread, &r).contains("juan.es") && !pictures.redact(misread, &r).contains("empresa.com"), "{misread}");
+    }
+    for not_an_email in [
+        "Visite www.fundacionficticia.org.mx para más datos",
+        "Página: https://convocatoria.example.org",
+        "La fundación publica sus bases en fundacionficticia.org",
+        "Email: contactoGcasaficticia.org",
+        "Email: info@orlandojuan.es",
+    ] {
+        let r = pictures.scan(not_an_email);
+        assert!(r.findings.iter().all(|f| f.confidence == 1.0), "{not_an_email}: {:?}", kinds(&r));
+    }
+    // a text typed by a person is not read from a picture: only true emails count there
+    assert!(RegexScanner::new(cfg).scan("Email: infoGorlandojuan.es").is_clean());
+}
+
 /// ADR-033 §3: a CLABE of the institution is its own; any other CLABE, even one digit away, is still blocked.
 #[test]
 fn only_exactly_an_account_of_the_institution_is_let_through() {

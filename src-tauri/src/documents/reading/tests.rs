@@ -48,3 +48,17 @@ fn the_folder_of_an_upload_is_gone_when_it_is_dropped() {
     drop(scratch);
     assert!(!path.exists());
 }
+
+/// A table read from a picture keeps its rows and parts its cells with « | »; the email of who sells is read with its
+/// «@», for the scanner to find it.
+#[test]
+fn an_invoice_keeps_the_cells_of_its_table_apart() {
+    needs_ocr();
+    let r = read_file(&fixture("factura-foto.jpg")).unwrap();
+    let text = &r.pages[0];
+    for row in ["Concepto | Cantidad | Precio | Importe", "Arroz | 10 | $28.00 | $280.00", "Aceite | 4 | $45.00 | $180.00", "Total | $635.00"] {
+        assert!(text.contains(row), "{row}: {text}");
+    }
+    assert!(text.contains("ventas@abarrotesficticios.mx"), "{text}");
+    assert!(r.doubtful.is_empty());
+}

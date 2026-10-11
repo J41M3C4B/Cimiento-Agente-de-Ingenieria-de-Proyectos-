@@ -143,6 +143,8 @@ struct Patterns {
     clabe: Regex,
     card: Regex,
     nss: Regex,
+    /// An address ending in a known domain, glued to the word before it: an email whose «@» was misread.
+    misread_email: Regex,
 }
 
 fn patterns() -> &'static Patterns {
@@ -159,6 +161,7 @@ fn patterns() -> &'static Patterns {
             clabe: r(r"\b\d{18}\b"),
             card: r(r"\b\d(?:[ -]?\d){12,18}\b"),
             nss: r(r"\b\d{11}\b"),
+            misread_email: r(r"[A-Z0-9][A-Z0-9._%+()-]*\.(?:COM|ORG|NET|MX|ES|GOB|EDU|INFO|IO|CO|US)(?:\.[A-Z]{2})?\b"),
         }
     })
 }
@@ -173,6 +176,8 @@ pub struct RegexScanner {
     emails: Vec<String>,
     /// Each account of the institution, with or without spaces or dashes between its digits.
     own_accounts: Vec<Regex>,
+    /// The text was read from a picture (OCR, ADR-035): an email with its «@» misread is still looked for.
+    pictures: bool,
 }
 
 impl RegexScanner {
@@ -197,7 +202,35 @@ impl RegexScanner {
             .filter(|d| d.len() == 18)
             .filter_map(|d| Regex::new(&format!(r"\b{}\b", d.chars().map(String::from).collect::<Vec<_>>().join("[ -]?"))).ok())
             .collect();
-        RegexScanner { cfg, phones, emails, own_accounts }
+        RegexScanner { cfg, phones, emails, own_accounts, pictures: false }
+    }
+
+    /// For a text read from a picture (OCR, ADR-035): Tesseract may read the «@» of an email as «G», «(» or «©»
+    /// («infoGorlandojuan.es»), which the email pattern no longer sees. Then an address ending in a known domain,
+    /// glued to the word before it, is taken as an email (a warning: the person may say it is not personal) when its
+    /// line speaks of mail or when it has a sign in place of the «@». A web address (`www.`, `http`) is not.
+    pub fn reading_pictures(mut self) -> Self {
+        self.pictures = true;
+        self
+    }
+
+    /// The emails whose «@» was misread, as ranges of the normalized text.
+    fn misread_emails(&self, t: &str) -> Vec<Range<usize>> {
+        patterns()
+            .misread_email
+            .find_iter(t)
+            .filter(|m| {
+                let token = m.as_str();
+                let line = &t[t[..m.start()].rfind('\n').map_or(0, |i| i + 1)..m.start()];
+                let web = token.starts_with("WWW.") || line.ends_with("//") || line.ends_with("WWW.");
+                let speaks_of_mail = ["MAIL", "CORREO"].iter().any(|w| line.contains(w));
+                let sign = token.contains(['(', ')']);
+                // the address of the institution, misread too, is still its own
+                let own = self.emails.iter().any(|e| e.split_once('@').is_some_and(|(local, domain)| token.starts_with(local) && token.ends_with(domain)));
+                !web && !own && (speaks_of_mail || sign)
+            })
+            .map(|m| m.range())
+            .collect()
     }
 
     /// True when the text looks like a list of people (a record file) and must be rejected whole.
@@ -283,6 +316,11 @@ impl SensitiveScanner for RegexScanner {
         for m in p.email.find_iter(t) {
             if !self.emails.iter().any(|e| e == m.as_str()) {
                 push(FindingKind::Email, Severity::Warn, m.range(), 1.0);
+            }
+        }
+        if self.pictures {
+            for r in self.misread_emails(t) {
+                push(FindingKind::Email, Severity::Warn, r, 0.5);
             }
         }
 

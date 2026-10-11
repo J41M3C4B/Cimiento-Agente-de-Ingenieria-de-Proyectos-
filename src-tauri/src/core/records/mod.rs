@@ -408,7 +408,7 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
     }
     let mut clean: Option<(Vec<String>, i64)> = None;
     if let Some(pages) = &file.pages {
-        match guard_pages(conn, "core_record", None, pages, decision)? {
+        match guard_pages(conn, "core_record", None, pages, !file.marks.from_picture.is_empty(), decision)? {
             GuardedPages::Clean { pages, redactions, .. } => clean = Some((pages, redactions)),
             GuardedPages::Quarantine(report) => return Ok(AttachOutcome::Quarantine { report }),
             GuardedPages::Roster => return Ok(AttachOutcome::Unreadable { reason: Unreadable::Roster }),
