@@ -95,6 +95,13 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("institution_list_save", Need::Permission(Permission::Use)),
     ("institution_list_set_active", Need::Permission(Permission::Use)),
     ("institution_list_delete", Need::DeleteOrRequest),
+    // the record of the institution (ADR-033 §5)
+    ("institution_records", Need::Permission(Permission::Use)),
+    ("institution_record_form", Need::Permission(Permission::Use)),
+    ("institution_record_save", Need::Permission(Permission::Use)),
+    ("institution_record_attach", Need::Permission(Permission::Use)),
+    ("institution_record_detach", Need::Permission(Permission::Use)),
+    ("institution_record_open", Need::Permission(Permission::Use)),
     ("institution_clabe_reveal", Need::Permission(Permission::Use)),
     ("profile_confirm", Need::Permission(Permission::Use)),
     // the manual of the program (ADR-034): help for anyone who is in, with no data of the institution

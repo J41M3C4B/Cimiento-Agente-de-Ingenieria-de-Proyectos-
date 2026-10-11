@@ -22,11 +22,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// Its trade, versioned like a prompt: changing it is a new file.
-const TRADE: &str = include_str!("assistant.v2.md");
+const TRADE: &str = include_str!("assistant.v3.md");
 
 /// Where the Assistant may send the person: a page, or a window of «Mi institución» (`profile.<window>`).
 pub const GO_TO: &[&str] = &[
-    "home", "profile", "profile.institution", "profile.contact", "profile.legal", "profile.capacity", "profile.board", "documents", "projects", "staff",
+    "home", "profile", "profile.institution", "profile.contact", "profile.legal", "profile.capacity", "profile.board", "profile.records", "documents", "projects", "staff",
     "people", "facilities", "finance", "help",
 ];
 
@@ -150,6 +150,7 @@ pub fn place_of_field(field: &str) -> Option<&'static str> {
         "institution.legal" => "profile.legal",
         "institution.capacity" => "profile.capacity",
         "institution.board_member" | "institution.bank_account" => "profile.board",
+        "institution.record" => "profile.records",
         _ => "profile",
     })
 }

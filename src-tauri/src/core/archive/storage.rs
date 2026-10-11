@@ -72,15 +72,22 @@ pub fn add_text_document(
 /// Saves one file of a call: its clean text per page (one fragment per page, with the page number) and its
 /// search index. The caller owns the transaction, so the files of a call go in together or not at all.
 pub fn add_call_document(conn: &Connection, display_name: &str, mime: &str, pages: &[String], redactions_count: i64) -> Result<String, StorageError> {
+    add_paged_document(conn, "call", display_name, mime, pages, redactions_count)
+}
+
+/// Saves the clean text of a file page by page, of a call or of the institution (`internal`, the record of
+/// ADR-033 §5). The caller owns the transaction.
+pub fn add_paged_document(conn: &Connection, kind: &str, display_name: &str, mime: &str, pages: &[String], redactions_count: i64) -> Result<String, StorageError> {
     let doc_id = format!("doc_{}", Ulid::generate());
     let text = pages.join("
 
 ");
     let hash = hex::encode(Sha256::digest(text.as_bytes()));
+    let level = if kind == "call" { "green" } else { "yellow" };
     conn.execute(
         "INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,created_at)
-         VALUES (?1,'call',?2,?3,'green',?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
-        params![doc_id, display_name.trim(), mime, hash, text, redactions_count],
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
+        params![doc_id, kind, display_name.trim(), mime, level, hash, text, redactions_count],
     )?;
     for (i, page) in pages.iter().enumerate() {
         conn.execute(
@@ -89,7 +96,7 @@ pub fn add_call_document(conn: &Connection, display_name: &str, mime: &str, page
         )?;
     }
     conn.execute("INSERT INTO document_chunk_fts(rowid,text) SELECT rowid,text FROM document_chunk WHERE document_id=?1", [&doc_id])?;
-    audit::record(conn, AuditKind::DocumentUploaded, Some("document"), Some(&doc_id), json!({ "kind": "call", "chunks": pages.len(), "redactions": redactions_count }))?;
+    audit::record(conn, AuditKind::DocumentUploaded, Some("document"), Some(&doc_id), json!({ "kind": kind, "chunks": pages.len(), "redactions": redactions_count }))?;
     Ok(doc_id)
 }
 

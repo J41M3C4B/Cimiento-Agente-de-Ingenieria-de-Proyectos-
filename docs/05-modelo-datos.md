@@ -411,7 +411,7 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
 | Dueño | Tablas |
 |---|---|
 | Base | `schema_migrations`, `app_settings`, `audit_log`, `ai_usage` |
-| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`, `core_board_member`, `core_bank_account`, `core_snapshot`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
+| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`, `core_board_member`, `core_bank_account`, `core_snapshot`, `core_record`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
 | Personal (`hr_*`) | `hr_modality`, `hr_position`, `hr_person`, `hr_job`, `hr_emergency_contact`, `hr_custom_field` |
 | Beneficiarios (`care_*`) | `care_group`, `care_person`, `care_contact`, `care_custom_field`, `care_waitlist` |
 | Instalaciones (`fac_*`) | `fac_site`, `fac_space`, `fac_equipment` |
@@ -428,3 +428,7 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
   - Una propuesta no es un guardado (IA4): la persona la pone en su campo con «Usar», puede corregirla, y «Guardar» corre el guardado de siempre del formulario y la marca `accepted` en la misma transacción. Si el dato se guardó tal como se sugirió, su origen en `core_field` y `core_change` es el de la propuesta (`ai_assumption`, con la cita en `source_ref`); si la persona lo corrigió, es `user`. «Descartar» la marca `rejected` y no cambia nada más.
   - `source_ref` del Capturista: `{"from":"chat","quote":"…"}`, las palabras de la persona de donde salió.
 - **0023 `manual_fts`, `manual_index`:** el índice de búsqueda del manual del programa (`docs/manual/`), sin acentos (`unicode61 remove_diacritics 2`). `manual_index` guarda la huella del texto del manual; el índice se rehace solo cuando cambia.
+- **0028 `core_record`:** el expediente de la institución (ADR-033 §5). Una fila por documento: su tipo (`core::institution::catalog::RECORD_TYPES`, u `other` con `custom_name`), `status` (`have`, `in_progress`, `missing`, `not_applicable`), fechas de emisión y de vigencia, folio (`reference`, nunca a la IA), notas, `origin`, confirmación y `site_id` opcional para varias sedes.
+  - Un tipo sin fila está «Falta»; hay a lo más una fila por tipo y sede, y tantas `other` como la institución nombre.
+  - `document_id` apunta al texto limpio del archivo (`document`, `kind = 'internal'`, una parte por página). Del original solo se guardan `original_path` y `original_name`, nunca su contenido (principio 6).
+  - Cada cambio deja en `core_change` una línea `institution.record` sin valor.

@@ -32,9 +32,35 @@ pub fn years_between(from: &str, to: &str) -> Option<i64> {
     Some(years)
 }
 
+/// Days from `from` to `to` (both `YYYY-MM-DD`); negative when `to` comes first.
+pub fn days_between(from: &str, to: &str) -> Option<i64> {
+    // the days of a civil date since a fixed day (H. Hinnant, «chrono-compatible low-level date algorithms»)
+    fn days(s: &str) -> Option<i64> {
+        if !date_is_valid(s) {
+            return None;
+        }
+        let (y, m, d) = (s[..4].parse::<i64>().ok()?, s[5..7].parse::<i64>().ok()?, s[8..].parse::<i64>().ok()?);
+        let y = if m <= 2 { y - 1 } else { y };
+        let era = y.div_euclid(400);
+        let yoe = y - era * 400;
+        let doy = (153 * ((m + 9) % 12) + 2) / 5 + d - 1;
+        Some(era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy)
+    }
+    Some(days(to)? - days(from)?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn days_between_two_dates() {
+        assert_eq!(days_between("2026-10-10", "2026-11-09"), Some(30));
+        assert_eq!(days_between("2026-10-10", "2026-10-09"), Some(-1));
+        assert_eq!(days_between("2028-02-28", "2028-03-01"), Some(2), "a leap year");
+        assert_eq!(days_between("2026-12-31", "2027-01-01"), Some(1));
+        assert_eq!(days_between("2026-02-30", "2026-03-01"), None);
+    }
+
 
     #[test]
     fn real_dates_and_whole_years() {

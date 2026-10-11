@@ -42,6 +42,7 @@ async-trait = "0.1.92"
 jsonschema = "0.58.3"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time"] }
 argon2 = "0.6.0"
+tauri-plugin-dialog = "2.8.2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

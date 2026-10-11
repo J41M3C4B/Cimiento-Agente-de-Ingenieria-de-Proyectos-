@@ -12,6 +12,10 @@ import type {
   AnswerOutcome,
   AppError,
   AssistantAsk,
+  AttachOutcome,
+  Expediente,
+  RecordForm,
+  RecordOutcome,
   CaptureAsk,
   CaptureOutcome,
   AssistantOutcome,
@@ -81,6 +85,15 @@ export const formGet = (id: string) => invoke<FormView>("form_get", { id });
 // `used`: the suggestions of the AI the person put in their fields (IA4)
 export const formSave = (id: string, values: FormValues, decision?: Decision, used: string[] = []) =>
   invoke<SaveProfileOutcome>("form_save", { id, values, decision: decision ?? null, used });
+// The record of the institution (ADR-033 §5)
+export const institutionRecords = () => invoke<Expediente>("institution_records");
+export const institutionRecordForm = (kind: string, id: string | null) => invoke<RecordForm>("institution_record_form", { kind, id });
+export const institutionRecordSave = (kind: string, id: string | null, values: FormValues, decision?: Decision) =>
+  invoke<RecordOutcome>("institution_record_save", { kind, id, values, decision: decision ?? null });
+export const institutionRecordAttach = (kind: string, id: string | null, path: string, decision?: Decision) =>
+  invoke<AttachOutcome>("institution_record_attach", { kind, id, path, decision: decision ?? null });
+export const institutionRecordDetach = (id: string) => invoke<Expediente>("institution_record_detach", { id });
+export const institutionRecordOpen = (id: string) => invoke<boolean>("institution_record_open", { id });
 // The board and the bank accounts of the institution (ADR-033 §3)
 export const institutionLists = () => invoke<InstitutionLists>("institution_lists");
 export const institutionListForm = (kind: ListKind, id: string | null) => invoke<ListForm>("institution_list_form", { kind, id });

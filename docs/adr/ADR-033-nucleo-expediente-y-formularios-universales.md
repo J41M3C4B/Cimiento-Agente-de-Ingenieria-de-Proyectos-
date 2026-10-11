@@ -76,6 +76,12 @@ Como en `docs/14-auditoria-nucleo.md` §4: `core_record` con un catálogo de tip
 - **Qué tipos le tocan a cada institución** lo decide Rust según la figura jurídica y el perfil de atención.
 - **Del documento al dato:** el Lector propone (ADR-034) y la persona confirma.
 - **Las reglas de obligaciones y vencimientos por Junta o por el SAT quedan para después** (decisión 5). Por ahora, solo la vigencia escrita en cada documento.
+- *Precisiones al aplicarlo (N4, 2026-10-10, decisiones de la institución):*
+  - el expediente vive en «Mi institución»; Documentos sigue mostrando todos los archivos;
+  - del archivo se guarda el texto limpio y dónde está el original en la computadora («Abrir el original»), nunca una copia del archivo (principio 6);
+  - los 18 tipos de la auditoría (§4.1) más los que la institución nombre;
+  - «por vencer» es 30 días o menos antes de la fecha escrita;
+  - el conteo del expediente va aparte del porcentaje de «Mi institución».
 
 ### 6. Preparado para varias sedes, sin construirlo
 

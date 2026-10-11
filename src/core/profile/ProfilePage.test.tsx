@@ -7,6 +7,7 @@ vi.mock("../../lib/tauri", () => ({
   profileGet: vi.fn(async () => null),
   institutionOverview: vi.fn(() => new Promise(() => {})),
   institutionLists: vi.fn(async () => ({ board: [], accounts: [] })),
+  institutionRecords: vi.fn(() => new Promise(() => {})),
   devLoadFixture: vi.fn(),
   toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
 }));

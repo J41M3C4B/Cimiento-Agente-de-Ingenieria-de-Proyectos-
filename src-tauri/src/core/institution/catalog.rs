@@ -66,6 +66,54 @@ pub const BOARD_ROLES: &[&str] = &["president", "vice_president", "secretary", "
 /// What a bank account of the institution is used for: receiving donations, paying for its operation.
 pub const BANK_PURPOSES: &[&str] = &["donations", "operations"];
 
+// ------------------------------------------------------------------ the record of the institution (ADR-033 §5)
+
+/// The state of a document of the record: the institution has it, it is in process, it is missing, or it does not
+/// apply. The file is optional: having it without uploading it counts.
+pub const RECORD_STATUSES: &[&str] = &["have", "in_progress", "missing", "not_applicable"];
+
+/// When a type of document applies to an institution, from what it says of itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Applies {
+    Always,
+    /// An authorized donee, or one in process (`authorized_donee`).
+    Donee,
+    /// With the CLUNI, or in process (`cluni`).
+    Cluni,
+    /// Watched over by a Junta de Asistencia (o Beneficencia) Privada (`UNDER_A_JUNTA`).
+    Junta,
+    /// It serves girls, boys or teenagers (the Registro Nacional de Centros de Asistencia Social).
+    Minors,
+    /// People live or spend the day there (the sanitary notice).
+    Housing,
+}
+
+/// The documents of the record, in the order the screen lists them, and when each one applies (audit §4.1). A
+/// document the institution names itself is an `other`, which is not listed here.
+pub const RECORD_TYPES: &[(&str, Applies)] = &[
+    ("articles_of_incorporation", Applies::Always),
+    ("bylaws_amendments", Applies::Always),
+    ("power_of_attorney", Applies::Always),
+    ("tax_status_certificate", Applies::Always),
+    ("tax_compliance_opinion", Applies::Always),
+    ("donee_authorization", Applies::Donee),
+    ("cluni_certificate", Applies::Cluni),
+    ("junta_registration", Applies::Junta),
+    ("social_care_registry", Applies::Minors),
+    ("sanitary_notice", Applies::Housing),
+    ("land_use_license", Applies::Always),
+    ("civil_protection_program", Applies::Always),
+    ("privacy_notice", Applies::Always),
+    ("internal_rules", Applies::Always),
+    ("org_chart", Applies::Always),
+    ("financial_statements", Applies::Always),
+    ("annual_report", Applies::Always),
+    ("junta_budget", Applies::Junta),
+];
+
+/// A document the institution names itself.
+pub const RECORD_OTHER: &str = "other";
+
 pub fn state_name(code: &str) -> Option<&'static str> {
     STATES.iter().find(|(c, _)| *c == code).map(|(_, n)| *n)
 }

@@ -106,5 +106,42 @@
       ],
       "institution.bank.in_documents": true
     }
+  ],
+  "records": [
+    {
+      "type": "articles_of_incorporation",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "1995-09-04"
+      }
+    },
+    {
+      "type": "power_of_attorney",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "2023-02-14"
+      }
+    },
+    {
+      "type": "tax_status_certificate",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "2026-07-15"
+      }
+    },
+    {
+      "type": "social_care_registry",
+      "values": {
+        "institution.record.status": "in_progress",
+        "institution.record.reference": "RNCAS-EJEMPLO-TRAMITE"
+      }
+    },
+    {
+      "type": "privacy_notice",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "2025-01-10"
+      }
+    }
   ]
 }

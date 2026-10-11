@@ -32,6 +32,12 @@ pub struct Figures {
     pub percent: u32,
     /// People in the board today.
     pub board: i64,
+    /// The documents of the record that apply, but the ones marked as not applying (N4).
+    #[serde(default)]
+    pub records_expected: i64,
+    /// Of those, the ones the institution has and are not expired: «expediente vigente».
+    #[serde(default)]
+    pub records_current: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -60,6 +66,7 @@ pub fn figures(conn: &Connection) -> Result<Option<Figures>, ServiceError> {
     let fac = crate::modules::facilities::api::indicators(conn)?;
     let s = fac.spaces_states;
     let (Figure { value: people, approx: people_approx }, Figure { value: staff, approx: staff_approx }) = (o.people, o.staff);
+    let records = crate::core::records::expediente(conn)?.summary;
     Ok(Some(Figures {
         people,
         people_approx,
@@ -76,6 +83,8 @@ pub fn figures(conn: &Connection) -> Result<Option<Figures>, ServiceError> {
         balance: balance_word(o.balance_annual_mxn),
         percent: o.completion.percent,
         board: crate::core::protected::ai_board(conn)?.total as i64,
+        records_expected: records.expected as i64,
+        records_current: records.current() as i64,
     }))
 }
 
@@ -198,5 +207,25 @@ mod tests {
         take(&c).unwrap();
         let raw: String = c.query_row("SELECT figures_json FROM core_snapshot", [], |r| r.get(0)).unwrap();
         assert!(!raw.contains("Ficticia") && raw.contains("\"board\":1"), "{raw}");
+    }
+
+    /// «Expediente vigente» (N4): how many documents apply and how many it has, not expired. A photo taken before
+    /// the record existed still reads.
+    #[test]
+    fn the_photo_counts_the_record_and_older_photos_still_read() {
+        let (_d, mut c) = conn();
+        institution(&mut c, 12);
+        let have = serde_json::json!({ "institution.record.status": "have" });
+        crate::core::records::save(&mut c, "articles_of_incorporation", None, serde_json::from_value(have).unwrap(), None).unwrap();
+        take(&c).unwrap();
+        let f = of_month(&c, &this_month(&c).unwrap()).unwrap().unwrap().figures;
+        let summary = crate::core::records::expediente(&c).unwrap().summary;
+        assert!(summary.expected > 12, "an elderly home also needs its sanitary notice");
+        assert_eq!((f.records_expected, f.records_current), (summary.expected as i64, 1));
+
+        let mut old = serde_json::to_value(&f).unwrap();
+        old.as_object_mut().unwrap().retain(|k, _| !k.starts_with("records_"));
+        let read: Figures = serde_json::from_value(old).unwrap();
+        assert_eq!((read.records_expected, read.records_current), (0, 0));
     }
 }

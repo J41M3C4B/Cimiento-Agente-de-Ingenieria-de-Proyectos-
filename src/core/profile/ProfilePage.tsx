@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/icons";
 import { Alert, Button, Card, Eyebrow, FactRow, Facts, IconButton, Inset, ListRow, Status, TextButton, Toast } from "../../components/ui";
 import type { Page } from "../../components/Shell";
@@ -7,11 +7,13 @@ import { ModuleCard } from "../../components/ModuleCard";
 import type { ModuleId } from "../../components/modules";
 import { es } from "../../i18n/es-MX";
 import { devLoadFixture, profileGet, toAppError } from "../../lib/tauri";
-import type { BankAccount, BoardMember, FormValue, ListKind } from "../../lib/types";
+import type { BankAccount, BoardMember, FormValue, InstitutionRecord, ListKind } from "../../lib/types";
 import { CapacityCard } from "./CapacityCard";
 import { FormWindow } from "./FormWindow";
 import { LISTS_KEY, ListWindow, useInstitutionLists } from "./ListWindow";
 import type { ListRowRef } from "./ListWindow";
+import { RECORDS_KEY, RecordWindow, recordTitle, useRecords } from "./RecordWindow";
+import type { RecordRef } from "./RecordWindow";
 import { fromOverview, OVERVIEW_KEY, useOverview } from "./gaps";
 import type { Where } from "./gaps";
 import { FINANCE_KEY } from "../../modules/finance/api";
@@ -47,6 +49,29 @@ const memberDetail = (m: BoardMember) =>
 
 /** An account in a line: what it is for and whether it goes in the documents. */
 const accountDetail = (a: BankAccount) => [codesText("institution.bank.purpose", a.purpose), a.in_documents ? t.lists.inDocuments : t.lists.notInDocuments].filter(Boolean).join(" · ");
+
+/** A document of the record in a line: until when it is valid (or since when it is not) and its file. */
+const recordDetail = (r: InstitutionRecord) =>
+  [
+    r.validity === "expired" && r.valid_until
+      ? t.records.expiredOn(dateText(r.valid_until))
+      : r.validity === "expiring" && r.days_left !== null
+        ? t.records.expiresIn(r.days_left)
+        : r.validity === "valid" && r.valid_until
+          ? t.records.validUntil(dateText(r.valid_until))
+          : null,
+    r.file && (r.file.readable ? r.file.name : `${r.file.name}, ${t.records.noText}`),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+/** The state of a document, told with its words: what the institution has is also said expiring or expired. */
+function RecordState({ r }: { r: InstitutionRecord }) {
+  if (r.status === "have" && r.validity === "expired") return <Status kind="error">{t.records.stateExpired}</Status>;
+  if (r.status === "have" && r.validity === "expiring") return <Status kind="warn">{t.records.stateExpiring}</Status>;
+  const kind = r.status === "have" ? "ok" : r.status === "in_progress" ? "pending" : "idle";
+  return <Status kind={kind}>{t.records.status[r.status]}</Status>;
+}
 
 /** A datum kept by the catalog, in words: a code by its label, a date as people write it. Empty is `null`. */
 function detailText(details: Record<string, FormValue> | null | undefined, field: string): string | null {
@@ -84,6 +109,11 @@ export function ProfilePage({
   // the board and the accounts of the institution (ADR-033 §3): never to the AI
   const lists = useInstitutionLists();
   const [list, setList] = useState<{ kind: ListKind; row: ListRowRef } | null>(null);
+  // the record of the institution (ADR-033 §5): what it must have, with its state
+  const records = useRecords();
+  const [record, setRecord] = useState<RecordRef | null>(null);
+  const recordsPart = useRef<HTMLDivElement>(null);
+  const [toRecords, setToRecords] = useState(0);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
@@ -108,6 +138,7 @@ export function ProfilePage({
       await qc.invalidateQueries({ queryKey: FINANCE_KEY });
       await qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
       await qc.invalidateQueries({ queryKey: LISTS_KEY });
+      await qc.invalidateQueries({ queryKey: RECORDS_KEY });
     } catch (e) {
       setToast({ tone: "error", text: toAppError(e).message });
     } finally {
@@ -137,7 +168,21 @@ export function ProfilePage({
   // what is still missing, each one leading to where it is filled in (Rust says what the data still need)
   const { ready: gapsReady, gaps } = fromOverview(overview.data);
   const goTo = (w: Where) =>
-    w === "board" ? setList({ kind: "board_member", row: null }) : w === "institution" || w === "contact" || w === "legal" || w === "capacity" ? open({ kind: w }) : onGo(w);
+    w === "records"
+      ? setToRecords((n) => n + 1)
+      : w === "board"
+        ? setList({ kind: "board_member", row: null })
+        : w === "institution" || w === "contact" || w === "legal" || w === "capacity"
+          ? open({ kind: w })
+          : onGo(w);
+
+  // the Assistant sent the person to the record: it is brought into view once it is drawn. In braces: a WebView2
+  // returns a promise from scrollIntoView, and an effect must not return it
+  useEffect(() => {
+    if (toRecords === 0 || !recordsPart.current) return;
+    recordsPart.current.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    setToRecords(0);
+  }, [toRecords, records.data]);
 
   // the Assistant sent the person to a window: it opens once per request
   useEffect(() => {
@@ -356,6 +401,41 @@ export function ProfilePage({
 
             <CapacityCard view={view} onEdit={() => open({ kind: "capacity" })} />
           </div>
+
+          <div ref={recordsPart} className="scroll-mt-4">
+            <Card>
+              <FactRow
+                title={t.records.title}
+                note={t.records.intro}
+                action={<TextButton onClick={() => setRecord({ type: "other", id: null })}>{t.records.addOther}</TextButton>}
+              >
+                {records.data && (
+                  <p className="mb-2 text-ui font-semibold">
+                    {[
+                      t.records.count(records.data.summary.have, records.data.summary.expected),
+                      records.data.summary.in_progress > 0 && t.records.inProgress(records.data.summary.in_progress),
+                      records.data.summary.expiring > 0 && t.records.expiring(records.data.summary.expiring),
+                      records.data.summary.expired > 0 && t.records.expired(records.data.summary.expired),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+                {records.isError && <Alert tone="error">{toAppError(records.error).message}</Alert>}
+                <ul className="-mx-2">
+                  {records.data?.records.map((r) => (
+                    <ListRow
+                      key={r.id ?? r.type}
+                      title={recordTitle(r)}
+                      detail={recordDetail(r) || undefined}
+                      state={<RecordState r={r} />}
+                      actions={<IconButton icon="pencil" label={t.edit} variant="plain" size="sm" onClick={() => setRecord({ type: r.type, id: r.id, custom_name: r.custom_name })} />}
+                    />
+                  ))}
+                </ul>
+              </FactRow>
+            </Card>
+          </div>
         </>
       )}
 
@@ -379,6 +459,8 @@ export function ProfilePage({
           onClose={() => setEdit(null)}
         />
       )}
+
+      {record && <RecordWindow record={record} onDone={(text) => setToast({ tone: "ok", text })} onClose={() => setRecord(null)} />}
 
       {list && <ListWindow kind={list.kind} row={list.row} onDone={(text) => setToast({ tone: "ok", text })} onClose={() => setList(null)} />}
 

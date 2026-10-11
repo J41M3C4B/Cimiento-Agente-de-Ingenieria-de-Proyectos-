@@ -109,6 +109,46 @@ export interface FieldOrigin {
 }
 // The board and the bank accounts of the institution (ADR-033 §3, core/protected): never to the AI.
 export type ListKind = "board_member" | "bank_account";
+// The record of the institution (ADR-033 §5, core/records): what it must have, with its state.
+export type RecordStatus = "have" | "in_progress" | "missing" | "not_applicable";
+export interface RecordFile {
+  name: string;
+  /** false: a scan or a photo, with no text to read */
+  readable: boolean;
+}
+export interface InstitutionRecord {
+  /** null while nothing was written of it */
+  id: string | null;
+  /** a type of the catalog, or `other` */
+  type: string;
+  custom_name: string | null;
+  status: RecordStatus;
+  issued_on: string | null;
+  valid_until: string | null;
+  validity: "valid" | "expiring" | "expired" | null;
+  days_left: number | null;
+  file: RecordFile | null;
+  origin: string | null;
+  confirmed_at: string | null;
+}
+export interface Expediente {
+  records: InstitutionRecord[];
+  summary: { expected: number; have: number; in_progress: number; missing: number; expiring: number; expired: number };
+}
+export interface RecordForm {
+  spec: FormSpec;
+  values: FormValues;
+  missing: string[];
+  file: RecordFile | null;
+}
+export type RecordOutcome =
+  | { status: "saved"; id: string; expediente: Expediente }
+  | { status: "invalid"; issues: ProfileIssue[] }
+  | { status: "quarantine"; report: QuarantineReport };
+export type AttachOutcome =
+  | { status: "attached"; id: string; readable: boolean; expediente: Expediente }
+  | { status: "quarantine"; report: QuarantineReport }
+  | { status: "unreadable"; reason: string };
 export interface BoardMember {
   id: string;
   name: string;

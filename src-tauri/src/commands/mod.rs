@@ -10,6 +10,7 @@ pub mod facilities;
 pub mod finance;
 pub mod hr;
 pub mod institution;
+pub mod records;
 pub mod onboarding;
 pub mod security;
 

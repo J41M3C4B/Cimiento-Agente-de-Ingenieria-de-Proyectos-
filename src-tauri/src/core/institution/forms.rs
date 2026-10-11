@@ -2,8 +2,8 @@
 //! screen draws them; the words live in `src/i18n/es-MX.ts` under `forms.fields` with the same id.
 
 use super::catalog::{
-    BANK_PURPOSES, BOARD_ROLES, CARE_AREAS, DONEE_CATEGORIES, LEGAL_FORMS, MAX_ESTIMATE, MODALITIES, OLDEST_YEAR, POPULATIONS, REGISTRY, SEXES_SERVED, STATE_CODES,
-    TAX_REGIMES, UNDER_A_JUNTA,
+    BANK_PURPOSES, BOARD_ROLES, CARE_AREAS, DONEE_CATEGORIES, LEGAL_FORMS, MAX_ESTIMATE, MODALITIES, OLDEST_YEAR, POPULATIONS, RECORD_STATUSES, REGISTRY, SEXES_SERVED,
+    STATE_CODES, TAX_REGIMES, UNDER_A_JUNTA,
 };
 use crate::common::forms::{AiUse, Condition, FieldKind, FieldSpec, FormSpec, Rule, SectionSpec, Sensitivity};
 
@@ -235,8 +235,45 @@ pub const BANK_ACCOUNT: FormSpec = FormSpec { id: "institution.bank_account", se
 /// The same account once it is saved: its CLABE is no longer asked (`BANK_CLABE`).
 pub const BANK_ACCOUNT_SAVED: FormSpec = FormSpec { id: "institution.bank_account", sections: &[BANK_USE] };
 
+/// What applies once the institution has the document.
+const HAS_IT: Condition = Condition::AnyOf { field: "institution.record.status", values: &["have"] };
+/// What applies while it is in process or once it has it.
+const UNDER_WAY: Condition = Condition::AnyOf { field: "institution.record.status", values: &["have", "in_progress"] };
+
+const RECORD_NAME: SectionSpec = SectionSpec {
+    id: "record_name",
+    columns: 1,
+    fields: &[internal(FieldSpec::new("institution.record.custom_name", FieldKind::Text)).required().used_by(&["projects", "ai"])],
+};
+const RECORD_STATE: SectionSpec = SectionSpec {
+    id: "record_state",
+    columns: 1,
+    fields: &[internal(FieldSpec::new("institution.record.status", FieldKind::Select)).options(RECORD_STATUSES).required().used_by(&["projects", "ai"])],
+};
+const RECORD_DATES: SectionSpec = SectionSpec {
+    id: "record_dates",
+    columns: 2,
+    fields: &[
+        internal(FieldSpec::new("institution.record.issued_on", FieldKind::Date)).when(HAS_IT).used_by(&["projects", "ai"]),
+        internal(FieldSpec::new("institution.record.valid_until", FieldKind::Date)).when(HAS_IT).used_by(&["projects", "ai"]),
+        private(FieldSpec::new("institution.record.reference", FieldKind::Text)).when(UNDER_WAY).used_by(&["documents"]),
+    ],
+};
+const RECORD_NOTES: SectionSpec = SectionSpec {
+    id: "record_notes",
+    columns: 1,
+    fields: &[private(FieldSpec::new("institution.record.notes", FieldKind::LongText))],
+};
+
+/// A document of the record (ADR-033 §5) the institution names itself (`other`): its name, then what every document
+/// asks.
+pub const RECORD: FormSpec = FormSpec { id: "institution.record", sections: &[RECORD_NAME, RECORD_STATE, RECORD_DATES, RECORD_NOTES] };
+
+/// A document of a type of the catalog: its name comes from the type.
+pub const RECORD_KNOWN: FormSpec = FormSpec { id: "institution.record", sections: &[RECORD_STATE, RECORD_DATES, RECORD_NOTES] };
+
 /// The forms of the lists, one row each: they do not belong to the profile, so they are kept apart from `FORMS`.
-pub const LIST_FORMS: &[&FormSpec] = &[&BOARD_MEMBER, &BANK_ACCOUNT];
+pub const LIST_FORMS: &[&FormSpec] = &[&BOARD_MEMBER, &BANK_ACCOUNT, &RECORD];
 
 /// A field of any form of the core, of the profile or of its lists.
 pub fn field(id: &str) -> Option<&'static FieldSpec> {
@@ -285,12 +322,14 @@ mod tests {
         assert!(field("institution.board.name").is_some() && field("institution.legal_rfc").is_some() && field("nope").is_none());
         // the saved account asks the same, but its CLABE
         assert!(BANK_ACCOUNT_SAVED.fields().all(|f| BANK_ACCOUNT.field(f.id) == Some(f)) && BANK_ACCOUNT_SAVED.field("institution.bank.clabe").is_none());
+        // a document of the catalog asks the same as one the institution names, but its name
+        assert!(RECORD_KNOWN.fields().all(|f| RECORD.field(f.id) == Some(f)) && RECORD_KNOWN.field("institution.record.custom_name").is_none());
     }
 
     /// ADR-033 §3: of the board only the roles reach the AI (counted); the names, the CLABE and the rest never.
     #[test]
     fn of_the_board_and_the_accounts_only_the_roles_reach_the_ai() {
-        for f in LIST_FORMS.iter().flat_map(|f| f.fields()) {
+        for f in [&BOARD_MEMBER, &BANK_ACCOUNT].iter().flat_map(|f| f.fields()) {
             if f.id == "institution.board.role" {
                 assert_eq!((f.sensitivity, f.ai), (Sensitivity::Internal, AiUse::AsIs));
             } else {

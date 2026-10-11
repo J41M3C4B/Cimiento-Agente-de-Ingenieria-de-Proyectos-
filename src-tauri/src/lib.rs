@@ -22,6 +22,8 @@ pub struct Db(pub Arc<Mutex<rusqlite::Connection>>);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // the native window to choose a file: the record keeps where its original is (N4)
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             #[allow(unused_mut)]
             let mut dir = app.path().app_data_dir()?;
@@ -73,6 +75,12 @@ pub fn run() {
             commands::institution::institution_list_save,
             commands::institution::institution_list_set_active,
             commands::institution::institution_list_delete,
+            commands::records::institution_records,
+            commands::records::institution_record_form,
+            commands::records::institution_record_save,
+            commands::records::institution_record_attach,
+            commands::records::institution_record_detach,
+            commands::records::institution_record_open,
             commands::institution::institution_clabe_reveal,
             commands::manual_entry,
             commands::assistant::assistant_ask,

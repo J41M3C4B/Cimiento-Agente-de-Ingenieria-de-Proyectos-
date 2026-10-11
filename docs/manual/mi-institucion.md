@@ -282,3 +282,122 @@ Para qué sirve: mientras no registre a su personal, el programa usa esta cifra 
 
 Qué poner: lo que quiera que se sepa de la institución y no tenga otro lugar. No escriba nombres de personas.
 Para qué sirve: la ayuda automática las lee junto con los demás datos al preparar un proyecto.
+
+# Expediente {#institution.record}
+
+En «Mi institución», el expediente es la lista de los documentos que la institución debe tener, cada uno con su estado: «Lo tenemos», «En trámite», «Falta» o «No aplica».
+No hace falta subir el archivo para marcarlo: «lo tenemos, pero no lo hemos subido» también sirve. El programa decide qué documentos le tocan según lo que usted dijo de la institución; si tiene otro que no está en la lista, agréguelo con «Agregar otro documento».
+Si sube el archivo (PDF, Word o una foto), el programa guarda su texto ya revisado y recuerda dónde está el original en esta computadora para abrirlo. Si mueve o borra el original, vuelva a elegirlo.
+
+## Nombre del documento {#institution.record.custom_name}
+
+Qué poner: el nombre con el que la institución conoce el documento, por ejemplo «Convenio con el DIF». Sin nombres de personas.
+Para qué sirve: así lo encuentra en la lista y, más adelante, el programa puede decir a una convocatoria que lo tiene.
+
+## Estado {#institution.record.status}
+
+Qué poner: «Lo tenemos» si la institución tiene el documento, aunque no lo haya subido; «En trámite» si ya lo pidió; «Falta» si no lo tiene; «No aplica» si no le corresponde.
+Para qué sirve: con esto el programa cuenta cuántos documentos tiene de los que le tocan y qué le falta.
+
+## Fecha de emisión {#institution.record.issued_on}
+
+Qué poner: la fecha que trae el documento, el día en que se lo dieron o se firmó.
+Para qué sirve: algunas convocatorias piden documentos recientes; con la fecha se sabe qué tan nuevo es.
+
+## Vigente hasta {#institution.record.valid_until}
+
+Qué poner: la fecha hasta la que vale, si el documento la trae escrita. Si no vence, déjelo vacío.
+Para qué sirve: el programa avisa un mes antes de que venza y marca el que ya venció, para que lo renueve a tiempo.
+
+## Folio o número {#institution.record.reference}
+
+Qué poner: el folio, el número de oficio o el número de trámite del documento.
+Para qué sirve: lo tiene a la mano cuando un trámite o una convocatoria lo pide. Es un dato de la institución que la ayuda automática nunca ve.
+
+## Notas {#institution.record.notes}
+
+Qué poner: lo que convenga recordar del documento, por ejemplo dónde está el original en papel. Sin nombres de personas.
+Para qué sirve: solo para la institución; la ayuda automática nunca las ve.
+
+## Acta constitutiva {#record.articles_of_incorporation}
+
+La escritura ante notario con la que se creó la institución: su nombre, a qué se dedica y quiénes la fundaron.
+La piden casi todas las convocatorias y los bancos.
+
+## Reformas a los estatutos {#record.bylaws_amendments}
+
+Las escrituras con los cambios a las reglas de la institución desde que se fundó, por ejemplo de nombre, de objeto o de su órgano de gobierno.
+Si nunca se han cambiado, márquelo «No aplica».
+
+## Poder del representante legal {#record.power_of_attorney}
+
+La escritura que da a una persona la facultad de firmar por la institución.
+Si trae la fecha hasta la que vale, escríbala para que el programa le avise antes.
+
+## Constancia de situación fiscal {#record.tax_status_certificate}
+
+El documento del SAT con el RFC, el régimen y el domicilio fiscal de la institución. Se descarga del portal del SAT.
+Muchas convocatorias la piden reciente.
+
+## Opinión de cumplimiento de obligaciones fiscales {#record.tax_compliance_opinion}
+
+El documento del SAT que dice si la institución está al corriente con sus obligaciones fiscales. Se descarga del portal del SAT.
+Las convocatorias la piden reciente: escriba la fecha hasta la que vale para que el programa le avise.
+
+## Autorización como donataria {#record.donee_authorization}
+
+El oficio o la constancia del SAT que autoriza a la institución a recibir donativos deducibles de impuestos.
+Aparece solo si la institución dijo que es donataria autorizada o que está en trámite.
+
+## Constancia de la CLUNI {#record.cluni_certificate}
+
+La constancia de inscripción en el Registro Federal de las Organizaciones de la Sociedad Civil, con su clave única.
+Aparece solo si la institución dijo que tiene la CLUNI o que está en trámite.
+
+## Registro ante la Junta {#record.junta_registration}
+
+La constancia de registro ante la Junta de Asistencia Privada, o de Beneficencia, de su estado.
+Aparece para las instituciones de asistencia o beneficencia privada (I.A.P., I.B.P. y A.B.P.).
+
+## Registro de Centros de Asistencia Social {#record.social_care_registry}
+
+La inscripción en el Registro Nacional de Centros de Asistencia Social.
+Aparece para las instituciones que reciben a niñas, niños o adolescentes.
+
+## Aviso de funcionamiento sanitario {#record.sanitary_notice}
+
+El aviso o la licencia ante la autoridad sanitaria para un lugar donde las personas viven o pasan el día.
+Aparece cuando la institución atiende con estancia de día o con personas que viven ahí.
+
+## Licencia de uso de suelo {#record.land_use_license}
+
+El permiso del municipio que dice que el inmueble puede usarse para lo que hace la institución.
+
+## Programa de protección civil {#record.civil_protection_program}
+
+El programa interno de protección civil del inmueble, aprobado por la autoridad.
+Si trae la fecha hasta la que vale, escríbala para que el programa le avise antes.
+
+## Aviso de privacidad {#record.privacy_notice}
+
+El texto que explica a las personas qué datos suyos se piden, para qué y cómo se cuidan.
+
+## Reglamento interno {#record.internal_rules}
+
+Las reglas de la vida diaria en la institución, para las personas que atiende y para el personal.
+
+## Organigrama {#record.org_chart}
+
+El dibujo de cómo se organiza la institución: qué áreas tiene y quién depende de quién.
+
+## Estados financieros {#record.financial_statements}
+
+Los estados financieros del último año y, si la institución los dictamina, su dictamen.
+
+## Informe anual {#record.annual_report}
+
+El informe de las actividades del último año.
+
+## Presupuesto ante la Junta {#record.junta_budget}
+
+El presupuesto del año que la institución presenta a la Junta de Asistencia Privada, o de Beneficencia, de su estado.

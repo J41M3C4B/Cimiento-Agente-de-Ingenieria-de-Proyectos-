@@ -21,6 +21,7 @@ pub mod onboarding;
 pub mod overview;
 pub mod profile;
 pub mod protected;
+pub mod records;
 pub mod screen;
 pub mod security;
 pub mod snapshot;

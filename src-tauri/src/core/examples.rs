@@ -1,6 +1,7 @@
 //! The fictitious institutions of `fixtures/` (development only): an asilo and a casa hogar, both I.A.P. like the
 //! institutions the app is made for (audit D8). Loading one replaces the records with the example: the institution
-//! with every datum of «Mi institución», its people, its building, its money, its board and its bank account.
+//! with every datum of «Mi institución», its people, its building, its money, its board, its bank account and part of
+//! its record (N4).
 
 use crate::core::error::ServiceError;
 use crate::core::profile::domain::ProfileInput;
@@ -33,6 +34,15 @@ struct Lists {
     board: Vec<Values>,
     #[serde(default)]
     bank_accounts: Vec<Values>,
+    /// Documents of the record (types of the catalog only: saving one again writes the same row).
+    #[serde(default)]
+    records: Vec<RecordExample>,
+}
+
+#[derive(serde::Deserialize)]
+struct RecordExample {
+    r#type: String,
+    values: Values,
 }
 
 fn bad(what: &str) -> ServiceError {
@@ -54,6 +64,11 @@ fn seed_lists(conn: &mut Connection, raw: &str) -> Result<(), ServiceError> {
             if let ListOutcome::Invalid { .. } = protected::save(conn, kind, None, values)? {
                 return Err(bad("row of a list"));
             }
+        }
+    }
+    for r in lists.records {
+        if !matches!(crate::core::records::save(conn, &r.r#type, None, r.values, None)?, crate::core::records::RecordOutcome::Saved { .. }) {
+            return Err(bad("document of the record"));
         }
     }
     Ok(())
@@ -103,6 +118,8 @@ mod tests {
             assert_eq!(o.completion.percent, 100, "{name}");
             let lists = protected::lists(&c).unwrap();
             assert!(lists.board.len() >= 4 && lists.accounts.len() == 1, "{name}");
+            let record = crate::core::records::expediente(&c).unwrap().summary;
+            assert!(record.have >= 4 && record.in_progress == 1, "{name}: {record:?}");
 
             // the AI learns it is registered before its Junta and how the board is made, never a name nor a folio
             let sheet = crate::core::ai_sheet::profile_context(&c).unwrap();
@@ -116,6 +133,7 @@ mod tests {
             let again = protected::lists(&c).unwrap();
             let names = |l: &protected::Lists| l.board.iter().map(|m| m.name.clone()).collect::<Vec<_>>();
             assert_eq!((names(&again), again.accounts.len()), (names(&lists), 1), "{name}");
+            assert_eq!(crate::core::records::expediente(&c).unwrap().summary, record, "{name}");
         }
         let (_d, mut c) = conn();
         assert!(load(&mut c, "nope").unwrap().is_none());

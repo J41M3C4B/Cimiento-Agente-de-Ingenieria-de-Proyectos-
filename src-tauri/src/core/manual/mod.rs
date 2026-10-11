@@ -188,6 +188,14 @@ mod tests {
         }
     }
 
+    /// Every document of the record says what it is (ADR-033 §5): the «?» of the expediente answers it.
+    #[test]
+    fn every_document_of_the_record_has_its_entry() {
+        for (code, _) in crate::core::institution::catalog::RECORD_TYPES {
+            assert!(entry(&format!("record.{code}")).is_some(), "the document {code} has no entry in docs/manual");
+        }
+    }
+
     /// An entry about a field that no longer exists would explain a screen that is not there.
     #[test]
     fn the_manual_has_unique_keys_and_no_entry_for_a_field_that_does_not_exist() {
@@ -195,6 +203,11 @@ mod tests {
         assert!((1..ids.len()).all(|i| !ids[..i].contains(&ids[i])), "repeated key in {ids:?}");
         for id in &ids {
             let kind = id.split('.').next().unwrap();
+            if kind == "record" {
+                let code = &id["record.".len()..];
+                assert!(crate::core::institution::catalog::RECORD_TYPES.iter().any(|(c, _)| *c == code), "the manual speaks of the document «{id}», which is not in the catalog");
+                continue;
+            }
             if !matches!(kind, "screen" | "howto") && FORMS.iter().chain(LIST_FORMS).all(|f| f.id != *id) {
                 assert!(field_spec(id).is_some(), "the manual speaks of «{id}», which is not in the catalog");
             }

@@ -8,8 +8,11 @@ export const OVERVIEW_KEY = ["institution", "overview"];
 
 export const useOverview = () => useQuery({ queryKey: OVERVIEW_KEY, queryFn: institutionOverview });
 
-/** Where a piece that is still missing gets filled in: a window of «Mi institución» or the page of a module. */
-export type Where = Place;
+/**
+ * Where a piece that is still missing gets filled in: a window of «Mi institución» or the page of a module; or the
+ * record (`records`), a part of «Mi institución» the Assistant may send the person to.
+ */
+export type Where = Place | "records";
 
 export type Gap = { code: string; text: string; where: Where };
 
