@@ -58,11 +58,12 @@ pub fn ensure_model(conn: &Connection, label: &str) -> Result<bool, StorageError
     Ok(stored.is_some())
 }
 
-/// Fragments of the documents of the institution that still have no vector, oldest first.
+/// Fragments that still have no vector, oldest first: only of the drawers the AI may read (ADR-036 §3); today the
+/// Expediente. Never Personal nor Beneficiarios.
 pub fn pending(conn: &Connection, limit: usize) -> Result<Vec<(i64, String)>, StorageError> {
     let mut stmt = conn.prepare(
         "SELECT c.rowid, c.text FROM document_chunk c JOIN document d ON d.id = c.document_id
-         WHERE d.kind <> 'call' AND d.hidden = 0 AND length(trim(c.text)) >= ?1
+         WHERE d.drawer IN ('record') AND d.hidden = 0 AND length(trim(c.text)) >= ?1
            AND c.rowid NOT IN (SELECT rowid FROM document_chunk_vec)
          ORDER BY c.rowid LIMIT ?2",
     )?;
@@ -184,7 +185,7 @@ pub async fn index_in_background(db: SharedDb) {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::core::archive::storage::{add_paged_document, emergency_delete_document, PageMarks};
+    use crate::core::archive::storage::{add_paged_document, emergency_delete_document, Drawer, PageMarks};
     use async_trait::async_trait;
     use std::sync::atomic::AtomicUsize;
     use std::sync::Mutex;
@@ -247,8 +248,8 @@ pub(crate) mod tests {
         let (_d, db) = db();
         {
             let c = db.lock().unwrap();
-            add_paged_document(&c, "internal", "Reglamento", "application/pdf", &["Las visitas son de martes a domingo.".into(), "Los medicamentos los da enfermería.".into(), "Corto".into()], 0, &PageMarks::default()).unwrap();
-            add_paged_document(&c, "call", "Convocatoria", "application/pdf", &["El monto máximo es de cien mil pesos.".into()], 0, &PageMarks::default()).unwrap();
+            add_paged_document(&c, Drawer::Record, "Reglamento", "application/pdf", &["Las visitas son de martes a domingo.".into(), "Los medicamentos los da enfermería.".into(), "Corto".into()], 0, &PageMarks::default()).unwrap();
+            add_paged_document(&c, Drawer::Projects, "Convocatoria", "application/pdf", &["El monto máximo es de cien mil pesos.".into()], 0, &PageMarks::default()).unwrap();
         }
         let e = WordsEmbedder::new();
         assert_eq!(index_pending(&db, &e).await.unwrap(), 2, "two pages; the short one and the call get none");
@@ -265,7 +266,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn a_new_model_makes_them_again_and_a_failure_or_the_cap_ask_nothing_more() {
         let (_d, db) = db();
-        add_paged_document(&db.lock().unwrap(), "internal", "Acta", "application/pdf", &["El patronato sesiona cada tres meses.".into()], 0, &PageMarks::default()).unwrap();
+        add_paged_document(&db.lock().unwrap(), Drawer::Record, "Acta", "application/pdf", &["El patronato sesiona cada tres meses.".into()], 0, &PageMarks::default()).unwrap();
         let offline = WordsEmbedder { fail: true, ..WordsEmbedder::new() };
         assert_eq!(index_pending(&db, &offline).await.unwrap(), 0);
         assert_eq!(q(&db, "SELECT count(*) FROM ai_usage WHERE task = 'embed.records' AND success = 0"), 1, "the failure is written down too");
@@ -274,7 +275,7 @@ pub(crate) mod tests {
         assert_eq!(index_pending(&db, &other).await.unwrap(), 1, "made again with the new model");
         assert_eq!(q(&db, "SELECT count(*) FROM document_chunk_vec"), 1);
 
-        add_paged_document(&db.lock().unwrap(), "internal", "Informe", "application/pdf", &["Atendimos a cuarenta y ocho personas.".into()], 0, &PageMarks::default()).unwrap();
+        add_paged_document(&db.lock().unwrap(), Drawer::Record, "Informe", "application/pdf", &["Atendimos a cuarenta y ocho personas.".into()], 0, &PageMarks::default()).unwrap();
         let capped = {
             let c = db.lock().unwrap();
             let mut s = settings::load(&c).unwrap();
@@ -290,7 +291,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn a_backup_carries_the_vectors() {
         let (dir, db) = db();
-        add_paged_document(&db.lock().unwrap(), "internal", "Acta", "application/pdf", &["El patronato sesiona cada tres meses.".into()], 0, &PageMarks::default()).unwrap();
+        add_paged_document(&db.lock().unwrap(), Drawer::Record, "Acta", "application/pdf", &["El patronato sesiona cada tres meses.".into()], 0, &PageMarks::default()).unwrap();
         index_pending(&db, &WordsEmbedder::new()).await.unwrap();
         let copy = dir.path().join("respaldo.cim");
         crate::storage::backup::create(&db.lock().unwrap(), &copy, "una clave larga").unwrap();
@@ -298,7 +299,7 @@ pub(crate) mod tests {
         crate::storage::backup::restore_to(&copy, "una clave larga", &restored, KEY).unwrap();
         let r = crate::storage::open_encrypted(&restored, KEY).unwrap();
         assert!(any(&r).unwrap());
-        let found = crate::core::archive::search::by_meaning(&r, &words_vector("¿Cada cuánto sesiona el patronato?"), 3).unwrap();
+        let found = crate::core::archive::search::by_meaning(&r, Drawer::Record, &words_vector("¿Cada cuánto sesiona el patronato?"), 3).unwrap();
         assert_eq!(found.len(), 1);
         assert_eq!(pending(&r, 10).unwrap().len(), 0, "nothing to make again");
     }
@@ -307,7 +308,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn deleting_a_document_takes_its_vectors() {
         let (_d, db) = db();
-        let id = add_paged_document(&db.lock().unwrap(), "internal", "Poder", "application/pdf", &["Poder general para actos de administración.".into()], 0, &PageMarks::default()).unwrap();
+        let id = add_paged_document(&db.lock().unwrap(), Drawer::Record, "Poder", "application/pdf", &["Poder general para actos de administración.".into()], 0, &PageMarks::default()).unwrap();
         index_pending(&db, &WordsEmbedder::new()).await.unwrap();
         assert_eq!(q(&db, "SELECT count(*) FROM document_chunk_vec"), 1);
         emergency_delete_document(&mut db.lock().unwrap(), &id).unwrap();

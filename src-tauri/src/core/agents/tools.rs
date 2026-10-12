@@ -97,7 +97,7 @@ impl Tool for DocumentsSearch {
     async fn run(&self, args: &Value) -> Result<Value, ToolError> {
         self.0.allowed()?;
         let query = args["query"].as_str().unwrap_or_default();
-        let found = search::search_documents(&self.0.db, self.0.reach.embedder.clone(), query, DOCUMENT_PASSAGES, PASSAGE_CHARS)
+        let found = search::search_documents(&self.0.db, self.0.reach.embedder.clone(), crate::core::archive::storage::Drawer::Record, query, DOCUMENT_PASSAGES, PASSAGE_CHARS)
             .await
             .map_err(|_| ToolError::BadArgs("query".into()))?;
         let passages: Vec<Value> = found

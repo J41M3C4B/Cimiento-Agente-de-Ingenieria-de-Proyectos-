@@ -147,7 +147,7 @@ fn a_file_is_read_and_only_its_clean_text_and_where_it_is_are_kept() {
     let r = expediente.records.iter().find(|r| r.kind == "articles_of_incorporation").unwrap();
     let file = RecordFile { name: "convocatoria-con-tablas.pdf".into(), readable: true, from_picture: false, doubtful: vec![] };
     assert_eq!((r.status.as_str(), r.file.clone()), ("have", Some(file)));
-    let docs = crate::core::archive::storage::list_institution(&c).unwrap();
+    let docs = crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap();
     assert_eq!((docs.len(), docs[0].kind.as_str(), docs[0].display_name.as_str()), (1, "internal", "convocatoria-con-tablas.pdf"));
     assert!(docs[0].chunks > 1, "one fragment per page");
     let blob: Option<Vec<u8>> = c.query_row("SELECT blob FROM document", [], |r| r.get(0)).unwrap();
@@ -161,19 +161,19 @@ fn a_file_is_read_and_only_its_clean_text_and_where_it_is_are_kept() {
     assert_eq!((readable, from_picture, doubtful), (true, true, vec![2]));
     let r = expediente.records.iter().find(|r| r.kind == "bylaws_amendments").unwrap();
     assert_eq!(r.file.as_ref().map(|f| (f.from_picture, f.doubtful.clone())), Some((true, vec![2])));
-    assert_eq!(crate::core::archive::storage::list_institution(&c).unwrap().len(), 2);
+    assert_eq!(crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap().len(), 2);
 
     // a picture with no text to read: of it, only where it is
     let blank = dir.path().join("en-blanco.png");
     std::fs::write(&blank, [1, 2, 3]).unwrap();
     let AttachOutcome::Attached { readable, .. } = attach(&mut c, "tax_status_certificate", None, &blank, None).unwrap() else { panic!() };
     assert!(!readable, "a picture with no text has nothing to read");
-    assert_eq!(crate::core::archive::storage::list_institution(&c).unwrap().len(), 2, "nothing to keep of it but where it is");
+    assert_eq!(crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap().len(), 2, "nothing to keep of it but where it is");
 
-    // taking the file off: the clean text stays in Documentos; once the original is gone it is not opened
+    // taking the file off: its clean text leaves the drawer too (ADR-036); once the original is gone it is not opened
     let e = detach(&mut c, &id).unwrap();
     assert!(e.records.iter().find(|r| r.kind == "articles_of_incorporation").unwrap().file.is_none());
-    assert_eq!(crate::core::archive::storage::list_institution(&c).unwrap().len(), 2);
+    assert_eq!(crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap().len(), 1);
     let scan_id = store::by_type(&c, "tax_status_certificate").unwrap().unwrap().id;
     std::fs::remove_file(&blank).unwrap();
     assert_eq!(original(&c, &scan_id).unwrap(), None);
@@ -200,7 +200,7 @@ fn what_cannot_be_taken_says_why_and_a_word_file_goes_through_the_scanner() {
     let word = dir.path().join("aviso.docx");
     std::fs::write(&word, crate::documents::docx::build(&blocks, "Aviso", "Casa Ficticia", "2026-10-10T00:00:00Z").unwrap()).unwrap();
     assert!(matches!(attach(&mut c, "privacy_notice", None, &word, None).unwrap(), AttachOutcome::Quarantine { .. }));
-    assert!(store::rows(&c).unwrap().is_empty() && crate::core::archive::storage::list_institution(&c).unwrap().is_empty());
+    assert!(store::rows(&c).unwrap().is_empty() && crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap().is_empty());
     let AttachOutcome::Attached { readable, .. } = attach(&mut c, "privacy_notice", None, &word, Some(Decision::Redact)).unwrap() else { panic!() };
     assert!(readable);
     let text: String = c.query_row("SELECT extracted_text FROM document", [], |r| r.get(0)).unwrap();

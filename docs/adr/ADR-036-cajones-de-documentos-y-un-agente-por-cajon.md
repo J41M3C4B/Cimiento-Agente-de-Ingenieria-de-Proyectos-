@@ -138,6 +138,8 @@ Decisión de la institución: «si el barato lo puede hacer, entonces un modelo 
 
 El núcleo se usa para fijar la forma de trabajar: el cajón, el agente del cajón, su batería de referencia con el modelo más barato y la prueba de la institución. Cada módulo la repite después tal cual. Mientras tanto, la bandeja solo ofrece el cajón del Expediente; los demás aparecen con su módulo.
 
+**Los módulos se tratan como si no existieran** (nota de la institución, 2026-10-12, `notas/C1_NOTAS`): el proyecto, por ahora, es Inicio, Mi institución y Documentos. Nada del núcleo se adapta a lo que hoy tienen Personal, Beneficiarios, Instalaciones, Finanzas o Proyectos, ni se arregla nada de ellos: cuando la metodología funcione en el núcleo, cada módulo se rehace a su medida. La columna «De los donantes» de Documentos sale de la pantalla mientras ese cajón no exista; las convocatorias siguen en Proyectos, sin tocarlas.
+
 Cada bloque se prueba por la institución antes del siguiente.
 
 | Bloque | Qué | Terminado cuando |
@@ -147,6 +149,13 @@ Cada bloque se prueba por la institución antes del siguiente.
 | **C3** | El Asistente como orquestador del núcleo: el Lector del Expediente como herramienta, el mapa en el contexto, sin `documents_search` general. Se mide herramientas nativas contra el protocolo JSON | Batería de preguntas por pantalla («según mi registro…», «¿qué documentos tengo?») aprobada con el modelo más barato: agente correcto, respuesta con cita |
 | **C4** | Revisión completa del núcleo: cada agente del núcleo (Asistente, Capturista, Lector del Expediente) con su batería aprobada con el modelo más barato, y cada pantalla del núcleo probada por la institución | El núcleo sin pendientes conocidos; la metodología escrita para los módulos |
 | Después, módulo por módulo | Su cajón, su Lector y su batería, con la misma metodología: Finanzas (facturas), Personal y Beneficiarios (Lector de reglas, sin IA), Instalaciones, Donantes; el patronato desde un documento | Con su propio bloque |
+
+### Precisiones al aplicar C1 (2026-10-12)
+
+- **El cajón es una columna del almacén** (`document.drawer`, migración 0032): `record` o `projects`. Dar de alta un documento exige su cajón (`Drawer` en `core/archive/storage.rs`); no hay otra forma de guardarlo.
+- **La bandeja no guarda nada por su cuenta.** «Subir documento» pregunta el cajón y qué documento del Expediente es, y abre la misma ventana del Expediente de «Mi institución» (`RecordWindow`), que pone el archivo con su lectura, su escáner, su Lector y su cuarentena. Se quitaron la subida propia de Documentos, el texto pegado y el lápiz de «qué documento es»: en el Expediente lo dice el documento donde se pone.
+- **Un documento del Expediente tiene un solo archivo:** al reemplazarlo o quitarlo, el texto anterior sale del cajón con sus fragmentos y sus vectores.
+- **Lo aceptado se queda:** «Borrar esto y todo lo que salió de ahí» ya no borra el origen (`core_field`) ni el historial (`core_change`, que solo crece) de un dato que la persona aceptó de ese documento. Antes ese borrado fallaba.
 
 ## Consecuencias
 

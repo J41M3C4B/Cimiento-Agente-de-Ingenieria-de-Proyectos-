@@ -1,73 +1,45 @@
 import { es } from "../../i18n/es-MX";
 import type { DocumentSummary } from "../../lib/types";
+import { recordTitle } from "../profile/RecordWindow";
+import type { RecordRef } from "../profile/RecordWindow";
 
 const t = es.documents;
 
-/** The two containers of the page. */
-export type DocCol = "inst" | "donor";
-/** What a container can be grouped by. */
-export type GroupMode = "type" | "year" | "donor";
+/** What the Expediente can be grouped by. */
+export type GroupMode = "type" | "year";
 
-/** One document as the page draws it (a real one from the backend, or a pending one while it is being read). */
+/** One document of the drawer as the page draws it. */
 export type DocItem = {
   id: string;
-  /** the name as the person wrote it (it may already carry its extension) */
+  /** the name of its document of the Expediente («Acta constitutiva»), or the file's when it has none */
   name: string;
+  /** the name of the file */
+  file: string;
   ext: string;
+  /** its class (Legales, Financieros, Programas) */
   type: string;
   year: string;
-  donor?: string;
   /** the grey line under the name */
   detail: string;
-  /** still being read: it shows «Leyendo…» and has no actions */
-  reading?: boolean;
-  /** what the document is, a kind of the record (IA6), when it is known */
-  docType?: string | null;
+  /** the document of the Expediente it is the file of, to open its window */
+  record: RecordRef | null;
 };
 
 export type Group = { key: string; items: DocItem[] };
 
-/** Where a file goes when it is dropped on, or uploaded from, a subfolder: the destination is already known. */
-export type UploadTarget = { col: DocCol; label: string; donor?: string; type?: string; year?: string };
-
-/** What the upload form hands over. */
-export type Draft = {
-  scope: DocCol;
-  name: string;
-  text: string;
-  donor: string;
-  kind: string;
-  file: { name: string; size: string; ext: string } | null;
-  /** a file Rust reads (PDF, Word, Excel or a photo): it goes as it is, with no text to paste */
-  blob?: File | null;
-  target: UploadTarget | null;
-};
-
-export const defaultMode = (col: DocCol): GroupMode => (col === "inst" ? "type" : "donor");
+export const defaultMode: GroupMode = "type";
 
 export function extOf(fileName: string): string {
   const m = /\.([a-z0-9]{1,5})$/i.exec(fileName.trim());
   return m ? m[1]!.toLowerCase() : "";
 }
 
-export const baseName = (fileName: string) => fileName.replace(/\.[a-z0-9]{1,5}$/i, "");
-
 export function fileSize(bytes: number): string {
   if (bytes >= 1048576) return `${(bytes / 1048576).toLocaleString("es-MX", { maximumFractionDigits: 1 })} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-/** Plain text files are read in the browser. */
-export function isPlainText(file: File): boolean {
-  return ["txt", "md", "csv"].includes(extOf(file.name)) || file.type.startsWith("text/");
-}
-
-/** The files Rust reads (a scan or a photo as pictures, OCR, ADR-035); the rest (.doc, .ppt…) ask to paste their text. */
-export function isReadableFile(file: File): boolean {
-  return ["pdf", "docx", "xlsx", "xlsm", "jpg", "jpeg", "png"].includes(extOf(file.name));
-}
-
-/** The kind of file of a saved document, for its tile: by its type, or by its name when it was pasted text. */
+/** The kind of file of a saved document, for its tile: by its type, or by its name. */
 function extOfDocument(d: DocumentSummary): string {
   const byMime: Record<string, string> = {
     "application/pdf": "pdf",
@@ -79,26 +51,22 @@ function extOfDocument(d: DocumentSummary): string {
   return byMime[d.mime] ?? (extOf(d.display_name) || "txt");
 }
 
-const kindLabel = (kind: string) => t.kinds[kind] ?? t.kindOther;
-
-/** The name of what a document is (a kind of the record), as «Mi institución» names it. */
-export const docTypeLabel = (code: string) => es.profile.records.types[code] ?? code;
-
-/** The documents of the institution, as the backend lists them, ready to be grouped by class or by year. */
+/** The documents of the Expediente, as the backend lists them, ready to be grouped by class or by year. */
 export function institutionItems(docs: DocumentSummary[]): DocItem[] {
   return docs.map((d) => {
-    // grouped by the class the person chose; a document saved before there were classes keeps «Textos»
-    const type = d.category ? (t.classes[d.category] ?? kindLabel(d.kind)) : kindLabel(d.kind);
+    const type = d.category ? (t.classes[d.category] ?? t.kindOther) : t.kindOther;
     const year = d.created_at.slice(0, 4);
+    const record: RecordRef | null = d.record_type ? { type: d.record_type, id: d.record_id, custom_name: d.record_name } : null;
     return {
       id: d.id,
-      name: d.display_name,
+      name: record ? recordTitle({ type: record.type, custom_name: d.record_name }) : d.display_name,
+      file: d.display_name,
       ext: extOfDocument(d),
       type,
       year,
-      docType: d.doc_type,
+      record,
       detail: [
-        d.doc_type ? docTypeLabel(d.doc_type) : type,
+        d.display_name,
         t.fragments(d.chunks),
         year,
         d.redactions_count > 0 ? t.covered(d.redactions_count) : "",
@@ -111,31 +79,12 @@ export function institutionItems(docs: DocumentSummary[]): DocItem[] {
   });
 }
 
-/**
- * TODO(logica): the documents of donors have no support in the backend yet (no table, no command). When they exist,
- * return them here as `DocItem`s with `donor`, `type` («Reglas», «Indicadores», «Guías y formatos») and
- * `detail` («Reglas · 1.4 MB · Usado en 2 convocatorias», see `t.usedIn`). Until then the container shows its
- * friendly empty state.
- */
-export function donorItems(): DocItem[] {
-  return [];
-}
-
-/**
- * TODO(logica): save a document of a donor. Needs a backend command that takes the text, the donor and the type
- * (something like `document_add_text(…, scope: "donor", donor, kind)`) and that `documents_list` returns the donor and
- * the kind. Until then the form says so and nothing is saved.
- */
-export async function addDonorDocument(_draft: Draft): Promise<{ status: "not_connected" }> {
-  return { status: "not_connected" };
-}
-
-const keyOf = (d: DocItem, mode: GroupMode) => (mode === "donor" ? d.donor ?? t.donorUnassigned : mode === "year" ? d.year : d.type);
+const keyOf = (d: DocItem, mode: GroupMode) => (mode === "year" ? d.year : d.type);
 
 /** Filters by what was typed and groups by the chosen way: years from the newest, the rest as they come. */
 export function groupItems(items: DocItem[], mode: GroupMode, query: string): Group[] {
   const q = query.trim().toLowerCase();
-  const shown = items.filter((d) => !q || `${d.name} ${d.type} ${d.donor ?? ""} ${d.year} ${d.ext}`.toLowerCase().includes(q));
+  const shown = items.filter((d) => !q || `${d.name} ${d.file} ${d.type} ${d.year} ${d.ext}`.toLowerCase().includes(q));
   const groups: Group[] = [];
   for (const d of shown) {
     const key = keyOf(d, mode);
@@ -145,13 +94,4 @@ export function groupItems(items: DocItem[], mode: GroupMode, query: string): Gr
   }
   if (mode === "year") groups.sort((a, b) => Number(b.key) - Number(a.key));
   return groups;
-}
-
-/** The destination of a subfolder, according to the way its container is grouped. */
-export function targetOf(col: DocCol, mode: GroupMode, key: string): UploadTarget {
-  const target: UploadTarget = { col, label: key };
-  if (mode === "donor") target.donor = key;
-  else if (mode === "year") target.year = key;
-  else target.type = key;
-  return target;
 }

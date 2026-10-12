@@ -279,7 +279,12 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
   - Queda para después: imágenes dentro de Word y Excel, enderezar fotos y una vista del texto leído en Documentos.
   - Ajustes tras probar una factura real (2026-10-11): las celdas de una tabla se separan con « | » por la posición de cada palabra, y Tesseract lee la página renglón por renglón (`--psm 4`; el modo automático partía la tabla en un bloque por columna). En un texto leído de imagen, el escáner toma como correo una dirección pegada a otra palabra cuando el renglón habla de correo o hay un signo en lugar de la «@» (`RegexScanner::reading_pictures`): la factura traía «infoGorlandojuan.es» y no se tapó.
 - [ ] **ADR-036 · Cajones con dueño y un agente por cajón** (2026-10-12). Primero solo el núcleo; los módulos esperan y después repiten la misma metodología. Se empieza de cero con los documentos: se vuelven a subir.
-  - [ ] **C1** El cajón de cada documento y Documentos como bandeja (hoy solo el cajón del Expediente); la búsqueda siempre por cajón.
+  - [x] **C1** El cajón de cada documento y Documentos como bandeja (2026-10-12, migración 0032, ADR-036 «Precisiones al aplicar C1»):
+    - Cada documento lleva su cajón (`document.drawer`): `record` (Expediente) o `projects` (convocatorias). Darlo de alta exige el cajón (`Drawer`); una prueba revisa que ningún documento nuevo quede sin él.
+    - **Documentos es la bandeja:** «Subir documento» pregunta a qué cajón va (hoy solo el Expediente) y qué documento del Expediente es (o «Otro documento»), y abre la misma ventana del Expediente de «Mi institución». Ya no hay subida propia ni texto pegado, ni la columna de donantes.
+    - La búsqueda (palabras y vectores) es siempre dentro de un cajón; los vectores solo se hacen en el Expediente; el Lector solo lee lo que entra al Expediente.
+    - Un documento del Expediente tiene un solo archivo: al reemplazarlo o quitarlo, su texto sale del cajón.
+    - Corregido: «Borrar esto y todo lo que salió de ahí» fallaba con un documento del que ya se había aceptado un dato (el historial no se puede borrar). Ahora conserva lo aceptado, su origen y su historial.
   - [ ] **C2** Lector del Expediente: reglas primero, búsqueda por campo, una llamada por ventana con citas verificadas, «Llenar con mis documentos»; batería aprobada con el modelo más barato.
   - [ ] **C3** El Asistente como orquestador del núcleo: el Lector del Expediente como herramienta, mapa en el contexto, sin búsqueda general; medir herramientas nativas contra el protocolo JSON.
   - [ ] **C4** Revisión completa del núcleo: cada agente con su batería aprobada con el modelo más barato y cada pantalla probada por la institución; la metodología escrita para los módulos.

@@ -32,13 +32,13 @@ Al final se arma una guía en Word para pasar la información a los formularios 
 
 # Documentos {#screen.documents}
 
-Aquí guarda los documentos que el programa consulta para armar sus proyectos. Se quedan en esta computadora.
-Antes de guardar un texto, el programa revisa que no traiga datos de personas.
-Para encontrar algo, escriba en «Buscar en mis documentos»: aparecen los documentos con ese nombre y, debajo, lo que dicen por dentro, con el documento y la página.
+Aquí sube sus documentos, y cada uno va a su cajón. Por ahora el único cajón es el Expediente de su institución, el mismo de Mi institución. Se quedan en esta computadora.
+Para subir uno, toque «Subir documento», elija qué documento del Expediente es (el acta, la constancia del SAT, un poder) o «Otro documento», y ponga el archivo. Da lo mismo subirlo aquí o desde el Expediente de Mi institución.
+Antes de guardarlo, el programa revisa que no traiga datos de personas. Si el documento ya tenía un archivo, el nuevo lo reemplaza.
+Para encontrar algo, escriba en «Buscar en el expediente»: aparecen los documentos con ese nombre y, debajo, lo que dicen por dentro, con el documento y la página.
 También puede preguntarle al Asistente qué dice un documento, por ejemplo «¿quién puede firmar convenios?»; le dice de qué documento y página lo tomó.
-Al subirlo, elija si es Legal, Financiero o de Programas. El programa reconoce qué documento es (una constancia del SAT, un acta, un poder) y lo dice en su renglón; si se equivocó, toque el lápiz y elija el correcto.
 Si el documento trae datos de su institución, como el RFC o el número del oficio de donataria, los deja como sugerencias en Mi institución, ventana «Datos legales y fiscales», con el documento y la página. Usted decide cuáles usar.
-Las facturas y los recibos no se suben aquí: se registran en Finanzas.
+Las facturas y los recibos no se suben aquí: se registrarán en Finanzas.
 
 # ¿Se guarda lo que escribo? {#howto.saving}
 

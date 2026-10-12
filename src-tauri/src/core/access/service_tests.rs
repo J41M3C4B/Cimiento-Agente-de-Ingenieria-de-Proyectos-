@@ -319,7 +319,7 @@ fn a_hidden_field_keeps_its_values_and_a_document_hides_too() {
     let stored = crate::modules::care::storage::person(&c, &person.id).unwrap().unwrap();
     assert_eq!(stored.data.extra.get(&key).map(String::as_str), Some("nueces"));
 
-    let doc = crate::core::archive::storage::add_text_document(&mut c, "internal", "Reglamento", "Texto del reglamento interno.", 0).unwrap();
+    let doc = crate::core::archive::storage::add_text_document(&mut c, crate::core::archive::storage::Drawer::Record, "Reglamento", "Texto del reglamento interno.", 0).unwrap();
     request_deletion(&mut c, &rosa, DeletionKind::Document, &doc.id).unwrap();
-    assert!(crate::core::archive::storage::list_institution(&c).unwrap().is_empty());
+    assert!(crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap().is_empty());
 }

@@ -1,10 +1,11 @@
-//! The Reader from upload to «Mi institución» (IA6): the kind by rules, the data as suggestions with their citation,
-//! the protected data read before the scanner covers them and forgotten once the person decides.
+//! The Reader of the Expediente from a file to «Mi institución» (IA6, ADR-036): the data of a document as suggestions
+//! with their citation, the protected ones read before the scanner covers them and forgotten once the person decides.
+//! A file comes in only through its document of the Expediente: the kind is the one the person attached it to.
 
 use super::*;
 use crate::core::archive::search::tests::fixture_pages;
-use crate::core::archive::service::{add_text_document, AddDocumentOutcome};
 use crate::core::archive::storage as docs;
+use crate::core::records::{attach_read, AttachOutcome, FileText};
 use crate::scanner::guard::Decision;
 use serde_json::{json, Value};
 
@@ -16,30 +17,31 @@ fn conn() -> (tempfile::TempDir, Connection) {
     (dir, c)
 }
 
-fn text_of(name: &str) -> String {
+fn pages_of(name: &str) -> Vec<String> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/expediente").join(name);
-    fixture_pages(&std::fs::read_to_string(path).unwrap()).join("\n\n")
+    fixture_pages(&std::fs::read_to_string(path).unwrap())
 }
 
-fn upload(c: &mut Connection, name: &str, file: &str, category: Option<&str>) -> docs::DocumentSummary {
-    let text = text_of(file);
-    match add_text_document(c, "internal", name, &text, Some(Decision::Redact), category).unwrap() {
-        AddDocumentOutcome::Saved { document } => document,
-        other => panic!("{other:?}"),
-    }
+/// Puts a fictitious file on its document of the Expediente, covering what the scanner finds, as the person would.
+fn attach(c: &mut Connection, kind: &str, file: &str) -> docs::DocumentSummary {
+    let read = FileText::of_pages(file, pages_of(file));
+    let out = attach_read(c, kind, None, std::path::Path::new("C:/expediente/archivo.pdf"), read, Some(Decision::Redact)).unwrap();
+    assert!(matches!(out, AttachOutcome::Attached { readable: true, .. }), "{file}");
+    docs::list_drawer(c, docs::Drawer::Record).unwrap().into_iter().find(|d| d.display_name == file).unwrap()
 }
 
 fn suggestions(c: &Connection, form: &str) -> Vec<proposals::Proposal> {
     crate::core::profile::forms::get(c, form).unwrap().proposals
 }
 
-/// The constancia del SAT: recognized by its words, its RFC covered in what is kept, and yet suggested in its field
-/// with the document and the page, read by a rule and never by the AI.
+/// The constancia del SAT on its document of the Expediente: its RFC covered in what is kept, and yet suggested in its
+/// field with the document and the page, read by a rule and never by the AI.
 #[test]
 fn the_constancia_suggests_the_rfc_it_says_although_the_saved_text_covers_it() {
     let (_d, mut c) = conn();
-    let doc = upload(&mut c, "Constancia SAT", "constancia-situacion-fiscal.txt", None);
-    assert_eq!((doc.category.as_deref(), doc.doc_type.as_deref(), doc.doc_type_origin.as_deref()), (Some("legal"), Some("tax_status_certificate"), Some("computed")));
+    let doc = attach(&mut c, "tax_status_certificate", "constancia-situacion-fiscal.txt");
+    assert_eq!((doc.drawer.as_deref(), doc.record_type.as_deref()), (Some("record"), Some("tax_status_certificate")));
+    assert_eq!((doc.category.as_deref(), doc.doc_type.as_deref(), doc.doc_type_origin.as_deref()), (Some("legal"), Some("tax_status_certificate"), Some("user")));
     let kept: String = c.query_row("SELECT extracted_text FROM document WHERE id = ?1", [&doc.id], |r| r.get(0)).unwrap();
     assert!(kept.contains("[RFC OCULTO]") && !kept.contains("CRF150310KX4"), "what is kept stays covered");
 
@@ -47,12 +49,11 @@ fn the_constancia_suggests_the_rfc_it_says_although_the_saved_text_covers_it() {
     let rfc = s.iter().find(|p| p.field_id == "institution.legal_rfc").expect("the RFC is suggested");
     assert_eq!(rfc.value, json!("CRF150310KX4"));
     assert_eq!((rfc.origin, rfc.agent.as_str()), (Origin::Document, AGENT));
-    assert_eq!((rfc.document.as_deref(), rfc.page), (Some("Constancia SAT"), Some(1)));
+    assert_eq!((rfc.document.as_deref(), rfc.page), (Some("constancia-situacion-fiscal.txt"), Some(1)));
     assert!(rfc.said.is_none(), "a document is not «Usted dijo»");
     assert!(!rfc.source_ref.as_deref().unwrap().contains("CRF150310KX4"), "a protected datum keeps no line with it");
     let regime = s.iter().find(|p| p.field_id == "institution.tax_regime").unwrap();
-    // pasted text is one page; a file keeps its pages (`rules::tests`)
-    assert_eq!((regime.value.clone(), regime.page), (json!("non_profit"), Some(1)));
+    assert_eq!((regime.value.clone(), regime.page), (json!("non_profit"), Some(2)));
     assert!(regime.source_ref.as_deref().unwrap().contains("Fines no Lucrativos"), "a datum that is not protected keeps its line");
     let fields: Vec<&str> = s.iter().map(|p| p.field_id.as_str()).collect();
     for f in ["institution.legal_name", "institution.legal_form", "institution.fiscal_postal_code"] {
@@ -61,14 +62,15 @@ fn the_constancia_suggests_the_rfc_it_says_although_the_saved_text_covers_it() {
 }
 
 /// Accepting is the usual save: the datum keeps its origin `document`, and the proposal forgets the protected value.
-/// A datum already saved with that value is not suggested again.
+/// The same value is not suggested again; and deleting the document afterwards works and keeps what was accepted
+/// (its origin and its history say where it came from, ADR-036).
 #[test]
 fn accepting_keeps_the_origin_and_forgets_the_protected_value() {
     let (_d, mut c) = conn();
     let name = [("institution.name".to_string(), json!("Casa de Reposo Ficticia San Ejemplo"))].into_iter().collect();
     crate::core::profile::forms::save(&mut c, "institution.identity", name, None).unwrap();
-    upload(&mut c, "Constancia SAT", "constancia-situacion-fiscal.txt", Some("legal"));
-    let rfc =suggestions(&c, "institution.legal").into_iter().find(|p| p.field_id == "institution.legal_rfc").unwrap();
+    let doc = attach(&mut c, "tax_status_certificate", "constancia-situacion-fiscal.txt");
+    let rfc = suggestions(&c, "institution.legal").into_iter().find(|p| p.field_id == "institution.legal_rfc").unwrap();
     let mut values = crate::core::profile::forms::get(&c, "institution.legal").unwrap().values;
     values.insert("institution.legal_rfc".into(), json!("CRF150310KX4"));
     let out = crate::core::profile::forms::save_using(&mut c, "institution.legal", values, None, &[rfc.id.clone()]).unwrap();
@@ -79,17 +81,25 @@ fn accepting_keeps_the_origin_and_forgets_the_protected_value() {
     let (status, value): (String, String) = c.query_row("SELECT status, value_json FROM ai_proposal WHERE id = ?1", [&rfc.id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!((status.as_str(), value.as_str()), ("accepted", "null"));
 
-    upload(&mut c, "Constancia otra vez", "constancia-situacion-fiscal.txt", Some("legal"));
-    assert!(suggestions(&c, "institution.legal").iter().all(|p| p.field_id != "institution.legal_rfc"), "the same value is not suggested again");
+    // the same file again on its document: the old text leaves the drawer, and the same value is not suggested again
+    attach(&mut c, "tax_status_certificate", "constancia-situacion-fiscal.txt");
+    assert!(suggestions(&c, "institution.legal").iter().all(|p| p.field_id != "institution.legal_rfc"));
+    assert!(docs::list(&c).unwrap().iter().all(|d| d.id != doc.id), "a document of the Expediente has one file");
+
+    // «delete this and everything that came from it» works although its datum was accepted, and the datum stays
+    let now = docs::list_drawer(&c, docs::Drawer::Record).unwrap().remove(0);
+    docs::emergency_delete_document(&mut c, &now.id).unwrap();
+    assert_eq!(crate::core::profile::forms::get(&c, "institution.legal").unwrap().values["institution.legal_rfc"], json!("CRF150310KX4"));
+    assert!(docs::list_drawer(&c, docs::Drawer::Record).unwrap().is_empty());
 }
 
-/// The oficio of donataria and the acta: their data, each in its field, with no AI; a document no rule knows is kept
-/// in its class without a kind and suggests nothing.
+/// The oficio of donataria and the acta: their data, each in its field, with no AI; a kind with no rules suggests
+/// nothing.
 #[test]
-fn the_oficio_and_the_acta_suggest_their_data_and_an_unknown_document_suggests_nothing() {
+fn the_oficio_and_the_acta_suggest_their_data_and_a_kind_with_no_rules_suggests_nothing() {
     let (_d, mut c) = conn();
-    upload(&mut c, "Oficio SAT", "oficio-donataria.txt", Some("legal"));
-    upload(&mut c, "Acta", "acta-constitutiva.txt", Some("legal"));
+    attach(&mut c, "donee_authorization", "oficio-donataria.txt");
+    attach(&mut c, "articles_of_incorporation", "acta-constitutiva.txt");
     let s = suggestions(&c, "institution.legal");
     let value = |f: &str| s.iter().find(|p| p.field_id == f).map(|p| p.value.clone()).unwrap_or(Value::Null);
     assert_eq!(value("institution.authorized_donee"), json!("yes"));
@@ -100,26 +110,23 @@ fn the_oficio_and_the_acta_suggest_their_data_and_an_unknown_document_suggests_n
     assert!(value("institution.purpose").as_str().unwrap().contains("adultas mayores"));
 
     let before = c.query_row("SELECT count(*) FROM ai_proposal", [], |r| r.get::<_, i64>(0)).unwrap();
-    let contract = upload(&mut c, "Comodato", "contrato-comodato.txt", Some("legal"));
-    assert_eq!((contract.category.as_deref(), contract.doc_type.as_deref()), (Some("legal"), None));
+    let rules = attach(&mut c, "internal_rules", "reglamento-interno.txt");
+    assert_eq!((rules.category.as_deref(), rules.doc_type.as_deref()), (Some("legal"), Some("internal_rules")));
     assert_eq!(c.query_row("SELECT count(*) FROM ai_proposal", [], |r| r.get::<_, i64>(0)).unwrap(), before);
     assert!(!c.query_row("SELECT count(*) > 0 FROM ai_proposal WHERE agent <> 'reader'", [], |r| r.get::<_, bool>(0)).unwrap(), "no AI was asked");
 }
 
-/// What the person said of a document is not changed by a rule.
+/// ADR-036: no new document is left without a drawer, whatever way it came in.
 #[test]
-fn a_kind_the_person_said_stays() {
+fn no_new_document_is_left_without_a_drawer() {
     let (_d, mut c) = conn();
-    let doc = upload(&mut c, "Reglamento", "reglamento-interno.txt", Some("programs"));
-    assert_eq!((doc.category.as_deref(), doc.doc_type.as_deref()), (Some("programs"), Some("internal_rules")), "the class the person chose stays");
-    crate::core::archive::service::set_type(&c, &doc.id, Some("org_chart")).unwrap();
-    docs::set_class(&c, &doc.id, None, Some("internal_rules"), "computed").unwrap();
-    let now = docs::list(&c).unwrap().into_iter().find(|d| d.id == doc.id).unwrap();
-    assert_eq!((now.doc_type.as_deref(), now.doc_type_origin.as_deref()), (Some("org_chart"), Some("user")));
-    assert!(matches!(crate::core::archive::service::set_type(&c, &doc.id, Some("invoice")), Err(ServiceError::UnknownKind)), "no invoices here");
-    crate::core::archive::service::set_type(&c, &doc.id, None).unwrap();
-    let none = docs::list(&c).unwrap().into_iter().find(|d| d.id == doc.id).unwrap();
-    assert_eq!((none.doc_type, none.category.as_deref()), (None, Some("programs")));
+    attach(&mut c, "articles_of_incorporation", "acta-constitutiva.txt");
+    docs::add_call_document(&c, "bases.pdf", "application/pdf", &["Bases de la convocatoria.".into()], 0, &docs::PageMarks::default()).unwrap();
+    docs::add_text_document(&mut c, docs::Drawer::Record, "Texto", "Un texto del expediente.", 0).unwrap();
+    let none: i64 = c.query_row("SELECT count(*) FROM document WHERE drawer IS NULL", [], |r| r.get(0)).unwrap();
+    assert_eq!(none, 0);
+    let calls: i64 = c.query_row("SELECT count(*) FROM document WHERE drawer = 'projects' AND kind = 'call'", [], |r| r.get(0)).unwrap();
+    assert_eq!(calls, 1);
 }
 
 /// What the Reader understands of a real file, without saving anything nor printing its text: per page, how many

@@ -60,7 +60,7 @@ El diseño de "nivel rojo fuera" reduce mucho el riesgo, pero no sustituye esa r
 
 **El Lector lee antes de que el escáner tape (IA6, ADR-034):** al subir un documento, unas reglas del programa (no la IA) leen su texto en memoria para sugerir los datos de la institución que trae: su RFC, el número del oficio, la vigencia del poder. Lo que se guarda del documento sigue tapado. Un dato protegido solo llega como sugerencia a su campo, sin la línea de donde salió, y se borra de la sugerencia en cuanto la persona la usa o la descarta.
 
-**Botón de emergencia** ("Borrar esto y todo lo que salió de ahí"): borra el documento, sus fragmentos, entradas FTS, vectores y cualquier texto derivado que lo cite. Después ejecuta `VACUUM` para que no queden restos en el archivo. Registra en bitácora solo que hubo un borrado de emergencia.
+**Botón de emergencia** ("Borrar esto y todo lo que salió de ahí"): borra el documento, sus fragmentos, entradas FTS, vectores y cualquier texto derivado que lo cite. Lo que una persona ya aceptó de él (un dato de «Mi institución») se queda: ya es de la institución, y su origen y su historial siguen diciendo de dónde salió (ADR-036). Después ejecuta `VACUUM` para que no queden restos en el archivo. Registra en bitácora solo que hubo un borrado de emergencia.
 
 ## Bitácora
 

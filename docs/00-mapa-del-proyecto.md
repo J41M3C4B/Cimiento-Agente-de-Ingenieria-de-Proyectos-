@@ -9,7 +9,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 
 > [!info] Hoy (2026-10-12)
 > Estamos en el **ADR-036 · Cajones de documentos con dueño**. **Primero solo el núcleo** («Inicio» y «Mi institución»): lo dejamos sin problemas y probado, y los módulos repiten después la misma forma de trabajar.
-> **Siguiente bloque: C1**, el cajón de cada documento y Documentos como bandeja. No empieza hasta que lo apruebes.
+> **C1 está hecho:** Documentos ya es la bandeja del Expediente. **Siguiente bloque: C2**, el Lector del Expediente. No empieza hasta que pruebes C1 y lo apruebes.
 
 ## Qué es SociAI, en una línea
 
@@ -19,7 +19,7 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 
 | | Bloque | Qué hace | Estado |
 |---|---|---|---|
-| 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | Por empezar |
+| 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | **Hecho, por probar** |
 | 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | Pendiente |
 | 3 | **C3** | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?») | Pendiente |
 | 4 | **C4** | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti | Pendiente |
@@ -30,14 +30,25 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Aprobar el inicio de C1.**
+- **Probar C1** (pasos abajo) y aprobar el inicio de C2.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
+
+## Cómo probar el último bloque (C1)
+
+1. Empieza con una base vacía o vuelve a subir tus documentos: los de antes de C1 no tienen cajón y no aparecen.
+2. **Documentos → «Subir documento»:** debe preguntar «¿A qué cajón va?» (solo Expediente) y «¿Qué documento es?» (los del Expediente y «Otro documento»). Al seguir, se abre la misma ventana del Expediente de «Mi institución»; ahí pones el archivo.
+3. El documento aparece en Documentos con el nombre de su documento del Expediente, agrupado por clase. El lápiz vuelve a abrir su ventana.
+4. Sube el mismo documento desde «Mi institución» → Expediente: debe verse igual en Documentos.
+5. Reemplaza el archivo de un documento: en Documentos debe quedar solo el nuevo.
+6. «Buscar en el expediente» encuentra por nombre y por dentro.
+7. Acepta una sugerencia que venga de un documento y luego bórralo con el bote de basura: debe borrarse sin error y el dato aceptado se queda.
 
 ## Lo último que se hizo
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-12 | **C1:** cada documento lleva su cajón; Documentos es la bandeja (pregunta qué documento del Expediente es y abre su ventana); la búsqueda siempre en un cajón; quitar o reemplazar un archivo saca su texto del cajón; «Borrar esto y todo…» ya no falla con un dato aceptado | [ADR-036, precisiones C1](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-12 | **ADR-036:** cajones con dueño, un agente por cajón, el Asistente como orquestador, cada agente validado con el modelo más barato; primero el núcleo | [ADR-036](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-12 | **IA6a con documentos reales:** el Lector entiende un acta real de 14 páginas y la ficha de la Junta (nombre, figura, año, objeto, número de institución); el objeto nunca incluye nombres del patronato | [Roadmap, IA6a](09-roadmap.md) |
 | 2026-10-12 | **IA6a:** la clase y el tipo de cada documento; sus datos llegan como sugerencias con documento y página; un dato protegido solo por reglas | [ADR-034, precisiones IA6a](adr/ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento.md) |

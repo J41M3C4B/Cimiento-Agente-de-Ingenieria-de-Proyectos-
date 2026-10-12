@@ -4,12 +4,22 @@ import { DocColumn } from "./DocColumn";
 import type { Inside } from "./DocColumn";
 import type { DocItem } from "./documentsModel";
 
-const items: DocItem[] = [{ id: "doc_1", name: "Contrato de comodato", ext: "pdf", type: "Legales", year: "2026", detail: "Legales" }];
+const items: DocItem[] = [
+  {
+    id: "doc_1",
+    name: "Contrato de comodato",
+    file: "comodato.pdf",
+    ext: "pdf",
+    type: "Legales",
+    year: "2026",
+    detail: "comodato.pdf · 2 fragmentos · 2026",
+    record: { type: "other", id: "rec_1", custom_name: "Contrato de comodato" },
+  },
+];
 
-function draw(query: string, inside: Inside | null) {
+function draw(query: string, inside: Inside | null, onOpen = vi.fn()) {
   render(
     <DocColumn
-      col="inst"
       items={items}
       query={query}
       onQuery={() => {}}
@@ -18,7 +28,7 @@ function draw(query: string, inside: Inside | null) {
       open={{}}
       onToggle={() => {}}
       onUpload={() => {}}
-      onDropFile={() => {}}
+      onOpen={onOpen}
       asking={null}
       onAsk={() => {}}
       onRemove={() => {}}
@@ -26,19 +36,16 @@ function draw(query: string, inside: Inside | null) {
       inside={inside}
     />,
   );
+  return onOpen;
 }
 
-describe("DocColumn, what each document is (IA6)", () => {
-  it("shows the kind in the row and lets the person say another", () => {
-    const onType = vi.fn();
-    const recognized: DocItem = { ...items[0]!, name: "Constancia SAT", docType: "tax_status_certificate", detail: "Constancia de situación fiscal · 2026" };
-    render(
-      <DocColumn col="inst" items={[recognized]} query="" onQuery={() => {}} mode="type" onMode={() => {}} open={{}} onToggle={() => {}}
-        onUpload={() => {}} onDropFile={() => {}} asking={null} onAsk={() => {}} onRemove={() => {}} busy={false} onType={onType} />,
-    );
-    expect(screen.getByText(/Constancia de situación fiscal/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Decir qué documento es «Constancia SAT»" }));
-    expect(onType).toHaveBeenCalledWith(recognized);
+describe("DocColumn, the drawer of the Expediente (ADR-036)", () => {
+  it("shows each file as its document of the Expediente and opens its window", () => {
+    const onOpen = draw("", null);
+    expect(screen.getByText("Expediente")).toBeInTheDocument();
+    expect(screen.getByText("comodato.pdf · 2 fragmentos · 2026")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Abrir Contrato de comodato" }));
+    expect(onOpen).toHaveBeenCalledWith(items[0]);
   });
 });
 
@@ -46,7 +53,7 @@ describe("DocColumn, search inside the documents (IA5)", () => {
   it("shows the document, its page and the words around what was asked", () => {
     draw("predial", {
       loading: false,
-      passages: [{ chunk: 7, document_id: "doc_1", document: "Contrato de comodato", page: 2, snippet: "…del pago de los servicios y del impuesto predial…" }],
+      passages: [{ chunk: 7, document_id: "doc_1", document: "comodato.pdf", page: 2, snippet: "…del pago de los servicios y del impuesto predial…" }],
     });
     expect(screen.getByRole("region", { name: "Dentro de sus documentos" })).toBeInTheDocument();
     expect(screen.getByText("página 2")).toBeInTheDocument();
@@ -55,7 +62,7 @@ describe("DocColumn, search inside the documents (IA5)", () => {
     expect(screen.queryByText("No encontramos documentos con eso.")).not.toBeInTheDocument();
   });
 
-  it("says it is looking, and says when the text does not have it either", () => {
+  it("says it is looking", () => {
     draw("predial", { loading: true, passages: [] });
     expect(screen.getByText("Buscando dentro de sus documentos…")).toBeInTheDocument();
   });

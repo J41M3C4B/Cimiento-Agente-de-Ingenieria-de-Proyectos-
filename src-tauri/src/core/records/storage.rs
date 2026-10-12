@@ -125,7 +125,7 @@ pub fn set_file(conn: &Connection, id: &str, document_id: Option<&str>, path: &s
     Ok(())
 }
 
-/// Takes the file off a document; the clean text stays in Documentos.
+/// Takes the file off a document (its text is deleted by the caller, ADR-036).
 pub fn clear_file(conn: &Connection, id: &str) -> Result<bool, StorageError> {
     Ok(conn.execute(
         "UPDATE core_record SET document_id = NULL, original_path = NULL, original_name = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ?1",

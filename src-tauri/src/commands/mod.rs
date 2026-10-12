@@ -21,7 +21,6 @@ use crate::error::access_message;
 use crate::error::UiError;
 use crate::scanner::guard::Decision;
 use crate::core::profile::service;
-use crate::core::archive::service::AddDocumentOutcome;
 use crate::core::profile::service::{ProfileView, SaveProfileOutcome};
 use crate::core::archive::storage::{self as docs, DeleteSummary, DocumentSummary};
 use crate::Db;
@@ -150,22 +149,6 @@ pub fn profile_confirm(session: State<'_, Session>, db: State<Db>) -> Result<Pro
     Ok(service::confirm_profile(&mut conn)?)
 }
 
-/// Adds a document of the institution (global, never tied to a project). The files of a call come in with
-/// the project born from it, so the kind is not asked here.
-#[tauri::command]
-pub fn document_add_text(session: State<'_, Session>, db: State<Db>,
-    display_name: String,
-    text: String,
-    decision: Option<Decision>,
-    category: Option<String>,
-) -> Result<AddDocumentOutcome, UiError> {
-    guard(&session, "document_add_text")?;
-    let mut conn = lock(&db)?;
-    let outcome = crate::core::archive::service::add_text_document(&mut conn, "internal", &display_name, &text, decision, category.as_deref())?;
-    index_documents(&db.0);
-    Ok(outcome)
-}
-
 /// Makes in the background the vectors of the documents that are missing (IA5); nothing when the person did not
 /// choose Gemini or did not save its key.
 pub(crate) fn index_documents(db: &crate::storage::SharedDb) {
@@ -180,54 +163,16 @@ pub async fn documents_search(session: State<'_, Session>, db: State<'_, Db>, qu
     guard(&session, "documents_search")?;
     let db = db.0.clone();
     let embedder = crate::core::archive::vectors::embedder(&db, true);
-    Ok(search_documents(&db, embedder, &query, 8, SNIPPET_CHARS).await?)
+    Ok(search_documents(&db, embedder, crate::core::archive::storage::Drawer::Record, &query, 8, SNIPPET_CHARS).await?)
 }
 
-/// Adds a file to the documents of the institution: a PDF, Word, Excel or a photo, sent in base64. It is read
-/// (a scan as pictures, a few seconds a page) without holding the database; only its clean text is kept.
-#[tauri::command]
-pub async fn document_add_file(session: State<'_, Session>, db: State<'_, Db>,
-    display_name: String,
-    file_name: String,
-    data: String,
-    decision: Option<Decision>,
-    category: Option<String>,
-) -> Result<crate::core::archive::service::AddFileOutcome, UiError> {
-    use crate::core::archive::service::{add_file_document, read_upload, AddFileOutcome};
-    use base64::Engine;
-    guard(&session, "document_add_file")?;
-    let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|_| UiError::internal())?;
-    let name = file_name.clone();
-    let read = match tauri::async_runtime::spawn_blocking(move || read_upload(&name, &bytes)).await.map_err(|_| UiError::internal())? {
-        Ok(read) => read,
-        Err(reason) => return Ok(AddFileOutcome::Unreadable { reason }),
-    };
-    let shared = db.0.clone();
-    let outcome = tauri::async_runtime::spawn_blocking(move || {
-        let mut conn = shared.lock().map_err(|_| UiError::internal())?;
-        Ok::<_, UiError>(add_file_document(&mut conn, &display_name, &file_name, read, decision, category.as_deref())?)
-    })
-    .await
-    .map_err(|_| UiError::internal())??;
-    index_documents(&db.0);
-    Ok(outcome)
-}
-
-/// The person says what a document is (IA6): a kind of the record, or none («no sé / otro»). A rule never changes it.
-#[tauri::command]
-pub fn document_set_type(session: State<'_, Session>, db: State<Db>, id: String, doc_type: Option<String>) -> Result<(), UiError> {
-    guard(&session, "document_set_type")?;
-    let conn = lock(&db)?;
-    crate::core::archive::service::set_type(&conn, &id, doc_type.as_deref())?;
-    Ok(())
-}
-
-/// The documents of the institution: those of a call belong to their project and are not listed here.
+/// The documents of the drawers of the core (ADR-036): today, the Expediente. Each one says which document of the
+/// Expediente it is the file of; one of no drawer (from before ADR-036) is not listed.
 #[tauri::command]
 pub fn documents_list(session: State<'_, Session>, db: State<Db>) -> Result<Vec<DocumentSummary>, UiError> {
     guard(&session, "documents_list")?;
     let conn = lock(&db)?;
-    docs::list_institution(&conn).map_err(|e| UiError::from(crate::core::error::ServiceError::from(e)))
+    docs::list_drawer(&conn, docs::Drawer::Record).map_err(|e| UiError::from(crate::core::error::ServiceError::from(e)))
 }
 
 #[tauri::command]

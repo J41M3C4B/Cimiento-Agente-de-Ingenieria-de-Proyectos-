@@ -2,6 +2,7 @@
 //! by meaning when there are vectors; the two rankings fused by position. Each passage carries its document and page,
 //! taken by the code from the fragment it came from: a citation nobody has to trust.
 
+use crate::core::archive::storage::Drawer;
 use crate::core::archive::vectors;
 use crate::core::error::ServiceError;
 use crate::documents::canonical::retrieve::Embedder;
@@ -43,39 +44,40 @@ pub struct Passage {
     pub snippet: String,
 }
 
-/// The fragments of the documents of the institution that share words with the question, best first. The files of
-/// a call belong to their project, and a document waiting to be deleted is not shown.
-pub fn by_words(conn: &Connection, query: &str, limit: usize) -> Result<Vec<i64>, StorageError> {
+/// The fragments of the documents of one drawer that share words with the question, best first (ADR-036: there is no
+/// search in everything). A document waiting to be deleted is not shown.
+pub fn by_words(conn: &Connection, drawer: Drawer, query: &str, limit: usize) -> Result<Vec<i64>, StorageError> {
     let Some(terms) = fts::match_terms(query) else { return Ok(Vec::new()) };
     let mut stmt = conn.prepare(
         "SELECT f.rowid FROM document_chunk_fts f
            JOIN document_chunk c ON c.rowid = f.rowid
            JOIN document d ON d.id = c.document_id
-         WHERE document_chunk_fts MATCH ?1 AND d.kind <> 'call' AND d.hidden = 0
+         WHERE document_chunk_fts MATCH ?1 AND d.drawer = ?3 AND d.hidden = 0
          ORDER BY f.rank LIMIT ?2",
     )?;
-    let ids = stmt.query_map(params![terms, limit as i64], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    let ids = stmt.query_map(params![terms, limit as i64, drawer.as_str()], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
 }
 
-/// The fragments closest in meaning to a question (its vector), best first; the same documents as `by_words`.
-pub fn by_meaning(conn: &Connection, query: &[f32], limit: usize) -> Result<Vec<i64>, StorageError> {
+/// The fragments of one drawer closest in meaning to a question (its vector), best first.
+pub fn by_meaning(conn: &Connection, drawer: Drawer, query: &[f32], limit: usize) -> Result<Vec<i64>, StorageError> {
     let mut stmt = conn.prepare(
         "SELECT v.rowid FROM (SELECT rowid, distance FROM document_chunk_vec WHERE embedding MATCH ?1 AND k = ?2) v
            JOIN document_chunk c ON c.rowid = v.rowid
            JOIN document d ON d.id = c.document_id
-         WHERE d.kind <> 'call' AND d.hidden = 0
+         WHERE d.drawer = ?3 AND d.hidden = 0
          ORDER BY v.distance",
     )?;
-    let ids = stmt.query_map(params![vectors::vec_json(query), limit as i64], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    let ids = stmt.query_map(params![vectors::vec_json(query), limit as i64, drawer.as_str()], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
 }
 
-/// The passages that best answer a question: by words, and by meaning when its vector came; fused by position.
-pub fn search(conn: &Connection, query: &str, vector: Option<&[f32]>, limit: usize, chars: usize) -> Result<Vec<Passage>, StorageError> {
-    let words = by_words(conn, query, CANDIDATES)?;
+/// The passages of one drawer that best answer a question: by words, and by meaning when its vector came; fused by
+/// position.
+pub fn search(conn: &Connection, drawer: Drawer, query: &str, vector: Option<&[f32]>, limit: usize, chars: usize) -> Result<Vec<Passage>, StorageError> {
+    let words = by_words(conn, drawer, query, CANDIDATES)?;
     let meaning = match vector {
-        Some(v) => by_meaning(conn, v, CANDIDATES)?,
+        Some(v) => by_meaning(conn, drawer, v, CANDIDATES)?,
         None => Vec::new(),
     };
     passages(conn, &fuse_words_and_meaning(&words, &meaning, limit), query, chars)
@@ -96,10 +98,10 @@ pub struct Found {
     pub by_meaning: bool,
 }
 
-/// Looks for a question in the documents of the institution. Its vector is asked for only when there are vectors
-/// to compare it with and the question carries no data of a person (the scanner says so); otherwise, or if the
-/// service does not answer in a few seconds, the search goes by words alone. Nothing of it is kept.
-pub async fn search_documents(db: &SharedDb, embedder: Option<Arc<dyn Embedder>>, query: &str, limit: usize, chars: usize) -> Result<Found, ServiceError> {
+/// Looks for a question in the documents of one drawer. Its vector is asked for only when there are vectors to compare
+/// it with and the question carries no data of a person (the scanner says so); otherwise, or if the service does not
+/// answer in a few seconds, the search goes by words alone. Nothing of it is kept.
+pub async fn search_documents(db: &SharedDb, embedder: Option<Arc<dyn Embedder>>, drawer: Drawer, query: &str, limit: usize, chars: usize) -> Result<Found, ServiceError> {
     let query = query.trim();
     if query.is_empty() {
         return Err(ServiceError::EmptyText);
@@ -120,7 +122,7 @@ pub async fn search_documents(db: &SharedDb, embedder: Option<Arc<dyn Embedder>>
         vector = answer.ok().filter(|_| ok).and_then(|mut v| v.pop());
     }
     let conn = db.lock().map_err(|_| ServiceError::Internal("lock".into()))?;
-    let passages = search(&conn, query, vector.as_deref(), limit, chars)?;
+    let passages = search(&conn, drawer, query, vector.as_deref(), limit, chars)?;
     Ok(Found { passages, by_meaning: vector.is_some() })
 }
 
@@ -199,7 +201,7 @@ pub fn excerpt(text: &str, query: &str, chars: usize) -> String {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::core::archive::storage::{add_paged_document, PageMarks};
+    use crate::core::archive::storage::{add_paged_document, Drawer, PageMarks};
     use serde::Deserialize;
     use std::path::{Path, PathBuf};
 
@@ -221,7 +223,7 @@ pub(crate) mod tests {
         files.sort();
         for f in &files {
             let name = f.file_name().unwrap().to_string_lossy().to_string();
-            add_paged_document(conn, "internal", &name, "application/pdf", &fixture_pages(&std::fs::read_to_string(f).unwrap()), 0, &PageMarks::default()).unwrap();
+            add_paged_document(conn, Drawer::Record, &name, "application/pdf", &fixture_pages(&std::fs::read_to_string(f).unwrap()), 0, &PageMarks::default()).unwrap();
         }
         let mut stmt = conn.prepare("SELECT c.rowid, d.display_name, c.page FROM document_chunk c JOIN document d ON d.id = c.document_id").unwrap();
         let v = stmt.query_map([], |r| Ok((r.get(0)?, (r.get(1)?, r.get(2)?)))).unwrap().collect::<Result<HashMap<_, _>, _>>().unwrap();
@@ -293,7 +295,7 @@ pub(crate) mod tests {
         let of = load_record(&c);
         let (mut words, mut meaning) = (Score::default(), Score::default());
         for q in reference().expediente {
-            let ranking: Vec<(String, i64)> = by_words(&c, &q.q, 5).unwrap().iter().map(|r| of[r].clone()).collect();
+            let ranking: Vec<(String, i64)> = by_words(&c, Drawer::Record, &q.q, 5).unwrap().iter().map(|r| of[r].clone()).collect();
             let score = if q.tipo == "palabras" { &mut words } else { &mut meaning };
             let pos = score.add(&ranking, &q.esperado);
             println!("{:<8} {:<75} {}", q.tipo, q.q, pos.map_or("—".to_string(), |p| format!("{}.º", p + 1)));
@@ -385,7 +387,7 @@ pub(crate) mod tests {
         let mut scores: HashMap<(&str, &str), Score> = HashMap::new();
         let mut shown: HashMap<&str, usize> = HashMap::new();
         for (i, q) in reference.expediente.iter().enumerate() {
-            let words = by_words(&c, &q.q, 10).unwrap();
+            let words = by_words(&c, Drawer::Record, &q.q, 10).unwrap();
             let meaning = cosine_ranking(&v.questions[i], &v.chunks, 10);
             let mut cells = Vec::new();
             for &(label, w, m) in METHODS {
@@ -426,14 +428,14 @@ pub(crate) mod tests {
     #[test]
     fn calls_and_documents_waiting_to_be_deleted_are_not_searched() {
         let (_d, c) = conn();
-        add_paged_document(&c, "call", "Convocatoria", "application/pdf", &["Los extintores del fondo ficticio.".into()], 0, &PageMarks::default()).unwrap();
-        let hidden = add_paged_document(&c, "internal", "Por borrar", "application/pdf", &["Extintores revisados en agosto.".into()], 0, &PageMarks::default()).unwrap();
+        add_paged_document(&c, Drawer::Projects, "Convocatoria", "application/pdf", &["Los extintores del fondo ficticio.".into()], 0, &PageMarks::default()).unwrap();
+        let hidden = add_paged_document(&c, Drawer::Record, "Por borrar", "application/pdf", &["Extintores revisados en agosto.".into()], 0, &PageMarks::default()).unwrap();
         c.execute("UPDATE document SET hidden = 1 WHERE id = ?1", [&hidden]).unwrap();
-        let kept = add_paged_document(&c, "internal", "Protección civil", "application/pdf", &["Hay doce extintores.".into()], 0, &PageMarks::default()).unwrap();
-        let found = by_words(&c, "¿Cuántos extintores tenemos?", 5).unwrap();
+        let kept = add_paged_document(&c, Drawer::Record, "Protección civil", "application/pdf", &["Hay doce extintores.".into()], 0, &PageMarks::default()).unwrap();
+        let found = by_words(&c, Drawer::Record, "¿Cuántos extintores tenemos?", 5).unwrap();
         let p = passages(&c, &found, "extintores", SNIPPET_CHARS).unwrap();
         assert_eq!(p.iter().map(|p| (p.document_id.as_str(), p.page)).collect::<Vec<_>>(), vec![(kept.as_str(), Some(1))]);
-        assert!(by_words(&c, "\" OR * NEAR( -", 5).unwrap().is_empty(), "what the person writes never reaches FTS5 as syntax");
+        assert!(by_words(&c, Drawer::Record, "\" OR * NEAR( -", 5).unwrap().is_empty(), "what the person writes never reaches FTS5 as syntax");
     }
 
     /// With vectors the search also goes by meaning; a question with data of a person, or without the service, goes
@@ -447,27 +449,27 @@ pub(crate) mod tests {
         load_record(&db.lock().unwrap());
         let e = Arc::new(WordsEmbedder::new());
         // before the vectors are made, the question is not sent
-        let found = search_documents(&db, Some(e.clone()), "¿Cuántos extintores tenemos?", 5, SNIPPET_CHARS).await.unwrap();
+        let found = search_documents(&db, Some(e.clone()), Drawer::Record, "¿Cuántos extintores tenemos?", 5, SNIPPET_CHARS).await.unwrap();
         assert!(!found.by_meaning && found.passages[0].document == "programa-proteccion-civil.txt");
         assert_eq!(e.texts.load(Ordering::Relaxed), 0);
 
         index_pending(&db, e.as_ref()).await.unwrap();
         let made = e.texts.load(Ordering::Relaxed);
-        let found = search_documents(&db, Some(e.clone()), "¿Cuántos extintores tenemos?", 5, SNIPPET_CHARS).await.unwrap();
+        let found = search_documents(&db, Some(e.clone()), Drawer::Record, "¿Cuántos extintores tenemos?", 5, SNIPPET_CHARS).await.unwrap();
         assert!(found.by_meaning);
         assert_eq!((found.passages[0].document.as_str(), found.passages[0].page), ("programa-proteccion-civil.txt", Some(1)));
         assert!(found.passages[0].snippet.contains("extintores"), "{:?}", found.passages[0]);
         assert_eq!(e.texts.load(Ordering::Relaxed), made + 1, "one question, one text");
 
-        let found = search_documents(&db, Some(e.clone()), "¿Dónde está la CURP LOPM800101MDFRZN09 del poder?", 5, SNIPPET_CHARS).await.unwrap();
+        let found = search_documents(&db, Some(e.clone()), Drawer::Record, "¿Dónde está la CURP LOPM800101MDFRZN09 del poder?", 5, SNIPPET_CHARS).await.unwrap();
         assert!(!found.by_meaning && !found.passages.is_empty(), "a datum of a person never leaves; the words still answer");
         assert_eq!(e.texts.load(Ordering::Relaxed), made + 1);
 
         let offline = Arc::new(WordsEmbedder { fail: true, ..WordsEmbedder::new() });
-        let found = search_documents(&db, Some(offline), "¿Quién paga el predial?", 5, SNIPPET_CHARS).await.unwrap();
+        let found = search_documents(&db, Some(offline), Drawer::Record, "¿Quién paga el predial?", 5, SNIPPET_CHARS).await.unwrap();
         assert!(!found.by_meaning && found.passages[0].document == "contrato-comodato.txt");
-        assert!(matches!(search_documents(&db, None, "  ", 5, SNIPPET_CHARS).await, Err(ServiceError::EmptyText)));
-        assert!(matches!(search_documents(&db, None, &"x".repeat(MAX_QUERY_CHARS + 1), 5, SNIPPET_CHARS).await, Err(ServiceError::TextTooLarge)));
+        assert!(matches!(search_documents(&db, None, Drawer::Record, "  ", 5, SNIPPET_CHARS).await, Err(ServiceError::EmptyText)));
+        assert!(matches!(search_documents(&db, None, Drawer::Record, &"x".repeat(MAX_QUERY_CHARS + 1), 5, SNIPPET_CHARS).await, Err(ServiceError::TextTooLarge)));
         let usage: i64 = db.lock().unwrap().query_row("SELECT count(*) FROM ai_usage WHERE task = 'embed.records'", [], |r| r.get(0)).unwrap();
         assert_eq!(usage, 3, "the record, one question and the failed one");
     }

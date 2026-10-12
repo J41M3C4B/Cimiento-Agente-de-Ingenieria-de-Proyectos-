@@ -2013,7 +2013,18 @@ export const es = {
   },
   documents: {
     title: "Documentos",
-    intro: "Lo que el asistente consulta para armar sus proyectos. Se queda en este equipo.",
+    intro: "Aquí sube sus documentos y cada uno va a su cajón. Por ahora, el Expediente de su institución. Todo se queda en este equipo.",
+    // the tray (ADR-036): which drawer a file goes to, and which document it is in it
+    drawerTitle: "Subir documento",
+    drawer: "¿A qué cajón va?",
+    drawers: { record: ["Expediente de la institución", "Acta, constancias, permisos, informes. Llenan «Mi institución»."] } as Record<string, [string, string]>,
+    whichDocument: "¿Qué documento es?",
+    whichPick: "Seleccionar",
+    whichHint: "Si ya tiene archivo, lo puede cambiar por el nuevo.",
+    otherDocument: "Otro documento de la institución",
+    hasFile: (name: string) => `${name} (ya tiene archivo)`,
+    next: "Seguir",
+    openDoc: (name: string) => `Abrir ${name}`,
     add: "Agregar un documento",
     name: "Nombre del documento",
     text: "Pegue aquí el texto",
@@ -2063,11 +2074,11 @@ export const es = {
     removeHelp: "Se quita el documento y todo lo que se haya sacado de él. No se puede deshacer.",
     cols: {
       inst: {
-        title: "De mi institución",
-        note: "Los suyos: acta, estados financieros, reportes. Sirven para todos sus proyectos.",
-        search: "Buscar en mis documentos",
-        empty: "Todavía no hay documentos de su institución.",
-        add: "Subir un documento de mi institución",
+        title: "Expediente",
+        note: "Los documentos de su institución. Cada uno es un documento del Expediente de «Mi institución».",
+        search: "Buscar en el expediente",
+        empty: "Todavía no hay documentos en el expediente.",
+        add: "Subir un documento al expediente",
         groups: [
           ["type", "Tipo"],
           ["year", "Año"],

@@ -398,6 +398,11 @@ export interface DocumentSummary {
   category: "legal" | "financial" | "programs" | null;
   doc_type: string | null;
   doc_type_origin: "computed" | "user" | null;
+  /** the drawer it belongs to (ADR-036), and the document of the Expediente it is the file of */
+  drawer: "record" | "projects" | null;
+  record_id: string | null;
+  record_type: string | null;
+  record_name: string | null;
 }
 /** A piece of a document that answers a search (IA5, core/archive/search.rs). */
 export interface Passage {
@@ -413,11 +418,6 @@ export interface Found {
   passages: Passage[];
   by_meaning: boolean;
 }
-export type AddDocumentOutcome =
-  | { status: "saved"; document: DocumentSummary }
-  | { status: "quarantine"; report: QuarantineReport }
-  | { status: "rejected_roster" };
-export type AddFileOutcome = AddDocumentOutcome | { status: "unreadable"; reason: string };
 
 export interface DeleteSummary {
   chunks: number;

@@ -355,6 +355,14 @@ pub struct FileText {
     marks: PageMarks,
 }
 
+impl FileText {
+    /// A file already read, with its text page by page: for the tests of what reads the Expediente.
+    #[cfg(test)]
+    pub(crate) fn of_pages(name: &str, pages: Vec<String>) -> FileText {
+        FileText { name: name.to_string(), mime: "application/pdf", pages: Some(pages), marks: PageMarks::default() }
+    }
+}
+
 /// Reads a file from where it is on this computer. A scanned page or a photo is read as a picture, a few seconds a
 /// page: the caller does it without holding the database.
 pub fn read_original(path: &Path) -> Result<FileText, Unreadable> {
@@ -410,42 +418,54 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
     let reading = file.pages.as_deref().map(|pages| crate::core::reader::read(pages, Some(kind)));
     let mut clean: Option<(Vec<String>, i64)> = None;
     if let Some(pages) = &file.pages {
-        match guard_pages(conn, "core_record", None, pages, !file.marks.from_picture.is_empty(), decision)? {
-            GuardedPages::Clean { pages, redactions, .. } => clean = Some((pages, redactions)),
+        match guard_pages(conn, "core_record", pages, !file.marks.from_picture.is_empty(), decision)? {
+            GuardedPages::Clean { pages, redactions } => clean = Some((pages, redactions)),
             GuardedPages::Quarantine(report) => return Ok(AttachOutcome::Quarantine { report }),
             GuardedPages::Roster => return Ok(AttachOutcome::Unreadable { reason: Unreadable::Roster }),
         }
     }
+    // the text of the file it replaces leaves the drawer: a document of the Expediente has one file (ADR-036)
+    let replaced = row.as_ref().and_then(|r| r.document_id.clone());
     let tx = conn.transaction()?;
     let id = match row {
         Some(r) => r.id,
         None => store::save(&tx, None, kind, &store::Input { custom_name: None, status: "have", issued_on: None, valid_until: None, reference: None, notes: None })?,
     };
     let doc = match &clean {
-        Some((pages, redactions)) => Some(crate::core::archive::storage::add_paged_document(&tx, "internal", &file.name, file.mime, pages, *redactions, &file.marks)?),
+        Some((pages, redactions)) => Some(crate::core::archive::storage::add_paged_document(&tx, crate::core::archive::storage::Drawer::Record, &file.name, file.mime, pages, *redactions, &file.marks)?),
         None => None,
     };
     if let (Some(d), Some(reading)) = (&doc, &reading) {
         let class = reading.kind.and_then(crate::core::reader::kinds::kind).map(|k| k.class);
-        crate::core::archive::storage::set_class(&tx, d, class, reading.kind, "user")?;
+        // the kind is the document the person put it on; for an «Otro documento», what a rule recognized
+        let said = crate::core::reader::kinds::kind(kind).is_some();
+        crate::core::archive::storage::set_class(&tx, d, class, reading.kind, if said { "user" } else { "computed" })?;
         crate::core::reader::propose(&tx, d, &reading.found)?;
     }
     store::set_file(&tx, &id, doc.as_deref(), &path.to_string_lossy(), &file.name)?;
     history::record_list_change(&tx, HISTORY_FIELD, &Source::user())?;
     tx.commit()?;
+    if let Some(old) = replaced.filter(|old| doc.as_deref() != Some(old.as_str())) {
+        crate::core::archive::storage::emergency_delete_document(conn, &old)?;
+    }
     let readable = doc.is_some();
     let (from_picture, doubtful) = if readable { (!file.marks.from_picture.is_empty(), file.marks.doubtful) } else { (false, vec![]) };
     Ok(AttachOutcome::Attached { id, readable, from_picture, doubtful, expediente: expediente(conn)? })
 }
 
-/// Takes the file off a document. Its clean text stays in Documentos, where it is deleted as any document.
+/// Takes the file off a document, and its clean text out of the drawer (ADR-036): there is no document without a
+/// drawer, nor a text of the Expediente without its document. What the person already accepted from it stays.
 pub fn detach(conn: &mut Connection, id: &str) -> Result<Expediente, ServiceError> {
+    let old = store::by_id(conn, id)?.and_then(|r| r.document_id);
     let tx = conn.transaction()?;
     if !store::clear_file(&tx, id)? {
         return Err(ServiceError::NotFound);
     }
     history::record_list_change(&tx, HISTORY_FIELD, &Source::user())?;
     tx.commit()?;
+    if let Some(old) = old {
+        crate::core::archive::storage::emergency_delete_document(conn, &old)?;
+    }
     expediente(conn)
 }
 

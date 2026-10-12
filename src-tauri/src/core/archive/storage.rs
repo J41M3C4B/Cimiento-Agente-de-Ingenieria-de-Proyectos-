@@ -2,6 +2,7 @@
 
 use crate::storage::StorageError;
 use crate::audit::{self, AuditKind};
+#[cfg(test)]
 use crate::documents::chunking::chunk_text;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -27,6 +28,43 @@ pub struct DocumentSummary {
     pub category: Option<String>,
     pub doc_type: Option<String>,
     pub doc_type_origin: Option<String>,
+    /// The drawer it belongs to (ADR-036): `record`, `projects`; none for a document of before ADR-036.
+    pub drawer: Option<String>,
+    /// The document of the Expediente it is the file of: its row (when written), its type and, for an `other`, its name.
+    pub record_id: Option<String>,
+    pub record_type: Option<String>,
+    pub record_name: Option<String>,
+}
+
+/// The drawer a document belongs to (ADR-036): exactly one, with one owner. The drawers of the modules come with
+/// them; meanwhile the core has the Expediente, and Proyectos keeps the files of its calls.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Drawer {
+    /// The Expediente of the institution: owned by the core, read by its Reader, fills «Mi institución».
+    Record,
+    /// The files of a call: owned by Proyectos, read by the canonical reading (ADR-015).
+    Projects,
+}
+
+impl Drawer {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Drawer::Record => "record",
+            Drawer::Projects => "projects",
+        }
+    }
+    fn kind(self) -> &'static str {
+        match self {
+            Drawer::Record => "internal",
+            Drawer::Projects => "call",
+        }
+    }
+    fn level(self) -> &'static str {
+        match self {
+            Drawer::Record => "yellow",
+            Drawer::Projects => "green",
+        }
+    }
 }
 
 /// Which pages of a file were read from a picture (OCR, ADR-035) and which of those with doubts; empty for a file
@@ -43,27 +81,26 @@ pub struct DeleteSummary {
     pub derived_rows: i64,
 }
 
-/// Saves the CLEAN text of a document (already scanned) with its fragments and search index.
+/// Saves the CLEAN text of a document (already scanned) in its drawer, with its fragments and search index. For
+/// the tests: a file of the Expediente comes in through its document (`core::records`).
+#[cfg(test)]
 pub fn add_text_document(
     conn: &mut Connection,
-    kind: &str,
+    drawer: Drawer,
     display_name: &str,
     clean_text: &str,
     redactions_count: i64,
 ) -> Result<DocumentSummary, StorageError> {
-    let data_level = match kind {
-        "internal" | "quote" => "yellow",
-        _ => "green",
-    };
+    let kind = drawer.kind();
     let doc_id = format!("doc_{}", Ulid::generate());
     let hash = hex::encode(Sha256::digest(clean_text.as_bytes()));
     let chunks = chunk_text(clean_text);
 
     let tx = conn.transaction()?;
     tx.execute(
-        "INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,created_at)
-         VALUES (?1,?2,?3,'text/plain',?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
-        params![doc_id, kind, display_name.trim(), data_level, hash, clean_text, redactions_count],
+        "INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,drawer,created_at)
+         VALUES (?1,?2,?3,'text/plain',?4,?5,?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
+        params![doc_id, kind, display_name.trim(), drawer.level(), hash, clean_text, redactions_count, drawer.as_str()],
     )?;
     for (i, text) in chunks.iter().enumerate() {
         tx.execute(
@@ -89,22 +126,20 @@ pub fn add_text_document(
 /// Saves one file of a call: its clean text per page (one fragment per page, with the page number) and its
 /// search index. The caller owns the transaction, so the files of a call go in together or not at all.
 pub fn add_call_document(conn: &Connection, display_name: &str, mime: &str, pages: &[String], redactions_count: i64, marks: &PageMarks) -> Result<String, StorageError> {
-    add_paged_document(conn, "call", display_name, mime, pages, redactions_count, marks)
+    add_paged_document(conn, Drawer::Projects, display_name, mime, pages, redactions_count, marks)
 }
 
-/// Saves the clean text of a file page by page, of a call or of the institution (`internal`, the record of
-/// ADR-033 §5, or a file of Documentos). The caller owns the transaction.
-pub fn add_paged_document(conn: &Connection, kind: &str, display_name: &str, mime: &str, pages: &[String], redactions_count: i64, marks: &PageMarks) -> Result<String, StorageError> {
+/// Saves the clean text of a file page by page, in its drawer: the Expediente (ADR-033 §5) or the files of a call.
+/// There is no document without a drawer (ADR-036). The caller owns the transaction.
+pub fn add_paged_document(conn: &Connection, drawer: Drawer, display_name: &str, mime: &str, pages: &[String], redactions_count: i64, marks: &PageMarks) -> Result<String, StorageError> {
+    let kind = drawer.kind();
     let doc_id = format!("doc_{}", Ulid::generate());
-    let text = pages.join("
-
-");
+    let text = pages.join("\n\n");
     let hash = hex::encode(Sha256::digest(text.as_bytes()));
-    let level = if kind == "call" { "green" } else { "yellow" };
     conn.execute(
-        "INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,picture_pages,doubtful_pages,created_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
-        params![doc_id, kind, display_name.trim(), mime, level, hash, text, redactions_count, json!(marks.from_picture).to_string(), json!(marks.doubtful).to_string()],
+        "INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,picture_pages,doubtful_pages,drawer,created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
+        params![doc_id, kind, display_name.trim(), mime, drawer.level(), hash, text, redactions_count, json!(marks.from_picture).to_string(), json!(marks.doubtful).to_string(), drawer.as_str()],
     )?;
     for (i, page) in pages.iter().enumerate() {
         conn.execute(
@@ -121,17 +156,18 @@ fn get(conn: &Connection, id: &str) -> Result<Option<DocumentSummary>, StorageEr
     Ok(list(conn)?.into_iter().find(|d| d.id == id))
 }
 
-/// The documents of the institution: the files of a call belong to their project.
-pub fn list_institution(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
-    Ok(list(conn)?.into_iter().filter(|d| d.kind != "call").collect())
+/// The documents of one drawer (ADR-036), newest first.
+pub fn list_drawer(conn: &Connection, drawer: Drawer) -> Result<Vec<DocumentSummary>, StorageError> {
+    Ok(list(conn)?.into_iter().filter(|d| d.drawer.as_deref() == Some(drawer.as_str())).collect())
 }
 
 pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
     let mut stmt = conn.prepare(
         "SELECT d.id, d.kind, d.display_name, d.data_level, d.redactions_count, d.created_at,
                 (SELECT count(*) FROM document_chunk c WHERE c.document_id = d.id), d.picture_pages, d.doubtful_pages, d.mime,
-                d.category, d.doc_type, d.doc_type_origin
-         FROM document d WHERE d.hidden = 0 ORDER BY d.created_at DESC, d.id DESC",
+                d.category, d.doc_type, d.doc_type_origin, d.drawer, r.id, r.type, r.custom_name
+         FROM document d LEFT JOIN core_record r ON r.document_id = d.id
+         WHERE d.hidden = 0 ORDER BY d.created_at DESC, d.id DESC",
     )?;
     let rows = stmt
         .query_map([], |r| {
@@ -149,6 +185,10 @@ pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
                 category: r.get(10)?,
                 doc_type: r.get(11)?,
                 doc_type_origin: r.get(12)?,
+                drawer: r.get(13)?,
+                record_id: r.get(14)?,
+                record_type: r.get(15)?,
+                record_name: r.get(16)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -224,11 +264,13 @@ pub fn emergency_delete_document(conn: &mut Connection, doc_id: &str) -> Result<
     }
     let chunks: i64 = tx.execute("DELETE FROM document_chunk WHERE document_id=?1", [doc_id])? as i64;
 
-    // Text derived from the document: every table with a `source_ref` that cites it.
+    // Text derived from the document: every table with a `source_ref` that cites it. Not what a person already
+    // accepted from it (IA6): the datum is the institution's now; its origin (`core_field`) and the history of its
+    // changes (`core_change`, which only grows) keep saying where it came from.
     let tables: Vec<String> = {
         let mut stmt = tx.prepare(
             "SELECT m.name FROM sqlite_master m, pragma_table_info(m.name) p
-             WHERE m.type='table' AND p.name='source_ref'",
+             WHERE m.type='table' AND p.name='source_ref' AND m.name NOT IN ('core_field', 'core_change')",
         )?;
         let v = stmt.query_map([], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;
         v
@@ -242,7 +284,8 @@ pub fn emergency_delete_document(conn: &mut Connection, doc_id: &str) -> Result<
     }
     // A reading of a call quotes the files it was made from: it goes with any one of them.
     derived += tx.execute("DELETE FROM call_reading WHERE id IN (SELECT reading_id FROM call_reading_file WHERE document_id=?1)", [doc_id])? as i64;
-    // Direct references.
+    // Direct references. A document of the Expediente keeps its row and its state: it only loses its file.
+    tx.execute("UPDATE core_record SET document_id=NULL, original_path=NULL, original_name=NULL WHERE document_id=?1", [doc_id])?;
     derived += tx.execute("DELETE FROM questionnaire WHERE source_document_id=?1", [doc_id])? as i64;
     tx.execute("UPDATE budget_item SET quote_document_id=NULL WHERE quote_document_id=?1", [doc_id])?;
     tx.execute("UPDATE call_template SET word_template_document_id=NULL WHERE word_template_document_id=?1", [doc_id])?;
@@ -277,7 +320,7 @@ mod tests {
     #[test]
     fn adds_a_document_with_chunks_and_search() {
         let (_d, _p, mut c) = conn();
-        let doc = add_text_document(&mut c, "call", "Convocatoria", "El monto máximo es de 150000 pesos.\n\nPlazo: 12 meses.", 0).unwrap();
+        let doc = add_text_document(&mut c, Drawer::Projects, "Convocatoria", "El monto máximo es de 150000 pesos.\n\nPlazo: 12 meses.", 0).unwrap();
         assert_eq!(doc.chunks, 1);
         assert_eq!(doc.data_level, "green");
         let n: i64 = c
@@ -294,8 +337,8 @@ mod tests {
     #[test]
     fn emergency_delete_removes_everything_that_came_from_the_document() {
         let (_d, path, mut c) = conn();
-        let keep = add_text_document(&mut c, "call", "Otra", "Texto que se conserva sobre becas.", 0).unwrap();
-        let doc = add_text_document(&mut c, "internal", "Interno", "Dato secreto zanahoria morada en el documento.", 1).unwrap();
+        let keep = add_text_document(&mut c, Drawer::Projects, "Otra", "Texto que se conserva sobre becas.", 0).unwrap();
+        let doc = add_text_document(&mut c, Drawer::Record, "Interno", "Dato secreto zanahoria morada en el documento.", 1).unwrap();
         // something derived that cites the document
         c.execute(
             "INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','X','other','t','t')",
