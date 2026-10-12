@@ -1,3 +1,10 @@
+---
+adr: 18
+estado: aceptada
+fecha: 2026-10-03
+tema: [proyectos]
+tags: [adr]
+---
 # ADR-018 · Redacción, revisión y la guía en Word como entregable
 
 **Estado:** Aceptada (2026-10-03). Implementada: migración 0007, `domain/{budget,schedule,sections,requirements,checklist}.rs`, `drafting_service`, `review_service`, `guide_service`, `docx::build` y las pantallas de redacción, revisión y listo. Reemplaza lo que `02` y `06` decían de redactar sobre una plantilla del donante y de generar el `.docx` final del donante (ADR-011 ya lo había sacado del alcance).

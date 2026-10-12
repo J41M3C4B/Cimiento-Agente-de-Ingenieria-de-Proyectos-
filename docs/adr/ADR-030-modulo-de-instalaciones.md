@@ -1,3 +1,10 @@
+---
+adr: 30
+estado: aceptada
+fecha: 2026-10-07
+tema: [modulos]
+tags: [adr]
+---
 # ADR-030 · Módulo de Instalaciones
 
 **Estado:** aceptada (2026-10-07). Reemplaza la lista `facility` del perfil (migración 0001).

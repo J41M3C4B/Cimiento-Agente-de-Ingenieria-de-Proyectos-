@@ -1,3 +1,11 @@
+---
+adr: 15
+estado: aceptada
+fecha: 2026-10-03
+tema: [proyectos, ia]
+reemplaza: ["[[ADR-013-riel-de-convocatorias]]", "[[ADR-014-lectura-completa-o-riel]]"]
+tags: [adr]
+---
 # ADR-015 — Schema canónico de convocatorias (contrato en lugar de riel)
 
 **Estado:** Aceptada y conectada al producto (2026-10-03). Schema v1.1.0 y pipeline en `src-tauri/src/documents/canonical/`; pantalla «Convocatorias»; riel archivado; validación a ciegas hecha (ver «Conexión al producto y cierre de la iteración»).

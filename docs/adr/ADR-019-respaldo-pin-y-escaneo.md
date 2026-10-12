@@ -1,3 +1,11 @@
+---
+adr: 19
+estado: aceptada
+fecha: 2026-10-03
+tema: [seguridad]
+reemplazado_en_parte_por: ["[[ADR-028-perfiles-de-acceso]]"]
+tags: [adr]
+---
 # ADR-019 · Respaldo cifrado, PIN opcional y escaneo de la base
 
 **Estado:** Aceptada (2026-10-03). **El PIN de pantalla lo retira el ADR-028** (cada persona entra con su cuenta y contraseña); el respaldo y el escaneo siguen igual, pero restaurar un respaldo es solo del administrador. Implementada: `storage/backup.rs`, `security_service.rs`, pantallas «Seguridad» y de bloqueo.

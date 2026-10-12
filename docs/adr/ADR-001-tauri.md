@@ -1,3 +1,9 @@
+---
+adr: 1
+estado: aceptada
+tema: [infraestructura]
+tags: [adr]
+---
 # ADR-001 · Tauri 2 como contenedor de escritorio
 
 **Estado:** Aceptada

@@ -1,3 +1,10 @@
+---
+adr: 26
+estado: aceptada
+fecha: 2026-10-07
+tema: [modulos]
+tags: [adr]
+---
 # ADR-026 · Ingresos por tipo, egresos con modo exprés y nómina con prestaciones de ley
 
 **Estado:** aceptada (2026-10-07). Las reglas de pago de la ley se movieron al módulo de Personal (`hr/domain/payroll.rs`, ADR-027); las aportaciones a la congregación, las becas y el personal externo cuentan como egresos aparte de la nómina.

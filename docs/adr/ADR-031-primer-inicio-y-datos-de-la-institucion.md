@@ -1,3 +1,10 @@
+---
+adr: 31
+estado: aceptada
+fecha: 2026-10-08
+tema: [nucleo]
+tags: [adr]
+---
 # ADR-031 · Primer inicio y datos obligatorios de la institución
 
 **Estado:** aceptada (2026-10-08).

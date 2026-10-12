@@ -1,3 +1,9 @@
+---
+adr: 5
+estado: aceptada
+tema: [ia]
+tags: [adr]
+---
 # ADR-005 · Proveedor de IA intercambiable con niveles
 
 **Estado:** Aceptada

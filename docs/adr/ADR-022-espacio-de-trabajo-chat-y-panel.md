@@ -1,3 +1,10 @@
+---
+adr: 22
+estado: aceptada
+fecha: 2026-10-04
+tema: [proyectos, interfaz]
+tags: [adr]
+---
 # ADR-022 · Espacio de trabajo: el chat al centro y la convocatoria en un panel; los pasos son partes del chat
 
 **Estado:** Aceptada (2026-10-04), a petición de la persona dueña del proyecto. Implementadas las fases A (estructura y diagnóstico), B (objetivos), C (redacción) D (revisión y «Listo») y E (paso 1). Completo.

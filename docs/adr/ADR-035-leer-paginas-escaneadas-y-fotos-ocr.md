@@ -1,3 +1,11 @@
+---
+adr: 35
+estado: aceptada
+fecha: 2026-10-10
+tema: [documentos]
+reemplaza_en_parte: ["[[ADR-004-office-rust-python-plan-b]]", "[[ADR-011-ingesta-en-silencio-y-oficina-solo-lectura]]"]
+tags: [adr]
+---
 # ADR-035 · Leer páginas escaneadas y fotos (OCR) con Tesseract, dentro del programa
 
 **Estado:** aceptada (2026-10-10). Reemplaza lo que el ADR-004 («No se intenta OCR en v1») y el ADR-011 («OCR diferido») decían del OCR. Lo demás de esos ADR sigue igual.

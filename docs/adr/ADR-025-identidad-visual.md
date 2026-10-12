@@ -1,3 +1,9 @@
+---
+adr: 25
+estado: aceptada
+tema: [interfaz]
+tags: [adr]
+---
 # ADR-025 · Identidad visual: bandejas sobre el fondo de la ventana, color con significado y tokens como única fuente
 
 **Estado:** aceptada.

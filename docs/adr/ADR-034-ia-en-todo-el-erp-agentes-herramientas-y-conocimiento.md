@@ -1,3 +1,11 @@
+---
+adr: 34
+estado: aceptada
+fecha: 2026-10-09
+tema: [ia]
+reemplazado_en_parte_por: ["[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]"]
+tags: [adr]
+---
 # ADR-034 · La IA en todo el ERP: un equipo de agentes con herramientas, conocimiento recuperable y un asistente siempre a la mano
 
 **Estado:** aceptada (2026-10-09); se aplica por bloques (IA1 a IA8). Amplía el principio 1 (qué hace la IA) y el ADR-023 (la ficha de la institución); no reemplaza los principios 2 a 8. **El ADR-036 reemplaza en parte el §1 y las precisiones de IA5 e IA6a:** un Lector por cajón en lugar de uno general, el Asistente decide a qué agente de cajón preguntar (un solo nivel) y ya no busca en todos los documentos.

@@ -1,3 +1,10 @@
+---
+adr: 23
+estado: aceptada
+fecha: 2026-10-04
+tema: [ia]
+tags: [adr]
+---
 # ADR-023 · Los procesos de IA sobreviven a la navegación y la IA lee una ficha completa de «Mi institución»
 
 **Estado:** Aceptada (2026-10-04), a raíz de las pruebas del flujo completo con proyectos propios. Alcance: diagnóstico (conversación), resumen y paso a objetivos.

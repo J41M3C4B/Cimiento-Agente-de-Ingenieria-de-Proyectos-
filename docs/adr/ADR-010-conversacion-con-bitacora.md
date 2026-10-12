@@ -1,3 +1,9 @@
+---
+adr: 10
+estado: propuesta
+tema: [proyectos]
+tags: [adr]
+---
 # ADR-010 · Conversación guiada con bitácora estructurada, convocatoria primero
 
 **Estado:** Propuesta. No se implementa hasta aprobarla. Si se aprueba, reemplaza la parte del diagnóstico y el orden de etapas de `02-flujo-funcional.md` y los ADR-003 y ADR-005 siguen igual.

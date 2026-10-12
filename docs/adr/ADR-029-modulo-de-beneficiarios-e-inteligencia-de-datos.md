@@ -1,3 +1,11 @@
+---
+adr: 29
+estado: aceptada
+fecha: 2026-10-07
+tema: [modulos]
+reemplaza_en_parte: ["[[ADR-020-padron-de-personal-y-beneficiarios]]"]
+tags: [adr]
+---
 # ADR-029 · Módulo de Beneficiarios e inteligencia de datos
 
 **Estado:** aceptada (2026-10-07). Reemplaza lo que quedaba del ADR-020: el padrón genérico desaparece.

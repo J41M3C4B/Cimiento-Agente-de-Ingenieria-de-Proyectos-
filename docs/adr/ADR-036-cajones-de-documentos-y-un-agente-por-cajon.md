@@ -1,6 +1,14 @@
+---
+adr: 36
+estado: aceptada
+fecha: 2026-10-12
+tema: [documentos, ia, nucleo]
+reemplaza_en_parte: ["[[ADR-033-nucleo-expediente-y-formularios-universales]]", "[[ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento]]"]
+tags: [adr]
+---
 # ADR-036 · Cajones de documentos con dueño, un agente por cajón y el Asistente como orquestador
 
-**Estado:** aceptada (2026-10-12), por bloques (C1 a C3).
+**Estado:** aceptada (2026-10-12), por bloques (C1 a C4); primero solo el núcleo.
 
 **Reemplaza en parte:**
 - del ADR-033 §5, que «Documentos sigue mostrando todos los archivos» como un lugar propio;

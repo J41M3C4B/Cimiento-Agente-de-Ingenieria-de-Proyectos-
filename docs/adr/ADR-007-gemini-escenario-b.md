@@ -1,3 +1,10 @@
+---
+adr: 7
+estado: aceptada
+tema: [ia]
+reemplazado_en_parte_por: ["[[ADR-009-gemini-3-5-flash-principal]]"]
+tags: [adr]
+---
 # ADR-007 · Gemini como proveedor principal por ahora (escenario B)
 
 **Estado:** Aceptada (Fase 2). Falta confirmarla con una llamada real: `cargo test gemini_smoke_live -- --ignored --nocapture`.

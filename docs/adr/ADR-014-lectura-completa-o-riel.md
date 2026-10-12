@@ -1,3 +1,11 @@
+---
+adr: 14
+estado: reemplazada
+fecha: 2026-10-02
+tema: [proyectos]
+reemplazado_por: ["[[ADR-015-schema-canonico-de-convocatorias]]"]
+tags: [adr]
+---
 # ADR-014 — Decisión estratégica: riel de convocatorias o lectura completa estructurada
 
 **Estado:** REEMPLAZADA por ADR-015 (schema canónico, 2026-10-02). El riel v2 se abandona: lo medido con él es resultado afinado sobre los mismos documentos, no resultado ciego. Resumen de lo hecho y por qué no funcionó: `docs/huella-riel-de-convocatorias.md`.

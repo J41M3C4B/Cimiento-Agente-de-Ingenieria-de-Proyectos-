@@ -1,3 +1,11 @@
+---
+adr: 33
+estado: aceptada
+fecha: 2026-10-09
+tema: [nucleo]
+reemplazado_en_parte_por: ["[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]"]
+tags: [adr]
+---
 # ADR-033 · El núcleo como fuente de la institución: formularios universales, expediente, datos institucionales protegidos e historial ligero
 
 **Estado:** aceptada (2026-10-09); se aplica por bloques junto con el ADR-034. El dibujador genérico se valida primero solo con «Mi institución». Sale de la auditoría `docs/14-auditoria-nucleo.md`. Va de la mano del ADR-034 (la IA en todo el ERP), que usa el catálogo de campos de este ADR. **El ADR-036 reemplaza en parte el §5:** Documentos deja de mostrar todos los archivos como lugar propio y pasa a ser la bandeja de los cajones; el expediente es un cajón con su propio Lector.

@@ -1,3 +1,10 @@
+---
+adr: 24
+estado: aceptada
+fecha: 2026-10-04
+tema: [ia, interfaz]
+tags: [adr]
+---
 # ADR-024 · Dos capas: lo que consume la IA no es lo que ve la persona (la «Ficha» de la convocatoria)
 
 **Estado:** Aceptada (2026-10-04), a petición de la persona dueña del proyecto tras probar el paso 1. Primera ronda: la convocatoria.

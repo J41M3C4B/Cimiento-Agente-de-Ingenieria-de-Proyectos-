@@ -1,3 +1,11 @@
+---
+adr: 27
+estado: aceptada
+fecha: 2026-10-07
+tema: [modulos]
+reemplaza_en_parte: ["[[ADR-020-padron-de-personal-y-beneficiarios]]"]
+tags: [adr]
+---
 # ADR-027 · Módulo de Personal: la base de un futuro módulo de RH
 
 **Estado:** aceptada (2026-10-07). Reemplaza la parte de personal del ADR-020; los beneficiarios siguen en el padrón del ADR-020.

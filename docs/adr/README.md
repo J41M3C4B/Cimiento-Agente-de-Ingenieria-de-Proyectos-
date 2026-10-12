@@ -2,6 +2,8 @@
 
 Cada decisión importante se documenta aquí. Formato: contexto, decisión, consecuencias, estado. Una decisión no se edita: si cambia, se crea un ADR nuevo que la reemplaza.
 
+Cada ADR empieza con sus propiedades (para Obsidian y Dataview, ver el [Mapa del proyecto](../00-mapa-del-proyecto.md)): `adr` (número), `estado` (`propuesta`, `aceptada`, `reemplazada`), `fecha`, `tema`, y cuando aplica `reemplaza`, `reemplaza_en_parte`, `reemplazado_por` y `reemplazado_en_parte_por` con enlaces `[[ADR-0NN-…]]`. Un ADR nuevo las lleva desde el principio, y el que reemplaza actualiza las del ADR reemplazado.
+
 | ADR | Decisión | Estado |
 |---|---|---|
 | 001 | Tauri 2 como contenedor de escritorio | Aceptada |

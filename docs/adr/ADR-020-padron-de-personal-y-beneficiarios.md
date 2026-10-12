@@ -1,3 +1,11 @@
+---
+adr: 20
+estado: reemplazada
+fecha: 2026-10-04
+tema: [modulos]
+reemplazado_por: ["[[ADR-027-modulo-de-personal-base-de-rh]]", "[[ADR-029-modulo-de-beneficiarios-e-inteligencia-de-datos]]"]
+tags: [adr]
+---
 # ADR-020 · Padrón de personal y de beneficiarios (fichas individuales que no salen de este equipo)
 
 **Estado:** Aceptada (2026-10-04). **Reemplazada:** el personal por el ADR-027 y los beneficiarios por el ADR-029; el padrón genérico ya no existe, a petición de la persona dueña del proyecto. Implementada: `domain/roster.rs`, `storage/roster.rs`, `roster_service.rs`, `commands/roster.rs`, migración `0009_roster.sql` y las pestañas Personal y Beneficiarios de «Mi institución».

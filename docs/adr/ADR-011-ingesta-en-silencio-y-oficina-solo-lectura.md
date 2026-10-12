@@ -1,3 +1,10 @@
+---
+adr: 11
+estado: aceptada
+tema: [documentos, proyectos]
+reemplazado_en_parte_por: ["[[ADR-035-leer-paginas-escaneadas-y-fotos-ocr]]"]
+tags: [adr]
+---
 # ADR-011 · Ingesta en silencio de la convocatoria y archivos Word/Excel solo de lectura
 
 **Estado:** Aceptada (Fase 3). La revisión con IA se probó con un servicio simulado y con una corrida real sobre la convocatoria de NMP 2026 (ver «Primera corrida real»). Falta medirla en un documento donde las reglas fallan (NMP 2024).

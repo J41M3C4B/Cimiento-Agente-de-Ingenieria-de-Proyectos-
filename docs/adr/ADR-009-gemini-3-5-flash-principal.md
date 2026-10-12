@@ -1,3 +1,10 @@
+---
+adr: 9
+estado: aceptada
+tema: [ia]
+reemplaza_en_parte: ["[[ADR-007-gemini-escenario-b]]", "[[ADR-008-cadena-de-respaldo]]"]
+tags: [adr]
+---
 # ADR-009 · `gemini-3.5-flash` como modelo fuerte principal
 
 **Estado:** Aceptada (Fase 2). Reemplaza los modelos por defecto de los ADR-007 y ADR-008; el resto de esas decisiones sigue igual.

@@ -1,3 +1,10 @@
+---
+adr: 8
+estado: aceptada
+tema: [ia]
+reemplazado_en_parte_por: ["[[ADR-009-gemini-3-5-flash-principal]]"]
+tags: [adr]
+---
 # ADR-008 · Cadena de modelos de respaldo
 
 **Estado:** Aceptada (Fase 2). Falta verla funcionar con el servicio real (los 503 son intermitentes).

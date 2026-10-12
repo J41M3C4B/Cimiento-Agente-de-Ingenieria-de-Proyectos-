@@ -1,3 +1,10 @@
+---
+adr: 4
+estado: aceptada
+tema: [documentos]
+reemplazado_en_parte_por: ["[[ADR-035-leer-paginas-escaneadas-y-fotos-ocr]]"]
+tags: [adr]
+---
 # ADR-004 · Office en Rust, Python como plan B
 
 **Estado:** Aceptada (Fase 0). Plan B con Python **no necesario** por ahora; falta confirmación visual en Office real (ver abajo)

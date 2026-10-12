@@ -1,3 +1,9 @@
+---
+adr: 3
+estado: aceptada
+tema: [ia]
+tags: [adr]
+---
 # ADR-003 · La IA propone, el código decide y escribe
 
 **Estado:** Aceptada

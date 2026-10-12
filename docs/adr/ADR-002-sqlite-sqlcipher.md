@@ -1,3 +1,9 @@
+---
+adr: 2
+estado: aceptada
+tema: [infraestructura, datos]
+tags: [adr]
+---
 # ADR-002 · SQLite + SQLCipher, local primero
 
 **Estado:** Aceptada

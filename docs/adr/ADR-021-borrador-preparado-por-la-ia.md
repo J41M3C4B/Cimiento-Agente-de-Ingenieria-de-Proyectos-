@@ -1,3 +1,10 @@
+---
+adr: 21
+estado: aceptada
+fecha: 2026-10-04
+tema: [proyectos, ia]
+tags: [adr]
+---
 # ADR-021 · El borrador lo prepara la IA; la persona revisa, pone costos y corrige
 
 **Estado:** Aceptada (2026-10-04), a petición de la persona dueña del proyecto. Implementada: `drafting_service.rs` (`prepare_plan`, `draft_all`, `confirm_all_texts`), tareas `drafting.plan` y `drafting.all`, prompts `drafting_plan.v1` y `drafting_all.v1`, migración `0012_drafting_plan.sql`, y las pantallas de la conversación, el resumen, los objetivos y la redacción.

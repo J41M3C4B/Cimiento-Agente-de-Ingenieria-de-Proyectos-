@@ -1,3 +1,9 @@
+---
+adr: 6
+estado: aceptada
+tema: [ia]
+tags: [adr]
+---
 # ADR-006 · Llamadas a la IA por HTTP directo, con salidas estructuradas
 
 **Estado:** Aceptada (Fase 2). Falta confirmarla con una llamada real (caso dorado).

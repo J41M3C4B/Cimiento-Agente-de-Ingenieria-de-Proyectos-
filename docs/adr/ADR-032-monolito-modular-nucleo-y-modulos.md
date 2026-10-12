@@ -1,3 +1,10 @@
+---
+adr: 32
+estado: aceptada
+fecha: 2026-10-08
+tema: [arquitectura]
+tags: [adr]
+---
 # ADR-032 · Monolito modular: un núcleo y módulos independientes
 
 **Estado:** aceptada (2026-10-08); se aplica por bloques (B0 a B6, abajo). Precisa la estructura del `01-arquitectura.md`; no reemplaza ningún ADR.

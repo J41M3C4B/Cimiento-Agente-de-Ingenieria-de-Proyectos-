@@ -1,3 +1,11 @@
+---
+adr: 13
+estado: reemplazada
+fecha: 2026-10-02
+tema: [proyectos]
+reemplazado_por: ["[[ADR-015-schema-canonico-de-convocatorias]]"]
+tags: [adr]
+---
 # ADR-013 — Riel de convocatorias: el código encuentra, el modelo solo etiqueta
 
 **Estado:** REEMPLAZADA por ADR-015 (2026-10-02). Se conserva como historia; ver `docs/huella-riel-de-convocatorias.md`. El código del riel se archivó el 2026-10-03 en `docs/codigo-archivado/riel-*.rs.txt` y sus prompts en `docs/prompts-archivados/`.

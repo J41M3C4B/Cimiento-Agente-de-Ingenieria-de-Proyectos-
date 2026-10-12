@@ -1,3 +1,10 @@
+---
+adr: 17
+estado: aceptada
+fecha: 2026-10-03
+tema: [proyectos, ia]
+tags: [adr]
+---
 # ADR-017 · El diagnóstico es una conversación guiada con IA (apertura + cinco porqués), con la convocatoria confirmada antes
 
 **Estado:** Aceptada (2026-10-03). Implementada: migración 0006, `domain/conversation.rs`, `conversation_service.rs`, pantalla de chat. Reemplaza la parte de «Diagnóstico: las 7 dimensiones» de `02-flujo-funcional.md` y toma de ADR-010 la convocatoria primero y la conversación progresiva; deja para después la bitácora completa y el formulario tipado.

@@ -50,3 +50,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Obsidian: docs/ is opened as a vault; the settings and the trash of each person are not shared
+.obsidian/
+.trash/

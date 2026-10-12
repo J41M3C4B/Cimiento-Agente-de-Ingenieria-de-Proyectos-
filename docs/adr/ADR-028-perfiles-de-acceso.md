@@ -1,3 +1,11 @@
+---
+adr: 28
+estado: aceptada
+fecha: 2026-10-07
+tema: [seguridad]
+reemplaza_en_parte: ["[[ADR-019-respaldo-pin-y-escaneo]]"]
+tags: [adr]
+---
 # ADR-028 · Perfiles de acceso: cuentas, permisos por comando y borrados que esperan al administrador
 
 **Estado:** aceptada (2026-10-07). Retira el PIN de pantalla del ADR-019.

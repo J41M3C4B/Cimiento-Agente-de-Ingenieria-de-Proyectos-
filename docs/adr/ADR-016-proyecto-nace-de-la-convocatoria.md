@@ -1,3 +1,10 @@
+---
+adr: 16
+estado: aceptada
+fecha: 2026-10-03
+tema: [proyectos]
+tags: [adr]
+---
 # ADR-016 · El proyecto nace de su convocatoria; institución global, proyectos independientes
 
 **Estado:** Aceptada (2026-10-03). Implementada: migración 0005, `project_create_from_call`, pantalla «Mis proyectos». Queda pendiente reordenar las etapas (ver «Lo que no cambia todavía»).

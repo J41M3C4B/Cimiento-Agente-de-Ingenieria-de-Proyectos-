@@ -1,3 +1,9 @@
+---
+adr: 12
+estado: aceptada
+tema: [ia]
+tags: [adr]
+---
 # ADR-012 — `gemini-3-flash-preview` como modelo fuerte principal
 
 **Estado:** Aceptada. Confirmada con la revisión real de NMP 2024: respondió a la primera en 18.5 s, $0.2493 MXN.
