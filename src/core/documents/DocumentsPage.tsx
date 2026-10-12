@@ -5,9 +5,10 @@ import { Alert, Button, Toast, PageHeader } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { toBase64, useReadingProgress } from "../../lib/files";
-import { documentAddFile, documentAddText, documentEmergencyDelete, documentsList, toAppError } from "../../lib/tauri";
+import { documentAddFile, documentAddText, documentEmergencyDelete, documentsList, documentsSearch, toAppError } from "../../lib/tauri";
 import type { Decision, QuarantineReport } from "../../lib/types";
 import { DocColumn } from "./DocColumn";
+import type { Inside } from "./DocColumn";
 import { addDonorDocument, defaultMode, donorItems, institutionItems } from "./documentsModel";
 import type { DocCol, DocItem, Draft, GroupMode, UploadTarget } from "./documentsModel";
 import { UploadModal } from "./UploadModal";
@@ -33,6 +34,16 @@ export function DocumentsPage() {
   const [mode, setMode] = useState<Record<DocCol, GroupMode>>({ inst: defaultMode("inst"), donor: defaultMode("donor") });
   // what the person opened or closed by hand; it is kept when the grouping changes
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  // the search inside the text of the documents (IA5), once the person stops typing
+  const [asked, setAsked] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setAsked(query.inst.trim()), 500);
+    return () => clearTimeout(timer);
+  }, [query.inst]);
+  const searchable = asked.length >= 3 && (docs.data?.length ?? 0) > 0;
+  const found = useQuery({ queryKey: ["documents-search", asked], queryFn: () => documentsSearch(asked), enabled: searchable, staleTime: 60_000 });
+  const inside: Inside | null =
+    query.inst.trim().length < 3 ? null : { loading: !searchable || asked !== query.inst.trim() || found.isFetching, passages: found.data?.passages ?? [] };
 
   useEffect(() => {
     if (!toast) return;
@@ -78,6 +89,7 @@ export function DocumentsPage() {
         const doubtful = out.document.doubtful_pages;
         if (doubtful.length > 0) setNotice({ tone: "warn", text: t.savedDoubtful(es.common.pageList(doubtful)) });
         await qc.invalidateQueries({ queryKey: ["documents"] });
+        await qc.invalidateQueries({ queryKey: ["documents-search"] });
       } else if (out.status === "quarantine") {
         setQuarantine(out.report);
       } else if (out.status === "unreadable") {
@@ -106,6 +118,7 @@ export function DocumentsPage() {
       setAsking(null);
       setToast(t.deleted);
       await qc.invalidateQueries({ queryKey: ["documents"] });
+      await qc.invalidateQueries({ queryKey: ["documents-search"] });
     } catch (e) {
       setNotice({ tone: "error", text: toAppError(e).message });
     } finally {
@@ -134,6 +147,7 @@ export function DocumentsPage() {
       onAsk={setAsking}
       onRemove={(id) => void remove(id)}
       busy={busy}
+      inside={col === "inst" ? inside : null}
     />
   );
 

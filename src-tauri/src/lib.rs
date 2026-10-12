@@ -48,6 +48,8 @@ pub fn run() {
             let _ = core::snapshot::take(&conn);
             let db = Arc::new(Mutex::new(conn));
             // who is using the app (ADR-028): nobody until they enter
+            // the vectors of the documents that are missing (IA5), in the background, if the person chose Gemini
+            tauri::async_runtime::spawn(core::archive::vectors::index_in_background(db.clone()));
             app.manage(core::access::service::Session::new(db.clone()));
             app.manage(Db(db));
             app.manage(core::security::Attempts::default());
@@ -98,6 +100,7 @@ pub fn run() {
             commands::document_add_text,
             commands::document_add_file,
             commands::documents_list,
+            commands::documents_search,
             commands::document_emergency_delete,
             commands::dev_load_fixture,
             commands::care::care_overview,

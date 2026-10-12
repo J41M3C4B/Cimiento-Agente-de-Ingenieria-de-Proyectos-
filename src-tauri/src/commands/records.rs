@@ -57,16 +57,18 @@ pub async fn institution_record_attach(
 ) -> Result<AttachOutcome, UiError> {
     guard(&session, "institution_record_attach")?;
     let shared = db.0.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
         let file = match svc::read_original(Path::new(&path)) {
             Ok(file) => file,
             Err(reason) => return Ok(AttachOutcome::Unreadable { reason }),
         };
         let mut conn = shared.lock().map_err(|_| UiError::internal())?;
-        Ok(svc::attach_read(&mut conn, &kind, id.as_deref(), Path::new(&path), file, decision)?)
+        Ok::<_, UiError>(svc::attach_read(&mut conn, &kind, id.as_deref(), Path::new(&path), file, decision)?)
     })
     .await
-    .map_err(|_| UiError::internal())?
+    .map_err(|_| UiError::internal())??;
+    super::index_documents(&db.0);
+    Ok(outcome)
 }
 
 #[tauri::command]

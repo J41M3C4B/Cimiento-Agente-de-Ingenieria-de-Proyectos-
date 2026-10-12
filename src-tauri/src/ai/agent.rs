@@ -28,6 +28,7 @@ pub enum ToolError {
 
 /// A read-only tool an agent may ask for. Whoever registers it decides what it returns, and that is the frontier:
 /// only what may reach the AI (aggregates, groups of three or more, never contact, names, RFC, accounts or pay).
+#[async_trait::async_trait]
 pub trait Tool: Send + Sync {
     /// Stable name, also what the model writes in `tool` (`fill_state`).
     fn name(&self) -> &'static str;
@@ -36,7 +37,8 @@ pub trait Tool: Send + Sync {
     /// The JSON Schema of its arguments: an object with at least one property, every property required (null when
     /// it does not apply) and no others, so it works as structured output in every provider.
     fn args_schema(&self) -> Value;
-    fn run(&self, args: &Value) -> Result<Value, ToolError>;
+    /// Async: a search may ask the embedding service for the vector of its question (IA5).
+    async fn run(&self, args: &Value) -> Result<Value, ToolError>;
 }
 
 /// An agent: who it is and how far it may go. Defined by the code.
@@ -211,7 +213,7 @@ pub async fn run(
             None => Err("se rechazó: no es una de sus herramientas.".to_string()),
             Some(t) => match validate_args(&t.args_schema(), &args) {
                 Err(_) => Err("se rechazó: los argumentos no tienen la forma pedida.".to_string()),
-                Ok(()) => match t.run(&args) {
+                Ok(()) => match t.run(&args).await {
                     Ok(v) => {
                         *record.tools.entry(t.name()).or_insert(0) += 1;
                         Ok(v)
@@ -271,6 +273,7 @@ mod tests {
         }
     }
 
+    #[async_trait::async_trait]
     impl Tool for Echo {
         fn name(&self) -> &'static str {
             self.name
@@ -281,7 +284,7 @@ mod tests {
         fn args_schema(&self) -> Value {
             json!({ "type": "object", "properties": { "what": { "type": "string" } }, "required": ["what"], "additionalProperties": false })
         }
-        fn run(&self, _args: &Value) -> Result<Value, ToolError> {
+        async fn run(&self, _args: &Value) -> Result<Value, ToolError> {
             *self.ran.lock().unwrap() += 1;
             self.result.clone()
         }

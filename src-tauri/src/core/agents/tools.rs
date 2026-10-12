@@ -6,7 +6,10 @@
 use crate::ai::agent::{Tool, ToolError};
 use crate::core::access::domain::{Permission, Role};
 use crate::core::ai_sheet::{self, SECTIONS};
+use crate::core::archive::search::{self, Passage};
 use crate::core::overview::{self, Place};
+use crate::documents::canonical::retrieve::Embedder;
+use async_trait::async_trait;
 use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
@@ -16,22 +19,97 @@ use std::sync::{Arc, Mutex};
 struct Ctx {
     db: Arc<Mutex<Connection>>,
     role: Option<Role>,
+    reach: Reach,
 }
 
 impl Ctx {
+    /// May this person see the data of the institution on their screen?
+    fn allowed(&self) -> Result<(), ToolError> {
+        if self.role.is_some_and(|r| r.can(Permission::Use)) {
+            Ok(())
+        } else {
+            Err(ToolError::Denied)
+        }
+    }
+
     /// The base, if this person may see the data of the institution on their screen.
     fn open(&self) -> Result<std::sync::MutexGuard<'_, Connection>, ToolError> {
-        if !self.role.is_some_and(|r| r.can(Permission::Use)) {
-            return Err(ToolError::Denied);
-        }
+        self.allowed()?;
         self.db.lock().map_err(|_| ToolError::Failed)
     }
 }
 
+/// What an errand brings besides the base: who makes the vector of a question (when the person chose Gemini), and
+/// where the passages the search handed to the AI are written down, so the code verifies what the answer cites.
+#[derive(Clone, Default)]
+pub struct Reach {
+    pub embedder: Option<Arc<dyn Embedder>>,
+    pub cited: Arc<Mutex<Vec<Passage>>>,
+}
+
 /// The tools of the core for one person (by the role of their session).
 pub fn toolbox(db: Arc<Mutex<Connection>>, role: Option<Role>) -> Vec<Box<dyn Tool>> {
-    let ctx = Ctx { db, role };
-    vec![Box::new(FillState(ctx.clone())), Box::new(SheetSection(ctx.clone())), Box::new(ManualSearch(ctx.clone())), Box::new(ManualEntry(ctx))]
+    toolbox_with(db, role, Reach::default())
+}
+
+/// The same, with what an errand brings besides the base.
+pub fn toolbox_with(db: Arc<Mutex<Connection>>, role: Option<Role>, reach: Reach) -> Vec<Box<dyn Tool>> {
+    let ctx = Ctx { db, role, reach };
+    vec![
+        Box::new(FillState(ctx.clone())),
+        Box::new(SheetSection(ctx.clone())),
+        Box::new(ManualSearch(ctx.clone())),
+        Box::new(ManualEntry(ctx.clone())),
+        Box::new(DocumentsSearch(ctx)),
+    ]
+}
+
+/// The most passages a search of the documents hands back, and about how long each one is.
+const DOCUMENT_PASSAGES: usize = 4;
+const PASSAGE_CHARS: usize = 700;
+
+/// How the AI cites a passage in `sources`: `doc:<fragment>`.
+pub fn passage_source(p: &Passage) -> String {
+    format!("doc:{}", p.chunk)
+}
+
+/// Searches the documents the institution uploaded (IA5, ADR-034 §3): their clean text, already through the scanner
+/// when it was saved, a few passages at a time (yellow data: only what the question needs). By words, and by meaning
+/// when the person chose Gemini and the vectors are made.
+struct DocumentsSearch(Ctx);
+
+#[async_trait]
+impl Tool for DocumentsSearch {
+    fn name(&self) -> &'static str {
+        "documents_search"
+    }
+    fn description(&self) -> &'static str {
+        "Busca en los documentos que la institución subió (acta constitutiva, poderes, constancias, oficios, reglamentos, informes, contratos). Devuelve hasta cuatro pasajes, cada uno con su `source` (para citarlo en `sources`), el nombre del documento, la página y el texto. `query` es la pregunta de la persona con sus palabras."
+    }
+    fn args_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"],
+            "additionalProperties": false
+        })
+    }
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
+        self.0.allowed()?;
+        let query = args["query"].as_str().unwrap_or_default();
+        let found = search::search_documents(&self.0.db, self.0.reach.embedder.clone(), query, DOCUMENT_PASSAGES, PASSAGE_CHARS)
+            .await
+            .map_err(|_| ToolError::BadArgs("query".into()))?;
+        let passages: Vec<Value> = found
+            .passages
+            .iter()
+            .map(|p| json!({ "source": passage_source(p), "document": p.document, "page": p.page, "text": p.snippet }))
+            .collect();
+        if let Ok(mut cited) = self.0.reach.cited.lock() {
+            cited.extend(found.passages);
+        }
+        Ok(json!({ "passages": passages }))
+    }
 }
 
 /// The most entries a search of the manual hands back.
@@ -46,6 +124,7 @@ fn entry_json(id: &str) -> Option<Value> {
 /// Searches the manual of the program (ADR-034 §3): how the program works, never data of the institution.
 struct ManualSearch(Ctx);
 
+#[async_trait]
 impl Tool for ManualSearch {
     fn name(&self) -> &'static str {
         "manual_search"
@@ -61,7 +140,7 @@ impl Tool for ManualSearch {
             "additionalProperties": false
         })
     }
-    fn run(&self, args: &Value) -> Result<Value, ToolError> {
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
         let conn = self.0.open()?;
         let query = args["query"].as_str().unwrap_or_default();
         let hits = crate::core::manual::search(&conn, query, MANUAL_HITS).map_err(|_| ToolError::Failed)?;
@@ -72,6 +151,7 @@ impl Tool for ManualSearch {
 /// One entry of the manual by its id (a screen, a window or a field of the catalog).
 struct ManualEntry(Ctx);
 
+#[async_trait]
 impl Tool for ManualEntry {
     fn name(&self) -> &'static str {
         "manual_entry"
@@ -87,7 +167,7 @@ impl Tool for ManualEntry {
             "additionalProperties": false
         })
     }
-    fn run(&self, args: &Value) -> Result<Value, ToolError> {
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
         // like every tool: only for whoever may use the app
         drop(self.0.open()?);
         let id = args["id"].as_str().unwrap_or_default();
@@ -147,6 +227,7 @@ fn place_words(p: Place) -> &'static str {
 /// How far the data are and what is missing, with where it is filled in.
 struct FillState(Ctx);
 
+#[async_trait]
 impl Tool for FillState {
     fn name(&self) -> &'static str {
         "fill_state"
@@ -162,7 +243,7 @@ impl Tool for FillState {
             "additionalProperties": false
         })
     }
-    fn run(&self, args: &Value) -> Result<Value, ToolError> {
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
         let conn = self.0.open()?;
         let wanted = args["form"].as_str();
         let forms = crate::core::institution::forms::FORMS;
@@ -188,6 +269,7 @@ impl Tool for FillState {
 /// One part of the sheet of the institution.
 struct SheetSection(Ctx);
 
+#[async_trait]
 impl Tool for SheetSection {
     fn name(&self) -> &'static str {
         "sheet_section"
@@ -203,7 +285,7 @@ impl Tool for SheetSection {
             "additionalProperties": false
         })
     }
-    fn run(&self, args: &Value) -> Result<Value, ToolError> {
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
         let conn = self.0.open()?;
         let section = args["section"].as_str().unwrap_or_default();
         match ai_sheet::section_context(&conn, section).map_err(|_| ToolError::Failed)? {
@@ -257,11 +339,11 @@ mod tests {
         }
     }
 
-    #[test]
-    fn the_fill_state_says_what_is_missing_and_where_without_any_value() {
+    #[tokio::test]
+    async fn the_fill_state_says_what_is_missing_and_where_without_any_value() {
         let (_d, db) = rich_db();
         let tools = toolbox(db, Some(Role::Manager));
-        let all = tool(&tools, "fill_state").run(&json!({ "form": null })).unwrap();
+        let all = tool(&tools, "fill_state").run(&json!({ "form": null })).await.unwrap();
         assert_eq!((all["percent"].as_u64(), all["missing"].as_array().map(Vec::len)), (Some(100), Some(0)), "{all}");
         assert!(!all.to_string().contains("Asilo Ficticio"), "no values: {all}");
 
@@ -269,40 +351,66 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let empty = Arc::new(Mutex::new(crate::storage::open_encrypted(&dir.path().join("e.db"), KEY).unwrap()));
         let tools_empty = toolbox(empty, Some(Role::Manager));
-        let none = tool(&tools_empty, "fill_state").run(&json!({ "form": null })).unwrap();
+        let none = tool(&tools_empty, "fill_state").run(&json!({ "form": null })).await.unwrap();
         assert!(none["percent"].as_u64().unwrap() < 100);
         assert_eq!(none["missing"][0], json!({ "what": "El nombre", "where": "Mi institución, ventana «Su institución»" }));
         assert!(none["missing"].as_array().unwrap().iter().all(|m| m["what"] != "Otro dato"), "every gap has its words: {none}");
         assert_eq!(none["forms"][0]["form"], "institution.identity");
         assert!(none["forms"][0]["missing_fields"].as_array().unwrap().contains(&json!("institution.mission")));
 
-        let one = tool(&tools, "fill_state").run(&json!({ "form": "institution.identity" })).unwrap();
+        let one = tool(&tools, "fill_state").run(&json!({ "form": "institution.identity" })).await.unwrap();
         assert!(one.get("percent").is_none() && one["forms"].as_array().unwrap().len() == 1);
-        assert!(matches!(tool(&tools, "fill_state").run(&json!({ "form": "nope" })), Err(ToolError::BadArgs(_))));
+        assert!(matches!(tool(&tools, "fill_state").run(&json!({ "form": "nope" })).await, Err(ToolError::BadArgs(_))));
     }
 
-    #[test]
-    fn a_part_of_the_sheet_never_carries_what_must_not_reach_the_ai() {
+    #[tokio::test]
+    async fn a_part_of_the_sheet_never_carries_what_must_not_reach_the_ai() {
         let (_d, db) = rich_db();
         let tools = toolbox(db, Some(Role::Manager));
         for section in SECTIONS {
-            let out = tool(&tools, "sheet_section").run(&json!({ "section": section })).unwrap();
+            let out = tool(&tools, "sheet_section").run(&json!({ "section": section })).await.unwrap();
             let text = out["text"].as_str().unwrap();
             assert!(text.len() > 60, "{section}: {text}");
             for secret in ["AFI200101AB1", "5555 0101", "Rosa Representante", "7,777", "7777", "3,333", "3333", "Secreta", "Oculta", "Reservada", "Discreto", "HEGG560427"] {
                 assert!(!text.contains(secret), "{section} leaks «{secret}»:\n{text}");
             }
         }
-        assert!(matches!(tool(&tools, "sheet_section").run(&json!({ "section": "salaries" })), Err(ToolError::BadArgs(_))));
+        assert!(matches!(tool(&tools, "sheet_section").run(&json!({ "section": "salaries" })).await, Err(ToolError::BadArgs(_))));
     }
 
-    #[test]
-    fn without_a_session_that_may_use_the_app_nothing_is_read() {
+    #[tokio::test]
+    async fn without_a_session_that_may_use_the_app_nothing_is_read() {
         let (_d, db) = rich_db();
         for t in toolbox(db, None) {
-            let args = if t.name() == "sheet_section" { json!({ "section": "money" }) } else { json!({ "form": null }) };
-            assert_eq!(t.run(&args), Err(ToolError::Denied), "{}", t.name());
+            let args = match t.name() {
+                "sheet_section" => json!({ "section": "money" }),
+                "documents_search" | "manual_search" => json!({ "query": "acta" }),
+                "manual_entry" => json!({ "id": "howto.backup" }),
+                _ => json!({ "form": null }),
+            };
+            assert_eq!(t.run(&args).await, Err(ToolError::Denied), "{}", t.name());
         }
+    }
+
+    /// The search of the documents hands the AI a few passages with their source, and writes down what it handed so
+    /// the answer can only cite those.
+    #[tokio::test]
+    async fn the_documents_search_hands_passages_with_their_source() {
+        use crate::core::archive::vectors::{index_pending, tests::WordsEmbedder};
+        let (_d, db) = rich_db();
+        crate::core::archive::search::tests::load_record(&db.lock().unwrap());
+        let e = Arc::new(WordsEmbedder::new());
+        index_pending(&db, e.as_ref()).await.unwrap();
+        let reach = Reach { embedder: Some(e), ..Reach::default() };
+        let tools = toolbox_with(db.clone(), Some(Role::Manager), reach.clone());
+        let out = tool(&tools, "documents_search").run(&json!({ "query": "¿Quién paga el predial?" })).await.unwrap();
+        let first = &out["passages"][0];
+        assert_eq!((first["document"].as_str(), first["page"].as_i64()), (Some("contrato-comodato.txt"), Some(2)), "{out}");
+        assert!(first["source"].as_str().unwrap().starts_with("doc:") && first["text"].as_str().unwrap().contains("predial"));
+        let n = out["passages"].as_array().unwrap().len();
+        assert!((1..=4).contains(&n));
+        assert_eq!(reach.cited.lock().unwrap().len(), n, "what was handed is written down");
+        assert!(matches!(tool(&tools, "documents_search").run(&json!({ "query": " " })).await, Err(ToolError::BadArgs(_))));
     }
 
     fn errand_agent() -> Agent {

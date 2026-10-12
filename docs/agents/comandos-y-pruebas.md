@@ -37,6 +37,10 @@ cargo test core::history                               # origen por dato e histo
 cargo test profile::forms                              # las cuatro ventanas de «Mi institución»: guardado, reglas, Junta, escáner e historial en la misma transacción
 cargo test core::snapshot                              # foto mensual (ADR-033 §4): solo cifras, el mes en curso se actualiza, un mes pasado queda fijo y nada se borra
 cargo test documents::reading                          # leer escaneos y fotos (OCR, ADR-035): páginas sin texto dibujadas y leídas, la «@» de un correo, una página desteñida «con dudas», las celdas de una factura separadas con « | », la carpeta temporal se borra
+cargo test core::archive::search                       # búsqueda en los documentos (IA5): por palabras con el expediente ficticio, fusión, extractos, y la pregunta sale solo limpia
+cargo test core::archive::vectors                      # vectores del expediente (IA5): una vez, cada solicitud en ai_usage, otro modelo los rehace, el tope, el respaldo y el borrado
+#   la medición de IA5 con vectores reales (solo texto ficticio; ~170 textos, unas 7 solicitudes; con CIMIENTO_VEC_CACHE guarda los vectores y la siguiente vez no pide nada):
+#   $env:CIMIENTO_VEC_CACHE="D:\...\vectores.json"; cargo test search_live -- --ignored --nocapture > salida.txt
 cargo test core::archive                               # Documentos: texto pegado y archivos (PDF, Word, Excel, fotos) con escáner, solo el texto limpio y las páginas leídas de imagen
 cargo test core::records                               # expediente (ADR-033 §5, N4): qué documentos tocan a cada institución, estado y vigencia, folio protegido, PDF y Word con escáner, escaneados y fotos, solo el texto limpio y dónde está el original
 cargo test core::examples                              # los dos ejemplos I.A.P. cargan completos al 100 % y sin nombres, folios ni CLABE hacia la IA

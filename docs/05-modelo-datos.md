@@ -411,7 +411,7 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
 | Dueño | Tablas |
 |---|---|
 | Base | `schema_migrations`, `app_settings`, `audit_log`, `ai_usage` |
-| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`, `core_board_member`, `core_bank_account`, `core_snapshot`, `core_record`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
+| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`, `core_board_member`, `core_bank_account`, `core_snapshot`, `core_record`, `document_chunk_vec`, `vec_model`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
 | Personal (`hr_*`) | `hr_modality`, `hr_position`, `hr_person`, `hr_job`, `hr_emergency_contact`, `hr_custom_field` |
 | Beneficiarios (`care_*`) | `care_group`, `care_person`, `care_contact`, `care_custom_field`, `care_waitlist` |
 | Instalaciones (`fac_*`) | `fac_site`, `fac_space`, `fac_equipment` |
@@ -432,4 +432,5 @@ Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás 
   - Un tipo sin fila está «Falta»; hay a lo más una fila por tipo y sede, y tantas `other` como la institución nombre.
   - `document_id` apunta al texto limpio del archivo (`document`, `kind = 'internal'`, una parte por página). Del original solo se guardan `original_path` y `original_name`, nunca su contenido (principio 6).
   - Cada cambio deja en `core_change` una línea `institution.record` sin valor.
+- **0030 `document_chunk_vec`, `vec_model`:** los vectores de los fragmentos de los documentos de la institución (IA5, ADR-034), uno por fragmento con el `rowid` de `document_chunk` (`sqlite-vec`, 768 números, distancia coseno), para encontrar por significado lo que se pregunta con otras palabras. Nunca los de una convocatoria. `vec_model` guarda con qué modelo se hicieron (`scope = 'records'`); si cambia, se borran y se rehacen. Se borran con su documento.
 - **0029 `document.picture_pages`, `document.doubtful_pages`:** las páginas de un archivo cuyo texto se leyó de una imagen (OCR, ADR-035) y, de ellas, las leídas con dudas (confianza menor a 70), como listas JSON de números de página. El texto mismo sigue en `document_chunk`, limpio y tras el escáner.

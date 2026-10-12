@@ -17,7 +17,8 @@ pub async fn assistant_ask(session: State<'_, Session>, db: State<'_, Db>, ask: 
     let role = gate.user.as_ref().map(|u| u.role);
     let db = shared(&db);
     let provider = make_provider(&db);
-    Ok(assistant::ask(&db, provider.as_deref(), role, ask, decision).await?)
+    let embedder = crate::core::archive::vectors::embedder(&db, true);
+    Ok(assistant::ask(&db, provider.as_deref(), embedder, role, ask, decision).await?)
 }
 
 /// «Llenarlo por mí»: what the person tells becomes suggestions in a window of «Mi institución». Nothing is saved.

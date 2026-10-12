@@ -9,7 +9,7 @@ import { es } from "../../i18n/es-MX";
 import { assistantAsk, captureAsk, manualEntry, toAppError } from "../../lib/tauri";
 import { useSession } from "../access/session";
 import { OVERVIEW_KEY } from "../profile/gaps";
-import type { AssistantOutcome, AssistantTurn, CaptureOutcome, Decision, Fill, ManualSource, QuarantineReport } from "../../lib/types";
+import type { AssistantOutcome, AssistantTurn, CaptureOutcome, Decision, DocumentSource, Fill, ManualSource, QuarantineReport } from "../../lib/types";
 
 const t = es.assistant;
 
@@ -47,10 +47,12 @@ function ManualHit({ hit }: { hit: ManualSource }) {
   return <Disclosure title={hit.title}>{entry.data ? <ManualText entry={entry.data} /> : null}</Disclosure>;
 }
 
-/** An answer of the AI: its text, the entries of the manual it used and, maybe, the place to go and a window to fill. */
+/** An answer of the AI: its text, the entries of the manual and the documents it used and, maybe, the place to go and a
+ * window to fill. */
 function Answer({
   text,
   sources,
+  documents,
   place,
   fill,
   onGo,
@@ -58,6 +60,7 @@ function Answer({
 }: {
   text: string;
   sources: ManualSource[];
+  documents: DocumentSource[];
   place: string | null;
   fill: Fill | null;
   onGo: (place: string) => void;
@@ -69,6 +72,11 @@ function Answer({
       {sources.length > 0 && (
         <p className="mt-2 text-small text-ink-3">
           {t.sources} {sources.map((s) => s.title).join(", ")}
+        </p>
+      )}
+      {documents.length > 0 && (
+        <p className="mt-2 text-small text-ink-3">
+          {t.documentSources} {documents.map((d) => t.documentPage(d.document, d.page)).join("; ")}
         </p>
       )}
       {(place || fill) && (
@@ -300,7 +308,7 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
                   />
                 )
               ) : m.outcome.status === "answered" ? (
-                <Answer key={i} text={m.outcome.text} sources={m.outcome.sources} place={m.outcome.go_to} fill={m.outcome.fill} onGo={onGo} onFill={(f) => fillFrom(i, f)} />
+                <Answer key={i} text={m.outcome.text} sources={m.outcome.sources} documents={m.outcome.documents ?? []} place={m.outcome.go_to} fill={m.outcome.fill} onGo={onGo} onFill={(f) => fillFrom(i, f)} />
               ) : (
                 <Unavailable key={i} reason={m.outcome.reason} hits={m.outcome.hits} busy={busy} onRetry={() => void send(m.outcome.asked)} onGo={onGo} />
               ),

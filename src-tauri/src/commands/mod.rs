@@ -160,7 +160,26 @@ pub fn document_add_text(session: State<'_, Session>, db: State<Db>,
 ) -> Result<AddDocumentOutcome, UiError> {
     guard(&session, "document_add_text")?;
     let mut conn = lock(&db)?;
-    Ok(crate::core::archive::service::add_text_document(&mut conn, "internal", &display_name, &text, decision)?)
+    let outcome = crate::core::archive::service::add_text_document(&mut conn, "internal", &display_name, &text, decision)?;
+    index_documents(&db.0);
+    Ok(outcome)
+}
+
+/// Makes in the background the vectors of the documents that are missing (IA5); nothing when the person did not
+/// choose Gemini or did not save its key.
+pub(crate) fn index_documents(db: &crate::storage::SharedDb) {
+    tauri::async_runtime::spawn(crate::core::archive::vectors::index_in_background(db.clone()));
+}
+
+/// Looks for a question in the documents of the institution (IA5): by words always, and by meaning when the person
+/// chose Gemini and the vectors are made.
+#[tauri::command]
+pub async fn documents_search(session: State<'_, Session>, db: State<'_, Db>, query: String) -> Result<crate::core::archive::search::Found, UiError> {
+    use crate::core::archive::search::{search_documents, SNIPPET_CHARS};
+    guard(&session, "documents_search")?;
+    let db = db.0.clone();
+    let embedder = crate::core::archive::vectors::embedder(&db, true);
+    Ok(search_documents(&db, embedder, &query, 8, SNIPPET_CHARS).await?)
 }
 
 /// Adds a file to the documents of the institution: a PDF, Word, Excel or a photo, sent in base64. It is read
@@ -182,12 +201,14 @@ pub async fn document_add_file(session: State<'_, Session>, db: State<'_, Db>,
         Err(reason) => return Ok(AddFileOutcome::Unreadable { reason }),
     };
     let shared = db.0.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
         let mut conn = shared.lock().map_err(|_| UiError::internal())?;
-        Ok(add_file_document(&mut conn, &display_name, &file_name, read, decision)?)
+        Ok::<_, UiError>(add_file_document(&mut conn, &display_name, &file_name, read, decision)?)
     })
     .await
-    .map_err(|_| UiError::internal())?
+    .map_err(|_| UiError::internal())??;
+    index_documents(&db.0);
+    Ok(outcome)
 }
 
 /// The documents of the institution: those of a call belong to their project and are not listed here.

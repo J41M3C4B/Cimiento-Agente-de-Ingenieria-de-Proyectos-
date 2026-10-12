@@ -127,6 +127,8 @@ fn default_prices() -> BTreeMap<String, ModelPrice> {
         ("gemini-3.5-flash", 1.50, 9.00),
         // preview model: Google may change its price when it leaves preview
         ("gemini-3-flash-preview", 0.50, 3.00),
+        // vectors of the documents of the institution (IA5): only what goes in is charged
+        ("gemini-embedding-2", 0.20, 0.0),
     ] {
         prices.insert(m.to_string(), ModelPrice::flat(i, o));
     }

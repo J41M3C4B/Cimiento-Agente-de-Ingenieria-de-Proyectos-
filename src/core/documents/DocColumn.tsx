@@ -3,6 +3,10 @@ import { AddSlot, Avatar, Button, FileTile, Folder, IconButton, ListRow, Search,
 import { es } from "../../i18n/es-MX";
 import { groupItems, targetOf } from "./documentsModel";
 import type { DocCol, DocItem, GroupMode, UploadTarget } from "./documentsModel";
+import type { Passage } from "../../lib/types";
+
+/** What the search found inside the text of the documents (IA5): only in «De mi institución». */
+export type Inside = { loading: boolean; passages: Passage[] };
 
 const t = es.documents;
 
@@ -22,6 +26,7 @@ export function DocColumn({
   onAsk,
   onRemove,
   busy,
+  inside,
 }: {
   col: DocCol;
   items: DocItem[];
@@ -39,6 +44,8 @@ export function DocColumn({
   onAsk: (id: string | null) => void;
   onRemove: (id: string) => void;
   busy: boolean;
+  /** the passages found inside the documents, while the person searches */
+  inside?: Inside | null;
 }) {
   const c = t.cols[col];
   const groups = groupItems(items, mode, query);
@@ -67,7 +74,7 @@ export function DocColumn({
           </div>
 
           {groups.length === 0 ? (
-            <p className="px-2 py-4 text-ui text-ink-3">{t.noMatch}</p>
+            !inside || (!inside.loading && inside.passages.length === 0) ? <p className="px-2 py-4 text-ui text-ink-3">{t.noMatch}</p> : null
           ) : (
             <div className="subfolders">
               {groups.map((g, i) => {
@@ -103,9 +110,40 @@ export function DocColumn({
               })}
             </div>
           )}
+
+          {searching && inside && (
+            <section aria-label={t.inside} className="space-y-1">
+              <h3 className="px-2 text-ui font-bold text-ink-2">{t.inside}</h3>
+              {inside.loading ? (
+                <p className="px-2 py-2 text-ui text-ink-3">{t.insideSearching}</p>
+              ) : inside.passages.length === 0 ? (
+                <p className="px-2 py-2 text-ui text-ink-3">{t.insideNone}</p>
+              ) : (
+                <ul>
+                  {inside.passages.map((p) => (
+                    <PassageRow key={p.chunk} p={p} ext={items.find((d) => d.id === p.document_id)?.ext ?? "txt"} />
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
         </>
       )}
     </Folder>
+  );
+}
+
+/** A piece of a document that answers the search: the document, its page and the words around what was looked for. */
+function PassageRow({ p, ext }: { p: Passage; ext: string }) {
+  return (
+    <li className="list-row !items-start">
+      <FileTile ext={ext} />
+      <div className="min-w-0 flex-1">
+        <b className="block truncate font-bold">{p.document}</b>
+        {p.page !== null && <small className="block text-small font-medium text-ink-3">{t.page(p.page)}</small>}
+        <p className="mt-1 line-clamp-3 text-ui text-ink-2">{p.snippet}</p>
+      </div>
+    </li>
   );
 }
 

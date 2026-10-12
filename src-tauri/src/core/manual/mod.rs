@@ -122,24 +122,6 @@ pub fn ensure_index(conn: &Connection) -> Result<(), ServiceError> {
     Ok(())
 }
 
-/// Words that say nothing about what is being looked for.
-const STOP: &[&str] = &[
-    "que", "qué", "como", "cómo", "para", "por", "con", "los", "las", "del", "una", "uno", "unos", "unas", "este", "esta", "esto", "aqui",
-    "aquí", "pongo", "poner", "sirve", "donde", "dónde", "hago", "hacer", "cuando", "cuándo", "mis", "sus", "nos", "pero", "más", "mas",
-];
-
-/// The terms of a question for FTS5: each word as a quoted prefix (a plural also finds its singular), any of them.
-/// Nothing the person writes reaches FTS5 as syntax.
-fn terms(query: &str) -> Option<String> {
-    let words: Vec<String> = query
-        .split(|c: char| !c.is_alphanumeric())
-        .map(str::to_lowercase)
-        .filter(|w| w.chars().count() >= 3 && !STOP.contains(&w.as_str()))
-        .map(|w| if w.chars().count() > 4 && w.ends_with('s') { w[..w.len() - 1].to_string() } else { w })
-        .collect();
-    (!words.is_empty()).then(|| words.iter().map(|w| format!("\"{w}\"*")).collect::<Vec<_>>().join(" OR "))
-}
-
 fn snippet(e: &Entry) -> String {
     let first = e.paragraphs.first().cloned().unwrap_or_default();
     if first.chars().count() <= 160 {
@@ -151,7 +133,7 @@ fn snippet(e: &Entry) -> String {
 
 /// The entries that best answer a question, best first (the title weighs more than the text). Works offline.
 pub fn search(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Hit>, ServiceError> {
-    let Some(terms) = terms(query) else { return Ok(Vec::new()) };
+    let Some(terms) = crate::storage::fts::match_terms(query) else { return Ok(Vec::new()) };
     ensure_index(conn)?;
     let mut stmt = conn.prepare("SELECT id FROM manual_fts WHERE manual_fts MATCH ?1 ORDER BY bm25(manual_fts, 0.0, 5.0, 1.0) LIMIT ?2")?;
     let ids = stmt.query_map(params![terms, limit as i64], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;

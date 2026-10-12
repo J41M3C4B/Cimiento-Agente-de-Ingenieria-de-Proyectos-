@@ -33,6 +33,7 @@ import type {
   Exported,
   ReviewView,
   DocumentSummary,
+  Found,
   EditOutcome,
   FileRole,
   NeedsView,
@@ -123,6 +124,8 @@ export const documentAddText = (displayName: string, text: string, decision?: De
 export const documentAddFile = (displayName: string, fileName: string, data: string, decision?: Decision) =>
   invoke<AddFileOutcome>("document_add_file", { displayName, fileName, data, decision: decision ?? null });
 export const documentsList = () => invoke<DocumentSummary[]>("documents_list");
+/** Looks for a question inside the documents of the institution (IA5): by words, and by meaning when it can. */
+export const documentsSearch = (query: string) => invoke<Found>("documents_search", { query });
 export const documentEmergencyDelete = (id: string) =>
   invoke<DeleteSummary>("document_emergency_delete", { id });
 // Calls (convocatorias) belong to the project born from them: files go in as text (base64) and the

@@ -34,6 +34,8 @@ Al final se arma una guía en Word para pasar la información a los formularios 
 
 Aquí guarda los documentos que el programa consulta para armar sus proyectos. Se quedan en esta computadora.
 Antes de guardar un texto, el programa revisa que no traiga datos de personas.
+Para encontrar algo, escriba en «Buscar en mis documentos»: aparecen los documentos con ese nombre y, debajo, lo que dicen por dentro, con el documento y la página.
+También puede preguntarle al Asistente qué dice un documento, por ejemplo «¿quién puede firmar convenios?»; le dice de qué documento y página lo tomó.
 
 # ¿Se guarda lo que escribo? {#howto.saving}
 

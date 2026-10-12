@@ -11,6 +11,7 @@ Todo lo que hay en esta carpeta es **inventado**. Sirve para desarrollar y proba
 | `escaner/negativos.txt` | Textos que el escáner NO debe detectar |
 | `escaner/generar.py` | Genera los dos anteriores con dígitos verificadores válidos |
 | `office/` | Excel, Word y PDF de prueba (con tablas y escaneado). Se regeneran con `python generar.py` |
+| `expediente/` | Expediente inventado de una casa de reposo (acta, poder, constancia fiscal, oficio de donataria, reglamento, aviso sanitario, estados financieros, informe, comodato, protección civil), en texto por páginas (`=== PAGINA n ===`), y `preguntas.json`: preguntas de referencia con la página o la entrada del manual que las responde. Mide la búsqueda (IA5) |
 | `convocatoria-ficticia-paginas.txt` | Convocatoria inventada, ya en texto por páginas (`=== PAGINA n ===`), con las mismas manchas que dejan los PDF reales (ligaduras, letras mal decodificadas, enlaces cortados, matrices con «Sí» sueltos). Alimenta las pruebas del extractor de convocatorias |
 
 Pendientes (crear en las fases indicadas):

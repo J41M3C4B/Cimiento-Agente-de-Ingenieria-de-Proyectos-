@@ -17,7 +17,7 @@ use crate::documents::canonical::assemble::{assemble, Reading};
 use crate::documents::canonical::card::{card_of, CallCard};
 use crate::documents::canonical::package::Package;
 use crate::documents::reading::{read_upload, ReadError};
-use crate::documents::canonical::retrieve::{Embedder, GeminiEmbedder, RetrieverKind};
+use crate::documents::canonical::retrieve::{Embedder, GeminiEmbedder, RetrieverKind, EMBEDDING_MODEL};
 use crate::documents::canonical::run::{read_canonical, Options, Strategy};
 use crate::documents::canonical::summary::{summarize, CallSummary};
 use crate::documents::text::{clean_text, norm, same_statement};
@@ -31,8 +31,6 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-/// The embedding model that chooses, for each block of the call, the pages worth reading (ADR-015).
-const EMBEDDING_MODEL: &str = "gemini-embedding-2";
 const MAX_FILE_BYTES: usize = 40 * 1024 * 1024;
 const MAX_FILES: usize = 12;
 /// A page with fewer letters than this has no text layer.

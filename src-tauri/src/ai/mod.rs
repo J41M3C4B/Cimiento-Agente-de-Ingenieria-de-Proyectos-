@@ -52,6 +52,9 @@ pub enum AiTask {
     /// One step of an agent (ADR-034): it asks for a tool or gives its answer. The agent says its name (the task in
     /// `ai_usage`, `agent.<name>`) and its tier; its prompt and schema come with the call (`pipeline::Custom`).
     Agent { name: &'static str, tier: ModelTier },
+    /// The vectors of the fragments of the documents of the institution, or of a question to look for in them (IA5,
+    /// ADR-034 §3): no prompt and no answer to validate, only text that was already through the scanner.
+    Embed,
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // used by the measurement tests, not by the application
@@ -78,12 +81,13 @@ impl AiTask {
             AiTask::CallCanonical => "call.canonical",
             AiTask::CallBrief => "call.brief",
             AiTask::Agent { name, .. } => name,
+            AiTask::Embed => "embed.records",
         }
     }
 
     pub fn tier(self) -> ModelTier {
         match self {
-            AiTask::ConversationTurn | AiTask::CallBrief => ModelTier::Light,
+            AiTask::ConversationTurn | AiTask::CallBrief | AiTask::Embed => ModelTier::Light,
             AiTask::DiagnosisSummary
             | AiTask::PrioritizationProposeNeeds
             | AiTask::DraftingSection
@@ -98,6 +102,7 @@ impl AiTask {
     /// quickly; the reading of a call runs once, in the background, over a lot of text.
     pub fn timeout_secs(self) -> u64 {
         match self {
+            AiTask::Embed => 30,
             AiTask::ConversationTurn | AiTask::CallBrief | AiTask::Agent { .. } => 60,
             AiTask::DiagnosisSummary | AiTask::PrioritizationProposeNeeds | AiTask::DraftingSection | AiTask::DraftingPlan => 120,
             AiTask::DraftingAll => 180,
@@ -128,6 +133,7 @@ impl AiTask {
     pub fn max_output_tokens(self) -> u32 {
         match self {
             // an agent sets it per call (`pipeline::Custom`)
+            AiTask::Embed => 0,
             AiTask::ConversationTurn | AiTask::CallBrief | AiTask::Agent { .. } => 500,
             AiTask::DiagnosisSummary => 2000,
             AiTask::PrioritizationProposeNeeds => 1000,

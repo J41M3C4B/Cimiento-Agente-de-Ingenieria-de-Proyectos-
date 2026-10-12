@@ -106,6 +106,24 @@ Cada bloque termina con sus pruebas en seco (modelo simulado, sin gasto) y luego
 - **«Llenarlo por mí»** se pide desde cada ventana y desde una respuesta del Asistente (`fill`). En ambos casos lo corre el código: el Asistente solo lo ofrece.
 - **El Capturista trabaja con lo que la persona cuenta:** una sola llamada, sin herramientas. Cada sugerencia trae las palabras de la persona y el código las busca en lo que escribió; si no están, la descarta. Proponer desde otras partes del ERP queda para cuando haya módulos con datos que lo pidan (y los documentos, para el Lector, IA6).
 
+### Precisiones al aplicar IA5 (2026-10-12)
+
+- **Primero se midió, con texto ficticio:** un expediente inventado (`fixtures/expediente/`, 10 documentos y 21 páginas) y 48 preguntas de referencia con la página o la entrada que las responde (`preguntas.json`). Unas usan las palabras del documento («¿Cuántos extintores tenemos?») y otras no («¿Qué hacemos si tiembla?»). Prueba `search_live` con `gemini-embedding-2` (768 números por vector):
+
+  | Expediente: la página esperada entre las 3 primeras | Por palabras (FTS5) | Solo vectores | Ambas, vectores ×3 |
+  |---|---|---|---|
+  | Preguntas con las palabras del documento (18) | 94 % | 94 % | **100 %** (94 % en 1.º) |
+  | Preguntas con otras palabras (14) | 50 % | 93 % | **100 %** (86 % en 1.º) |
+
+  Con el mismo peso para ambas, las preguntas con otras palabras bajaban a 57 % en 1.º lugar; por eso los vectores pesan el triple (`MEANING_WEIGHT`).
+- **Un vector siempre tiene un fragmento «más cercano»,** aunque nada hable de la pregunta: probado en el programa, «¿Qué hacemos si tiembla?» traía también el reglamento de visitas. Por eso lo que solo encontró el significado entra únicamente desde sus 3 primeros lugares (`MEANING_ONLY`). Medido con los mismos vectores: la misma exactitud y 5.8 pasajes por pregunta en lugar de 10.
+- **Los vectores se guardan solo para el expediente** (`document_chunk_vec`, `sqlite-vec` con distancia coseno; `vec_model` dice con qué modelo se calcularon y, si cambia, se rehacen). **El manual se queda en FTS5:** ahí, juntar palabras y vectores bajó las preguntas con otras palabras de 62 % a 37 % en primer lugar (vectores solos contra ambas ×3; 16 preguntas), y quien busca en el manual es el Asistente, que escribe palabras clave. El «?» y la Ayuda siguen sin IA y sin internet.
+- **Qué sale de la computadora, y cuándo:** el texto limpio de los documentos de la institución (ya pasó por el escáner al guardarse), una vez por página, y solo si la persona eligió Gemini y guardó su llave, como las páginas de una convocatoria. Con otro proveedor o sin llave, la búsqueda es por palabras y no sale nada. La pregunta sale solo si hay vectores con qué compararla y el escáner no le encuentra datos de una persona; si no, se busca por palabras.
+- **Cada solicitud de vectores es una llamada a la IA:** queda en `ai_usage` (`embed.records`) con tokens estimados (cuatro letras por token: el servicio no los dice) y cuenta para el tope mensual; al llegar al tope no se pide nada. Se calculan en segundo plano al abrir el programa, al guardar un documento y al guardar la llave, por tandas de 50 y sin tener tomada la base mientras el servicio responde. Si falla (sin internet), lo que falte se hace la siguiente vez.
+- **El Asistente busca en los documentos** con `documents_search` (hasta 4 pasajes de unas 700 letras, prompt `assistant.v4`) y cita `doc:<fragmento>`. El código solo acepta una cita que la búsqueda le dio en ese encargo, y pone el nombre del documento y la página. El texto de un documento es un dato: el prompt lo dice, las herramientas solo leen y nada se guarda sin una persona.
+- **Las herramientas son asíncronas** (`async fn run`): la búsqueda puede pedir el vector de la pregunta. Para una pregunta que alguien espera, el servicio tiene 8 segundos y ningún reintento (`GeminiEmbedder::quick`); si no contesta, se busca por palabras.
+- **Documentos** busca también dentro del texto: al escribir en «Buscar en mis documentos» aparecen, además de los nombres que coinciden, los pasajes con su documento y su página.
+
 ## Consecuencias
 
 - **La ficha de la institución (`ai_sheet`) se queda** como resumen corto que recibe todo agente. El detalle se pide con herramientas. Se mide antes de acortarla.

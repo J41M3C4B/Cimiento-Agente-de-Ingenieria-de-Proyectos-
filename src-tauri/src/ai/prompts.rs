@@ -33,7 +33,7 @@ pub const AGENT_PROTOCOL_VERSION: &str = "agent_protocol.v1";
 /// Does the task receive the profile of the institution (and so need the rules about how to treat it)? An agent
 /// says it itself (`agent_system`).
 fn knows_the_institution(task: AiTask) -> bool {
-    !matches!(task, AiTask::CallCanonical | AiTask::CallBrief | AiTask::Agent { .. })
+    !matches!(task, AiTask::CallCanonical | AiTask::CallBrief | AiTask::Agent { .. } | AiTask::Embed)
 }
 
 /// Fixed text (no dates, no ids) so the provider can cache it between calls.
@@ -49,6 +49,8 @@ pub fn system_prompt(task: AiTask) -> String {
         AiTask::CallBrief => CALL_BRIEF,
         // an agent brings its whole prompt (`agent_system`); this is only the protocol
         AiTask::Agent { .. } => AGENT_PROTOCOL,
+        // text to vectors: there is no prompt
+        AiTask::Embed => "",
     };
     if knows_the_institution(task) {
         format!("{}\n\n{}\n\n{}", body.trim(), INSTITUTION_RULES.trim(), COMMON.trim())
@@ -202,6 +204,7 @@ pub fn schema(task: AiTask) -> Value {
             "additionalProperties": false
         }),
         // the bare shape of a step; each agent sends its own, with the arguments of its tools (`agent::step_schema`)
+        AiTask::Embed => json!({}),
         AiTask::Agent { .. } => json!({
             "type": "object",
             "properties": {

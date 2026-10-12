@@ -3,6 +3,7 @@
 pub mod backup;
 pub mod db;
 mod migrations;
+pub mod fts;
 mod secrets;
 
 #[allow(unused_imports)]

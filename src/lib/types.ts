@@ -204,8 +204,14 @@ export interface ManualSource {
   id: string;
   title: string;
 }
+/** A passage of a document of the institution an answer is based on: its name and page come from the code (IA5). */
+export interface DocumentSource {
+  document_id: string;
+  document: string;
+  page: number | null;
+}
 export type AssistantOutcome =
-  | { status: "answered"; asked: string; text: string; go_to: string | null; sources: ManualSource[]; fill: Fill | null }
+  | { status: "answered"; asked: string; text: string; go_to: string | null; sources: ManualSource[]; documents: DocumentSource[]; fill: Fill | null }
   | { status: "manual"; asked: string; reason: string; hits: ManualSource[] }
   | { status: "quarantine"; report: QuarantineReport };
 // The Capturist (ADR-034, IA4, core/agents/capturist.rs): what the person tells becomes suggestions in a window.
@@ -385,6 +391,20 @@ export interface DocumentSummary {
   /** how many pages were read from a picture (OCR, ADR-035), and which of them with doubts */
   picture_pages: number;
   doubtful_pages: number[];
+}
+/** A piece of a document that answers a search (IA5, core/archive/search.rs). */
+export interface Passage {
+  chunk: number;
+  document_id: string;
+  document: string;
+  page: number | null;
+  /** the words around what was looked for */
+  snippet: string;
+}
+/** What a search in the documents found, and whether it also looked by meaning. */
+export interface Found {
+  passages: Passage[];
+  by_meaning: boolean;
 }
 export type AddDocumentOutcome =
   | { status: "saved"; document: DocumentSummary }
