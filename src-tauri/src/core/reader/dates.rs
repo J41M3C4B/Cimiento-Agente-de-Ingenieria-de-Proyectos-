@@ -93,10 +93,18 @@ fn iso(y: u32, m: u32, d: u32) -> Option<String> {
 
 static NUMERIC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b(\d{1,2})\s+de\s+([a-zá-ú]+)\s+(?:de|del)\s+(\d{4})\b").unwrap());
 static SLASHED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b").unwrap());
-// «diez días del mes de marzo de dos mil quince», «dieciocho de enero de dos mil veintisiete»
+// «diez días del mes de marzo de dos mil quince», «dieciocho de enero de dos mil veintisiete»; «del año» also as a scan
+// reads it («afio», «aho», «ario»)
 static WORDS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\b((?:[a-zá-ú]+\s+){0,2}?[a-zá-ú]+)\s+(?:d[ií]as?\s+del\s+mes\s+)?de\s+([a-zá-ú]+)\s+(?:del\s+a[ñn]o\s+|de\s+)((?:dos\s+mil|mil)(?:\s+[a-zá-ú]+){0,4})").unwrap()
+    Regex::new(r"(?i)\b((?:[a-zá-ú]+\s+){0,2}?[a-zá-ú]+)\s+(?:d[ií]as?\s+del\s+mes\s+)?de\s+([a-zá-ú]+)\s+(?:del\s+a(?:ñ|n|fi|h|ri|rì)o\s+|de\s+)((?:dos\s+mil|mil)(?:\s+[a-zá-ú]+){0,4})").unwrap()
 });
+
+/// The dates written in words, as a notary writes them, in the order they appear: (where it starts, ISO date).
+pub fn dates_in_words(text: &str) -> Vec<(usize, String)> {
+    let mut out = Vec::new();
+    words_dates(text, &mut out);
+    out
+}
 
 /// The dates of a text, in the order they appear: (where it starts, ISO date).
 pub fn dates_in(text: &str) -> Vec<(usize, String)> {
@@ -111,6 +119,13 @@ pub fn dates_in(text: &str) -> Vec<(usize, String)> {
             out.extend(iso(y, m, d).map(|s| (c.get(0).unwrap().start(), s)));
         }
     }
+    words_dates(text, &mut out);
+    out.sort();
+    out.dedup_by(|a, b| a.1 == b.1);
+    out
+}
+
+fn words_dates(text: &str, out: &mut Vec<(usize, String)>) {
     for c in WORDS.captures_iter(text) {
         let Some(m) = month(&c[2]) else { continue };
         // the day is the last words before «de <mes>» that make a number («a los diez», «el treinta y uno»)
@@ -123,9 +138,6 @@ pub fn dates_in(text: &str) -> Vec<(usize, String)> {
             out.extend(iso(y, m, d).map(|s| (c.get(0).unwrap().start(), s)));
         }
     }
-    out.sort();
-    out.dedup_by(|a, b| a.1 == b.1);
-    out
 }
 
 #[cfg(test)]
@@ -150,6 +162,8 @@ mod tests {
         assert_eq!(one("En la Ciudad de México, a los diez días del mes de marzo de dos mil quince, ante mí"), vec!["2015-03-10"]);
         assert_eq!(one("es decir, hasta el dieciocho de enero de dos mil veintisiete, salvo que"), vec!["2027-01-18"]);
         assert_eq!(one("el primero de abril de dos mil dieciséis"), vec!["2016-04-01"]);
+        // as a scan reads «año»
+        assert_eq!(one("siendo las veinte horas del dia veinticuatro de enero del afio dos mil dos, reunidos"), vec!["2002-01-24"]);
         assert_eq!(one("a 31 de febrero de 2017"), Vec::<String>::new(), "a date that does not exist is none");
         assert_eq!(one("de martes a domingo, de las diez a las trece horas"), Vec::<String>::new());
     }

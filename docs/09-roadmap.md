@@ -262,6 +262,13 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
     - Lo mismo al poner un archivo en el Expediente.
     - Con los ficticios: los 10 documentos del expediente reconocidos (el comodato, que no es del expediente, sin tipo), y el RFC sale de la constancia por reglas aunque lo guardado diga «[RFC OCULTO]» (criterio de ADR-034).
     - Al subir a «Financieros» se avisa que las facturas van en Finanzas.
+    - Ajustes tras probar un acta real de 14 páginas escaneadas y la ficha de una institución en el directorio de la Junta (2026-10-12). El OCR había leído las 14 páginas completas; lo que fallaba eran las reglas, que no conocían su redacción:
+      - el nombre «bajo la denominación … AC.-» y «denominada “…”»;
+      - la fecha «del afio dos mil dos» (así lee el escaneo «año»);
+      - el objeto bajo «OBJETO. Artículo V.- … tendrá como objetivo general», que no es el «con objeto de acordar» que aparece antes;
+      - la ficha de la Junta («Denominación:», «Número de Institución:», «Objeto:», «I.A.P.» leída como «LAP»), que ahora se reconoce como registro ante la Junta.
+      - El objeto termina en el siguiente artículo o rótulo y en su último punto: en la ficha nunca entran los nombres del patronato.
+      - Prueba de diagnóstico sin imprimir el texto: `reader_on_a_file`.
   - [ ] Lo que queda del Lector: que la IA proponga el tipo de lo que ninguna regla reconoce y lea lo que no tiene formato, con citas verificadas.
 - [x] **OCR** Leer páginas escaneadas y fotos (2026-10-10, ADR-035, migración 0029, `documents/ocr.rs` y `documents/reading.rs`), pedido por la institución antes de IA5:
   - Tesseract 5.5.3 y Pdfium viajan en el instalador (`scripts/fetch-ocr.ps1` los baja con huella; nunca en el repositorio). Modelo preciso `eng+spa`: el de español no tiene «@» y el escáner perdía los correos.

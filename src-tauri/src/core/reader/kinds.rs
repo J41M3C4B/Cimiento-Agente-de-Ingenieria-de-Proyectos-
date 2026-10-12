@@ -24,7 +24,8 @@ pub const KINDS: &[Kind] = &[
     Kind { code: "power_of_attorney", class: "legal", phrases: &[&["poder general"], &["pleitos y cobranzas", "apoderad"], &["otorga", "poder especial"]] },
     Kind { code: "bylaws_amendments", class: "legal", phrases: &[&["reforma", "estatutos", "protocoliza"], &["modificacion", "estatutos", "acta de asamblea"]] },
     Kind { code: "articles_of_incorporation", class: "legal", phrases: &[&["escritura", "constituir", "estatutos"], &["acta constitutiva"]] },
-    Kind { code: "junta_registration", class: "legal", phrases: &[&["junta de asistencia privada", "constancia de registro"], &["junta de asistencia privada", "registro", "folio"]] },
+    // the constancia of registry, or the sheet of the institution in the directory of the Junta («Número de Institución»)
+    Kind { code: "junta_registration", class: "legal", phrases: &[&["junta de asistencia privada", "constancia de registro"], &["junta de asistencia privada", "registro", "folio"], &["numero de institucion", "objeto"]] },
     Kind { code: "social_care_registry", class: "legal", phrases: &[&["registro nacional de centros de asistencia social"]] },
     Kind { code: "sanitary_notice", class: "legal", phrases: &[&["aviso de funcionamiento"]] },
     Kind { code: "land_use_license", class: "legal", phrases: &[&["uso de suelo"]] },

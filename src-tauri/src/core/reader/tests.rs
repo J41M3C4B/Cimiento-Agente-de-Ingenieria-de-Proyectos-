@@ -121,3 +121,68 @@ fn a_kind_the_person_said_stays() {
     let none = docs::list(&c).unwrap().into_iter().find(|d| d.id == doc.id).unwrap();
     assert_eq!((none.doc_type, none.category.as_deref()), (None, Some("programs")));
 }
+
+/// What the Reader understands of a real file, without saving anything nor printing its text: per page, how many
+/// letters were read and whether from a picture; the kind; and per datum found, its page and its length. For a real
+/// document of the institution: its text never leaves this computer, and here not even the screen.
+///   $env:CIMIENTO_READER_FILE="D:\...\acta.pdf"; cargo test reader_on_a_file -- --ignored --nocapture > salida.txt
+///   (optional: $env:CIMIENTO_READER_KIND="articles_of_incorporation", the kind of the document of the record)
+#[test]
+#[ignore]
+fn reader_on_a_file() {
+    let path = std::path::PathBuf::from(std::env::var("CIMIENTO_READER_FILE").expect("CIMIENTO_READER_FILE"));
+    let known = std::env::var("CIMIENTO_READER_KIND").ok();
+    let bytes = std::fs::read(&path).unwrap();
+    let started = std::time::Instant::now();
+    let read = crate::documents::reading::read_upload(&path.file_name().unwrap().to_string_lossy(), &bytes).unwrap();
+    println!("Páginas: {}  leídas de imagen: {}  con dudas: {:?}  ({:.0} s)", read.pages.len(), read.from_picture.len(), read.doubtful, started.elapsed().as_secs_f64());
+    for (i, p) in read.pages.iter().enumerate() {
+        let letters = p.chars().filter(|c| c.is_alphabetic()).count();
+        let folded = crate::storage::fts::fold(p);
+        let marks: Vec<&str> = ["por objeto", "objeto", "articulo", "clausula", "denominacion", "escritura", "vigencia"].into_iter().filter(|w| folded.contains(w)).collect();
+        println!("  p{:>2}: {:>5} letras  {}  {:?}", i + 1, letters, if read.from_picture.contains(&(i + 1)) { "imagen" } else { "texto " }, marks);
+    }
+    let pages: Vec<String> = read.pages.iter().map(|p| crate::documents::text::clean_text(p)).collect();
+    // only when asked: a few words around the first place each of these appears, to see how the document writes it
+    //   $env:CIMIENTO_READER_SHOW="objeto,denominacion"
+    if let Ok(show) = std::env::var("CIMIENTO_READER_SHOW") {
+        for w in show.split(',').map(str::trim).filter(|w| !w.is_empty()) {
+            let hit = pages.iter().enumerate().find_map(|(i, p)| {
+                let folded = crate::storage::fts::fold(p);
+                folded.find(w).map(|at| (i + 1, folded[..at].chars().count(), p))
+            });
+            if let Some((page, at, p)) = hit {
+                let around: String = p.chars().skip(at.saturating_sub(20)).take(160).collect();
+                println!("«{w}» p{page}: …{}…", around.split_whitespace().collect::<Vec<_>>().join(" "));
+            }
+        }
+    }
+    // only the labels of a form-like document (the words before each «:»), never what follows them
+    //   $env:CIMIENTO_READER_LABELS="1"
+    if std::env::var("CIMIENTO_READER_LABELS").is_ok() {
+        for (i, p) in pages.iter().enumerate() {
+            let labels: Vec<String> = p
+                .split(':')
+                .take(40)
+                .filter_map(|chunk| {
+                    let words: Vec<&str> = chunk.split_whitespace().collect();
+                    let tail: Vec<&str> = words.iter().rev().take_while(|w| w.chars().next().is_some_and(|c| c.is_alphabetic())).take(4).copied().collect();
+                    (!tail.is_empty()).then(|| tail.into_iter().rev().collect::<Vec<_>>().join(" "))
+                })
+                .collect();
+            println!("  rótulos p{}: {:?}", i + 1, labels);
+        }
+    }
+    println!("Tipo por sus palabras: {:?}", kinds::recognize(&pages));
+    let reading = super::read(&pages, known.as_deref());
+    println!("Tipo usado: {:?}", reading.kind);
+    for f in &reading.found {
+        let len = f.value.as_str().map_or(f.value.to_string().len(), |s| s.chars().count());
+        println!("  {} p{}  {} letras", f.field, f.page, len);
+        // where a long text ends, to see that it stops at the next article or label
+        if len > 200 {
+            let s = f.value.as_str().unwrap_or_default();
+            println!("     …{}", s.chars().skip(len - 60).collect::<String>());
+        }
+    }
+}
