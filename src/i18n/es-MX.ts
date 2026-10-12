@@ -1252,14 +1252,17 @@ export const es = {
   suggestions: {
     title: "Sugerencia de la IA:",
     said: (quote: string) => `Usted dijo: «${quote}»`,
+    // read by the Reader in a document of the institution (IA6): not the AI, the rules of the program
+    titleDocument: "Lo dice un documento:",
+    fromDocument: (document: string, page: number | null) => (page ? `Lo leímos en «${document}», página ${page}.` : `Lo leímos en «${document}».`),
     use: "Usar",
     discard: "Descartar",
     waiting: (n: number) =>
       n === 1
-        ? "La IA dejó 1 sugerencia en esta ventana. «Usar» la pone en su campo, donde puede corregirla; se guarda hasta que pulse «Guardar»."
-        : `La IA dejó ${n} sugerencias en esta ventana. Revíselas una por una: «Usar» pone cada una en su campo, donde puede corregirla; se guardan hasta que pulse «Guardar».`,
+        ? "Hay 1 sugerencia en esta ventana. «Usar» la pone en su campo, donde puede corregirla; se guarda hasta que pulse «Guardar»."
+        : `Hay ${n} sugerencias en esta ventana. Revíselas una por una: «Usar» pone cada una en su campo, donde puede corregirla; se guardan hasta que pulse «Guardar».`,
     discardAll: "Descartar todas",
-    pending: (n: number, place: string) => `La IA dejó ${n} ${n === 1 ? "sugerencia" : "sugerencias"} en «${place}» para que las revise.`,
+    pending: (n: number, place: string) => `Hay ${n} ${n === 1 ? "sugerencia" : "sugerencias"} en «${place}» para que las revise.`,
     review: "Revisarlas",
   },
   // The first start (ADR-031): the welcome of each person, the setup of the administrator and the data of the institution
@@ -2041,6 +2044,14 @@ export const es = {
     dropHint: "o arrastre un archivo aquí",
     groupBy: "Agrupar por",
     noMatch: "No encontramos documentos con eso.",
+    // the class and what each document is (IA6)
+    classes: { legal: "Legales", financial: "Financieros", programs: "Programas" } as Record<string, string>,
+    changeType: (name: string) => `Decir qué documento es «${name}»`,
+    typeTitle: "¿Qué documento es?",
+    typeHint: "Lo reconocimos por sus palabras. Si no es así, elija el correcto: así sabemos qué datos de su institución trae.",
+    typeLabel: "Documento",
+    typeNone: "Otro, o no lo sé",
+    typeSaved: "Listo, anotamos qué documento es.",
     // search inside the text of the documents (IA5)
     inside: "Dentro de sus documentos",
     insideSearching: "Buscando dentro de sus documentos…",
@@ -2100,6 +2111,9 @@ export const es = {
       kind: "Tipo de documento (si lo sabe)",
       kindPick: "Seleccionar",
       kindsInst: ["Legales", "Financieros", "Programas"],
+      // the class kept with the document (IA6), by its label above
+      classOf: { Legales: "legal", Financieros: "financial", Programas: "programs" } as Record<string, string>,
+      invoicesInFinance: "Las facturas y los recibos se registran en Finanzas, no aquí.",
       kindsDonor: ["Reglas", "Indicadores", "Guías y formatos"],
       donorSoon:
         "Los documentos de donantes todavía no se guardan en este equipo. Por ahora puede guardar el texto como documento de su institución.",

@@ -3,9 +3,10 @@
 
 use crate::audit::{self, AuditKind};
 use crate::core::archive::storage::{self as docs, DocumentSummary, PageMarks};
-use crate::documents::reading::{self, ReadError, Reading};
+use crate::documents::reading::{self, ReadError, Reading as FileReading};
 use crate::documents::text::clean_text;
 use crate::core::error::ServiceError;
+use crate::core::reader::{self, kinds, Reading};
 use crate::core::screen::scanner_for;
 use crate::scanner::guard::{counts_json, guard_fields, Decision, GuardOutcome, QuarantineReport};
 use crate::scanner::SensitiveScanner;
@@ -24,16 +25,49 @@ pub enum AddDocumentOutcome {
     RejectedRoster,
 }
 
+/// The class the person chose, if it is one of `kinds::CLASSES`.
+fn check_class(category: Option<&str>) -> Result<(), ServiceError> {
+    match category {
+        Some(c) if !kinds::CLASSES.contains(&c) => Err(ServiceError::UnknownKind),
+        _ => Ok(()),
+    }
+}
+
+/// After a document is saved: its class (the one the person chose, or that of its kind), what it is when a rule
+/// recognized it, and the data of the institution it says as suggestions with their citation (IA6). The Reader read
+/// the text before the scanner covered it.
+pub fn classify(conn: &Connection, id: &str, category: Option<&str>, reading: &Reading) -> Result<(), ServiceError> {
+    let category = category.or_else(|| reading.kind.and_then(kinds::kind).map(|k| k.class));
+    docs::set_class(conn, id, category, reading.kind, "computed")?;
+    reader::propose(conn, id, &reading.found)?;
+    Ok(())
+}
+
+/// The person says what a document is: a kind the Reader knows, or none. The class follows the kind when the document
+/// had none. A rule never changes it afterwards.
+pub fn set_type(conn: &Connection, id: &str, doc_type: Option<&str>) -> Result<(), ServiceError> {
+    let kind = match doc_type {
+        Some(code) => Some(kinds::kind(code).ok_or(ServiceError::UnknownKind)?),
+        None => None,
+    };
+    let current = docs::list_institution(conn)?.into_iter().find(|d| d.id == id).ok_or(ServiceError::NotFound)?;
+    let category = if current.category.is_none() { kind.map(|k| k.class) } else { None };
+    docs::set_class(conn, id, category, kind.map(|k| k.code), "user")?;
+    Ok(())
+}
+
 pub fn add_text_document(
     conn: &mut Connection,
     kind: &str,
     display_name: &str,
     text: &str,
     decision: Option<Decision>,
+    category: Option<&str>,
 ) -> Result<AddDocumentOutcome, ServiceError> {
     if !DOCUMENT_KINDS.contains(&kind) {
         return Err(ServiceError::UnknownKind);
     }
+    check_class(category)?;
     if text.trim().is_empty() || display_name.trim().is_empty() {
         return Err(ServiceError::EmptyText);
     }
@@ -76,11 +110,16 @@ pub fn add_text_document(
         ),
     };
 
+    let reading = reader::read(&[text.to_string()], None);
     let doc = docs::add_text_document(conn, kind, &name, &body, redactions)?;
     if let Some((k, d)) = audit_event {
         audit::record(conn, k, Some("document"), Some(&doc.id), d)?;
     }
-    Ok(AddDocumentOutcome::Saved { document: doc })
+    if kind != "call" {
+        classify(conn, &doc.id, category, &reading)?;
+    }
+    let document = docs::list(conn)?.into_iter().find(|d| d.id == doc.id).ok_or(ServiceError::NotFound)?;
+    Ok(AddDocumentOutcome::Saved { document })
 }
 
 /// The pages of a file after the scanner.
@@ -148,7 +187,7 @@ pub enum AddFileOutcome {
 
 /// Reads a file the screen sent (PDF, Word, Excel or a photo); a scanned page or a photo is read as a picture
 /// (OCR, ADR-035), a few seconds a page. It does not touch the database: the caller does it without holding it.
-pub fn read_upload(file_name: &str, bytes: &[u8]) -> Result<Reading, FileUnreadable> {
+pub fn read_upload(file_name: &str, bytes: &[u8]) -> Result<FileReading, FileUnreadable> {
     if bytes.len() > MAX_FILE_BYTES {
         return Err(FileUnreadable::TooLarge);
     }
@@ -172,15 +211,25 @@ fn mime_of(file_name: &str) -> &'static str {
 /// Keeps the clean text of a file already read (`read_upload`) as a document of the institution, page by page:
 /// its name and its pages through the scanner, a list of people refused whole, and the pages read from a picture
 /// marked. Of the file itself nothing is kept (principle 6).
-pub fn add_file_document(conn: &mut Connection, display_name: &str, file_name: &str, read: Reading, decision: Option<Decision>) -> Result<AddFileOutcome, ServiceError> {
+pub fn add_file_document(
+    conn: &mut Connection,
+    display_name: &str,
+    file_name: &str,
+    read: FileReading,
+    decision: Option<Decision>,
+    category: Option<&str>,
+) -> Result<AddFileOutcome, ServiceError> {
     if display_name.trim().is_empty() {
         return Err(ServiceError::EmptyText);
     }
+    check_class(category)?;
     let pages: Vec<String> = read.pages.iter().map(|p| clean_text(p)).collect();
     let letters = |t: &str| t.chars().filter(|c| c.is_alphabetic()).count();
     if pages.iter().all(|p| letters(p) < MIN_LETTERS_PER_PAGE) {
         return Ok(AddFileOutcome::Unreadable { reason: FileUnreadable::NoText });
     }
+    // the Reader reads before the scanner covers: a protected datum of the institution reaches only its suggestion
+    let reading = reader::read(&pages, None);
     let pictures = !read.from_picture.is_empty();
     let (name, pages, redactions) = match guard_pages(conn, "document", Some(display_name.trim()), &pages, pictures, decision)? {
         GuardedPages::Clean { name, pages, redactions } => (name.unwrap_or_default(), pages, redactions),
@@ -190,6 +239,7 @@ pub fn add_file_document(conn: &mut Connection, display_name: &str, file_name: &
     let marks = PageMarks { from_picture: read.from_picture, doubtful: read.doubtful };
     let tx = conn.transaction()?;
     let id = docs::add_paged_document(&tx, "internal", &name, mime_of(file_name), &pages, redactions, &marks)?;
+    classify(&tx, &id, category, &reading)?;
     tx.commit()?;
     let document = docs::list(conn)?.into_iter().find(|d| d.id == id).ok_or(ServiceError::NotFound)?;
     Ok(AddFileOutcome::Saved { document })
@@ -219,19 +269,19 @@ mod tests {
         let (_d, mut c) = conn();
         let text = "Convocatoria. Enviar a maria.lopez@example.com antes del viernes.";
         let AddDocumentOutcome::Quarantine { report } =
-            add_text_document(&mut c, "call", "Convocatoria", text, None).unwrap() else { panic!() };
+            add_text_document(&mut c, "call", "Convocatoria", text, None, None).unwrap() else { panic!() };
         assert!(!report.has_blocking);
         assert!(docs::list(&c).unwrap().is_empty());
 
         let AddDocumentOutcome::Saved { document } =
-            add_text_document(&mut c, "call", "Convocatoria", text, Some(Decision::Redact)).unwrap() else { panic!() };
+            add_text_document(&mut c, "call", "Convocatoria", text, Some(Decision::Redact), None).unwrap() else { panic!() };
         assert_eq!(document.redactions_count, 1);
         let stored: String = c.query_row("SELECT extracted_text FROM document", [], |r| r.get(0)).unwrap();
         assert!(stored.contains("[CORREO OCULTO]") && !stored.contains("maria.lopez"));
 
         let roster = "Nombre\tEdad\tDiagnóstico\nAna\t80\tDiabetes";
         assert!(matches!(
-            add_text_document(&mut c, "internal", "Lista", roster, Some(Decision::Redact)).unwrap(),
+            add_text_document(&mut c, "internal", "Lista", roster, Some(Decision::Redact), None).unwrap(),
             AddDocumentOutcome::RejectedRoster
         ));
         assert_eq!(docs::list(&c).unwrap().len(), 1);
@@ -246,10 +296,11 @@ mod tests {
         let fixture = |n: &str| std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/office").join(n)).unwrap();
         let read = read_upload("acta.pdf", &fixture("acta-escaneada.pdf")).unwrap();
         // the email of the deed is a datum of a person: the person decides
-        let AddFileOutcome::Quarantine { report } = add_file_document(&mut c, "Acta", "acta.pdf", read.clone(), None).unwrap() else { panic!() };
+        let AddFileOutcome::Quarantine { report } = add_file_document(&mut c, "Acta", "acta.pdf", read.clone(), None, None).unwrap() else { panic!() };
         assert!(report.fields.iter().any(|f| f.path == "page_1"));
         assert!(docs::list(&c).unwrap().is_empty());
-        let AddFileOutcome::Saved { document } = add_file_document(&mut c, "Acta", "acta.pdf", read, Some(Decision::Redact)).unwrap() else { panic!() };
+        let AddFileOutcome::Saved { document } = add_file_document(&mut c, "Acta", "acta.pdf", read, Some(Decision::Redact), Some("legal")).unwrap() else { panic!() };
+        assert_eq!(document.category.as_deref(), Some("legal"));
         assert_eq!((document.kind.as_str(), document.chunks, document.picture_pages, document.doubtful_pages.clone()), ("internal", 2, 2, vec![2]));
         let text: String = c.query_row("SELECT extracted_text FROM document", [], |r| r.get(0)).unwrap();
         assert!(text.contains("ACTA CONSTITUTIVA") && !text.contains("contacto@casaficticia"), "{text}");
@@ -259,13 +310,14 @@ mod tests {
         assert_eq!(read_upload("notas.txt", b"x"), Err(FileUnreadable::UnsupportedType));
         assert_eq!(read_upload("foto.png", &vec![0; MAX_FILE_BYTES + 1]), Err(FileUnreadable::TooLarge));
         let blank = read_upload("foto.png", &[1, 2, 3]).unwrap();
-        assert!(matches!(add_file_document(&mut c, "Foto", "foto.png", blank, None).unwrap(), AddFileOutcome::Unreadable { reason: FileUnreadable::NoText }));
+        assert!(matches!(add_file_document(&mut c, "Foto", "foto.png", blank, None, None).unwrap(), AddFileOutcome::Unreadable { reason: FileUnreadable::NoText }));
     }
 
     #[test]
     fn document_inputs_are_checked() {
         let (_d, mut c) = conn();
-        assert!(matches!(add_text_document(&mut c, "photo", "x", "y", None), Err(ServiceError::UnknownKind)));
-        assert!(matches!(add_text_document(&mut c, "call", "x", "  ", None), Err(ServiceError::EmptyText)));
+        assert!(matches!(add_text_document(&mut c, "photo", "x", "y", None, None), Err(ServiceError::UnknownKind)));
+        assert!(matches!(add_text_document(&mut c, "call", "x", "  ", None, None), Err(ServiceError::EmptyText)));
+        assert!(matches!(add_text_document(&mut c, "internal", "x", "y", None, Some("invoices")), Err(ServiceError::UnknownKind)));
     }
 }

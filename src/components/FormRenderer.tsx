@@ -51,9 +51,10 @@ function Suggestion({ f, p, onUse, onDiscard }: { f: FieldSpec; p: Proposal; onU
   return (
     <Inset className="mt-2 space-y-2 !p-3 text-small">
       <p>
-        <span className="font-semibold">{t.title}</span> {shownValue(f, p.value)}
+        <span className="font-semibold">{p.document ? t.titleDocument : t.title}</span> {shownValue(f, p.value)}
       </p>
       {p.said && <p className="text-ink-3">{t.said(p.said)}</p>}
+      {p.document && <p className="text-ink-3">{t.fromDocument(p.document, p.page)}</p>}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="primary" onClick={() => onUse?.(p)}>
           {t.use}

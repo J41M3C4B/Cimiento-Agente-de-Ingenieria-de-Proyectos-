@@ -124,6 +124,29 @@ Cada bloque termina con sus pruebas en seco (modelo simulado, sin gasto) y luego
 - **Las herramientas son asíncronas** (`async fn run`): la búsqueda puede pedir el vector de la pregunta. Para una pregunta que alguien espera, el servicio tiene 8 segundos y ningún reintento (`GeminiEmbedder::quick`); si no contesta, se busca por palabras.
 - **Documentos** busca también dentro del texto: al escribir en «Buscar en mis documentos» aparecen, además de los nombres que coinciden, los pasajes con su documento y su página.
 
+### Precisiones al aplicar IA6a (2026-10-12)
+
+- **Decisiones de la institución:** IA6 se parte en dos; las facturas y los recibos (de ingresos o de egresos) se suben **solo en Finanzas**, para no adivinar si un archivo es una factura, y su lectura pasa al trabajo del módulo de Finanzas; un dato protegido puede llegar como sugerencia **solo si lo leyó una regla**.
+- **Esta parte es solo reglas, sin IA** (`core/reader/`):
+  - El tipo de documento se reconoce por sus palabras (`kinds.rs`): los 18 tipos del expediente, cada uno con su clase. Una frase en las primeras líneas pesa el triple que más abajo, y un empate es «sin tipo».
+  - Los datos se leen donde cada tipo los escribe (`rules.rs`):
+    - la constancia: RFC, nombre legal, figura, régimen y código postal fiscal;
+    - el oficio de donataria: número, fecha y rubro;
+    - el acta: nombre, figura, año de fundación y objeto social;
+    - el poder: representante (solo si lo nombra en mayúsculas, como escriben los notarios) y vigencia;
+    - la CLUNI: su clave;
+    - el registro ante la Junta: su folio.
+  - Las fechas escritas con palabras («a los diez días del mes de marzo de dos mil quince») se vuelven fechas que el código revisa (`dates.rs`).
+- **Las reglas leen antes de que el escáner tape:** el texto del archivo se lee en memoria al subirlo; lo que se guarda sigue limpio. Así el RFC de la constancia llega a su campo aunque el texto guardado diga «[RFC OCULTO]». La IA nunca lo ve.
+- **Cada dato es una sugerencia de su ventana** (`ai_proposal`, origen `document`, agente `reader`) con el documento y la página. La pantalla dice «Lo dice un documento: … Lo leímos en «Constancia SAT», página 1».
+  - Un dato no protegido guarda también la línea de donde salió. Uno protegido no guarda la línea, y su valor se borra de la sugerencia en cuanto la persona la usa o la descarta.
+  - Un dato que la institución ya tiene con ese mismo valor no se sugiere otra vez. Aceptado, conserva su origen `document`.
+- **La clase y el tipo se guardan con el documento** (migración 0031):
+  - la clase que eligió la persona; si no eligió, la del tipo;
+  - el tipo, con quién lo dijo: `computed` si fue una regla, `user` si lo dijo la persona o si puso el archivo en su documento del Expediente.
+  - Lo que dijo la persona nunca lo cambia una regla. En Documentos, un lápiz en cada fila permite decir qué documento es.
+- **Queda para después:** que la IA proponga el tipo de lo que ninguna regla reconoce y lea lo que no tiene formato. Se hará con citas verificadas, como manda el ADR, cuando haya documentos reales que lo pidan.
+
 ## Consecuencias
 
 - **La ficha de la institución (`ai_sheet`) se queda** como resumen corto que recibe todo agente. El detalle se pide con herramientas. Se mide antes de acortarla.

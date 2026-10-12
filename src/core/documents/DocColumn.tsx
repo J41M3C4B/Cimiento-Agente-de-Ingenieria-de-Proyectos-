@@ -27,6 +27,7 @@ export function DocColumn({
   onRemove,
   busy,
   inside,
+  onType,
 }: {
   col: DocCol;
   items: DocItem[];
@@ -46,6 +47,8 @@ export function DocColumn({
   busy: boolean;
   /** the passages found inside the documents, while the person searches */
   inside?: Inside | null;
+  /** to say what a document is (IA6): only the documents of the institution */
+  onType?: (d: DocItem) => void;
 }) {
   const c = t.cols[col];
   const groups = groupItems(items, mode, query);
@@ -103,7 +106,7 @@ export function DocColumn({
                     onDropFile={(file) => onDropFile(target, file)}
                   >
                     {g.items.map((d) => (
-                      <DocRow key={d.id} d={d} asking={asking === d.id} onAsk={onAsk} onRemove={onRemove} busy={busy} />
+                      <DocRow key={d.id} d={d} asking={asking === d.id} onAsk={onAsk} onRemove={onRemove} onType={onType} busy={busy} />
                     ))}
                   </Subfolder>
                 );
@@ -147,7 +150,21 @@ function PassageRow({ p, ext }: { p: Passage; ext: string }) {
   );
 }
 
-function DocRow({ d, asking, onAsk, onRemove, busy }: { d: DocItem; asking: boolean; onAsk: (id: string | null) => void; onRemove: (id: string) => void; busy: boolean }) {
+function DocRow({
+  d,
+  asking,
+  onAsk,
+  onRemove,
+  onType,
+  busy,
+}: {
+  d: DocItem;
+  asking: boolean;
+  onAsk: (id: string | null) => void;
+  onRemove: (id: string) => void;
+  onType?: (d: DocItem) => void;
+  busy: boolean;
+}) {
   return (
     <ListRow
       lead={<FileTile ext={d.ext} />}
@@ -165,7 +182,10 @@ function DocRow({ d, asking, onAsk, onRemove, busy }: { d: DocItem; asking: bool
             </Button>
           </span>
         ) : (
-          <IconButton icon="trash" label={t.removeDoc(d.name)} variant="plain" size="sm" onClick={() => onAsk(d.id)} />
+          <span className="inline-flex items-center gap-1">
+            {onType && <IconButton icon="pencil" label={t.changeType(d.name)} variant="plain" size="sm" onClick={() => onType(d)} />}
+            <IconButton icon="trash" label={t.removeDoc(d.name)} variant="plain" size="sm" onClick={() => onAsk(d.id)} />
+          </span>
         )
       }
       className={asking ? "!bg-inset" : ""}

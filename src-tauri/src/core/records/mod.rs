@@ -406,6 +406,8 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
     if kind == RECORD_OTHER && row.is_none() {
         return Err(ServiceError::NotFound);
     }
+    // the Reader reads before the scanner covers (IA6): the kind is the one the person attached the file to
+    let reading = file.pages.as_deref().map(|pages| crate::core::reader::read(pages, Some(kind)));
     let mut clean: Option<(Vec<String>, i64)> = None;
     if let Some(pages) = &file.pages {
         match guard_pages(conn, "core_record", None, pages, !file.marks.from_picture.is_empty(), decision)? {
@@ -423,6 +425,11 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
         Some((pages, redactions)) => Some(crate::core::archive::storage::add_paged_document(&tx, "internal", &file.name, file.mime, pages, *redactions, &file.marks)?),
         None => None,
     };
+    if let (Some(d), Some(reading)) = (&doc, &reading) {
+        let class = reading.kind.and_then(crate::core::reader::kinds::kind).map(|k| k.class);
+        crate::core::archive::storage::set_class(&tx, d, class, reading.kind, "user")?;
+        crate::core::reader::propose(&tx, d, &reading.found)?;
+    }
     store::set_file(&tx, &id, doc.as_deref(), &path.to_string_lossy(), &file.name)?;
     history::record_list_change(&tx, HISTORY_FIELD, &Source::user())?;
     tx.commit()?;

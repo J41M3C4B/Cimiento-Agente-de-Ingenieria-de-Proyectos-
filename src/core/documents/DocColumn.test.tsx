@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { DocColumn } from "./DocColumn";
 import type { Inside } from "./DocColumn";
 import type { DocItem } from "./documentsModel";
@@ -27,6 +27,20 @@ function draw(query: string, inside: Inside | null) {
     />,
   );
 }
+
+describe("DocColumn, what each document is (IA6)", () => {
+  it("shows the kind in the row and lets the person say another", () => {
+    const onType = vi.fn();
+    const recognized: DocItem = { ...items[0]!, name: "Constancia SAT", docType: "tax_status_certificate", detail: "Constancia de situación fiscal · 2026" };
+    render(
+      <DocColumn col="inst" items={[recognized]} query="" onQuery={() => {}} mode="type" onMode={() => {}} open={{}} onToggle={() => {}}
+        onUpload={() => {}} onDropFile={() => {}} asking={null} onAsk={() => {}} onRemove={() => {}} busy={false} onType={onType} />,
+    );
+    expect(screen.getByText(/Constancia de situación fiscal/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Decir qué documento es «Constancia SAT»" }));
+    expect(onType).toHaveBeenCalledWith(recognized);
+  });
+});
 
 describe("DocColumn, search inside the documents (IA5)", () => {
   it("shows the document, its page and the words around what was asked", () => {

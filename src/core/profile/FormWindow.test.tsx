@@ -26,8 +26,8 @@ const view: FormView = {
   origins: {},
   missing: [],
   proposals: [
-    { id: "prop_1", form_id: "institution.identity", field_id: "institution.populations", value: ["older_adults"], origin: "ai_assumption", said: "atendemos a 38 señoras" },
-    { id: "prop_2", form_id: "institution.identity", field_id: "institution.age_min", value: 60, origin: "ai_assumption", said: "de 60 años en adelante" },
+    { id: "prop_1", form_id: "institution.identity", field_id: "institution.populations", value: ["older_adults"], origin: "ai_assumption", said: "atendemos a 38 señoras", document: null, page: null },
+    { id: "prop_2", form_id: "institution.identity", field_id: "institution.age_min", value: 60, origin: "ai_assumption", said: "de 60 años en adelante", document: null, page: null },
   ],
   fill: { form: "institution.identity", place: "profile.institution" },
 };
@@ -56,14 +56,14 @@ describe("FormWindow with suggestions of the AI", () => {
 
   it("shows each suggestion under its field; «Usar» only fills the field and «Guardar» saves it with the ones used", async () => {
     draw();
-    expect(await screen.findByText(/La IA dejó 2 sugerencias en esta ventana/)).toBeInTheDocument();
+    expect(await screen.findByText(/Hay 2 sugerencias en esta ventana/)).toBeInTheDocument();
     expect(screen.getAllByText("Sugerencia de la IA:")[0]!.closest("p")).toHaveTextContent("Sugerencia de la IA: Personas mayores (60 años o más)");
     expect(screen.getByText("Usted dijo: «atendemos a 38 señoras»")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Usar" })[0]!);
     expect(screen.getByRole("checkbox", { name: "Personas mayores (60 años o más)" })).toBeChecked();
     expect(formSave).not.toHaveBeenCalled();
-    expect(screen.getByText(/La IA dejó 1 sugerencia en esta ventana/)).toBeInTheDocument();
+    expect(screen.getByText(/Hay 1 sugerencia en esta ventana/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() => expect(formSave).toHaveBeenCalled());
@@ -79,5 +79,17 @@ describe("FormWindow with suggestions of the AI", () => {
     fireEvent.click(screen.getByRole("button", { name: "Descartar todas" }));
     await waitFor(() => expect(proposalsReject).toHaveBeenLastCalledWith(["prop_1", "prop_2"]));
     expect(formSave).not.toHaveBeenCalled();
+  });
+});
+
+describe("FormWindow with a suggestion read from a document (IA6)", () => {
+  it("says which document and page it was read from, not that the AI or the person said it", async () => {
+    view.proposals = [
+      { id: "prop_3", form_id: "institution.identity", field_id: "institution.age_min", value: 60, origin: "document", said: null, document: "Reglamento interno", page: 1 },
+    ];
+    draw();
+    expect(await screen.findByText("Lo leímos en «Reglamento interno», página 1.")).toBeInTheDocument();
+    expect(screen.getByText("Lo dice un documento:")).toBeInTheDocument();
+    expect(screen.queryByText("Sugerencia de la IA:")).not.toBeInTheDocument();
   });
 });

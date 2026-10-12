@@ -114,15 +114,19 @@ export const proposalsReject = (ids: string[]) => invoke<number>("proposals_reje
 export const manualEntry = (id: string) => invoke<ManualEntry | null>("manual_entry", { id });
 export const manualSearch = (query: string) => invoke<ManualHit[]>("manual_search", { query });
 // Documents of the institution (global): the files of a call come in with their project
-export const documentAddText = (displayName: string, text: string, decision?: Decision) =>
+// `category`: the class the person chose (`legal`, `financial`, `programs`), kept with the document (IA6)
+export const documentAddText = (displayName: string, text: string, decision?: Decision, category?: string | null) =>
   invoke<AddDocumentOutcome>("document_add_text", {
     displayName,
     text,
     decision: decision ?? null,
+    category: category ?? null,
   });
 // a PDF, Word, Excel or a photo, in base64: Rust reads it (a scan as pictures) and keeps only its clean text
-export const documentAddFile = (displayName: string, fileName: string, data: string, decision?: Decision) =>
-  invoke<AddFileOutcome>("document_add_file", { displayName, fileName, data, decision: decision ?? null });
+export const documentAddFile = (displayName: string, fileName: string, data: string, decision?: Decision, category?: string | null) =>
+  invoke<AddFileOutcome>("document_add_file", { displayName, fileName, data, decision: decision ?? null, category: category ?? null });
+/** The person says what a document is: a kind of the record, or none (IA6). */
+export const documentSetType = (id: string, docType: string | null) => invoke<null>("document_set_type", { id, docType });
 export const documentsList = () => invoke<DocumentSummary[]>("documents_list");
 /** Looks for a question inside the documents of the institution (IA5): by words, and by meaning when it can. */
 export const documentsSearch = (query: string) => invoke<Found>("documents_search", { query });

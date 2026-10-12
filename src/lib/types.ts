@@ -101,6 +101,9 @@ export interface Proposal {
   origin: "ai_assumption" | "document";
   /** the words of the person it was taken from */
   said: string | null;
+  /** the document it was read from and its page, when it came from a document (IA6) */
+  document: string | null;
+  page: number | null;
 }
 export interface FieldOrigin {
   origin: "user" | "document" | "ai_assumption" | "computed";
@@ -391,6 +394,10 @@ export interface DocumentSummary {
   /** how many pages were read from a picture (OCR, ADR-035), and which of them with doubts */
   picture_pages: number;
   doubtful_pages: number[];
+  /** the class the person chose and what the document is, a kind of the record (IA6), with who said it */
+  category: "legal" | "financial" | "programs" | null;
+  doc_type: string | null;
+  doc_type_origin: "computed" | "user" | null;
 }
 /** A piece of a document that answers a search (IA5, core/archive/search.rs). */
 export interface Passage {

@@ -3,7 +3,7 @@
 //! rejects it. Accepting is the usual save of the form (IA4): the person puts the suggestion in its field, may
 //! correct it, and «Guardar» marks it accepted in the same transaction as the datum.
 
-use crate::common::forms::{is_filled, problem, AiUse};
+use crate::common::forms::{is_filled, problem, AiUse, Sensitivity};
 use crate::core::error::ServiceError;
 use crate::scanner::guard::Decision;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -56,6 +56,9 @@ pub struct Proposal {
     pub created_at: String,
     /// The words of the person it was taken from, when it came from the chat (`source_ref`).
     pub said: Option<String>,
+    /// The document it was read from, by its name, and the page, when it came from a document (IA6).
+    pub document: Option<String>,
+    pub page: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,8 +86,11 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
     if let Some(code) = problem(field, &p.value) {
         return refused(code);
     }
+    // a protected datum of the institution read by a rule (its RFC, a folio) is its own, not a person's: covering it
+    // would lose it; it never reaches the AI and its value is forgotten once the person decides (`forget_protected`)
+    let own = p.origin == Origin::Document && field.sensitivity == Sensitivity::InstitutionalPrivate;
     let value = match &p.value {
-        Value::String(s) => {
+        Value::String(s) if !own => {
             let fields = [(p.field_id.clone(), s.clone())];
             match crate::core::screen::guard_texts(conn, "ai_proposal", &fields, Some(Decision::Redact))? {
                 Ok(mut texts) => Value::String(texts.remove(0)),
@@ -111,10 +117,9 @@ fn read(r: &rusqlite::Row) -> rusqlite::Result<Proposal> {
     let value: String = r.get(4)?;
     let origin: String = r.get(5)?;
     let source_ref: Option<String> = r.get(6)?;
-    let said = source_ref
-        .as_deref()
-        .and_then(|s| serde_json::from_str::<Value>(s).ok())
-        .and_then(|v| v["quote"].as_str().map(str::to_string));
+    let source = source_ref.as_deref().and_then(|s| serde_json::from_str::<Value>(s).ok()).unwrap_or(Value::Null);
+    let from_document = source["document_id"].is_string();
+    let said = source["quote"].as_str().filter(|_| !from_document).map(str::to_string);
     Ok(Proposal {
         id: r.get(0)?,
         form_id: r.get(1)?,
@@ -127,10 +132,23 @@ fn read(r: &rusqlite::Row) -> rusqlite::Result<Proposal> {
         status: r.get(8)?,
         created_at: r.get(9)?,
         said,
+        document: if from_document { r.get(10)? } else { None },
+        page: source["page"].as_i64().filter(|_| from_document),
     })
 }
 
-const COLUMNS: &str = "id, form_id, record_id, field_id, value_json, origin, source_ref, agent, status, created_at";
+const COLUMNS: &str = "id, form_id, record_id, field_id, value_json, origin, source_ref, agent, status, created_at,
+    (SELECT d.display_name FROM document d WHERE json_valid(source_ref) AND d.id = json_extract(source_ref, '$.document_id'))";
+
+/// Once a person decided, the value of a protected datum is not kept in the proposal: it is in its field, or nowhere.
+fn forget_protected(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+    let field: Option<String> = conn.query_row("SELECT field_id FROM ai_proposal WHERE id = ?1", [id], |r| r.get(0)).optional()?;
+    let protected = field.and_then(|f| crate::core::institution::forms::field(&f)).is_some_and(|f| f.sensitivity == Sensitivity::InstitutionalPrivate);
+    if protected {
+        conn.execute("UPDATE ai_proposal SET value_json = 'null' WHERE id = ?1 AND status <> 'pending'", [id])?;
+    }
+    Ok(())
+}
 
 /// The proposals still waiting for a form (and its record), in the order they came.
 pub fn pending(conn: &Connection, form_id: &str, record_id: Option<&str>) -> Result<Vec<Proposal>, ServiceError> {
@@ -158,6 +176,7 @@ pub fn accept_in(conn: &Connection, ids: &[String]) -> rusqlite::Result<usize> {
              WHERE id = ?1 AND status = 'pending'",
             [id],
         )?;
+        forget_protected(conn, id)?;
     }
     Ok(n)
 }
@@ -189,7 +208,9 @@ pub fn resolve(conn: &Connection, id: &str, accepted: bool, by: Option<&str>) ->
     if changed == 0 {
         return Ok(None);
     }
-    Ok(conn.query_row(&format!("SELECT {COLUMNS} FROM ai_proposal WHERE id = ?1"), [id], read).optional()?)
+    let resolved = conn.query_row(&format!("SELECT {COLUMNS} FROM ai_proposal WHERE id = ?1"), [id], read).optional()?;
+    forget_protected(conn, id)?;
+    Ok(resolved)
 }
 
 #[cfg(test)]

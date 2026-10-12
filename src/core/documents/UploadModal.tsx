@@ -129,6 +129,7 @@ export function UploadModal({
           {askKind && (
             <Select label={f.kind} value={kind} onChange={(e) => setKind(e.target.value)} options={[["", f.kindPick], ...kinds.map((k): [string, string] => [k, k])]} />
           )}
+          {col === "inst" && f.classOf[kind] === "financial" && <p className="text-small text-ink-2">{f.invoicesInFinance}</p>}
           <datalist id="document-donors">
             {donors.map((d) => (
               <option key={d} value={d} />

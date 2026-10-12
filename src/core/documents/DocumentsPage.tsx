@@ -5,13 +5,14 @@ import { Alert, Button, Toast, PageHeader } from "../../components/ui";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { toBase64, useReadingProgress } from "../../lib/files";
-import { documentAddFile, documentAddText, documentEmergencyDelete, documentsList, documentsSearch, toAppError } from "../../lib/tauri";
+import { documentAddFile, documentAddText, documentEmergencyDelete, documentSetType, documentsList, documentsSearch, toAppError } from "../../lib/tauri";
 import type { Decision, QuarantineReport } from "../../lib/types";
 import { DocColumn } from "./DocColumn";
 import type { Inside } from "./DocColumn";
 import { addDonorDocument, defaultMode, donorItems, institutionItems } from "./documentsModel";
 import type { DocCol, DocItem, Draft, GroupMode, UploadTarget } from "./documentsModel";
 import { UploadModal } from "./UploadModal";
+import { DocTypeModal } from "./DocTypeModal";
 
 const t = es.documents;
 
@@ -29,6 +30,8 @@ export function DocumentsPage() {
   const [quarantine, setQuarantine] = useState<QuarantineReport | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const [pending, setPending] = useState<DocItem | null>(null);
+  // the document whose kind the person is saying (IA6)
+  const [typing, setTyping] = useState<DocItem | null>(null);
   const draft = useRef<Draft | null>(null);
   const [query, setQuery] = useState<Record<DocCol, string>>({ inst: "", donor: "" });
   const [mode, setMode] = useState<Record<DocCol, GroupMode>>({ inst: defaultMode("inst"), donor: defaultMode("donor") });
@@ -77,11 +80,14 @@ export function DocumentsPage() {
       // the window closes at once and the document shows as «Leyendo…» until the backend answers
       setForm(null);
       const year = String(new Date().getFullYear());
-      setPending({ id: "pending", name: d.name.trim(), ext: d.file?.ext ?? "txt", type: t.kinds.internal!, year, detail: t.reading, reading: true });
-      setOpen((cur) => ({ ...cur, [`inst:type:${t.kinds.internal}`]: true, [`inst:year:${year}`]: true }));
+      // the class the person chose (or the subfolder it was dropped on) is kept with the document (IA6)
+      const category = t.form.classOf[d.kind] ?? null;
+      const group = category ? t.classes[category]! : t.kinds.internal!;
+      setPending({ id: "pending", name: d.name.trim(), ext: d.file?.ext ?? "txt", type: group, year, detail: t.reading, reading: true });
+      setOpen((cur) => ({ ...cur, [`inst:type:${group}`]: true, [`inst:year:${year}`]: true }));
       const out = d.blob
-        ? await documentAddFile(d.name, d.blob.name, await toBase64(d.blob), decision)
-        : await documentAddText(d.name, d.text, decision);
+        ? await documentAddFile(d.name, d.blob.name, await toBase64(d.blob), decision, category)
+        : await documentAddText(d.name, d.text, decision, category);
       if (out.status === "saved") {
         setQuarantine(null);
         draft.current = null;
@@ -107,6 +113,20 @@ export function DocumentsPage() {
       setForm({ target: d.target, file: null, initial: d });
     } finally {
       setPending(null);
+      setBusy(false);
+    }
+  }
+
+  async function saveType(id: string, docType: string | null) {
+    setBusy(true);
+    try {
+      await documentSetType(id, docType);
+      setTyping(null);
+      setToast(t.typeSaved);
+      await qc.invalidateQueries({ queryKey: ["documents"] });
+    } catch (e) {
+      setNotice({ tone: "error", text: toAppError(e).message });
+    } finally {
       setBusy(false);
     }
   }
@@ -148,6 +168,7 @@ export function DocumentsPage() {
       onRemove={(id) => void remove(id)}
       busy={busy}
       inside={col === "inst" ? inside : null}
+      onType={col === "inst" ? setTyping : undefined}
     />
   );
 
@@ -200,6 +221,8 @@ export function DocumentsPage() {
           }}
         />
       )}
+
+      {typing && <DocTypeModal doc={typing} busy={busy} onSave={(docType) => void saveType(typing.id, docType)} onClose={() => setTyping(null)} />}
 
       {toast && <Toast>{toast}</Toast>}
     </div>

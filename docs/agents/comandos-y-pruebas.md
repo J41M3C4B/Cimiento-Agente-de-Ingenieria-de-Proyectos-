@@ -41,6 +41,7 @@ cargo test core::archive::search                       # búsqueda en los docume
 cargo test core::archive::vectors                      # vectores del expediente (IA5): una vez, cada solicitud en ai_usage, otro modelo los rehace, el tope, el respaldo y el borrado
 #   la medición de IA5 con vectores reales (solo texto ficticio; ~170 textos, unas 7 solicitudes; con CIMIENTO_VEC_CACHE guarda los vectores y la siguiente vez no pide nada):
 #   $env:CIMIENTO_VEC_CACHE="D:\...\vectores.json"; cargo test search_live -- --ignored --nocapture > salida.txt
+cargo test core::reader                                # el Lector (IA6a): el tipo de cada documento ficticio por sus palabras, fechas escritas con palabras, los datos de la constancia, el oficio, el acta y el poder, el RFC aunque lo guardado esté tapado, y lo que dijo la persona no lo cambia una regla
 cargo test core::archive                               # Documentos: texto pegado y archivos (PDF, Word, Excel, fotos) con escáner, solo el texto limpio y las páginas leídas de imagen
 cargo test core::records                               # expediente (ADR-033 §5, N4): qué documentos tocan a cada institución, estado y vigencia, folio protegido, PDF y Word con escáner, escaneados y fotos, solo el texto limpio y dónde está el original
 cargo test core::examples                              # los dos ejemplos I.A.P. cargan completos al 100 % y sin nombres, folios ni CLABE hacia la IA

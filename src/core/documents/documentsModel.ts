@@ -21,6 +21,8 @@ export type DocItem = {
   detail: string;
   /** still being read: it shows «Leyendo…» and has no actions */
   reading?: boolean;
+  /** what the document is, a kind of the record (IA6), when it is known */
+  docType?: string | null;
 };
 
 export type Group = { key: string; items: DocItem[] };
@@ -79,10 +81,14 @@ function extOfDocument(d: DocumentSummary): string {
 
 const kindLabel = (kind: string) => t.kinds[kind] ?? t.kindOther;
 
-/** The documents of the institution, as the backend lists them, ready to be grouped by type or by year. */
+/** The name of what a document is (a kind of the record), as «Mi institución» names it. */
+export const docTypeLabel = (code: string) => es.profile.records.types[code] ?? code;
+
+/** The documents of the institution, as the backend lists them, ready to be grouped by class or by year. */
 export function institutionItems(docs: DocumentSummary[]): DocItem[] {
   return docs.map((d) => {
-    const type = kindLabel(d.kind);
+    // grouped by the class the person chose; a document saved before there were classes keeps «Textos»
+    const type = d.category ? (t.classes[d.category] ?? kindLabel(d.kind)) : kindLabel(d.kind);
     const year = d.created_at.slice(0, 4);
     return {
       id: d.id,
@@ -90,8 +96,9 @@ export function institutionItems(docs: DocumentSummary[]): DocItem[] {
       ext: extOfDocument(d),
       type,
       year,
+      docType: d.doc_type,
       detail: [
-        type,
+        d.doc_type ? docTypeLabel(d.doc_type) : type,
         t.fragments(d.chunks),
         year,
         d.redactions_count > 0 ? t.covered(d.redactions_count) : "",

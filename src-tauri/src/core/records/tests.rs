@@ -208,3 +208,21 @@ fn what_cannot_be_taken_says_why_and_a_word_file_goes_through_the_scanner() {
     // an `other` gets its file once it exists
     assert!(matches!(attach(&mut c, "other", None, &word, Some(Decision::Redact)), Err(ServiceError::NotFound)));
 }
+
+/// The file of a document of the record goes to the Reader with its kind already said (IA6): the poder gives the date
+/// it is valid until as a suggestion of «Datos legales y fiscales», citing its page; the document is that kind, said by
+/// the person, in the class of its kind.
+#[test]
+fn a_file_of_the_record_suggests_the_data_it_says() {
+    let (_d, mut c) = conn();
+    let raw = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/expediente/poder-notarial.txt")).unwrap();
+    let pages = crate::core::archive::search::tests::fixture_pages(&raw);
+    let file = FileText { name: "poder.pdf".into(), mime: "application/pdf", pages: Some(pages), marks: PageMarks::default() };
+    let AttachOutcome::Attached { readable, .. } = attach_read(&mut c, "power_of_attorney", None, Path::new("C:/poder.pdf"), file, Some(Decision::Redact)).unwrap() else { panic!() };
+    assert!(readable);
+    let doc = crate::core::archive::storage::list(&c).unwrap().remove(0);
+    assert_eq!((doc.category.as_deref(), doc.doc_type.as_deref(), doc.doc_type_origin.as_deref()), (Some("legal"), Some("power_of_attorney"), Some("user")));
+    let s = crate::core::profile::forms::get(&c, "institution.legal").unwrap().proposals;
+    let until = s.iter().find(|p| p.field_id == "institution.legal_rep_valid_until").expect("the validity is suggested");
+    assert_eq!((until.value.clone(), until.document.as_deref(), until.page), (serde_json::json!("2027-01-18"), Some("poder.pdf"), Some(2)));
+}

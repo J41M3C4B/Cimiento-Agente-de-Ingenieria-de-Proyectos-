@@ -22,6 +22,11 @@ pub struct DocumentSummary {
     /// How many pages were read from a picture (OCR, ADR-035), and which of them with doubts.
     pub picture_pages: usize,
     pub doubtful_pages: Vec<usize>,
+    /// The class the person chose (`legal`, `financial`, `programs`) and what the document is within it, a kind of the
+    /// record (IA6), with who said it (`computed`: a rule; `user`: the person).
+    pub category: Option<String>,
+    pub doc_type: Option<String>,
+    pub doc_type_origin: Option<String>,
 }
 
 /// Which pages of a file were read from a picture (OCR, ADR-035) and which of those with doubts; empty for a file
@@ -124,7 +129,8 @@ pub fn list_institution(conn: &Connection) -> Result<Vec<DocumentSummary>, Stora
 pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
     let mut stmt = conn.prepare(
         "SELECT d.id, d.kind, d.display_name, d.data_level, d.redactions_count, d.created_at,
-                (SELECT count(*) FROM document_chunk c WHERE c.document_id = d.id), d.picture_pages, d.doubtful_pages, d.mime
+                (SELECT count(*) FROM document_chunk c WHERE c.document_id = d.id), d.picture_pages, d.doubtful_pages, d.mime,
+                d.category, d.doc_type, d.doc_type_origin
          FROM document d WHERE d.hidden = 0 ORDER BY d.created_at DESC, d.id DESC",
     )?;
     let rows = stmt
@@ -140,10 +146,27 @@ pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
                 picture_pages: pages(&r.get::<_, String>(7)?).len(),
                 doubtful_pages: pages(&r.get::<_, String>(8)?),
                 mime: r.get(9)?,
+                category: r.get(10)?,
+                doc_type: r.get(11)?,
+                doc_type_origin: r.get(12)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
+}
+
+/// Writes the class of a document and what it is (IA6). `origin`: `computed` when a rule recognized it, `user` when
+/// the person said it. A kind the person said is not changed by a rule. Says if the document exists.
+pub fn set_class(conn: &Connection, id: &str, category: Option<&str>, doc_type: Option<&str>, origin: &str) -> Result<bool, StorageError> {
+    let n = conn.execute(
+        "UPDATE document SET category = coalesce(?2, category),
+                doc_type = CASE WHEN ?4 = 'computed' AND doc_type_origin = 'user' THEN doc_type ELSE ?3 END,
+                doc_type_origin = CASE WHEN ?4 = 'computed' AND doc_type_origin = 'user' THEN doc_type_origin
+                                       WHEN ?3 IS NULL THEN NULL ELSE ?4 END
+         WHERE id = ?1 AND kind <> 'call'",
+        params![id, category, doc_type, origin],
+    )?;
+    Ok(n > 0)
 }
 
 /// A list of page numbers kept as a JSON array; anything unreadable is none.

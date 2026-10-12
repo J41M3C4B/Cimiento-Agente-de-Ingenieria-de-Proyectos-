@@ -58,6 +58,8 @@ El diseño de "nivel rojo fuera" reduce mucho el riesgo, pero no sustituye esa r
 
 **Vectores de los documentos (IA5, ADR-034):** para buscar por significado, el texto limpio de cada página de los documentos de la institución (ya pasó por el escáner) se manda una vez al servicio de vectores del proveedor que la persona eligió, y solo si es Gemini con su llave guardada. Se guarda el vector, no se manda nada más. Con otro proveedor o sin llave, la búsqueda es por palabras y nada sale de la computadora. Una pregunta de búsqueda sale solo si el escáner no le encuentra datos de una persona.
 
+**El Lector lee antes de que el escáner tape (IA6, ADR-034):** al subir un documento, unas reglas del programa (no la IA) leen su texto en memoria para sugerir los datos de la institución que trae: su RFC, el número del oficio, la vigencia del poder. Lo que se guarda del documento sigue tapado. Un dato protegido solo llega como sugerencia a su campo, sin la línea de donde salió, y se borra de la sugerencia en cuanto la persona la usa o la descarta.
+
 **Botón de emergencia** ("Borrar esto y todo lo que salió de ahí"): borra el documento, sus fragmentos, entradas FTS, vectores y cualquier texto derivado que lo cite. Después ejecuta `VACUUM` para que no queden restos en el archivo. Registra en bitácora solo que hubo un borrado de emergencia.
 
 ## Bitácora

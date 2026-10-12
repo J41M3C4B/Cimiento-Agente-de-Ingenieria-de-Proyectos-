@@ -101,6 +101,7 @@ pub fn run() {
             commands::document_add_file,
             commands::documents_list,
             commands::documents_search,
+            commands::document_set_type,
             commands::document_emergency_delete,
             commands::dev_load_fixture,
             commands::care::care_overview,

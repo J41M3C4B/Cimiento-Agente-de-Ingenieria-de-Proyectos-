@@ -157,10 +157,11 @@ pub fn document_add_text(session: State<'_, Session>, db: State<Db>,
     display_name: String,
     text: String,
     decision: Option<Decision>,
+    category: Option<String>,
 ) -> Result<AddDocumentOutcome, UiError> {
     guard(&session, "document_add_text")?;
     let mut conn = lock(&db)?;
-    let outcome = crate::core::archive::service::add_text_document(&mut conn, "internal", &display_name, &text, decision)?;
+    let outcome = crate::core::archive::service::add_text_document(&mut conn, "internal", &display_name, &text, decision, category.as_deref())?;
     index_documents(&db.0);
     Ok(outcome)
 }
@@ -190,6 +191,7 @@ pub async fn document_add_file(session: State<'_, Session>, db: State<'_, Db>,
     file_name: String,
     data: String,
     decision: Option<Decision>,
+    category: Option<String>,
 ) -> Result<crate::core::archive::service::AddFileOutcome, UiError> {
     use crate::core::archive::service::{add_file_document, read_upload, AddFileOutcome};
     use base64::Engine;
@@ -203,12 +205,21 @@ pub async fn document_add_file(session: State<'_, Session>, db: State<'_, Db>,
     let shared = db.0.clone();
     let outcome = tauri::async_runtime::spawn_blocking(move || {
         let mut conn = shared.lock().map_err(|_| UiError::internal())?;
-        Ok::<_, UiError>(add_file_document(&mut conn, &display_name, &file_name, read, decision)?)
+        Ok::<_, UiError>(add_file_document(&mut conn, &display_name, &file_name, read, decision, category.as_deref())?)
     })
     .await
     .map_err(|_| UiError::internal())??;
     index_documents(&db.0);
     Ok(outcome)
+}
+
+/// The person says what a document is (IA6): a kind of the record, or none («no sé / otro»). A rule never changes it.
+#[tauri::command]
+pub fn document_set_type(session: State<'_, Session>, db: State<Db>, id: String, doc_type: Option<String>) -> Result<(), UiError> {
+    guard(&session, "document_set_type")?;
+    let conn = lock(&db)?;
+    crate::core::archive::service::set_type(&conn, &id, doc_type.as_deref())?;
+    Ok(())
 }
 
 /// The documents of the institution: those of a call belong to their project and are not listed here.
