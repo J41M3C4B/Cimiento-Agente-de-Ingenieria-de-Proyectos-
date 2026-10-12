@@ -278,4 +278,9 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
   - Medido con los fixtures: página limpia 91.7 de confianza (~2.3 s, un hilo), página desteñida 65.6 («con dudas»), foto 96 (0.8 s).
   - Queda para después: imágenes dentro de Word y Excel, enderezar fotos y una vista del texto leído en Documentos.
   - Ajustes tras probar una factura real (2026-10-11): las celdas de una tabla se separan con « | » por la posición de cada palabra, y Tesseract lee la página renglón por renglón (`--psm 4`; el modo automático partía la tabla en un bloque por columna). En un texto leído de imagen, el escáner toma como correo una dirección pegada a otra palabra cuando el renglón habla de correo o hay un signo en lugar de la «@» (`RegexScanner::reading_pictures`): la factura traía «infoGorlandojuan.es» y no se tapó.
+- [ ] **ADR-036 · Cajones con dueño y un agente por cajón** (2026-10-12). Primero solo el núcleo; los módulos esperan y después repiten la misma metodología. Se empieza de cero con los documentos: se vuelven a subir.
+  - [ ] **C1** El cajón de cada documento y Documentos como bandeja (hoy solo el cajón del Expediente); la búsqueda siempre por cajón.
+  - [ ] **C2** Lector del Expediente: reglas primero, búsqueda por campo, una llamada por ventana con citas verificadas, «Llenar con mis documentos»; batería aprobada con el modelo más barato.
+  - [ ] **C3** El Asistente como orquestador del núcleo: el Lector del Expediente como herramienta, mapa en el contexto, sin búsqueda general; medir herramientas nativas contra el protocolo JSON.
+  - [ ] **C4** Revisión completa del núcleo: cada agente con su batería aprobada con el modelo más barato y cada pantalla probada por la institución; la metodología escrita para los módulos.
 - [ ] **N5** El expediente hacia Proyectos, la IA e Inicio.
