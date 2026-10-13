@@ -4,6 +4,7 @@ estado: aceptada
 fecha: 2026-10-10
 tema: [documentos]
 reemplaza_en_parte: ["[[ADR-004-office-rust-python-plan-b]]", "[[ADR-011-ingesta-en-silencio-y-oficina-solo-lectura]]"]
+reemplazado_en_parte_por: ["[[ADR-037-pdfium-unico-motor-de-pdf]]"]
 tags: [adr]
 ---
 # ADR-035 · Leer páginas escaneadas y fotos (OCR) con Tesseract, dentro del programa

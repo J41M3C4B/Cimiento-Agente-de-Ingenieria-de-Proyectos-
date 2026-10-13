@@ -25,6 +25,8 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | **Hecho, por probar** |
 | — | **OCR · letra chica** | Una imagen con letra de menos de 20 píxeles se agranda y se lee otra vez | **Hecho, por probar** |
 | — | **Expediente tapa** | Ningún archivo del Expediente se rechaza por datos personales ni pide «Tapar y seguir»: se tapan y se guarda | **Hecho, por probar** |
+| — | **Pdfium · texto** | ADR-037, bloque 2: el texto de todo PDF con Pdfium (`pdf-extract` partía palabras), con guion de corte y párrafos | **Siguiente**, espera tu visto bueno |
+| — | **Pdfium · tablas** | ADR-037, bloque 3: tablas con Pdfium; salen `pdf-extract` y `lopdf` | Pendiente |
 | — | **OCR · rapidez** | Tesseract con prioridad baja; medir `tessdata_fast`; leer en segundo plano | **Por decidir** (ADR-035, precisión 3) |
 | 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | Pendiente |
 | 3 | **C3** | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?») | Pendiente |
@@ -71,6 +73,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-13 | **Pdfium contra `pdf-extract` (medición):** en 24 PDF de muestra sacan las mismas letras, pero `pdf-extract` parte palabras («Thi s report outli nes») y es de 5 a 20 veces más lento; se decide Pdfium como único motor | [ADR-037](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
 | 2026-10-13 | **El Expediente tapa, no rechaza:** ningún archivo del Expediente se rechaza por «lista de personas» ni pide «Tapar y seguir»; el escáner tapa todo, la pantalla dice cuántos datos y la bitácora guarda los conteos. Las convocatorias conservan el rechazo | [ADR-036, precisión del 2026-10-13](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-13 | **OCR · letra chica:** una imagen con letra de menos de 20 píxeles se agranda hasta que mida 30 (a lo más ×4) y se lee otra vez; una imagen chica sin ninguna palabra, ×3. Una captura ficticia pasa de 4 errores y sin título a leerse completa con su correo; una foto chica, de cero palabras a completa | [ADR-035, precisión 1](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
 | 2026-10-13 | **OCR con documentos reales (solo medición):** agrandar la letra chica lleva una captura de 13 palabras mal leídas a 2; dos actas reales se rechazan como «lista de personas» por dos reglas toscas del escáner; 37 páginas tardan 171 s en un equipo de 4 núcleos; no se entrena Tesseract ni se usa la nube | [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |

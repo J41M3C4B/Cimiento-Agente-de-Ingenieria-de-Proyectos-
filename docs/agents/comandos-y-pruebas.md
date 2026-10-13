@@ -60,6 +60,8 @@ cargo test core::security                              # PIN, escaneo de la base
 pnpm tauri build --bundles nsis                        # instalador de Windows (con Strawberry Perl antes que el de Git en el PATH)
 cargo test pdf_grid                                    # tablas con bordes por las líneas del PDF (sin gasto)
 cargo test pdf_rows                                    # tablas sin bordes por la posición de las letras (sin gasto)
+# los dos motores de PDF lado a lado (ADR-037): letras, palabras, acentos, signos raros, palabras partidas y tiempo de cada archivo de una carpeta; sin imprimir el texto salvo que se pida una página (solo con PDF públicos):
+#   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test compare_pdf_engines -- --ignored --nocapture > salida.txt   (opcional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3")
 # subir en seco los paquetes de un manifiesto, como lo haría una persona (tiempos, páginas, datos tapados; sin llamadas a servicios):
 #   $env:CIMIENTO_CANON_MANIFEST="D:\...\manifiesto.json"; cargo test call_ingest_real -- --ignored --nocapture
 # qué tablas salen de un PDF REAL, por bordes y por texto, y qué rejillas se descartan por ser diseño de la página:

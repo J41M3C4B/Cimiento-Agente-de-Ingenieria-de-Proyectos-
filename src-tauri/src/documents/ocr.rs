@@ -331,7 +331,7 @@ fn from_tsv(tsv: &str) -> PageRead {
 
 static PDFIUM: OnceLock<Option<Pdfium>> = OnceLock::new();
 
-fn pdfium() -> Option<&'static Pdfium> {
+pub(super) fn pdfium() -> Option<&'static Pdfium> {
     PDFIUM
         .get_or_init(|| {
             let dir = home()?.join("pdfium");

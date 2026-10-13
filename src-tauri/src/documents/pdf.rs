@@ -107,6 +107,102 @@ mod tests {
         assert_eq!(r.pages_without_text, vec![1]);
     }
 
+    /// What the two engines take out of each PDF of a folder, side by side: `pdf-extract` (today) and Pdfium (the one that
+    /// already draws the scanned pages). Only measures, never prints a text unless asked; for public samples only.
+    ///   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test compare_pdf_engines -- --ignored --nocapture > salida.txt
+    ///   (optional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3", the text of that page by both engines)
+    #[test]
+    #[ignore]
+    fn compare_pdf_engines() {
+        use std::collections::HashMap;
+        use std::time::Instant;
+
+        let dir = std::path::PathBuf::from(std::env::var("CIMIENTO_PDF_DIR").expect("CIMIENTO_PDF_DIR"));
+        let show = std::env::var("CIMIENTO_PDF_SHOW").ok();
+        let pdfium = crate::documents::ocr::pdfium().expect("pdfium: run scripts/fetch-ocr.ps1");
+        let mut files: Vec<_> = std::fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))).collect();
+        files.sort();
+
+        let by_pdfium = |path: &Path| -> Result<Vec<String>, String> {
+            let doc = pdfium.load_pdf_from_file(path, None).map_err(|e| format!("{e:?}"))?;
+            doc.pages().iter().map(|p| p.text().map(|t| t.all().replace("\r\n", "\n").replace('\r', "\n")).map_err(|e| format!("{e:?}"))).collect()
+        };
+        let words = |pages: &[String]| -> Vec<String> { pages.iter().flat_map(|p| p.split_whitespace().map(str::to_string)).collect::<Vec<_>>() };
+        // what is measured of a reading: letters, words, accents, odd signs, glued and split words, pages with no text
+        let measure = |pages: &[String]| {
+            let all: String = pages.join("\n");
+            let ws = words(pages);
+            let letters = all.chars().filter(|c| !c.is_whitespace()).count();
+            let accents = all.chars().filter(|c| "áéíóúñüÁÉÍÓÚÑÜ".contains(*c)).count();
+            let odd = all.chars().filter(|&c| c == '\u{FFFD}' || (c.is_control() && c != '\n' && c != '\t') || ('\u{E000}'..='\u{F8FF}').contains(&c)).count();
+            let glued = ws.iter().filter(|w| w.chars().filter(|c| c.is_alphabetic()).count() > 25).count();
+            let singles = ws.iter().filter(|w| w.chars().count() == 1 && w.chars().all(char::is_alphabetic)).count();
+            let empty = pages.iter().filter(|p| p.chars().filter(|c| !c.is_whitespace()).count() < MIN_CHARS_PER_PAGE).count();
+            (letters, ws.len(), accents, odd, glued, singles, empty)
+        };
+        // the share of the words of `a` found in `b`, each word counted as many times as it appears
+        let shared = |a: &[String], b: &[String]| -> f64 {
+            let mut bag: HashMap<&str, usize> = HashMap::new();
+            for w in b {
+                *bag.entry(w.as_str()).or_default() += 1;
+            }
+            let found = a.iter().filter(|w| bag.get_mut(w.as_str()).filter(|n| **n > 0).map(|n| *n -= 1).is_some()).count();
+            if a.is_empty() { 1.0 } else { found as f64 / a.len() as f64 }
+        };
+
+        println!("{:<36} {:>5} | {:>7} {:>7} {:>6} {:>5} {:>5} {:>5} {:>5} {:>4} | {:>7} {:>7} {:>6} {:>5} {:>5} {:>5} {:>5} {:>4} | {:>5} {:>5}", "archivo", "pág", "ms", "letras", "palab", "acent", "raros", "pegad", "1letr", "vac", "ms", "letras", "palab", "acent", "raros", "pegad", "1letr", "vac", "E→P", "P→E");
+        println!("{:<36} {:>5} | {:^58} | {:^58} |", "", "", "pdf-extract", "Pdfium");
+        for path in &files {
+            let name: String = path.file_name().unwrap().to_string_lossy().chars().take(36).collect();
+            let t = Instant::now();
+            let extract = read_pdf(path).map(|r| r.pages).map_err(|e| e.to_string());
+            let te = t.elapsed().as_millis();
+            let t = Instant::now();
+            let pdfium_pages = by_pdfium(path);
+            let tp = t.elapsed().as_millis();
+            let cols = |r: &Result<Vec<String>, String>, ms: u128| match r {
+                Ok(p) => {
+                    let (l, w, a, o, g, s, e) = measure(p);
+                    format!("{ms:>7} {l:>7} {w:>6} {a:>5} {o:>5} {g:>5} {s:>5} {e:>4}")
+                }
+                Err(e) => format!("{:<51}", format!("ERROR {}", e.chars().take(44).collect::<String>())),
+            };
+            let pages = match (&extract, &pdfium_pages) {
+                (Ok(a), Ok(b)) if a.len() == b.len() => a.len().to_string(),
+                (Ok(a), Ok(b)) => format!("{}≠{}", a.len(), b.len()),
+                (Ok(a), _) => a.len().to_string(),
+                (_, Ok(b)) => b.len().to_string(),
+                _ => "-".into(),
+            };
+            let agree = match (&extract, &pdfium_pages) {
+                (Ok(a), Ok(b)) => {
+                    let (wa, wb) = (words(a), words(b));
+                    format!("{:>4.0}% {:>4.0}%", 100.0 * shared(&wa, &wb), 100.0 * shared(&wb, &wa))
+                }
+                _ => String::new(),
+            };
+            println!("{name:<36} {pages:>5} | {} | {} | {agree}", cols(&extract, te), cols(&pdfium_pages, tp));
+            // which odd signs, by their code: never the text around them
+            for (engine, r) in [("pdf-extract", &extract), ("Pdfium", &pdfium_pages)] {
+                let mut odd: Vec<String> = r.iter().flatten().flat_map(|p| p.chars()).filter(|&c| c == '\u{FFFD}' || (c.is_control() && c != '\n' && c != '\t') || ('\u{E000}'..='\u{F8FF}').contains(&c)).map(|c| format!("U+{:04X}", c as u32)).collect();
+                odd.dedup();
+                if !odd.is_empty() {
+                    println!("{:<42} signos raros de {engine}: {:?}", "", odd);
+                }
+            }
+            if let Some((file, page)) = show.as_deref().and_then(|s| s.rsplit_once(':')) {
+                if path.file_name().is_some_and(|n| n.to_string_lossy() == file) {
+                    let n: usize = page.parse().unwrap_or(1);
+                    for (engine, r) in [("pdf-extract", &extract), ("Pdfium", &pdfium_pages)] {
+                        let text = r.as_ref().ok().and_then(|p| p.get(n - 1)).cloned().unwrap_or_default();
+                        println!("----- {engine}, página {n} -----\n{}\n", text.chars().take(1500).collect::<String>());
+                    }
+                }
+            }
+        }
+        println!("\nE→P: de las palabras de pdf-extract, cuántas saca igual Pdfium; P→E, al revés. «1letr»: palabras de una sola letra (texto partido letra por letra); «pegad»: palabras de más de 25 letras (palabras pegadas); «vac»: páginas que quedarían para leer como imagen.");
+    }
+
     #[test]
     fn garbage_file_is_an_error_not_a_crash() {
         let dir = tempfile::tempdir().unwrap();

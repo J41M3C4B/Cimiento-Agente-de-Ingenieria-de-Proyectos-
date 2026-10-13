@@ -2,7 +2,7 @@
 adr: 4
 estado: aceptada
 tema: [documentos]
-reemplazado_en_parte_por: ["[[ADR-035-leer-paginas-escaneadas-y-fotos-ocr]]"]
+reemplazado_en_parte_por: ["[[ADR-035-leer-paginas-escaneadas-y-fotos-ocr]]", "[[ADR-037-pdfium-unico-motor-de-pdf]]"]
 tags: [adr]
 ---
 # ADR-004 · Office en Rust, Python como plan B
