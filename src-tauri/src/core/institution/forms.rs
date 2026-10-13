@@ -279,6 +279,19 @@ pub const LIST_FORMS: &[&FormSpec] = &[&BOARD_MEMBER, &BANK_ACCOUNT, &RECORD];
 /// shown each code of a field with its name, so it can tell that «ASISTENCIAL» in a document is `assistance`.
 const SCREEN_WORDS: &str = include_str!("../../../../src/i18n/es-MX.ts");
 
+/// The name of a type of document of the Expediente on the screen (`articles_of_incorporation` → «Acta constitutiva»),
+/// from `records.types` of the words of the screen.
+pub fn record_type_label(code: &str) -> Option<&'static str> {
+    let es = SCREEN_WORDS;
+    let block = &es[es.find("records: {")?..];
+    let types = &block[block.find("types: {")? + "types: {".len()..];
+    let types = &types[..types.find('}')?];
+    types.lines().find_map(|l| {
+        let (k, v) = l.trim().split_once(':')?;
+        (k.trim() == code).then(|| v.trim().trim_end_matches(',').trim_matches('"'))
+    })
+}
+
 /// The name of a code of a field on the screen («assistance» of «Rubro autorizado» → «Asistencial»), from the entry of
 /// the field in `forms.fields` or from the shared list it names (`options: STATES`).
 pub fn option_label(field: &str, code: &str) -> Option<&'static str> {
@@ -324,6 +337,17 @@ mod tests {
 
     /// Every field has its words in the screen (ADR-033 §1): a label under `forms.fields` with its id, and a label
     /// for each of its codes, in its own entry or in the shared list it names (`options: STATES`).
+    /// The AI knows a document by its type, with the name the screen gives it: every type of the catalog has one.
+    #[test]
+    fn every_type_of_the_expediente_has_its_name_on_the_screen() {
+        assert_eq!(record_type_label("articles_of_incorporation"), Some("Acta constitutiva"));
+        assert_eq!(record_type_label("tax_compliance_opinion"), Some("Opinión de cumplimiento (32-D)"));
+        for (code, _) in crate::core::institution::catalog::RECORD_TYPES {
+            assert!(record_type_label(code).is_some_and(|l| !l.is_empty() && !l.contains('"')), "{code}");
+        }
+        assert_eq!(record_type_label("nope"), None);
+    }
+
     #[test]
     fn the_ai_is_shown_each_code_with_its_name_on_the_screen() {
         assert_eq!(option_label("institution.donee_category", "assistance"), Some("Asistencial"));

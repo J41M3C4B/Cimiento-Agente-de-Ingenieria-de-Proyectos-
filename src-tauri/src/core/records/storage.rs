@@ -63,6 +63,13 @@ pub fn by_id(conn: &Connection, id: &str) -> Result<Option<Row>, StorageError> {
         .optional()?)
 }
 
+/// The row whose file is this document of the store, if any.
+pub fn by_document(conn: &Connection, document_id: &str) -> Result<Option<Row>, StorageError> {
+    Ok(conn
+        .query_row(&format!("SELECT {COLUMNS} FROM core_record r LEFT JOIN document d ON d.id = r.document_id WHERE r.document_id = ?1"), [document_id], read)
+        .optional()?)
+}
+
 /// The row of a type of the catalog (one per type, while there is a single site).
 pub fn by_type(conn: &Connection, r#type: &str) -> Result<Option<Row>, StorageError> {
     Ok(conn

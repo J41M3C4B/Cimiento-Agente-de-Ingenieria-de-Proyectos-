@@ -582,3 +582,75 @@ pub fn original(conn: &Connection, id: &str) -> Result<Option<std::path::PathBuf
     let row = store::by_id(conn, id)?.ok_or(ServiceError::NotFound)?;
     Ok(row.original_path.map(std::path::PathBuf::from).filter(|p| p.is_file()))
 }
+
+/// How a document is named when nobody says what it is.
+const UNNAMED: &str = "Documento del Expediente";
+
+/// How the AI knows a document of the Expediente: by its type, with the name the screen gives it; one the institution
+/// named itself («Otro documento»), by that name, which went through the quarantine. Never by the name of its file
+/// (decision of the institution, 2026-10-13): that is only the reference of a quote, on the screen.
+fn type_name(kind: &str, custom_name: Option<&str>) -> String {
+    if kind == RECORD_OTHER {
+        custom_name.map(str::trim).filter(|n| !n.is_empty()).unwrap_or("Otro documento").to_string()
+    } else {
+        crate::core::institution::forms::record_type_label(kind).unwrap_or(UNNAMED).to_string()
+    }
+}
+
+/// The name of a document of the store for the AI (see `type_name`).
+pub fn ai_name(conn: &Connection, document_id: &str) -> Result<String, ServiceError> {
+    Ok(store::by_document(conn, document_id)?.map_or(UNNAMED.to_string(), |r| type_name(&r.r#type, r.custom_name.as_deref())))
+}
+
+/// A document of the Expediente as the map of an agent tells it (ADR-036 §6): what it is and how it is, never what it
+/// says. `file_name` stays with the code: it tells which document a person names, and never reaches the AI.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapDocument {
+    /// `D1`, `D2`…: how an agent asks for this document, in the order of the Expediente.
+    pub key: String,
+    pub name: String,
+    /// `have`, `in_progress`, `missing` or `not_applicable`.
+    pub status: String,
+    pub validity: Option<Validity>,
+    pub valid_until: Option<String>,
+    /// Its clean text in the drawer, if its file could be read.
+    pub document_id: Option<String>,
+    pub from_picture: bool,
+    pub file_name: Option<String>,
+}
+
+/// The documents of the Expediente for the map of an agent, in the order of the screen.
+pub fn map(conn: &Connection) -> Result<Vec<MapDocument>, ServiceError> {
+    let rows = store::rows(conn)?;
+    Ok(expediente(conn)?
+        .records
+        .into_iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let row = r.id.as_deref().and_then(|id| rows.iter().find(|x| x.id == id));
+            MapDocument {
+                key: format!("D{}", i + 1),
+                name: type_name(&r.kind, r.custom_name.as_deref()),
+                status: r.status,
+                validity: r.validity,
+                valid_until: r.valid_until,
+                document_id: row.filter(|x| x.document_shown).and_then(|x| x.document_id.clone()),
+                from_picture: r.file.as_ref().is_some_and(|f| f.from_picture),
+                file_name: r.file.map(|f| f.name),
+            }
+        })
+        .collect())
+}
+
+/// The document of the map whose file the person names in a question («¿qué número tiene registro_JAP.png?»), with
+/// or without its extension, in any case and accents. Found by the code: the AI never sees the names of the files.
+pub fn named_in<'a>(map: &'a [MapDocument], question: &str) -> Option<&'a MapDocument> {
+    // «registro_JAP.png», «registro-jap» and «Registro JAP» are the same name
+    let words = |s: &str| crate::storage::fts::fold(s).split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ");
+    let said = format!(" {} ", words(question));
+    map.iter().filter(|d| d.document_id.is_some()).find(|d| {
+        let Some(name) = d.file_name.as_deref() else { return false };
+        let stem = words(name.rsplit_once('.').map_or(name, |(s, _)| s));
+        stem.chars().count() >= 3 && said.contains(&format!(" {stem} "))
+    })
+}

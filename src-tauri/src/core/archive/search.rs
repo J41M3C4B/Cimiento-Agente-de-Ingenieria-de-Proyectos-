@@ -47,40 +47,68 @@ pub struct Passage {
 /// The fragments of the documents of one drawer that share words with the question, best first (ADR-036: there is no
 /// search in everything). A document waiting to be deleted is not shown.
 pub fn by_words(conn: &Connection, drawer: Drawer, query: &str, limit: usize) -> Result<Vec<i64>, StorageError> {
+    words_in(conn, drawer, None, query, limit)
+}
+
+/// The same, in one document of the drawer when `document` says which.
+fn words_in(conn: &Connection, drawer: Drawer, document: Option<&str>, query: &str, limit: usize) -> Result<Vec<i64>, StorageError> {
     let Some(terms) = fts::match_terms(query) else { return Ok(Vec::new()) };
     let mut stmt = conn.prepare(
         "SELECT f.rowid FROM document_chunk_fts f
            JOIN document_chunk c ON c.rowid = f.rowid
            JOIN document d ON d.id = c.document_id
-         WHERE document_chunk_fts MATCH ?1 AND d.drawer = ?3 AND d.hidden = 0
+         WHERE document_chunk_fts MATCH ?1 AND d.drawer = ?3 AND d.hidden = 0 AND (?4 IS NULL OR d.id = ?4)
          ORDER BY f.rank LIMIT ?2",
     )?;
-    let ids = stmt.query_map(params![terms, limit as i64, drawer.as_str()], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    let ids = stmt.query_map(params![terms, limit as i64, drawer.as_str(), document], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
 }
 
 /// The fragments of one drawer closest in meaning to a question (its vector), best first.
 pub fn by_meaning(conn: &Connection, drawer: Drawer, query: &[f32], limit: usize) -> Result<Vec<i64>, StorageError> {
+    meaning_in(conn, drawer, None, query, limit)
+}
+
+/// The nearest fragments are looked for before they are filtered: in one document, among this many.
+const NEAREST_IN_ONE: usize = 400;
+
+fn meaning_in(conn: &Connection, drawer: Drawer, document: Option<&str>, query: &[f32], limit: usize) -> Result<Vec<i64>, StorageError> {
     let mut stmt = conn.prepare(
         "SELECT v.rowid FROM (SELECT rowid, distance FROM document_chunk_vec WHERE embedding MATCH ?1 AND k = ?2) v
            JOIN document_chunk c ON c.rowid = v.rowid
            JOIN document d ON d.id = c.document_id
-         WHERE d.drawer = ?3 AND d.hidden = 0
-         ORDER BY v.distance",
+         WHERE d.drawer = ?3 AND d.hidden = 0 AND (?4 IS NULL OR d.id = ?4)
+         ORDER BY v.distance LIMIT ?5",
     )?;
-    let ids = stmt.query_map(params![vectors::vec_json(query), limit as i64, drawer.as_str()], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    let k = if document.is_some() { NEAREST_IN_ONE.max(limit) } else { limit };
+    let ids = stmt.query_map(params![vectors::vec_json(query), k as i64, drawer.as_str(), document, limit as i64], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
 }
 
 /// The passages of one drawer that best answer a question: by words, and by meaning when its vector came; fused by
 /// position.
 pub fn search(conn: &Connection, drawer: Drawer, query: &str, vector: Option<&[f32]>, limit: usize, chars: usize) -> Result<Vec<Passage>, StorageError> {
-    let words = by_words(conn, drawer, query, CANDIDATES)?;
+    search_in(conn, drawer, None, query, vector, limit, chars)
+}
+
+/// The same, in one document of the drawer when `document` says which (the person named its file).
+pub fn search_in(conn: &Connection, drawer: Drawer, document: Option<&str>, query: &str, vector: Option<&[f32]>, limit: usize, chars: usize) -> Result<Vec<Passage>, StorageError> {
+    let words = words_in(conn, drawer, document, query, CANDIDATES)?;
     let meaning = match vector {
-        Some(v) => by_meaning(conn, drawer, v, CANDIDATES)?,
+        Some(v) => meaning_in(conn, drawer, document, v, CANDIDATES)?,
         None => Vec::new(),
     };
     passages(conn, &fuse_words_and_meaning(&words, &meaning, limit), query, chars)
+}
+
+/// The first fragments of a document of a drawer, as passages: what is read of it when no word of the question is in
+/// it («¿qué dice el archivo…?»).
+pub fn document_start(conn: &Connection, drawer: Drawer, document: &str, limit: usize, chars: usize) -> Result<Vec<Passage>, StorageError> {
+    let chunks: Vec<i64> = conn
+        .prepare("SELECT c.rowid FROM document_chunk c JOIN document d ON d.id = c.document_id WHERE d.id = ?1 AND d.drawer = ?2 AND d.hidden = 0 ORDER BY c.ordinal LIMIT ?3")?
+        .query_map(params![document, drawer.as_str(), limit as i64], |r| r.get(0))?
+        .collect::<Result<_, _>>()?;
+    passages(conn, &chunks, "", chars)
 }
 
 /// The two rankings fused, the meaning weighing `MEANING_WEIGHT`. What only the meaning found comes only from its first
@@ -102,6 +130,19 @@ pub struct Found {
 /// it with and the question carries no data of a person (the scanner says so); otherwise, or if the service does not
 /// answer in a few seconds, the search goes by words alone. Nothing of it is kept.
 pub async fn search_documents(db: &SharedDb, embedder: Option<Arc<dyn Embedder>>, drawer: Drawer, query: &str, limit: usize, chars: usize) -> Result<Found, ServiceError> {
+    search_documents_in(db, embedder, drawer, None, query, limit, chars).await
+}
+
+/// The same, in one document of the drawer when `document` says which.
+pub async fn search_documents_in(
+    db: &SharedDb,
+    embedder: Option<Arc<dyn Embedder>>,
+    drawer: Drawer,
+    document: Option<&str>,
+    query: &str,
+    limit: usize,
+    chars: usize,
+) -> Result<Found, ServiceError> {
     let query = query.trim();
     if query.is_empty() {
         return Err(ServiceError::EmptyText);
@@ -122,7 +163,7 @@ pub async fn search_documents(db: &SharedDb, embedder: Option<Arc<dyn Embedder>>
         vector = answer.ok().filter(|_| ok).and_then(|mut v| v.pop());
     }
     let conn = db.lock().map_err(|_| ServiceError::Internal("lock".into()))?;
-    let passages = search(&conn, drawer, query, vector.as_deref(), limit, chars)?;
+    let passages = search_in(&conn, drawer, document, query, vector.as_deref(), limit, chars)?;
     Ok(Found { passages, by_meaning: vector.is_some() })
 }
 
@@ -216,14 +257,22 @@ pub(crate) mod tests {
         text.split("=== PAGINA").skip(1).map(|p| p.split_once("===").map_or("", |x| x.1).trim().to_string()).collect()
     }
 
-    /// The fictitious record of `fixtures/expediente`, saved as documents of the institution; what each fragment is
-    /// (file, page).
+    /// The fictitious record of `fixtures/expediente`, saved as documents of the institution, each one the file of its
+    /// document of the Expediente as the app leaves it (its type by its words; the contract, as «Otro documento»);
+    /// what each fragment is (file, page).
     pub fn load_record(conn: &Connection) -> HashMap<i64, (String, i64)> {
+        use crate::core::records::storage::{save, set_file, Input};
         let mut files: Vec<PathBuf> = std::fs::read_dir(fixtures()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.extension().is_some_and(|e| e == "txt")).collect();
         files.sort();
         for f in &files {
             let name = f.file_name().unwrap().to_string_lossy().to_string();
-            add_paged_document(conn, Drawer::Record, &name, "application/pdf", &fixture_pages(&std::fs::read_to_string(f).unwrap()), 0, &PageMarks::default()).unwrap();
+            let pages = fixture_pages(&std::fs::read_to_string(f).unwrap());
+            let doc = add_paged_document(conn, Drawer::Record, &name, "application/pdf", &pages, 0, &PageMarks::default()).unwrap();
+            let kind = crate::core::reader::kinds::recognize(&pages);
+            let custom = kind.is_none().then_some("Contrato de comodato del inmueble");
+            let input = Input { custom_name: custom, status: "have", issued_on: None, valid_until: None, reference: None, notes: None };
+            let record = save(conn, None, kind.unwrap_or("other"), &input).unwrap();
+            set_file(conn, &record, Some(&doc), &f.to_string_lossy(), &name).unwrap();
         }
         let mut stmt = conn.prepare("SELECT c.rowid, d.display_name, c.page FROM document_chunk c JOIN document d ON d.id = c.document_id").unwrap();
         let v = stmt.query_map([], |r| Ok((r.get(0)?, (r.get(1)?, r.get(2)?)))).unwrap().collect::<Result<HashMap<_, _>, _>>().unwrap();

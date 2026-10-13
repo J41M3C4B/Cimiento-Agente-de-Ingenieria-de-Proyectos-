@@ -109,7 +109,10 @@ pub struct Passage {
     /// `P1`, `P2`…: how the AI cites it.
     pub id: String,
     pub document_id: String,
+    /// The name of its file: only for the screen, never for the AI.
     pub document: String,
+    /// What the AI knows it by: its type (`records::ai_name`).
+    pub name: String,
     pub page: Option<i64>,
     /// What the document is (`doc_type`), for the say it has on a field.
     pub kind: Option<String>,
@@ -157,6 +160,7 @@ pub fn passages_for(conn: &rusqlite::Connection, fields: &[&FieldSpec], vectors_
             out.push(Passage {
                 id: format!("P{}", out.len() + 1),
                 kind: docs::doc_type_of(conn, &p.document_id)?,
+                name: crate::core::records::ai_name(conn, &p.document_id)?,
                 document_id: p.document_id,
                 document: p.document,
                 page: p.page,
@@ -167,12 +171,13 @@ pub fn passages_for(conn: &rusqlite::Connection, fields: &[&FieldSpec], vectors_
     Ok(out)
 }
 
-/// What the Reader is told: the window, its empty fields and the passages, numbered.
+/// What the Reader is told: the window, its empty fields and the passages, numbered, each with its type and page
+/// (never the name of a file).
 pub fn context(name: &str, fields: &[&FieldSpec], passages: &[Passage]) -> Vec<String> {
     let described: Vec<String> = fields.iter().map(|f| describe(f, None)).collect();
     let shown: Vec<String> = passages
         .iter()
-        .map(|p| format!("[{}] {}{}:\n{}", p.id, p.document, p.page.map_or(String::new(), |n| format!(", página {n}")), p.text))
+        .map(|p| format!("[{}] {}{}:\n{}", p.id, p.name, p.page.map_or(String::new(), |n| format!(", página {n}")), p.text))
         .collect();
     vec![
         format!("La ventana «{name}» de «Mi institución». Sus campos vacíos:\n{}", described.join("\n")),
@@ -181,7 +186,7 @@ pub fn context(name: &str, fields: &[&FieldSpec], passages: &[Passage]) -> Vec<S
 }
 
 /// Whether a number is in a text, written with figures or in words («cuarenta y ocho», «dos mil quince»).
-fn says_number(text: &str, n: i64) -> bool {
+pub(super) fn says_number(text: &str, n: i64) -> bool {
     if crate::ai::figures::source_numbers(text).contains(&n.to_string()) {
         return true;
     }
