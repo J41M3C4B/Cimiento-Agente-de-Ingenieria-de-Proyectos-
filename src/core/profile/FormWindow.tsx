@@ -5,10 +5,12 @@ import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Icon } from "../../components/icons";
 import { Alert, Button, Modal } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import { formGet, formSave, proposalsReject, toAppError } from "../../lib/tauri";
+import { formGet, formSave, institutionFillFromDocuments, proposalsReject, toAppError } from "../../lib/tauri";
 import type { Decision, FormValues, ProfileIssue, ProfileView, Proposal, QuarantineReport } from "../../lib/types";
 import { useAssistant } from "../assistant/Assistant";
 import { ONBOARDING_KEY } from "../onboarding/api";
+import { fillNotice } from "./fromDocuments";
+import type { FillNotice } from "./fromDocuments";
 import { OVERVIEW_KEY } from "./gaps";
 
 export const formKey = (id: string) => ["form", id];
@@ -32,6 +34,24 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
   // the suggestions put in their fields, saved with «Guardar»
   const [used, setUsed] = useState<string[]>([]);
   const assistant = useAssistant();
+  // «Llenar con mis documentos» (C2): the Reader looks in the Expediente for the empty fields of this window
+  const [searching, setSearching] = useState(false);
+  const [fromDocs, setFromDocs] = useState<FillNotice | null>(null);
+  async function fillFromDocuments() {
+    setSearching(true);
+    setFromDocs(null);
+    setFailure(null);
+    try {
+      const out = await institutionFillFromDocuments(id);
+      setFromDocs(fillNotice(out));
+      void qc.invalidateQueries({ queryKey: formKey(id) });
+      void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
+    } catch (e) {
+      setFailure(toAppError(e).message);
+    } finally {
+      setSearching(false);
+    }
+  }
   const waiting = (form.data?.proposals ?? []).filter((p) => !used.includes(p.id));
 
   const use = (p: Proposal) => {
@@ -100,14 +120,21 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
         }
       >
         {form.isError && <Alert tone="error">{toAppError(form.error).message}</Alert>}
-        {form.data?.fill && assistant && (
-          <div>
-            <Button size="sm" variant="secondary" onClick={() => assistant.fill(form.data.fill!)}>
-              <Icon name="sparkles" size={16} />
-              {es.assistant.fillMe}
+        {form.data?.fill && (
+          <div className="flex flex-wrap gap-2">
+            {assistant && (
+              <Button size="sm" variant="secondary" onClick={() => assistant.fill(form.data.fill!)}>
+                <Icon name="sparkles" size={16} />
+                {es.assistant.fillMe}
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" disabled={searching} onClick={() => void fillFromDocuments()}>
+              <Icon name="file" size={16} />
+              {searching ? es.suggestions.searchingDocuments : es.suggestions.fillFromDocuments}
             </Button>
           </div>
         )}
+        {fromDocs && <Alert tone={fromDocs.tone}>{fromDocs.text}</Alert>}
         {waiting.length > 0 && (
           <Alert tone="info">
             <p>{es.suggestions.waiting(waiting.length)}</p>

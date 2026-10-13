@@ -1272,7 +1272,7 @@ export const es = {
   suggestions: {
     title: "Sugerencia de la IA:",
     said: (quote: string) => `Usted dijo: «${quote}»`,
-    // read by the Reader in a document of the institution (IA6): not the AI, the rules of the program
+    // read by the Reader in a document of the institution (IA6, C2): its words are in that page, the code checked it
     titleDocument: "Lo dice un documento:",
     fromDocument: (document: string, page: number | null) => (page ? `Lo leímos en «${document}», página ${page}.` : `Lo leímos en «${document}».`),
     use: "Usar",
@@ -1282,6 +1282,25 @@ export const es = {
         ? "Hay 1 sugerencia en esta ventana. «Usar» la pone en su campo, donde puede corregirla; se guarda hasta que pulse «Guardar»."
         : `Hay ${n} sugerencias en esta ventana. Revíselas una por una: «Usar» pone cada una en su campo, donde puede corregirla; se guardan hasta que pulse «Guardar».`,
     discardAll: "Descartar todas",
+    // «Llenar con mis documentos» (C2): the Reader of the Expediente leaves suggestions from the documents
+    fillFromDocuments: "Llenar con mis documentos",
+    fillAllFromDocuments: "Llenar todo con mis documentos",
+    searchingDocuments: "Buscando en sus documentos…",
+    fromDocuments: (n: number) =>
+      n === 0
+        ? "No encontré en sus documentos datos nuevos para los campos vacíos de esta ventana."
+        : n === 1
+          ? "Dejé 1 sugerencia de sus documentos: revísela abajo."
+          : `Dejé ${n} sugerencias de sus documentos: revíselas abajo.`,
+    fromDocumentsAll: (n: number, windows: number) =>
+      n === 0
+        ? "No encontré en sus documentos datos nuevos para los campos vacíos de «Mi institución»."
+        : `Dejé ${n} ${n === 1 ? "sugerencia" : "sugerencias"} de sus documentos en ${windows} ${windows === 1 ? "ventana" : "ventanas"} de «Mi institución». Ábralas para revisarlas.`,
+    nothingFromDocuments: {
+      all_written: "Todos los campos que puedo llenar en esta ventana ya están escritos.",
+      no_documents: "Su Expediente todavía no tiene documentos con texto. Súbalos en «Mi institución», en la parte del Expediente.",
+      nothing_found: "No encontré en sus documentos datos para los campos vacíos de esta ventana.",
+    } as Record<string, string>,
     pending: (n: number, place: string) => `Hay ${n} ${n === 1 ? "sugerencia" : "sugerencias"} en «${place}» para que las revise.`,
     review: "Revisarlas",
   },

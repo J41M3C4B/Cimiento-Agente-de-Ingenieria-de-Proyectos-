@@ -17,6 +17,7 @@ import type {
   RecordOutcome,
   CaptureAsk,
   CaptureOutcome,
+  FillOutcome,
   AssistantOutcome,
   BackupFile,
   ScanSummary,
@@ -107,6 +108,9 @@ export const institutionClabeReveal = (id: string) => invoke<string>("institutio
 export const assistantAsk = (ask: AssistantAsk, decision?: Decision) => invoke<AssistantOutcome>("assistant_ask", { ask, decision: decision ?? null });
 // The Capturist (IA4): suggestions in a window, and discarding them
 export const captureAsk = (capture: CaptureAsk, decision?: Decision) => invoke<CaptureOutcome>("capture_ask", { capture, decision: decision ?? null });
+// «Llenar con mis documentos» (C2): suggestions from the documents of the Expediente, one window or the four
+export const institutionFillFromDocuments = (form: string) => invoke<FillOutcome>("institution_fill_from_documents", { form });
+export const institutionFillAllFromDocuments = () => invoke<FillOutcome[]>("institution_fill_all_from_documents");
 export const proposalsReject = (ids: string[]) => invoke<number>("proposals_reject", { ids });
 // The manual of the program (ADR-034): the «?» of each field and the search in Ayuda, offline
 export const manualEntry = (id: string) => invoke<ManualEntry | null>("manual_entry", { id });

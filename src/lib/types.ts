@@ -249,6 +249,11 @@ export interface CaptureAsk {
   said: string;
   history: AssistantTurn[];
 }
+/** How «Llenar con mis documentos» went for a window (C2). */
+export type FillOutcome =
+  | { status: "proposed"; form: string; place: string; fields: string[]; dropped: number; note: string }
+  | { status: "nothing"; form: string; place: string; reason: string }
+  | { status: "unavailable"; form: string; place: string; reason: string };
 export type CaptureOutcome =
   | { status: "proposed"; asked: string; form: string; place: string; fields: string[]; dropped: number; note: string }
   | { status: "unavailable"; asked: string; reason: string }

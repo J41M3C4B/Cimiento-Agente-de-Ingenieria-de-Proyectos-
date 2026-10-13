@@ -70,6 +70,13 @@ En las ventanas de «Mi institución», «Llenarlo por mí» abre el asistente p
 El asistente deja sugerencias debajo de cada dato, con las palabras suyas de donde las tomó. «Usar» pone la sugerencia en su lugar, donde puede corregirla; «Descartar» la quita. Nada se guarda hasta que pulse «Guardar».
 Las sugerencias que no revise se quedan para después, y «Mi institución» le avisa cuántas hay. El teléfono, el correo, el domicilio, el RFC, los folios, las claves, el representante legal, el patronato y las cuentas los escribe usted: el asistente nunca los ve.
 
+# Llenar con mis documentos {#howto.fill_documents}
+
+En las ventanas de «Mi institución», «Llenar con mis documentos» busca en los documentos de su Expediente lo que dicen de los datos que faltan: a quién atienden, desde cuándo, su objeto social, cuántas personas trabajan. En la parte del Expediente, «Llenar todo con mis documentos» lo hace con las cuatro ventanas a la vez.
+Cada sugerencia dice de qué documento y de qué página salió. «Usar» la pone en su lugar, donde puede corregirla; «Descartar» la quita, y ese dato no se le vuelve a sugerir. Nada se guarda hasta que pulse «Guardar».
+Solo llena lo que está vacío: lo que usted ya escribió no se toca. El teléfono, el correo, el domicilio, el RFC, los folios, las claves y el representante legal no los busca la ayuda automática: los lee el programa del documento que los trae, al subirlo.
+Usa la ayuda automática (una consulta por ventana). Sin ella, el programa le avisa.
+
 # Cambiar de computadora o hacer un respaldo {#howto.backup}
 
 En «Seguridad» cree un respaldo con contraseña, llévelo a la otra computadora y restáurelo ahí.
