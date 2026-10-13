@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../../lib/tauri", () => ({
   assistantAsk: vi.fn(),
   captureAsk: vi.fn(),
+  institutionFillFromDocuments: vi.fn(),
+  institutionFillAllFromDocuments: vi.fn(),
   manualEntry: vi.fn(async (id: string) => ({ id, title: id === "howto.backup" ? "Hacer un respaldo" : "Folio ante la Junta", paragraphs: ["Qué poner: el folio."], used_by: [] })),
   toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
 }));
@@ -14,7 +16,7 @@ Element.prototype.scrollIntoView = function () {
   return Promise.resolve() as unknown as void;
 };
 
-import { assistantAsk, captureAsk } from "../../lib/tauri";
+import { assistantAsk, captureAsk, institutionFillAllFromDocuments, institutionFillFromDocuments } from "../../lib/tauri";
 import { ManualPanel } from "../../components/ManualHelp";
 import { AssistantProvider, useAssistant } from "./Assistant";
 
@@ -56,6 +58,7 @@ describe("Assistant", () => {
       sources: [{ id: "institution.junta_folio", title: "Folio ante la Junta" }],
       documents: [{ document_id: "doc_1", document: "Acta constitutiva", page: 3 }],
       fill: null,
+      from_documents: null,
     });
     const onGo = draw();
     fireEvent.click(screen.getByText("abrir"));
@@ -84,7 +87,7 @@ describe("Assistant", () => {
   it("says why the AI did not answer and what to do: try again when it is busy, ask the administrator for a key", async () => {
     vi.mocked(assistantAsk)
       .mockResolvedValueOnce({ status: "manual", asked: "¿Qué me falta?", reason: "busy", hits: [] })
-      .mockResolvedValueOnce({ status: "answered", asked: "¿Qué me falta?", text: "Le falta el patronato.", go_to: null, sources: [], documents: [], fill: null })
+      .mockResolvedValueOnce({ status: "answered", asked: "¿Qué me falta?", text: "Le falta el patronato.", go_to: null, sources: [], documents: [], fill: null, from_documents: null })
       .mockResolvedValueOnce({ status: "manual", asked: "¿Y ahora?", reason: "not_configured", hits: [] });
     draw();
     fireEvent.click(screen.getByText("abrir"));
@@ -106,7 +109,7 @@ describe("Assistant", () => {
   it("a question with data of a person waits for the person's decision", async () => {
     vi.mocked(assistantAsk)
       .mockResolvedValueOnce({ status: "quarantine", report: { fields: [{ path: "question", counts: { curp: 1 }, blocking: true, redacted_preview: "¿Dónde pongo [CURP]?" }], counts: { curp: 1 }, has_blocking: true } })
-      .mockResolvedValueOnce({ status: "answered", asked: "¿Dónde pongo [CURP]?", text: "En la ficha de la persona.", go_to: null, sources: [], documents: [], fill: null });
+      .mockResolvedValueOnce({ status: "answered", asked: "¿Dónde pongo [CURP]?", text: "En la ficha de la persona.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
     draw();
     fireEvent.click(screen.getByText("abrir"));
     ask("¿Dónde pongo LOPM800101MDFRZN09?");
@@ -119,7 +122,7 @@ describe("Assistant", () => {
   it("«Llenarlo por mí» under an answer: the Capturist reads what was asked and leaves suggestions in the window", async () => {
     const asked = "Atendemos a 38 señoras, ¿dónde lo pongo?";
     const fill = { form: "institution.identity", place: "profile.institution" };
-    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "En «Su institución».", go_to: "profile.institution", sources: [], documents: [], fill });
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "En «Su institución».", go_to: "profile.institution", sources: [], documents: [], fill, from_documents: null });
     vi.mocked(captureAsk)
       .mockResolvedValueOnce({ status: "proposed", asked, form: fill.form, place: fill.place, fields: ["institution.populations", "institution.sex_served"], dropped: 0, note: "Dejé a quién atienden." })
       .mockResolvedValueOnce({ status: "unavailable", asked: "Somos I.A.P.", reason: "offline" });
@@ -144,9 +147,30 @@ describe("Assistant", () => {
 
     // back to questions
     fireEvent.click(screen.getByRole("button", { name: "Dejar de llenar" }));
-    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y luego?", text: "Guarde la ventana.", go_to: null, sources: [], documents: [], fill: null });
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y luego?", text: "Guarde la ventana.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
     ask("¿Y luego?");
     expect(await screen.findByText("Guarde la ventana.")).toBeInTheDocument();
     expect(captureAsk).toHaveBeenCalledTimes(2);
+  });
+
+  it("«Llenar con mis documentos» under an answer: the Reader fills that window, and the program says how many it left", async () => {
+    const legal = { form: "institution.legal", place: "profile.legal" };
+    vi.mocked(assistantAsk)
+      .mockResolvedValueOnce({ status: "answered", asked: "Llénalo con mi acta", text: "Use el botón.", go_to: null, sources: [], documents: [], fill: null, from_documents: legal })
+      .mockResolvedValueOnce({ status: "answered", asked: "Y lo demás", text: "Puede llenar todo.", go_to: null, sources: [], documents: [], fill: null, from_documents: { form: "all", place: "profile" } });
+    vi.mocked(institutionFillFromDocuments).mockResolvedValueOnce({ status: "proposed", form: legal.form, place: legal.place, fields: ["institution.legal_name", "institution.purpose"], dropped: 0, note: "" });
+    vi.mocked(institutionFillAllFromDocuments).mockResolvedValueOnce([{ status: "nothing", form: legal.form, place: legal.place, reason: "no_documents" }]);
+    const onGo = draw();
+    fireEvent.click(screen.getByText("abrir"));
+    ask("Llénalo con mi acta");
+    fireEvent.click(await screen.findByRole("button", { name: "Llenar con mis documentos" }));
+    await waitFor(() => expect(institutionFillFromDocuments).toHaveBeenCalledWith("institution.legal"));
+    fireEvent.click(await screen.findByRole("button", { name: "Revisarlas" }));
+    expect(onGo).toHaveBeenCalledWith("profile.legal");
+    ask("Y lo demás");
+    fireEvent.click(await screen.findByRole("button", { name: "Llenar todo con mis documentos" }));
+    await waitFor(() => expect(institutionFillAllFromDocuments).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/no tiene documentos|Expediente/)).toBeInTheDocument();
+    expect(captureAsk).not.toHaveBeenCalled();
   });
 });

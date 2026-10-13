@@ -6,9 +6,11 @@ import { ManualText } from "../../components/ManualHelp";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Alert, Bubble, Button, Composer, Disclosure, IconButton, TextButton } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import { assistantAsk, captureAsk, manualEntry, toAppError } from "../../lib/tauri";
+import { assistantAsk, captureAsk, institutionFillAllFromDocuments, institutionFillFromDocuments, manualEntry, toAppError } from "../../lib/tauri";
 import { useSession } from "../access/session";
 import { OVERVIEW_KEY } from "../profile/gaps";
+import { fillAllNotice, fillNotice } from "../profile/fromDocuments";
+import type { FillNotice } from "../profile/fromDocuments";
 import type { AssistantOutcome, AssistantTurn, CaptureOutcome, Decision, DocumentSource, Fill, ManualSource, QuarantineReport } from "../../lib/types";
 
 const t = es.assistant;
@@ -28,6 +30,7 @@ type Message =
   | { from: "person"; text: string }
   | { from: "assistant"; outcome: Exclude<AssistantOutcome, { status: "quarantine" }> }
   | { from: "capture"; target: Fill; outcome: Exclude<CaptureOutcome, { status: "quarantine" }> }
+  | { from: "documents"; target: Fill; notice: FillNotice }
   | { from: "error"; text: string };
 
 /** The turns that go with a question: what the person asked and what was answered, in words. */
@@ -35,6 +38,7 @@ function turns(messages: Message[]): AssistantTurn[] {
   return messages.flatMap((m): AssistantTurn[] => {
     if (m.from === "person") return [{ from: "person", text: m.text }];
     if (m.from === "capture") return m.outcome.status === "proposed" && m.outcome.note ? [{ from: "assistant", text: m.outcome.note }] : [];
+    if (m.from === "documents") return [{ from: "assistant", text: m.notice.text }];
     if (m.from !== "assistant") return [];
     const o = m.outcome;
     return [{ from: "assistant", text: o.status === "answered" ? o.text : `(${t.manualIntro} ${o.hits.map((h) => h.title).join("; ")})` }];
@@ -47,24 +51,30 @@ function ManualHit({ hit }: { hit: ManualSource }) {
   return <Disclosure title={hit.title}>{entry.data ? <ManualText entry={entry.data} /> : null}</Disclosure>;
 }
 
-/** An answer of the AI: its text, the entries of the manual and the documents it used and, maybe, the place to go and a
- * window to fill. */
+/** An answer of the AI: its text, the entries of the manual and the documents it used and, maybe, the place to go, a
+ * window to fill with what the person tells, and one to fill with the documents. */
 function Answer({
   text,
   sources,
   documents,
   place,
   fill,
+  fromDocuments,
+  busy,
   onGo,
   onFill,
+  onFromDocuments,
 }: {
   text: string;
   sources: ManualSource[];
   documents: DocumentSource[];
   place: string | null;
   fill: Fill | null;
+  fromDocuments: Fill | null;
+  busy: boolean;
   onGo: (place: string) => void;
   onFill: (target: Fill) => void;
+  onFromDocuments: (target: Fill) => void;
 }) {
   return (
     <Bubble from="assistant">
@@ -79,7 +89,7 @@ function Answer({
           {t.documentSources} {documents.map((d) => t.documentPage(d.document, d.page)).join("; ")}
         </p>
       )}
-      {(place || fill) && (
+      {(place || fill || fromDocuments) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {place && (
             <Button size="sm" variant="secondary" onClick={() => onGo(place)}>
@@ -91,6 +101,12 @@ function Answer({
             <Button size="sm" variant="secondary" onClick={() => onFill(fill)}>
               <Icon name="sparkles" size={14} />
               {t.fillMe}
+            </Button>
+          )}
+          {fromDocuments && (
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => onFromDocuments(fromDocuments)}>
+              <Icon name="sparkles" size={14} />
+              {fromDocuments.form === "all" ? es.suggestions.fillAllFromDocuments : es.suggestions.fillFromDocuments}
             </Button>
           )}
         </div>
@@ -113,6 +129,22 @@ function Captured({ outcome, onGo }: { outcome: Extract<CaptureOutcome, { status
             <Icon name="next" size={14} />
           </Button>
         </>
+      )}
+    </Bubble>
+  );
+}
+
+/** What «Llenar con mis documentos» left, in the program's words, and the way to the window to review it. */
+function FromDocuments({ target, notice, onGo }: { target: Fill; notice: FillNotice; onGo: (place: string) => void }) {
+  if (notice.tone === "error") return <Alert tone="warn">{notice.text}</Alert>;
+  return (
+    <Bubble from="assistant">
+      <p>{notice.text}</p>
+      {notice.tone === "ok" && (
+        <Button size="sm" variant="secondary" className="mt-3" onClick={() => onGo(target.place)}>
+          {t.review}
+          <Icon name="next" size={14} />
+        </Button>
       )}
     </Bubble>
   );
@@ -236,6 +268,25 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
     }
   }
 
+  /**
+   * «Llenar con mis documentos» under an answer (C3): the Reader of the Expediente leaves suggestions in that window
+   * (or in all of them), each with its document and page; the panel says how many, in the program's words.
+   */
+  async function fromDocuments(target: Fill) {
+    setBusy(true);
+    const before = messages;
+    try {
+      const notice = target.form === "all" ? fillAllNotice(await institutionFillAllFromDocuments()) : fillNotice(await institutionFillFromDocuments(target.form));
+      setMessages([...before, { from: "documents", target, notice }]);
+      void qc.invalidateQueries({ queryKey: ["form"] });
+      void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
+    } catch (e) {
+      setMessages([...before, { from: "error", text: toAppError(e).message }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   /** «Llenarlo por mí» under an answer: what the person asked just before it is what the Capturist reads. */
   function fillFrom(at: number, target: Fill) {
     const asked = messages[at - 1];
@@ -295,6 +346,8 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
                 <Alert key={i} tone="error">
                   {m.text}
                 </Alert>
+              ) : m.from === "documents" ? (
+                <FromDocuments key={i} target={m.target} notice={m.notice} onGo={onGo} />
               ) : m.from === "capture" ? (
                 m.outcome.status === "proposed" ? (
                   <Captured key={i} outcome={m.outcome} onGo={onGo} />
@@ -308,7 +361,19 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
                   />
                 )
               ) : m.outcome.status === "answered" ? (
-                <Answer key={i} text={m.outcome.text} sources={m.outcome.sources} documents={m.outcome.documents ?? []} place={m.outcome.go_to} fill={m.outcome.fill} onGo={onGo} onFill={(f) => fillFrom(i, f)} />
+                <Answer
+                  key={i}
+                  text={m.outcome.text}
+                  sources={m.outcome.sources}
+                  documents={m.outcome.documents ?? []}
+                  place={m.outcome.go_to}
+                  fill={m.outcome.fill}
+                  fromDocuments={m.outcome.from_documents ?? null}
+                  busy={busy}
+                  onGo={onGo}
+                  onFill={(f) => fillFrom(i, f)}
+                  onFromDocuments={(f) => void fromDocuments(f)}
+                />
               ) : (
                 <Unavailable key={i} reason={m.outcome.reason} hits={m.outcome.hits} busy={busy} onRetry={() => void send(m.outcome.asked)} onGo={onGo} />
               ),

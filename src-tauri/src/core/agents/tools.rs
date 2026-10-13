@@ -6,7 +6,9 @@
 use crate::ai::agent::{Tool, ToolError};
 use crate::core::access::domain::{Permission, Role};
 use crate::core::ai_sheet::{self, SECTIONS};
-use crate::core::archive::search::{self, Passage};
+use crate::ai::AiProvider;
+use crate::core::archive::search::Passage;
+use crate::core::reader::ask::{self, ReaderAnswer};
 use crate::core::overview::{self, Place};
 use crate::documents::canonical::retrieve::Embedder;
 use async_trait::async_trait;
@@ -59,56 +61,80 @@ pub fn toolbox_with(db: Arc<Mutex<Connection>>, role: Option<Role>, reach: Reach
         Box::new(FillState(ctx.clone())),
         Box::new(SheetSection(ctx.clone())),
         Box::new(ManualSearch(ctx.clone())),
-        Box::new(ManualEntry(ctx.clone())),
-        Box::new(DocumentsSearch(ctx)),
+        Box::new(ManualEntry(ctx)),
     ]
 }
-
-/// The most passages a search of the documents hands back, and about how long each one is.
-const DOCUMENT_PASSAGES: usize = 4;
-const PASSAGE_CHARS: usize = 700;
 
 /// How the AI cites a passage in `sources`: `doc:<fragment>`.
 pub fn passage_source(p: &Passage) -> String {
     format!("doc:{}", p.chunk)
 }
 
-/// Searches the documents the institution uploaded (IA5, ADR-034 §3): their clean text, already through the scanner
-/// when it was saved, a few passages at a time (yellow data: only what the question needs). By words, and by meaning
-/// when the person chose Gemini and the vectors are made.
-struct DocumentsSearch(Ctx);
+/// The Reader of the Expediente as a tool of the Assistant (C3, ADR-036 §6, agent as a tool): the Assistant never
+/// reads documents, it asks the agent of the drawer. The Reader looks in its drawer (or in one document of the map),
+/// answers in one call, and the code checks its quotes; what it hands back is written down so the answer can only cite
+/// those passages, with the document and page from the code. One level of delegation: the Reader asks nobody.
+struct RecordReader<'a> {
+    ctx: Ctx,
+    provider: &'a dyn AiProvider,
+}
+
+/// The Reader of the Expediente for one errand, with the provider of that errand.
+pub fn record_reader<'a>(db: Arc<Mutex<Connection>>, role: Option<Role>, reach: Reach, provider: &'a dyn AiProvider) -> Box<dyn Tool + 'a> {
+    Box::new(RecordReader { ctx: Ctx { db, role, reach }, provider })
+}
 
 #[async_trait]
-impl Tool for DocumentsSearch {
+impl Tool for RecordReader<'_> {
     fn name(&self) -> &'static str {
-        "documents_search"
+        "record_reader"
     }
     fn description(&self) -> &'static str {
-        "Busca en los documentos que la institución subió (acta constitutiva, poderes, constancias, oficios, reglamentos, informes, contratos). Devuelve hasta cuatro pasajes, cada uno con su `source` (para citarlo en `sources`), el nombre del documento, la página y el texto. `query` es la pregunta de la persona con sus palabras."
+        "Le pregunta al Lector del Expediente, que busca en los documentos de la institución (los del mapa, también los escaneos y las fotos, que ya están leídos como texto) y contesta con la frase exacta de donde lo sacó. Devuelve `found`, `answer` y `citations`, cada cita con su `source` (para ponerlo en `sources`), el documento, la página y la frase. `question`: la pregunta con las palabras de la persona y las que usaría un documento («denominación o razón social» para el nombre legal). `document`: la clave de un documento del mapa (`D3`) si la pregunta es de ese documento, o null para buscar en todo el Expediente."
     }
     fn args_schema(&self) -> Value {
         json!({
             "type": "object",
-            "properties": { "query": { "type": "string" } },
-            "required": ["query"],
+            "properties": {
+                "question": { "type": "string" },
+                "document": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["question", "document"],
             "additionalProperties": false
         })
     }
     async fn run(&self, args: &Value) -> Result<Value, ToolError> {
-        self.0.allowed()?;
-        let query = args["query"].as_str().unwrap_or_default();
-        let found = search::search_documents(&self.0.db, self.0.reach.embedder.clone(), crate::core::archive::storage::Drawer::Record, query, DOCUMENT_PASSAGES, PASSAGE_CHARS)
-            .await
-            .map_err(|_| ToolError::BadArgs("query".into()))?;
-        let passages: Vec<Value> = found
-            .passages
-            .iter()
-            .map(|p| json!({ "source": passage_source(p), "document": p.document, "page": p.page, "text": p.snippet }))
-            .collect();
-        if let Ok(mut cited) = self.0.reach.cited.lock() {
-            cited.extend(found.passages);
+        let question = args["question"].as_str().unwrap_or_default().trim().to_string();
+        if question.is_empty() {
+            return Err(ToolError::BadArgs("question".into()));
         }
-        Ok(json!({ "passages": passages }))
+        let document = match args["document"].as_str() {
+            None => None,
+            Some(key) => {
+                let conn = self.ctx.open()?;
+                let map = crate::core::records::map(&conn).map_err(|_| ToolError::Failed)?;
+                let d = map.into_iter().find(|d| d.key == key.trim()).ok_or_else(|| ToolError::BadArgs(format!("no document {key}")))?;
+                // a document of the map with no text to read: the Reader has nothing to look at
+                Some(d.document_id.ok_or_else(|| ToolError::BadArgs(format!("{key} has no text")))?)
+            }
+        };
+        self.ctx.allowed()?;
+        let out = ask::answer(&self.ctx.db, Some(self.provider), self.ctx.reach.embedder.clone(), &question, document.as_deref()).await.map_err(|_| ToolError::Failed)?;
+        Ok(match out {
+            ReaderAnswer::Found { text, citations } => {
+                let cited: Vec<Value> = citations
+                    .iter()
+                    .map(|c| json!({ "source": passage_source(&c.passage), "document": c.name, "page": c.passage.page, "quote": c.quote }))
+                    .collect();
+                if let Ok(mut written) = self.ctx.reach.cited.lock() {
+                    written.extend(citations.into_iter().map(|c| c.passage));
+                }
+                json!({ "found": true, "answer": text, "citations": cited })
+            }
+            ReaderAnswer::NotFound { looked, .. } => json!({ "found": false, "answer": "Ningún documento del Expediente lo dice con claridad.", "passages_read": looked, "citations": [] }),
+            ReaderAnswer::NoDocuments => json!({ "found": false, "answer": "El Expediente todavía no tiene ningún documento con texto para leer.", "citations": [] }),
+            ReaderAnswer::Unavailable { .. } => return Err(ToolError::Failed),
+        })
     }
 }
 
@@ -384,7 +410,7 @@ mod tests {
         for t in toolbox(db, None) {
             let args = match t.name() {
                 "sheet_section" => json!({ "section": "money" }),
-                "documents_search" | "manual_search" => json!({ "query": "acta" }),
+                "manual_search" => json!({ "query": "acta" }),
                 "manual_entry" => json!({ "id": "howto.backup" }),
                 _ => json!({ "form": null }),
             };
@@ -392,25 +418,49 @@ mod tests {
         }
     }
 
-    /// The search of the documents hands the AI a few passages with their source, and writes down what it handed so
-    /// the answer can only cite those.
+    /// The Reader of the Expediente as a tool: it hands back its answer with checked quotes, each with its source, its
+    /// type and its page (never the file name), and writes down the passages so the answer can only cite those. A
+    /// document of the map is asked by its key; one that does not exist or has no text is refused.
     #[tokio::test]
-    async fn the_documents_search_hands_passages_with_their_source() {
+    async fn the_reader_answers_the_assistant_with_its_quotes() {
         use crate::core::archive::vectors::{index_pending, tests::WordsEmbedder};
         let (_d, db) = rich_db();
         crate::core::archive::search::tests::load_record(&db.lock().unwrap());
         let e = Arc::new(WordsEmbedder::new());
         index_pending(&db, e.as_ref()).await.unwrap();
+        let q = "¿Quién paga el predial?";
+        let shown = ask::passages_for(&db, Some(e.clone()), q, None).await.unwrap();
+        let p = shown.iter().find(|s| s.passage.snippet.contains("impuesto predial")).unwrap();
+        let reply = |v: Value| Ok(AiResponse { value: json!({ "tool": null, "args": null, "answer": v }), model: "mock".into(), usage: Usage::default() });
+        let m = MockProvider::new(vec![
+            reply(json!({ "found": true, "text": "La institución paga el predial.", "citations": [{ "passage": p.id, "quote": "del pago de los servicios y del impuesto predial" }] })),
+            reply(json!({ "found": false, "text": "No lo dice.", "citations": [] })),
+        ]);
         let reach = Reach { embedder: Some(e), ..Reach::default() };
-        let tools = toolbox_with(db.clone(), Some(Role::Manager), reach.clone());
-        let out = tool(&tools, "documents_search").run(&json!({ "query": "¿Quién paga el predial?" })).await.unwrap();
-        let first = &out["passages"][0];
-        assert_eq!((first["document"].as_str(), first["page"].as_i64()), (Some("contrato-comodato.txt"), Some(2)), "{out}");
-        assert!(first["source"].as_str().unwrap().starts_with("doc:") && first["text"].as_str().unwrap().contains("predial"));
-        let n = out["passages"].as_array().unwrap().len();
-        assert!((1..=4).contains(&n));
-        assert_eq!(reach.cited.lock().unwrap().len(), n, "what was handed is written down");
-        assert!(matches!(tool(&tools, "documents_search").run(&json!({ "query": " " })).await, Err(ToolError::BadArgs(_))));
+        let reader = record_reader(db.clone(), Some(Role::Manager), reach.clone(), &m);
+        let out = reader.run(&json!({ "question": q, "document": null })).await.unwrap();
+        assert_eq!(out["found"], true, "{out}");
+        let c = &out["citations"][0];
+        assert_eq!((c["document"].as_str(), c["page"].as_i64()), (Some("Contrato de comodato del inmueble"), Some(2)), "{out}");
+        assert_eq!(c["source"].as_str(), Some(passage_source(&p.passage).as_str()));
+        assert!(!out.to_string().contains(".txt"), "no file name: {out}");
+        assert_eq!(reach.cited.lock().unwrap().iter().map(|x| x.chunk).collect::<Vec<_>>(), vec![p.passage.chunk], "what was handed is written down");
+
+        // by the key of the map, in one document
+        let map = crate::core::records::map(&db.lock().unwrap()).unwrap();
+        let poder = map.iter().find(|d| d.name == "Poder del representante legal").unwrap();
+        let out = reader.run(&json!({ "question": "¿Hasta cuándo vale?", "document": poder.key })).await.unwrap();
+        assert_eq!(out["found"], false);
+        assert!(m.requests()[1].context.join(" ").contains("Poder del representante legal"));
+        assert!(!m.requests()[1].context.join(" ").contains("Contrato de comodato"), "only that document");
+        assert!(matches!(reader.run(&json!({ "question": q, "document": "D99" })).await, Err(ToolError::BadArgs(_))));
+        let missing = map.iter().find(|d| d.document_id.is_none()).unwrap();
+        assert!(matches!(reader.run(&json!({ "question": q, "document": missing.key })).await, Err(ToolError::BadArgs(_))), "a document with no text");
+        assert!(matches!(reader.run(&json!({ "question": " ", "document": null })).await, Err(ToolError::BadArgs(_))));
+        assert_eq!(m.requests().len(), 2, "nothing refused reached the AI");
+        // without a session that may use the app, nothing is read
+        let denied = record_reader(db, None, Reach::default(), &m);
+        assert_eq!(denied.run(&json!({ "question": q, "document": null })).await, Err(ToolError::Denied));
     }
 
     fn errand_agent() -> Agent {

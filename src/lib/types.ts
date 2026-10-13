@@ -240,7 +240,17 @@ export interface DocumentSource {
   page: number | null;
 }
 export type AssistantOutcome =
-  | { status: "answered"; asked: string; text: string; go_to: string | null; sources: ManualSource[]; documents: DocumentSource[]; fill: Fill | null }
+  | {
+      status: "answered";
+      asked: string;
+      text: string;
+      go_to: string | null;
+      sources: ManualSource[];
+      documents: DocumentSource[];
+      fill: Fill | null;
+      /** «Llenar con mis documentos» (C3) for a window, or all of them (`form: "all"`), run on the click. */
+      from_documents: Fill | null;
+    }
   | { status: "manual"; asked: string; reason: string; hits: ManualSource[] }
   | { status: "quarantine"; report: QuarantineReport };
 // The Capturist (ADR-034, IA4, core/agents/capturist.rs): what the person tells becomes suggestions in a window.
