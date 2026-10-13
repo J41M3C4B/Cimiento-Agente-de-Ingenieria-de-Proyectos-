@@ -39,6 +39,20 @@ fn a_pdf_with_text_keeps_its_text_and_other_files_are_not_read() {
     assert_eq!(read_upload("roto.pdf", b"esto no es un pdf"), Err(ReadError::Damaged));
 }
 
+/// ADR-038: a page scanned and pasted into a Word file is read after the text of the file, as a page read from a
+/// picture; a small logo is not a page and is not read.
+#[test]
+fn a_page_pasted_into_a_word_file_is_read_and_a_logo_is_not() {
+    needs_ocr();
+    let r = read_file(&fixture("word-con-imagen.docx")).unwrap();
+    assert!(r.pages[0].contains("Informe del patronato"), "{:?}", r.pages);
+    let last = r.pages.last().unwrap().split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(last.contains("Casa Hogar Ficticia del Valle") && last.contains("presupuesto"), "{last}");
+    assert_eq!(r.from_picture, vec![r.pages.len()], "one page from the pasted scan, none from the logo");
+    // a Word file with only a logo reads as before
+    assert!(read_file(&fixture("plantilla-prueba.docx")).unwrap().from_picture.is_empty());
+}
+
 /// A sheet put in the scanner on its side: Tesseract's model of orientation says it is turned, and it is read
 /// upright (ADR-035).
 #[test]

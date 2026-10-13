@@ -378,6 +378,29 @@ def turned_scan():
     img.rotate(-90, expand=True).save("acta-girada.pdf", "PDF", resolution=200.0)
 
 
+def word_with_picture():
+    """A Word file with a page scanned and pasted in, and a small logo: the page is read, the logo is not (ADR-038)."""
+    from PIL import ImageFont
+
+    font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 34)
+    scan = Image.new("L", (1400, 500), 246)
+    d = ImageDraw.Draw(scan)
+    for i, line in enumerate([
+        "El patronato de la Casa Hogar Ficticia del Valle",
+        "aprobó el presupuesto del siguiente ejercicio",
+        "en su sesión ordinaria de este año.",
+    ]):
+        d.text((60, 80 + i * 60), line, fill=25, font=font)
+    buf = io.BytesIO()
+    scan.save(buf, "PNG")
+    buf.seek(0)
+    doc = Document()
+    doc.add_paragraph("Informe del patronato (ficticio)")
+    doc.add_picture(logo_png("#1F4E78"), width=Inches(1.0))
+    doc.add_picture(buf, width=Inches(6.0))
+    doc.save("word-con-imagen.docx")
+
+
 import sys
 
 if sys.argv[1:] == ["escaneos"]:
@@ -398,6 +421,9 @@ elif sys.argv[1:] == ["mixta"]:
 elif sys.argv[1:] == ["girada"]:
     # only the sheet scanned on its side
     turned_scan()
+elif sys.argv[1:] == ["word-imagen"]:
+    # only the Word file with a page pasted in
+    word_with_picture()
 else:
     excel()
     word()
@@ -408,4 +434,5 @@ else:
     ruled()
     mixed()
     turned_scan()
+    word_with_picture()
 print("ok")

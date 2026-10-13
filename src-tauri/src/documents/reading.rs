@@ -9,6 +9,7 @@
 
 use super::ocr::{self, PageRead};
 use sha2::{Digest, Sha256};
+use std::io::Read;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{mpsc, Mutex, OnceLock};
@@ -89,8 +90,30 @@ pub fn read_file(path: &Path) -> Result<Reading, ReadError> {
         if office_with_password(path) {
             return Err(ReadError::Protected);
         }
-        let pages = super::canonical::package::read_pieces(path).map_err(|_| ReadError::Damaged)?;
-        return Ok(Reading { pages, from_picture: vec![], doubtful: vec![] });
+        let mut pages = super::canonical::package::read_pieces(path).map_err(|_| ReadError::Damaged)?;
+        let mut reading = Reading { pages: vec![], from_picture: vec![], doubtful: vec![] };
+        // a page scanned and pasted into a Word or Excel file is read too, after the text of the file (ADR-038)
+        if ocr::available() {
+            let pictures = office_pictures(path);
+            if pictures.len() > MAX_PICTURE_PAGES {
+                return Err(ReadError::TooManyPictures);
+            }
+            let label = label();
+            for (i, picture) in pictures.iter().enumerate() {
+                tell(label.as_deref(), i, pictures.len());
+                let Some(read) = ocr::read_picture(picture, None).ok().filter(|r| !r.text.trim().is_empty()) else { continue };
+                pages.push(read.text.clone());
+                reading.from_picture.push(pages.len());
+                if read.doubtful() {
+                    reading.doubtful.push(pages.len());
+                }
+            }
+            if !pictures.is_empty() {
+                tell(label.as_deref(), pictures.len(), pictures.len());
+            }
+        }
+        reading.pages = pages;
+        return Ok(reading);
     }
     let bytes = std::fs::read(path).map_err(|_| ReadError::Damaged)?;
     let key = hex::encode(Sha256::digest(&bytes));
@@ -106,6 +129,31 @@ pub fn read_file(path: &Path) -> Result<Reading, ReadError> {
         }
     }
     Ok(reading)
+}
+
+/// A picture inside a Word or Excel file shorter than this on its longest side is a logo or an icon, not a page.
+const OFFICE_PICTURE_MIN_SIDE: u32 = 600;
+
+/// The pictures inside a Word or Excel file (`word/media`, `xl/media`) big enough to be a page pasted in, in the
+/// order the file keeps them. JPEG and PNG only: what Tesseract reads.
+fn office_pictures(path: &Path) -> Vec<Vec<u8>> {
+    let Ok(file) = std::fs::File::open(path) else { return vec![] };
+    let Ok(mut zip) = zip::ZipArchive::new(file) else { return vec![] };
+    let mut names: Vec<String> = zip
+        .file_names()
+        .filter(|n| (n.starts_with("word/media/") || n.starts_with("xl/media/")) && [".png", ".jpg", ".jpeg"].iter().any(|e| n.to_lowercase().ends_with(e)))
+        .map(str::to_string)
+        .collect();
+    names.sort();
+    names
+        .into_iter()
+        .filter_map(|n| {
+            let mut bytes = Vec::new();
+            zip.by_name(&n).ok()?.read_to_end(&mut bytes).ok()?;
+            let (w, h) = image::ImageReader::new(std::io::Cursor::new(&bytes)).with_guessed_format().ok()?.into_dimensions().ok()?;
+            (w.max(h) >= OFFICE_PICTURE_MIN_SIDE).then_some(bytes)
+        })
+        .collect()
 }
 
 /// A Word or Excel file saved with a password is not a ZIP like the others: Office keeps it in an older container
