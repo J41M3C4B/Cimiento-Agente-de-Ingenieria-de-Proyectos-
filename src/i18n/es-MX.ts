@@ -261,6 +261,8 @@ export const es = {
       attachedFromPicture: "Se guardó el archivo. Su texto se leyó de la imagen.",
       attachedDoubtful: (pages: string) =>
         `Se guardó el archivo, pero ${pages} se leyó con dudas: su texto puede traer errores. Si importa, súbalo otra vez con un escaneo más claro.`,
+      covered: (n: number) =>
+        `${n === 1 ? "Tapamos 1 dato personal" : `Tapamos ${n} datos personales`} en su texto, como CURP, RFC de personas o correos. El archivo original no cambia.`,
       pickTitle: "Elija el archivo del documento",
       pickFilter: "PDF, Word o foto",
       unreadable: {
@@ -269,7 +271,6 @@ export const es = {
         not_found: "No se encontró el archivo. Elíjalo otra vez.",
         damaged: "El archivo está dañado o no se pudo abrir.",
         too_many_pages: "Ese archivo tiene más de 100 páginas escaneadas: son demasiadas para leerlas. Súbalo en partes.",
-        roster: "Ese archivo es una lista de personas. Las fichas de personas van en Personal o en Beneficiarios, no en el expediente.",
       } as Record<string, string>,
     },
     modal: {

@@ -74,6 +74,8 @@ Formato de tapado: `[CURP OCULTA]`, `[TELÉFONO OCULTO]`, `[NOMBRE OCULTO]`, etc
 
 Si un archivo tiene más de N hallazgos `Block` (inicial: 5) o un patrón de tabla con columnas tipo "Nombre / Edad / Diagnóstico", la app lo rechaza completo con el mensaje: *"Este archivo parece una lista de personas. Para cuidarlas, no lo guardamos. Si necesitas esos datos para el proyecto, mejor escribe solo los totales."*
 
+**Excepción: el Expediente de la institución** (decisión del 2026-10-13, ADR-036). Sus papeles (actas, constancias, poderes) traen por fuerza datos de socios, patronato y representantes, y cuántos depende de cada institución. Ahí el escáner **tapa todo lo que encuentra y el archivo se guarda**: sin rechazo por «lista de personas» y sin ventana de cuarentena. La pantalla dice cuántos datos se taparon y la bitácora guarda los conteos. Hoy la regla de rechazo solo queda para las convocatorias de Proyectos.
+
 ## Texto leído de una imagen (OCR)
 
 El texto de un escaneo o de una foto (ADR-035) pasa por el escáner como cualquier otro, pero puede venir mal leído: una CURP con «O» en lugar de «0» o un correo borroso pueden escapar a los patrones. Por eso:

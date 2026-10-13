@@ -142,7 +142,7 @@ fn the_institution_names_its_own_documents_and_their_texts_are_scanned() {
 fn a_file_is_read_and_only_its_clean_text_and_where_it_is_are_kept() {
     let (dir, mut c) = conn();
     let pdf = fixture(dir.path(), "convocatoria-con-tablas.pdf");
-    let AttachOutcome::Attached { id, readable, from_picture, expediente, .. } = attach(&mut c, "articles_of_incorporation", None, &pdf, Some(Decision::Redact)).unwrap() else { panic!() };
+    let AttachOutcome::Attached { id, readable, from_picture, expediente, .. } = attach(&mut c, "articles_of_incorporation", None, &pdf).unwrap() else { panic!() };
     assert!(readable && !from_picture);
     let r = expediente.records.iter().find(|r| r.kind == "articles_of_incorporation").unwrap();
     let file = RecordFile { name: "convocatoria-con-tablas.pdf".into(), readable: true, from_picture: false, doubtful: vec![] };
@@ -154,11 +154,10 @@ fn a_file_is_read_and_only_its_clean_text_and_where_it_is_are_kept() {
     assert!(blob.is_none(), "the original is never copied in (principle 6)");
     assert_eq!(original(&c, &id).unwrap().as_deref(), Some(pdf.as_path()));
 
-    // a scanned deed is read as pictures: its email waits for the person, and its worn page is read with doubts
+    // a scanned deed is read as pictures: its email is covered without asking, and its worn page is read with doubts
     let scan = fixture(dir.path(), "acta-escaneada.pdf");
-    assert!(matches!(attach(&mut c, "bylaws_amendments", None, &scan, None).unwrap(), AttachOutcome::Quarantine { .. }));
-    let AttachOutcome::Attached { readable, from_picture, doubtful, expediente, .. } = attach(&mut c, "bylaws_amendments", None, &scan, Some(Decision::Redact)).unwrap() else { panic!() };
-    assert_eq!((readable, from_picture, doubtful), (true, true, vec![2]));
+    let AttachOutcome::Attached { readable, from_picture, doubtful, covered, expediente, .. } = attach(&mut c, "bylaws_amendments", None, &scan).unwrap() else { panic!() };
+    assert_eq!((readable, from_picture, doubtful, covered), (true, true, vec![2], 1));
     let r = expediente.records.iter().find(|r| r.kind == "bylaws_amendments").unwrap();
     assert_eq!(r.file.as_ref().map(|f| (f.from_picture, f.doubtful.clone())), Some((true, vec![2])));
     assert_eq!(crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap().len(), 2);
@@ -166,7 +165,7 @@ fn a_file_is_read_and_only_its_clean_text_and_where_it_is_are_kept() {
     // a picture with no text to read: of it, only where it is
     let blank = dir.path().join("en-blanco.png");
     std::fs::write(&blank, [1, 2, 3]).unwrap();
-    let AttachOutcome::Attached { readable, .. } = attach(&mut c, "tax_status_certificate", None, &blank, None).unwrap() else { panic!() };
+    let AttachOutcome::Attached { readable, .. } = attach(&mut c, "tax_status_certificate", None, &blank).unwrap() else { panic!() };
     assert!(!readable, "a picture with no text has nothing to read");
     assert_eq!(crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap().len(), 2, "nothing to keep of it but where it is");
 
@@ -179,11 +178,11 @@ fn a_file_is_read_and_only_its_clean_text_and_where_it_is_are_kept() {
     assert_eq!(original(&c, &scan_id).unwrap(), None);
 }
 
-/// What cannot be read says why and saves nothing; a Word file with data of a person waits for the person.
+/// What cannot be read says why and saves nothing; a Word file with data of a person is kept with them covered.
 #[test]
 fn what_cannot_be_taken_says_why_and_a_word_file_goes_through_the_scanner() {
     let (dir, mut c) = conn();
-    let why = |c: &mut Connection, p: &Path| match attach(c, "privacy_notice", None, p, None).unwrap() {
+    let why = |c: &mut Connection, p: &Path| match attach(c, "privacy_notice", None, p).unwrap() {
         AttachOutcome::Unreadable { reason } => reason,
         other => panic!("{other:?}"),
     };
@@ -199,26 +198,45 @@ fn what_cannot_be_taken_says_why_and_a_word_file_goes_through_the_scanner() {
     let blocks = [crate::documents::docx::Block::Paragraph("Aviso de privacidad de la institución. Dudas con maria.lopez@example.com, responsable de los datos personales que se recaban.".into())];
     let word = dir.path().join("aviso.docx");
     std::fs::write(&word, crate::documents::docx::build(&blocks, "Aviso", "Casa Ficticia", "2026-10-10T00:00:00Z").unwrap()).unwrap();
-    assert!(matches!(attach(&mut c, "privacy_notice", None, &word, None).unwrap(), AttachOutcome::Quarantine { .. }));
-    assert!(store::rows(&c).unwrap().is_empty() && crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap().is_empty());
-    let AttachOutcome::Attached { readable, .. } = attach(&mut c, "privacy_notice", None, &word, Some(Decision::Redact)).unwrap() else { panic!() };
-    assert!(readable);
+    let AttachOutcome::Attached { readable, covered, .. } = attach(&mut c, "privacy_notice", None, &word).unwrap() else { panic!() };
+    assert_eq!((readable, covered), (true, 1));
     let text: String = c.query_row("SELECT extracted_text FROM document", [], |r| r.get(0)).unwrap();
     assert!(text.contains("Aviso de privacidad") && !text.contains("maria.lopez"), "{text}");
     // an `other` gets its file once it exists
-    assert!(matches!(attach(&mut c, "other", None, &word, Some(Decision::Redact)), Err(ServiceError::NotFound)));
+    assert!(matches!(attach(&mut c, "other", None, &word), Err(ServiceError::NotFound)));
 }
 
 /// The file of a document of the record goes to the Reader with its kind already said (IA6): the poder gives the date
 /// it is valid until as a suggestion of «Datos legales y fiscales», citing its page; the document is that kind, said by
 /// the person, in the class of its kind.
+/// A paper of the institution full of people (an act with its partners, their CURP and RFC, even a table with
+/// «NOMBRE, EDAD, CURP») is kept with all of them covered: never refused as a list, never held for the person to
+/// decide (decision of the institution, 2026-10-13). The covering goes to the log.
+#[test]
+fn an_act_full_of_partners_is_kept_with_their_data_covered() {
+    let (_d, mut c) = conn();
+    let partners = ["LOPM800101MDFRZN09", "RAMC921215MNLNRL00", "GAHJ150930HJCRRSA7"];
+    let mut page = String::from("ACTA CONSTITUTIVA de la sociedad. Comparecen los asociados fundadores:\n");
+    for (i, curp) in partners.iter().chain(partners.iter()).enumerate() {
+        page.push_str(&format!("Asociado {}: CURP {curp}, RFC {}AB3, con domicilio en la propiedad de la actividad.\n", i + 1, &curp[..10]));
+    }
+    page.push_str("NOMBRE, EDAD, CURP\n");
+    let file = FileText::of_pages("acta.pdf", vec![page]);
+    let AttachOutcome::Attached { readable, covered, .. } = attach_read(&mut c, "articles_of_incorporation", None, Path::new("C:/acta.pdf"), file).unwrap() else { panic!() };
+    assert!(readable && covered >= 12, "{covered}");
+    let text: String = c.query_row("SELECT extracted_text FROM document", [], |r| r.get(0)).unwrap();
+    assert!(text.contains("ACTA CONSTITUTIVA") && partners.iter().all(|p| !text.contains(p) && !text.contains(&p[..10])), "{text}");
+    let logged: i64 = c.query_row("SELECT COUNT(*) FROM audit_log WHERE entity = 'core_record' AND details_json LIKE '%redacted%'", [], |r| r.get(0)).unwrap();
+    assert_eq!(logged, 1);
+}
+
 #[test]
 fn a_file_of_the_record_suggests_the_data_it_says() {
     let (_d, mut c) = conn();
     let raw = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/expediente/poder-notarial.txt")).unwrap();
     let pages = crate::core::archive::search::tests::fixture_pages(&raw);
     let file = FileText { name: "poder.pdf".into(), mime: "application/pdf", pages: Some(pages), marks: PageMarks::default() };
-    let AttachOutcome::Attached { readable, .. } = attach_read(&mut c, "power_of_attorney", None, Path::new("C:/poder.pdf"), file, Some(Decision::Redact)).unwrap() else { panic!() };
+    let AttachOutcome::Attached { readable, .. } = attach_read(&mut c, "power_of_attorney", None, Path::new("C:/poder.pdf"), file).unwrap() else { panic!() };
     assert!(readable);
     let doc = crate::core::archive::storage::list(&c).unwrap().remove(0);
     assert_eq!((doc.category.as_deref(), doc.doc_type.as_deref(), doc.doc_type_origin.as_deref()), (Some("legal"), Some("power_of_attorney"), Some("user")));

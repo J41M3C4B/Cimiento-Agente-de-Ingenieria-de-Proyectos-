@@ -55,7 +55,7 @@ Un **cajón** es el lugar donde vive un documento, y tiene un solo dueño:
 - **Subir desde el cajón o desde la bandeja da lo mismo.** Un archivo puesto en el Expediente desde «Mi institución» y uno subido en la bandeja hacia el Expediente acaban en el mismo lugar, con el mismo Lector.
 - Al recibirlo, la bandeja hace lo de siempre, igual para todos los cajones:
   - lo lee (texto, escaneos y fotos, ADR-035);
-  - lo pasa por el escáner (cuarentena) y rechaza una lista de personas;
+  - lo pasa por el escáner (cuarentena) y rechaza una lista de personas; *en el Expediente, desde el 2026-10-13, el escáner solo tapa: ni rechaza ni pregunta (ver «Precisión del 2026-10-13»)*;
   - guarda solo el texto limpio, nunca el original (principio 6).
 
   Después se lo entrega al dueño.
@@ -156,6 +156,29 @@ Cada bloque se prueba por la institución antes del siguiente.
 - **La bandeja no guarda nada por su cuenta.** «Subir documento» pregunta el cajón y qué documento del Expediente es, y abre la misma ventana del Expediente de «Mi institución» (`RecordWindow`), que pone el archivo con su lectura, su escáner, su Lector y su cuarentena. Se quitaron la subida propia de Documentos, el texto pegado y el lápiz de «qué documento es»: en el Expediente lo dice el documento donde se pone.
 - **Un documento del Expediente tiene un solo archivo:** al reemplazarlo o quitarlo, el texto anterior sale del cajón con sus fragmentos y sus vectores.
 - **Lo aceptado se queda:** «Borrar esto y todo lo que salió de ahí» ya no borra el origen (`core_field`) ni el historial (`core_change`, que solo crece) de un dato que la persona aceptó de ese documento. Antes ese borrado fallaba.
+
+### Precisión del 2026-10-13: en el Expediente el escáner tapa, no rechaza ni pregunta
+
+**Decisión de la institución.** Al probar con documentos reales, todo el Expediente salía rechazado con «Ese archivo es una lista de personas»: las actas constitutivas y hasta una constancia de situación fiscal. Los papeles de la institución traen, por fuerza, datos de personas: socios, patronato, representante legal, notario. Cuántos traen depende de cada institución y de cada documento. Ningún tope de datos personales por archivo le atina, así que la restricción no es viable.
+
+- **En el Expediente, el escáner tapa todo lo que encuentra y el archivo se guarda.**
+  - Ya no hay rechazo por «lista de personas».
+  - Ya no hay ventana de cuarentena al poner un archivo: la persona ya no elige «Tapar y seguir».
+  - La pantalla dice cuántos datos se taparon («Tapamos 3 datos personales en su texto…»). Cada tapado queda en la bitácora con sus conteos, nunca con los valores.
+- **El principio 5 se cumple igual:**
+  - solo se guarda el texto tapado;
+  - la IA nunca recibe un dato de persona del Expediente;
+  - el original no se toca.
+
+  El Lector lee antes de tapar, como ya hacía (IA6): el RFC o el nombre legal de la institución se siguen proponiendo con su cita.
+- **Se mantiene igual:**
+  - el nombre y las notas que la persona escribe a mano en un documento del Expediente siguen con su cuarentena;
+  - las convocatorias de Proyectos conservan el rechazo de una lista de personas (no son papeles de la institución).
+- En el código:
+  - `core::archive::service::cover_pages` reemplaza a `guard_pages`;
+  - `AttachOutcome` ya no tiene `Quarantine` y trae `covered`;
+  - `Unreadable::Roster` se quitó.
+  - Prueba: `an_act_full_of_partners_is_kept_with_their_data_covered` (un acta ficticia con seis socios, su CURP y RFC, y un renglón «NOMBRE, EDAD, CURP»).
 
 ## Consecuencias
 

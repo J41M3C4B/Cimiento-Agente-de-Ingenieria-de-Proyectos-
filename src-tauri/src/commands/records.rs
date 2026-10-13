@@ -53,7 +53,6 @@ pub async fn institution_record_attach(
     kind: String,
     id: Option<String>,
     path: String,
-    decision: Option<Decision>,
 ) -> Result<AttachOutcome, UiError> {
     guard(&session, "institution_record_attach")?;
     let shared = db.0.clone();
@@ -63,7 +62,7 @@ pub async fn institution_record_attach(
             Err(reason) => return Ok(AttachOutcome::Unreadable { reason }),
         };
         let mut conn = shared.lock().map_err(|_| UiError::internal())?;
-        Ok::<_, UiError>(svc::attach_read(&mut conn, &kind, id.as_deref(), Path::new(&path), file, decision)?)
+        Ok::<_, UiError>(svc::attach_read(&mut conn, &kind, id.as_deref(), Path::new(&path), file)?)
     })
     .await
     .map_err(|_| UiError::internal())??;

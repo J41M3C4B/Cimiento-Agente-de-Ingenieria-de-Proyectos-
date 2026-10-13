@@ -100,18 +100,13 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
       onClose();
     });
 
-  const attach = (path?: string, decision?: Decision) =>
+  // the data of people in its text are covered by the scanner without asking (decision of the institution, 2026-10-13)
+  const attach = () =>
     act(async () => {
-      const chosen =
-        path ?? (await pickFile({ multiple: false, directory: false, title: t.pickTitle, filters: [{ name: t.pickFilter, extensions: EXTENSIONS }] }));
+      const chosen = await pickFile({ multiple: false, directory: false, title: t.pickTitle, filters: [{ name: t.pickFilter, extensions: EXTENSIONS }] });
       if (typeof chosen !== "string") return;
       setReading(true);
-      const out = await institutionRecordAttach(record.type, id, chosen, decision).finally(() => setReading(false));
-      if (out.status === "quarantine") {
-        setHeld({ report: out.report, retry: (d) => void attach(chosen, d) });
-        return;
-      }
-      setHeld(null);
+      const out = await institutionRecordAttach(record.type, id, chosen).finally(() => setReading(false));
       if (out.status === "unreadable") {
         setFailure(t.unreadable[out.reason] ?? t.unreadable.damaged!);
         return;
@@ -121,15 +116,14 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
       // a document with its file is had; what the person typed stays
       setValues((v) => ({ ...(v ?? {}), "institution.record.status": "have" }));
       void form.refetch();
-      setNotice(
-        !out.readable
-          ? t.attachedNoText
-          : out.doubtful.length > 0
-            ? t.attachedDoubtful(es.common.pageList(out.doubtful))
-            : out.from_picture
-              ? t.attachedFromPicture
-              : t.attached,
-      );
+      const said = !out.readable
+        ? t.attachedNoText
+        : out.doubtful.length > 0
+          ? t.attachedDoubtful(es.common.pageList(out.doubtful))
+          : out.from_picture
+            ? t.attachedFromPicture
+            : t.attached;
+      setNotice(out.covered > 0 ? `${said} ${t.covered(out.covered)}` : said);
     });
 
   const open = () =>

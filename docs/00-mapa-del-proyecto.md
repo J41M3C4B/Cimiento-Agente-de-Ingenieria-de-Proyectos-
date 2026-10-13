@@ -12,7 +12,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > **C1 está hecho:** Documentos ya es la bandeja del Expediente. **Siguiente bloque: C2**, el Lector del Expediente. No empieza hasta que pruebes C1 y lo apruebes.
 
 > [!warning] OCR con documentos reales (2026-10-13)
-> **La letra chica ya se agranda** (captura y foto chicas, por probar). **Por decidir:** las actas constitutivas reales se rechazan como «lista de personas» y un acta larga ocupa demasiado el equipo. Mediciones y propuestas en el [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md). Hoy un acta real con varios socios suele quedar fuera del Expediente.
+> **La letra chica ya se agranda** y **el Expediente ya no rechaza ningún archivo por datos personales: los tapa y lo guarda** (ambos por probar). **Por decidir:** un acta larga ocupa demasiado el equipo. Mediciones y propuestas en el [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md).
 
 ## Qué es SociAI, en una línea
 
@@ -24,7 +24,8 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 |---|---|---|---|
 | 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | **Hecho, por probar** |
 | — | **OCR · letra chica** | Una imagen con letra de menos de 20 píxeles se agranda y se lee otra vez | **Hecho, por probar** |
-| — | **OCR · lo demás** | Las actas ya no se rechazan como lista (van a cuarentena); Tesseract con prioridad baja; medir `tessdata_fast` | **Por decidir** (ADR-035, precisiones 2026-10-13) |
+| — | **Expediente tapa** | Ningún archivo del Expediente se rechaza por datos personales ni pide «Tapar y seguir»: se tapan y se guarda | **Hecho, por probar** |
+| — | **OCR · rapidez** | Tesseract con prioridad baja; medir `tessdata_fast`; leer en segundo plano | **Por decidir** (ADR-035, precisión 3) |
 | 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | Pendiente |
 | 3 | **C3** | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?») | Pendiente |
 | 4 | **C4** | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti | Pendiente |
@@ -35,12 +36,21 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar la letra chica del OCR** (pasos abajo) y **probar C1** (pasos más abajo); después, aprobar el inicio de C2.
-- **Decidir lo que falta del OCR** (ADR-035, precisiones 2026-10-13): propuesta, primero la regla de «lista de personas», después prioridad baja, al final `tessdata_fast` y la lectura en segundo plano.
+- **Probar que el Expediente tapa y guarda** (pasos abajo) y **probar C1** (pasos más abajo); después, aprobar el inicio de C2.
+- **Decidir lo que falta del OCR** (ADR-035, precisión 3): propuesta, primero prioridad baja para Tesseract, después medir `tessdata_fast` y al final la lectura en segundo plano.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
 
-## Cómo probar el último bloque (OCR · letra chica)
+## Cómo probar el último bloque (el Expediente tapa, no rechaza)
+
+1. **Mi institución → Expediente → Acta constitutiva → Subir archivo**, con tu acta real. Antes decía «Ese archivo es una lista de personas»; ahora debe guardarse sin preguntar nada y avisar «Tapamos N datos personales en su texto…».
+2. Lo mismo con la **constancia de situación fiscal** y con un poder o un acta de asamblea.
+3. **Documentos:** el texto guardado no muestra CURP, RFC de personas, correos ni teléfonos; donde estaban dice `[CURP OCULTA]`, etc.
+4. Las sugerencias del Lector (nombre legal, RFC de la institución…) siguen apareciendo con su página.
+5. El nombre o las notas que escribes a mano en un documento siguen pidiendo «Tapar y seguir» si traen un dato de persona: eso no cambió.
+6. Pruebas: `cargo test core::records` y `pnpm test`.
+
+## Cómo probar el bloque anterior (OCR · letra chica)
 
 1. `cargo test documents::reading` (desde `src-tauri/`): las 8 pruebas pasan, entre ellas la captura chica y la foto chica.
 2. En la app, **Mi institución → Expediente**: sube como foto una captura de pantalla pequeña de un registro (PNG) o una foto tomada de lejos. Antes perdía números, juntaba «rn» en «m» o no leía nada; ahora debe leerse completa. Tarda un poco más que una foto normal: se lee dos veces.
@@ -61,6 +71,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-13 | **El Expediente tapa, no rechaza:** ningún archivo del Expediente se rechaza por «lista de personas» ni pide «Tapar y seguir»; el escáner tapa todo, la pantalla dice cuántos datos y la bitácora guarda los conteos. Las convocatorias conservan el rechazo | [ADR-036, precisión del 2026-10-13](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-13 | **OCR · letra chica:** una imagen con letra de menos de 20 píxeles se agranda hasta que mida 30 (a lo más ×4) y se lee otra vez; una imagen chica sin ninguna palabra, ×3. Una captura ficticia pasa de 4 errores y sin título a leerse completa con su correo; una foto chica, de cero palabras a completa | [ADR-035, precisión 1](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
 | 2026-10-13 | **OCR con documentos reales (solo medición):** agrandar la letra chica lleva una captura de 13 palabras mal leídas a 2; dos actas reales se rechazan como «lista de personas» por dos reglas toscas del escáner; 37 páginas tardan 171 s en un equipo de 4 núcleos; no se entrena Tesseract ni se usa la nube | [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
 | 2026-10-12 | **C1:** cada documento lleva su cajón; Documentos es la bandeja (pregunta qué documento del Expediente es y abre su ventana); la búsqueda siempre en un cajón; quitar o reemplazar un archivo saca su texto del cajón; «Borrar esto y todo…» ya no falla con un dato aceptado | [ADR-036, precisiones C1](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |

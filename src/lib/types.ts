@@ -153,8 +153,8 @@ export type RecordOutcome =
   | { status: "invalid"; issues: ProfileIssue[] }
   | { status: "quarantine"; report: QuarantineReport };
 export type AttachOutcome =
-  | { status: "attached"; id: string; readable: boolean; from_picture: boolean; doubtful: number[]; expediente: Expediente }
-  | { status: "quarantine"; report: QuarantineReport }
+  /** `covered`: how many data of people the scanner covered in its text (it never refuses nor asks, 2026-10-13) */
+  | { status: "attached"; id: string; readable: boolean; from_picture: boolean; doubtful: number[]; covered: number; expediente: Expediente }
   | { status: "unreadable"; reason: string };
 export interface BoardMember {
   id: string;

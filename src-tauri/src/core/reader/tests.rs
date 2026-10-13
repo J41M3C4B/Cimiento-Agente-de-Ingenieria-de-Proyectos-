@@ -6,7 +6,6 @@ use super::*;
 use crate::core::archive::search::tests::fixture_pages;
 use crate::core::archive::storage as docs;
 use crate::core::records::{attach_read, AttachOutcome, FileText};
-use crate::scanner::guard::Decision;
 use serde_json::{json, Value};
 
 const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
@@ -22,10 +21,10 @@ fn pages_of(name: &str) -> Vec<String> {
     fixture_pages(&std::fs::read_to_string(path).unwrap())
 }
 
-/// Puts a fictitious file on its document of the Expediente, covering what the scanner finds, as the person would.
+/// Puts a fictitious file on its document of the Expediente; the scanner covers what it finds.
 fn attach(c: &mut Connection, kind: &str, file: &str) -> docs::DocumentSummary {
     let read = FileText::of_pages(file, pages_of(file));
-    let out = attach_read(c, kind, None, std::path::Path::new("C:/expediente/archivo.pdf"), read, Some(Decision::Redact)).unwrap();
+    let out = attach_read(c, kind, None, std::path::Path::new("C:/expediente/archivo.pdf"), read).unwrap();
     assert!(matches!(out, AttachOutcome::Attached { readable: true, .. }), "{file}");
     docs::list_drawer(c, docs::Drawer::Record).unwrap().into_iter().find(|d| d.display_name == file).unwrap()
 }

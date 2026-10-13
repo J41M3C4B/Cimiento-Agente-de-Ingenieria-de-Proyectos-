@@ -24,7 +24,6 @@ const empty: RecordForm = {
   file: null,
 };
 const expediente: Expediente = { records: [], summary: { expected: 12, have: 1, in_progress: 0, missing: 11, expiring: 0, expired: 0 } };
-const report = { fields: [{ path: "page_1", counts: { email: 1 }, blocking: false, redacted_preview: "Dudas con [CORREO OCULTO]" }], counts: { email: 1 }, has_blocking: false };
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(async () => "C:\\Documentos\\aviso.docx") }));
 vi.mock("../../lib/tauri", () => ({
@@ -55,31 +54,37 @@ function draw(onDone = vi.fn()) {
 describe("RecordWindow", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("says what the document is, and a file chosen in the system goes through the scanner before it is kept", async () => {
-    vi.mocked(institutionRecordAttach)
-      .mockResolvedValueOnce({ status: "quarantine", report })
-      // a scan, read as pictures (OCR): its worn page was read with doubts
-      .mockResolvedValueOnce({ status: "attached", id: "rec_1", readable: true, from_picture: true, doubtful: [2], expediente });
+  it("says what the document is, and a file chosen in the system is kept with the data of people covered, without asking", async () => {
+    // a scan, read as pictures (OCR): its worn page was read with doubts, and the scanner covered an email
+    vi.mocked(institutionRecordAttach).mockResolvedValueOnce({
+      status: "attached",
+      id: "rec_1",
+      readable: true,
+      from_picture: true,
+      doubtful: [2],
+      covered: 1,
+      expediente,
+    });
     draw();
     expect(await screen.findByText("El texto que explica a las personas qué datos suyos se piden.")).toBeInTheDocument();
     expect(screen.getByText("Sin archivo. Puede marcarlo aunque no lo suba.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Subir archivo" }));
-    await waitFor(() => expect(institutionRecordAttach).toHaveBeenCalledWith("privacy_notice", null, "C:\\Documentos\\aviso.docx", undefined));
-    fireEvent.click(await screen.findByRole("button", { name: "Tapar y seguir" }));
-    // the same file again, with the decision: the window of the system is not opened twice
-    await waitFor(() => expect(institutionRecordAttach).toHaveBeenLastCalledWith("privacy_notice", null, "C:\\Documentos\\aviso.docx", "redact"));
+    await waitFor(() => expect(institutionRecordAttach).toHaveBeenCalledWith("privacy_notice", null, "C:\\Documentos\\aviso.docx"));
+    expect(await screen.findByText(/pero la página 2 se leyó con dudas.*Tapamos 1 dato personal en su texto/)).toBeInTheDocument();
+    // nothing is asked: one window of the system, one reading
+    expect(screen.queryByRole("button", { name: "Tapar y seguir" })).not.toBeInTheDocument();
     expect(pickFile).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText(/pero la página 2 se leyó con dudas/)).toBeInTheDocument();
+    expect(institutionRecordAttach).toHaveBeenCalledTimes(1);
     // with its file it is had: the state goes with the save
     expect(await screen.findByRole("radio", { name: "Lo tenemos" })).toBeChecked();
   });
 
   it("a file it cannot take says why, and saving sends what the person marked", async () => {
-    vi.mocked(institutionRecordAttach).mockResolvedValueOnce({ status: "unreadable", reason: "roster" });
+    vi.mocked(institutionRecordAttach).mockResolvedValueOnce({ status: "unreadable", reason: "too_many_pages" });
     const onDone = draw();
     fireEvent.click(await screen.findByRole("button", { name: "Subir archivo" }));
-    expect(await screen.findByText(/es una lista de personas/)).toBeInTheDocument();
+    expect(await screen.findByText(/más de 100 páginas escaneadas/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("radio", { name: "En trámite" }));
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));

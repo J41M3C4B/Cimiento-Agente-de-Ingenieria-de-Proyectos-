@@ -66,7 +66,7 @@ Decisiones de la institución (2026-10-10): Tesseract dentro del instalador, pre
    - 120 segundos por página.
    - 40 MB por archivo, como ya estaba.
 
-### Precisiones con documentos reales (2026-10-13) — **la 1 hecha; la 2 y la 3, propuestas por decidir**
+### Precisiones con documentos reales (2026-10-13) — **la 1 y la 2 hechas; la 3, propuesta por decidir**
 
 Al probar la aplicación con documentos reales salieron tres problemas. Se midieron en el equipo de desarrollo, con los mismos parámetros de la aplicación, sin guardar ni imprimir el texto (`cargo test reader_on_a_file`, que ahora también dice, por página, qué datos protegidos encuentra el escáner, sin sus valores). Nada de esos documentos entró al repositorio.
 
@@ -111,6 +111,7 @@ Al probar la aplicación con documentos reales salieron tres problemas. Se midie
   - contar **personas distintas**: la CURP y el RFC de una persona empiezan con las mismas 10 letras;
   - en la duda, **cuarentena** («Tapar y seguir») en lugar de rechazo. Un acta debe poder guardarse con los datos de los socios tapados; el rechazo completo queda para lo que de verdad es una lista.
 - Pruebas: un acta ficticia con varios socios y la palabra «sociedad» entra a cuarentena; una lista ficticia con encabezado y una con 6 o más personas distintas siguen rechazadas.
+- **Decidido de otra forma (2026-10-13):** la institución descartó afinar la regla. Hasta una constancia de situación fiscal salía rechazada, y ningún tope de datos personales le atina a papeles que por fuerza los traen. **En el Expediente el escáner tapa todo y guarda: sin rechazo y sin cuarentena.** Ver ADR-036, «Precisión del 2026-10-13». La regla queda solo para las convocatorias de Proyectos, sin cambios.
 
 **3. Leer un acta larga ocupa demasiado el equipo.**
 

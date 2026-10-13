@@ -19,7 +19,7 @@ mod tests;
 
 use crate::common::dates::days_between;
 use crate::common::forms::{is_filled, FormSpec, Values};
-use crate::core::archive::service::{guard_pages, GuardedPages};
+use crate::core::archive::service::cover_pages;
 use crate::core::archive::storage::PageMarks;
 use crate::core::error::ServiceError;
 use crate::documents::reading::{self, ReadError};
@@ -138,17 +138,15 @@ pub enum Unreadable {
     Damaged,
     /// More scanned pages than can be read in one file (`reading::MAX_PICTURE_PAGES`).
     TooManyPages,
-    /// A list of people: it belongs to Personal or Beneficiarios, never to the record.
-    Roster,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum AttachOutcome {
     /// The file is on the document. `readable = false`: a picture with no text that could be read;
-    /// `from_picture`: its text was read from a picture, and `doubtful` are the pages read with doubts.
-    Attached { id: String, readable: bool, from_picture: bool, doubtful: Vec<usize>, expediente: Expediente },
-    Quarantine { report: QuarantineReport },
+    /// `from_picture`: its text was read from a picture, and `doubtful` are the pages read with doubts;
+    /// `covered`: how many data of people the scanner covered in its text.
+    Attached { id: String, readable: bool, from_picture: bool, doubtful: Vec<usize>, covered: i64, expediente: Expediente },
     Unreadable { reason: Unreadable },
 }
 
@@ -394,36 +392,33 @@ pub fn read_original(path: &Path) -> Result<FileText, Unreadable> {
 
 /// `read_original` and `attach_read` in one go. The command reads first without holding the database.
 #[cfg(test)]
-pub fn attach(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path, decision: Option<Decision>) -> Result<AttachOutcome, ServiceError> {
+pub fn attach(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path) -> Result<AttachOutcome, ServiceError> {
     let row = row_of(conn, kind, id)?;
     if kind == RECORD_OTHER && row.is_none() {
         return Err(ServiceError::NotFound);
     }
     match read_original(path) {
-        Ok(file) => attach_read(conn, kind, id, path, file, decision),
+        Ok(file) => attach_read(conn, kind, id, path, file),
         Err(reason) => Ok(AttachOutcome::Unreadable { reason }),
     }
 }
 
 /// Puts a file already read (`read_original`) on a document: a PDF, a Word file or a photo, from where it is on this
-/// computer. Its text goes through the scanner (a deed names people: «Tapar y seguir»); only the clean text is kept,
+/// computer. Its text goes through the scanner, which covers the data of people it finds (a deed names its partners),
+/// without refusing it nor asking (decision of the institution, 2026-10-13); only the clean text is kept,
 /// and of the original only where it is. A document of the catalog with nothing written is created as had; an
 /// `other` must exist.
-pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path, file: FileText, decision: Option<Decision>) -> Result<AttachOutcome, ServiceError> {
+pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path, file: FileText) -> Result<AttachOutcome, ServiceError> {
     let row = row_of(conn, kind, id)?;
     if kind == RECORD_OTHER && row.is_none() {
         return Err(ServiceError::NotFound);
     }
     // the Reader reads before the scanner covers (IA6): the kind is the one the person attached the file to
     let reading = file.pages.as_deref().map(|pages| crate::core::reader::read(pages, Some(kind)));
-    let mut clean: Option<(Vec<String>, i64)> = None;
-    if let Some(pages) = &file.pages {
-        match guard_pages(conn, "core_record", pages, !file.marks.from_picture.is_empty(), decision)? {
-            GuardedPages::Clean { pages, redactions } => clean = Some((pages, redactions)),
-            GuardedPages::Quarantine(report) => return Ok(AttachOutcome::Quarantine { report }),
-            GuardedPages::Roster => return Ok(AttachOutcome::Unreadable { reason: Unreadable::Roster }),
-        }
-    }
+    let clean = match &file.pages {
+        Some(pages) => Some(cover_pages(conn, "core_record", pages, !file.marks.from_picture.is_empty())?),
+        None => None,
+    };
     // the text of the file it replaces leaves the drawer: a document of the Expediente has one file (ADR-036)
     let replaced = row.as_ref().and_then(|r| r.document_id.clone());
     let tx = conn.transaction()?;
@@ -432,7 +427,7 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
         None => store::save(&tx, None, kind, &store::Input { custom_name: None, status: "have", issued_on: None, valid_until: None, reference: None, notes: None })?,
     };
     let doc = match &clean {
-        Some((pages, redactions)) => Some(crate::core::archive::storage::add_paged_document(&tx, crate::core::archive::storage::Drawer::Record, &file.name, file.mime, pages, *redactions, &file.marks)?),
+        Some(c) => Some(crate::core::archive::storage::add_paged_document(&tx, crate::core::archive::storage::Drawer::Record, &file.name, file.mime, &c.pages, c.covered, &file.marks)?),
         None => None,
     };
     if let (Some(d), Some(reading)) = (&doc, &reading) {
@@ -450,7 +445,8 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
     }
     let readable = doc.is_some();
     let (from_picture, doubtful) = if readable { (!file.marks.from_picture.is_empty(), file.marks.doubtful) } else { (false, vec![]) };
-    Ok(AttachOutcome::Attached { id, readable, from_picture, doubtful, expediente: expediente(conn)? })
+    let covered = clean.map_or(0, |c| c.covered);
+    Ok(AttachOutcome::Attached { id, readable, from_picture, doubtful, covered, expediente: expediente(conn)? })
 }
 
 /// Takes the file off a document, and its clean text out of the drawer (ADR-036): there is no document without a
