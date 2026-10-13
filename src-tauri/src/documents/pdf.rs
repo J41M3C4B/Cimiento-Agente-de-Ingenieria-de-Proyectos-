@@ -42,18 +42,84 @@ impl PdfText {
     }
 }
 
+/// A page mostly covered by pictures with little text is a scan with a printed line or two (a header, a stamp) or a
+/// scanner's own text layer: it is read as a picture, and what OCR reads replaces its text (ADR-037).
+const MIXED_PICTURE_SHARE: f64 = 0.5;
+const MIXED_MAX_LETTERS: usize = 200;
+
+/// The text of each page.
 pub fn read_pdf(path: &Path) -> Result<PdfText, PdfError> {
+    read(path, false)
+}
+
+/// Like `read_pdf`, and each page also carries the rows of its tables rebuilt from where its letters sit and the
+/// lines it draws (`pdf_rows`, `pdf_grid`), appended as a block of their own. The plain text is never changed.
+pub fn read_pdf_with_rows(path: &Path) -> Result<PdfText, PdfError> {
+    read(path, true)
+}
+
+/// One pass over the pages with Pdfium: the text, and, when asked, the letters and lines that make its tables. A
+/// page whose tables cannot be read keeps just its text.
+fn read(path: &Path, with_rows: bool) -> Result<PdfText, PdfError> {
     let pdfium = super::ocr::pdfium().ok_or_else(|| PdfError::Unreadable("what reads PDF is not installed".into()))?;
     let doc = pdfium.load_pdf_from_file(path, None).map_err(|e| match e {
         PdfiumError::PdfiumLibraryInternalError(PdfiumInternalError::PasswordError) => PdfError::Protected,
         e => PdfError::Unreadable(format!("{e:?}")),
     })?;
-    let pages = doc
-        .pages()
+    let (mut pages, mut rows, mut mixed) = (Vec::new(), Vec::new(), Vec::new());
+    for (i, page) in doc.pages().iter().enumerate() {
+        let text = page.text().map_err(|e| PdfError::Unreadable(format!("{e:?}")))?;
+        let plain = page_text(&text);
+        if picture_share(&page) >= MIXED_PICTURE_SHARE && plain.chars().filter(|c| c.is_alphabetic()).count() < MIXED_MAX_LETTERS {
+            mixed.push(i + 1);
+        }
+        if with_rows {
+            let height = f64::from(page.height().value);
+            let found = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let glyphs = super::pdf_rows::glyphs_of(&text, height);
+                super::pdf_rows::page_rows(&glyphs, &super::pdf_grid::rules_of_page(&page), height)
+            }));
+            rows.push(found.unwrap_or_default());
+        }
+        pages.push(plain);
+    }
+    let mut out = with_empty_pages(pages);
+    if with_rows {
+        for (page, rows) in out.pages.iter_mut().zip(super::pdf_rows::without_running_rows(rows)) {
+            *page = super::pdf_rows::with_rows(page, &rows);
+        }
+    }
+    out.pages_without_text.extend(mixed);
+    out.pages_without_text.sort_unstable();
+    out.pages_without_text.dedup();
+    Ok(out)
+}
+
+/// How much of a page its pictures cover (0 to 1), by their boxes; a picture inside a form counts by the form's box.
+fn picture_share(page: &PdfPage) -> f64 {
+    fn has_picture(object: &PdfPageObject, depth: usize) -> bool {
+        match object {
+            PdfPageObject::Image(_) => true,
+            PdfPageObject::XObjectForm(form) if depth < 3 => form.iter().any(|c| has_picture(&c, depth + 1)),
+            _ => false,
+        }
+    }
+    let (w, h) = (f64::from(page.width().value), f64::from(page.height().value));
+    if w <= 0.0 || h <= 0.0 {
+        return 0.0;
+    }
+    let covered: f64 = page
+        .objects()
         .iter()
-        .map(|page| page.text().map(|t| page_text(&t)).map_err(|e| PdfError::Unreadable(format!("{e:?}"))))
-        .collect::<Result<Vec<String>, PdfError>>()?;
-    Ok(with_empty_pages(pages))
+        .filter(|o| has_picture(o, 0))
+        .filter_map(|o| o.bounds().ok())
+        .map(|q| {
+            let r = q.to_rect();
+            let (l, r_, b, t) = (f64::from(r.left().value).max(0.0), f64::from(r.right().value).min(w), f64::from(r.bottom().value).max(0.0), f64::from(r.top().value).min(h));
+            (r_ - l).max(0.0) * (t - b).max(0.0)
+        })
+        .sum();
+    (covered / (w * h)).min(1.0)
 }
 
 /// The pages and which of them have no text to speak of.
@@ -135,28 +201,8 @@ fn apart(above: &Line, next: &Line) -> bool {
     above.bottom - next.top > PARAGRAPH_GAP * tall || next.bottom > above.top
 }
 
-/// The text by `pdf-extract`, the engine before Pdfium: only to measure the two side by side (ADR-037) until the
-/// tables move to Pdfium too.
-#[cfg(test)]
-fn read_with_pdf_extract(path: &Path) -> Result<PdfText, PdfError> {
-    let path = path.to_path_buf();
-    let pages = std::panic::catch_unwind(move || pdf_extract::extract_text_by_pages(&path))
-        .map_err(|_| PdfError::Unreadable("unsupported or damaged file".into()))?
-        .map_err(|e| PdfError::Unreadable(e.to_string()))?;
-    Ok(with_empty_pages(pages))
-}
 
 /// Like `read_pdf`, and each page also carries the rows of its tables rebuilt from where the letters sit
-/// (`pdf_rows`), appended as a block of their own. The plain text is never changed; a page the second
-/// pass cannot read keeps just its text.
-pub fn read_pdf_with_rows(path: &Path) -> Result<PdfText, PdfError> {
-    let mut text = read_pdf(path)?;
-    let rows = super::pdf_rows::rows_by_page(path);
-    for (page, rows) in text.pages.iter_mut().zip(&rows) {
-        *page = super::pdf_rows::with_rows(page, rows);
-    }
-    Ok(text)
-}
 
 #[cfg(test)]
 mod tests {
@@ -202,101 +248,53 @@ mod tests {
         assert_eq!(r.pages_without_text, vec![1]);
     }
 
-    /// What the two engines take out of each PDF of a folder, side by side: `pdf-extract` (today) and Pdfium (the one that
-    /// already draws the scanned pages). Only measures, never prints a text unless asked; for public samples only.
-    ///   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test compare_pdf_engines -- --ignored --nocapture > salida.txt
-    ///   (optional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3", the text of that page by both engines)
+    /// What Pdfium takes out of each PDF of a folder (ADR-037): pages, time, letters, words, accents, odd signs,
+    /// glued words, words of one letter (a text cut letter by letter), pages left to read as pictures, paragraphs and
+    /// rows of tables. Prints no text unless a page is asked for; only for public samples.
+    ///   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test pdf_report -- --ignored --nocapture > salida.txt
+    ///   (optional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3", the text of that page)
     #[test]
     #[ignore]
-    fn compare_pdf_engines() {
-        use std::collections::HashMap;
+    fn pdf_report() {
         use std::time::Instant;
-
         let dir = std::path::PathBuf::from(std::env::var("CIMIENTO_PDF_DIR").expect("CIMIENTO_PDF_DIR"));
         let show = std::env::var("CIMIENTO_PDF_SHOW").ok();
-        assert!(crate::documents::ocr::pdfium().is_some(), "pdfium: run scripts/fetch-ocr.ps1");
         let mut files: Vec<_> = std::fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))).collect();
         files.sort();
-
-        let words = |pages: &[String]| -> Vec<String> { pages.iter().flat_map(|p| p.split_whitespace().map(str::to_string)).collect::<Vec<_>>() };
-        // what is measured of a reading: letters, words, accents, odd signs, glued and split words, pages with no text
-        let measure = |pages: &[String]| {
-            let all: String = pages.join("\n");
-            let ws = words(pages);
-            let letters = all.chars().filter(|c| !c.is_whitespace()).count();
-            let accents = all.chars().filter(|c| "áéíóúñüÁÉÍÓÚÑÜ".contains(*c)).count();
-            let odd = all.chars().filter(|&c| c == '\u{FFFD}' || (c.is_control() && c != '\n' && c != '\t') || ('\u{E000}'..='\u{F8FF}').contains(&c)).count();
-            let glued = ws.iter().filter(|w| w.chars().filter(|c| c.is_alphabetic()).count() > 25).count();
-            let singles = ws.iter().filter(|w| w.chars().count() == 1 && w.chars().all(char::is_alphabetic)).count();
-            let empty = pages.iter().filter(|p| p.chars().filter(|c| !c.is_whitespace()).count() < MIN_CHARS_PER_PAGE).count();
-            let paragraphs: usize = pages.iter().map(|p| p.split("\n\n").filter(|b| !b.trim().is_empty()).count()).sum();
-            (letters, ws.len(), accents, odd, glued, singles, empty, paragraphs)
-        };
-        // the share of the words of `a` found in `b`, each word counted as many times as it appears
-        let shared = |a: &[String], b: &[String]| -> f64 {
-            let mut bag: HashMap<&str, usize> = HashMap::new();
-            for w in b {
-                *bag.entry(w.as_str()).or_default() += 1;
-            }
-            let found = a.iter().filter(|w| bag.get_mut(w.as_str()).filter(|n| **n > 0).map(|n| *n -= 1).is_some()).count();
-            if a.is_empty() { 1.0 } else { found as f64 / a.len() as f64 }
-        };
-
-        println!("{:<36} {:>5} | {:>7} {:>7} {:>6} {:>5} {:>5} {:>5} {:>5} {:>4} {:>5} | {:>7} {:>7} {:>6} {:>5} {:>5} {:>5} {:>5} {:>4} {:>5} | {:>5} {:>5}", "archivo", "pág", "ms", "letras", "palab", "acent", "raros", "pegad", "1letr", "vac", "párr", "ms", "letras", "palab", "acent", "raros", "pegad", "1letr", "vac", "párr", "E→P", "P→E");
-        println!("{:<36} {:>5} | {:^64} | {:^64} |", "", "", "pdf-extract", "Pdfium");
+        let block = super::super::pdf_rows::BLOCK_TITLE;
+        println!("{:<36} {:>5} {:>6} {:>7} {:>6} {:>5} {:>5} {:>5} {:>5} {:>4} {:>5} {:>5}", "archivo", "pág", "ms", "letras", "palab", "acent", "raros", "pegad", "1letr", "vac", "párr", "filas");
         for path in &files {
             let name: String = path.file_name().unwrap().to_string_lossy().chars().take(36).collect();
             let t = Instant::now();
-            let extract = read_with_pdf_extract(path).map(|r| r.pages).map_err(|e| e.to_string());
-            let te = t.elapsed().as_millis();
-            let t = Instant::now();
-            let pdfium_pages = read_pdf(path).map(|r| r.pages).map_err(|e| e.to_string());
-            let tp = t.elapsed().as_millis();
-            let cols = |r: &Result<Vec<String>, String>, ms: u128| match r {
-                Ok(p) => {
-                    let (l, w, a, o, g, s, e, b) = measure(p);
-                    format!("{ms:>7} {l:>7} {w:>6} {a:>5} {o:>5} {g:>5} {s:>5} {e:>4} {b:>5}")
+            let read = match read_pdf_with_rows(path) {
+                Ok(r) => r,
+                Err(e) => {
+                    println!("{name:<36} {e}");
+                    continue;
                 }
-                Err(e) => format!("{:<57}", format!("ERROR {}", e.chars().take(50).collect::<String>())),
             };
-            let pages = match (&extract, &pdfium_pages) {
-                (Ok(a), Ok(b)) if a.len() == b.len() => a.len().to_string(),
-                (Ok(a), Ok(b)) => format!("{}≠{}", a.len(), b.len()),
-                (Ok(a), _) => a.len().to_string(),
-                (_, Ok(b)) => b.len().to_string(),
-                _ => "-".into(),
-            };
-            let agree = match (&extract, &pdfium_pages) {
-                (Ok(a), Ok(b)) => {
-                    let (wa, wb) = (words(a), words(b));
-                    format!("{:>4.0}% {:>4.0}%", 100.0 * shared(&wa, &wb), 100.0 * shared(&wb, &wa))
-                }
-                _ => String::new(),
-            };
-            println!("{name:<36} {pages:>5} | {} | {} | {agree}", cols(&extract, te), cols(&pdfium_pages, tp));
-            // which odd signs, by their code: never the text around them
-            for (engine, r) in [("pdf-extract", &extract), ("Pdfium", &pdfium_pages)] {
-                let mut odd: Vec<String> = r.iter().flatten().flat_map(|p| p.chars()).filter(|&c| c == '\u{FFFD}' || (c.is_control() && c != '\n' && c != '\t') || ('\u{E000}'..='\u{F8FF}').contains(&c)).map(|c| format!("U+{:04X}", c as u32)).collect();
-                odd.dedup();
-                if !odd.is_empty() {
-                    println!("{:<42} signos raros de {engine}: {:?}", "", odd);
-                }
-            }
+            let ms = t.elapsed().as_millis();
+            let plain: Vec<&str> = read.pages.iter().map(|p| p.split(block).next().unwrap_or_default()).collect();
+            let all = plain.join("\n");
+            let words: Vec<&str> = all.split_whitespace().collect();
+            let letters = all.chars().filter(|c| !c.is_whitespace()).count();
+            let accents = all.chars().filter(|c| "áéíóúñüÁÉÍÓÚÑÜ".contains(*c)).count();
+            let odd = all.chars().filter(|&c| c == '\u{FFFD}' || (c.is_control() && c != '\n' && c != '\t') || ('\u{E000}'..='\u{F8FF}').contains(&c)).count();
+            let glued = words.iter().filter(|w| w.chars().filter(|c| c.is_alphabetic()).count() > 25).count();
+            let singles = words.iter().filter(|w| w.chars().count() == 1 && w.chars().all(char::is_alphabetic)).count();
+            let paragraphs: usize = plain.iter().map(|p| p.split("\n\n").filter(|b| !b.trim().is_empty()).count()).sum();
+            let rows: usize = read.pages.iter().map(|p| p.split_once(block).map_or(0, |(_, r)| r.lines().filter(|l| !l.trim().is_empty()).count())).sum();
+            println!("{name:<36} {:>5} {ms:>6} {letters:>7} {:>6} {accents:>5} {odd:>5} {glued:>5} {singles:>5} {:>4} {paragraphs:>5} {rows:>5}", read.pages.len(), words.len(), read.pages_without_text.len());
             if let Some((file, page)) = show.as_deref().and_then(|s| s.rsplit_once(':')) {
                 if path.file_name().is_some_and(|n| n.to_string_lossy() == file) {
                     let n: usize = page.parse().unwrap_or(1);
-                    for (engine, r) in [("pdf-extract", &extract), ("Pdfium", &pdfium_pages)] {
-                        let text = r.as_ref().ok().and_then(|p| p.get(n - 1)).cloned().unwrap_or_default();
-                        println!("----- {engine}, página {n} -----\n{}\n", text.chars().take(1500).collect::<String>());
-                    }
+                    println!("----- página {n} -----\n{}\n", read.pages.get(n - 1).map(|p| p.chars().take(2000).collect::<String>()).unwrap_or_default());
                 }
             }
         }
-        println!("\nE→P: de las palabras de pdf-extract, cuántas saca igual Pdfium; P→E, al revés. «1letr»: palabras de una sola letra (texto partido letra por letra); «pegad»: palabras de más de 25 letras (palabras pegadas); «vac»: páginas que quedarían para leer como imagen.");
+        println!("\n«1letr»: palabras de una sola letra (texto partido letra por letra); «pegad»: palabras de más de 25 letras; «vac»: páginas que se leen como imagen; «párr»: párrafos; «filas»: filas de tabla.");
     }
 
-    /// Pdfium marks no paragraph: lines far apart start one, lines close together are the same one, and a line that
-    /// goes up the page (another column) starts one too. A line with only spaces is left out.
     #[test]
     fn paragraphs_come_from_how_far_apart_the_lines_are() {
         let line = |text: &str, top: f32| Line { text: text.into(), top, bottom: top - 10.0 };

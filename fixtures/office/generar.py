@@ -299,6 +299,65 @@ def protected():
     c.save()
 
 
+def ruled():
+    """A table drawn with lines inside a nested form, over a page background: what Pdfium reads as a grid (ADR-037)."""
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    c = canvas.Canvas("tabla-con-lineas.pdf", pagesize=letter)
+    # a background that covers the page is design, not a table
+    c.setFillGray(0.97)
+    c.rect(0, 0, letter[0], letter[1], fill=1, stroke=0)
+    c.setFillGray(0)
+    c.drawString(72, 740, "Montos de la convocatoria ficticia")
+    # the table lives in a form, drawn where the page puts it
+    c.beginForm("tabla")
+    rows = [("Concepto", "Monto"), ("Obra y equipamiento", "$300,000"), ("Capacitación", "$50,000")]
+    for i, (a, b) in enumerate(rows):
+        y = 100 - i * 24
+        c.drawString(8, y + 7, a)
+        c.drawString(208, y + 7, b)
+    # Word draws borders as thin filled rectangles; others stroke them
+    for i in range(4):
+        c.rect(0, 124 - i * 24, 300, 0.5, fill=1, stroke=0)
+    for x in (0, 200, 300):
+        c.line(x, 52, x, 124)
+    c.endForm()
+    c.saveState()
+    c.translate(72, 560)
+    c.doForm("tabla")
+    c.restoreState()
+    c.showPage()
+    c.save()
+
+
+def mixed():
+    """A page with a printed header and its body scanned: read as a picture, all of it (ADR-037)."""
+    import io as _io
+    from PIL import ImageFont
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas
+
+    font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 34)
+    body = Image.new("L", (1500, 900), 248)
+    d = ImageDraw.Draw(body)
+    for i, line in enumerate([
+        "En la Ciudad de México se reunieron los asociados",
+        "de la Casa Hogar Ficticia del Valle para aprobar",
+        "el informe anual y el presupuesto del siguiente año.",
+    ]):
+        d.text((60, 80 + i * 60), line, fill=25, font=font)
+    buf = _io.BytesIO()
+    body.save(buf, "PNG")
+    buf.seek(0)
+    c = canvas.Canvas("pagina-mixta.pdf", pagesize=letter)
+    c.drawString(72, 750, "Notaría Ficticia 12")
+    c.drawImage(ImageReader(buf), 36, 150, width=540, height=560)
+    c.showPage()
+    c.save()
+
+
 import sys
 
 if sys.argv[1:] == ["escaneos"]:
@@ -310,6 +369,12 @@ elif sys.argv[1:] == ["chicas"]:
 elif sys.argv[1:] == ["protegidos"]:
     # only the files with a password
     protected()
+elif sys.argv[1:] == ["tablas"]:
+    # only the table drawn with lines
+    ruled()
+elif sys.argv[1:] == ["mixta"]:
+    # only the page with a printed header and a scanned body
+    mixed()
 else:
     excel()
     word()
@@ -317,4 +382,6 @@ else:
     scans()
     small()
     protected()
+    ruled()
+    mixed()
 print("ok")

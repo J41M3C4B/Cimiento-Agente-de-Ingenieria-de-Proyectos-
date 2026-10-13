@@ -11,7 +11,6 @@
 //! It knows nothing about any funder: only that letters on one baseline with wide gaps are cells of a row.
 
 use super::pdf_grid;
-use pdf_extract::{ColorSpace, MediaBox, OutputDev, OutputError, Path, Transform};
 
 /// A cell longer than this is prose in a column, not the cell of a table.
 const MAX_CELL_CHARS: usize = 70;
@@ -76,68 +75,56 @@ impl Glyph {
     }
 }
 
-/// Collects the position of every letter of a page; draws nothing.
-#[derive(Default)]
-pub struct GlyphCollector {
-    flip: Option<Transform>,
-    pub pages: Vec<Vec<Glyph>>,
-    /// `(width, height)` of each page, in the same order as `pages`.
-    pub sizes: Vec<(f64, f64)>,
-}
-
-impl OutputDev for GlyphCollector {
-    fn begin_page(&mut self, _page_num: u32, media_box: &MediaBox, _art_box: Option<(f64, f64, f64, f64)>) -> Result<(), OutputError> {
-        self.flip = Some(Transform::row_major(1., 0., 0., -1., 0., media_box.ury - media_box.lly));
-        self.pages.push(Vec::new());
-        self.sizes.push((media_box.urx - media_box.llx, media_box.ury - media_box.lly));
-        Ok(())
-    }
-    fn end_page(&mut self) -> Result<(), OutputError> {
-        Ok(())
-    }
-    fn output_character(&mut self, trm: &Transform, width: f64, _spacing: f64, font_size: f64, char: &str) -> Result<(), OutputError> {
-        let Some(flip) = self.flip else { return Ok(()) };
-        let p = trm.post_transform(&flip);
-        // the size of one side of the square with the same area as the font box after the transform
-        let (vx, vy) = (font_size * (trm.m11 + trm.m21), font_size * (trm.m12 + trm.m22));
-        let size = (vx * vy).abs().sqrt();
-        // the direction the baseline runs, in the page's own axes (y grows upward there)
-        let dir = if trm.m11 > 0.0 && trm.m12.abs() <= 0.2 * trm.m11 {
+/// The letters of a page as Pdfium gives them (ADR-037): where each one sits on its baseline, how big it is and which
+/// way it runs, in page coordinates with `y` growing downward. A space Pdfium infers between two words goes right
+/// after the letter before it, with no width: it parts the words without moving any cell; the breaks it infers are
+/// not letters of the page.
+pub fn glyphs_of(text: &pdfium_render::prelude::PdfPageText, height: f64) -> Vec<Glyph> {
+    let mut out: Vec<Glyph> = Vec::new();
+    for c in text.chars().iter() {
+        let Some(s) = c.unicode_string() else { continue };
+        if s.chars().all(|ch| ch == '\r' || ch == '\n') {
+            continue;
+        }
+        if c.is_generated().unwrap_or(true) {
+            if s == " " {
+                if let Some(before) = out.last().filter(|g| g.text != " ").cloned() {
+                    out.push(Glyph { x: before.end, end: before.end, text: s, ..before });
+                }
+            }
+            continue;
+        }
+        let (Ok((ox, oy)), Ok(b)) = (c.origin(), c.loose_bounds()) else { continue };
+        let size = f64::from(c.scaled_font_size().value);
+        if !(size > 0.0) {
+            continue;
+        }
+        // Pdfium gives the angle the baseline turns, counterclockwise
+        let angle = f64::from(c.angle_degrees().unwrap_or(0.0)).rem_euclid(360.0);
+        let dir = if !(10.0..=350.0).contains(&angle) {
             Dir::Across
-        } else if trm.m12 > 0.0 && trm.m11.abs() <= 0.2 * trm.m12 {
+        } else if (80.0..=100.0).contains(&angle) {
             Dir::Up
-        } else if trm.m12 < 0.0 && trm.m11.abs() <= 0.2 * trm.m12.abs() {
+        } else if (260.0..=280.0).contains(&angle) {
             Dir::Down
         } else {
             Dir::Other
         };
-        let advance = width * size;
+        let advance = f64::from(match dir {
+            Dir::Up | Dir::Down => b.top().value - b.bottom().value,
+            _ => b.right().value - b.left().value,
+        })
+        .abs();
+        let (x, y) = (f64::from(ox.value), height - f64::from(oy.value));
         let (cx, cy) = match dir {
             // the letter rises to the left of the baseline when turned left, to the right when turned right
-            Dir::Up => (p.m31 - 0.3 * size, p.m32 - advance / 2.0),
-            Dir::Down => (p.m31 + 0.3 * size, p.m32 + advance / 2.0),
-            _ => (p.m31 + advance / 2.0, p.m32 - 0.3 * size),
+            Dir::Up => (x - 0.3 * size, y - advance / 2.0),
+            Dir::Down => (x + 0.3 * size, y + advance / 2.0),
+            _ => (x + advance / 2.0, y - 0.3 * size),
         };
-        if let Some(page) = self.pages.last_mut() {
-            page.push(Glyph { x: p.m31, end: p.m31 + advance, y: p.m32, size, text: char.to_string(), dir, cx, cy });
-        }
-        Ok(())
+        out.push(Glyph { x, end: x + advance, y, size, text: s, dir, cx, cy });
     }
-    fn begin_word(&mut self) -> Result<(), OutputError> {
-        Ok(())
-    }
-    fn end_word(&mut self) -> Result<(), OutputError> {
-        Ok(())
-    }
-    fn end_line(&mut self) -> Result<(), OutputError> {
-        Ok(())
-    }
-    fn stroke(&mut self, _ctm: &Transform, _colorspace: &ColorSpace, _color: &[f64], _path: &Path) -> Result<(), OutputError> {
-        Ok(())
-    }
-    fn fill(&mut self, _ctm: &Transform, _colorspace: &ColorSpace, _color: &[f64], _path: &Path) -> Result<(), OutputError> {
-        Ok(())
-    }
+    out
 }
 
 /// A run of letters on one baseline with no wide gap inside.
@@ -415,7 +402,7 @@ pub fn page_rows(glyphs: &[Glyph], rules: &[pdf_grid::Rule], height: f64) -> Vec
 
 /// A row that comes back on many pages (a header or a footer with its page number) is not a table of the
 /// call: it is dropped from every page. Digits are ignored so that «página 3» and «página 4» are the same.
-fn without_running_rows(mut pages: Vec<Vec<String>>) -> Vec<Vec<String>> {
+pub(super) fn without_running_rows(mut pages: Vec<Vec<String>>) -> Vec<Vec<String>> {
     if pages.len() < RUNNING_MIN_PAGES {
         return pages;
     }
@@ -433,44 +420,6 @@ fn without_running_rows(mut pages: Vec<Vec<String>>) -> Vec<Vec<String>> {
         page.retain(|r| seen.get(&key(r)).copied().unwrap_or(0) < RUNNING_MIN_PAGES);
     }
     pages
-}
-
-/// The rows of every page of a PDF, page by page. Best effort: a file the second pass cannot read gives
-/// no rows, never an error, because the plain text is already there.
-pub fn rows_by_page(path: &std::path::Path) -> Vec<Vec<String>> {
-    let path = path.to_path_buf();
-    std::panic::catch_unwind(move || {
-        let mut doc = pdf_extract::Document::load(&path).ok()?;
-        if doc.is_encrypted() && doc.decrypt("").is_err() {
-            return None;
-        }
-        let mut collector = GlyphCollector::default();
-        let mut ids = Vec::new();
-        for (page_num, page_id) in doc.get_pages() {
-            // one page that fails does not take the others with it: it gets an empty entry
-            let before = collector.pages.len();
-            if pdf_extract::output_doc_page(&doc, &mut collector, page_num).is_err() && collector.pages.len() == before {
-                collector.pages.push(Vec::new());
-                collector.sizes.push((0.0, 0.0));
-            }
-            ids.push(page_id);
-        }
-        let rows = collector
-            .pages
-            .iter()
-            .zip(&collector.sizes)
-            .zip(&ids)
-            .map(|((glyphs, size), id)| {
-                // a page whose lines cannot be read still has its rows from the layout of the text
-                let rules = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pdf_grid::page_rules(&doc, *id, *size))).unwrap_or_default();
-                page_rows(glyphs, &rules, size.1)
-            })
-            .collect();
-        Some(without_running_rows(rows))
-    })
-    .ok()
-    .flatten()
-    .unwrap_or_default()
 }
 
 /// The page text with its table rows appended as a block of their own, if it has any.
@@ -638,18 +587,24 @@ mod tests {
         assert_eq!(with_rows("Texto.", &[]), "Texto.");
     }
 
-    #[test]
-    fn a_file_that_is_not_a_pdf_gives_no_rows_and_no_error() {
-        let dir = tempfile::tempdir().unwrap();
-        let p = dir.path().join("x.pdf");
-        std::fs::write(&p, b"this is not a pdf").unwrap();
-        assert!(rows_by_page(&p).is_empty());
-    }
 }
 
 #[cfg(test)]
 mod probe {
     use super::*;
+
+    /// The letters and lines of each page of a real PDF, by Pdfium (ADR-037).
+    fn pages_of(path: &str) -> Vec<(Vec<Glyph>, Vec<pdf_grid::Rule>, f64)> {
+        let pdfium = crate::documents::ocr::pdfium().expect("pdfium: run scripts/fetch-ocr.ps1");
+        let doc = pdfium.load_pdf_from_file(path, None).unwrap();
+        doc.pages()
+            .iter()
+            .map(|page| {
+                let height = f64::from(page.height().value);
+                (glyphs_of(&page.text().unwrap(), height), pdf_grid::rules_of_page(&page), height)
+            })
+            .collect()
+    }
 
     /// Prints the cells of every visual line of one page of a real PDF: `CIMIENTO_ROWS_PDF`, `CIMIENTO_ROWS_PAGE`.
     #[test]
@@ -657,13 +612,8 @@ mod probe {
     fn print_lines_of_a_page() {
         let path = std::env::var("CIMIENTO_ROWS_PDF").expect("CIMIENTO_ROWS_PDF");
         let page: usize = std::env::var("CIMIENTO_ROWS_PAGE").expect("CIMIENTO_ROWS_PAGE").parse().unwrap();
-        let doc = pdf_extract::Document::load(&path).unwrap();
-        let mut c = GlyphCollector::default();
-        for (n, _) in doc.get_pages() {
-            pdf_extract::output_doc_page(&doc, &mut c, n).unwrap();
-        }
-        let g = &c.pages[page - 1];
-        for line in visual_lines(g) {
+        let pages = pages_of(&path);
+        for line in visual_lines(&pages[page - 1].0) {
             println!("y{:.1} {}", line.y, line.pieces.iter().map(|c| format!("[{:.0}] {}", c.x, c.text)).collect::<Vec<_>>().join("  ||  "));
         }
     }
@@ -675,19 +625,12 @@ mod probe {
     fn count_tables_by_kind() {
         let path = std::env::var("CIMIENTO_ROWS_PDF").expect("CIMIENTO_ROWS_PDF");
         let show = std::env::var("CIMIENTO_ROWS_SHOW").is_ok();
-        let doc = pdf_extract::Document::load(&path).unwrap();
-        let mut c = GlyphCollector::default();
-        let mut ids = Vec::new();
-        for (n, id) in doc.get_pages() {
-            pdf_extract::output_doc_page(&doc, &mut c, n).unwrap();
-            ids.push(id);
-        }
+        let pages = pages_of(&path);
         let (mut grid_total, mut text_total) = (0, 0);
-        for (i, id) in ids.iter().enumerate() {
-            let rules = pdf_grid::page_rules(&doc, *id, c.sizes[i]);
-            let candidates = pdf_grid::grid_candidates(&rules, &c.pages[i], c.sizes[i].1);
-            let tables = pdf_grid::grid_tables(&rules, &c.pages[i], c.sizes[i].1);
-            let rows = page_rows(&c.pages[i], &rules, c.sizes[i].1);
+        for (i, (glyphs, rules, height)) in pages.iter().enumerate() {
+            let candidates = pdf_grid::grid_candidates(rules, glyphs, *height);
+            let tables = pdf_grid::grid_tables(rules, glyphs, *height);
+            let rows = page_rows(glyphs, rules, *height);
             for (t, f) in candidates.iter().filter(|(_, f)| !f.is_data()) {
                 println!("  página {}: RECHAZADA como diseño {:?}: {} celdas, {} con texto, {} letras · {:?}", i + 1, t.bounds, f.cells, f.filled, f.letters, t.rows.iter().take(2).map(|r| r.chars().take(50).collect::<String>()).collect::<Vec<_>>());
             }
@@ -707,6 +650,6 @@ mod probe {
                 }
             }
         }
-        println!("TOTAL: {} páginas, {} tablas con bordes, {} páginas con filas por el texto", ids.len(), grid_total, text_total);
+        println!("TOTAL: {} páginas, {} tablas con bordes, {} páginas con filas por el texto", pages.len(), grid_total, text_total);
     }
 }

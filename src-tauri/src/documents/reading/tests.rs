@@ -39,6 +39,19 @@ fn a_pdf_with_text_keeps_its_text_and_other_files_are_not_read() {
     assert_eq!(read_upload("roto.pdf", b"esto no es un pdf"), Err(ReadError::Damaged));
 }
 
+/// ADR-037: a page with a printed line on top and its body scanned has text, but most of it is a picture: it is read
+/// as a picture, and what OCR reads, the body too, replaces its text.
+#[test]
+fn a_page_with_a_printed_header_and_a_scanned_body_is_read_as_a_picture() {
+    needs_ocr();
+    let r = read_file(&fixture("pagina-mixta.pdf")).unwrap();
+    assert_eq!(r.from_picture, vec![1]);
+    let text = r.pages[0].split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(text.contains("Casa Hogar Ficticia del Valle") && text.contains("informe anual"), "{text}");
+    // a page with text all over it is not read as a picture, though it has a picture on it
+    assert!(read_file(&fixture("convocatoria-con-tablas.pdf")).unwrap().from_picture.is_empty());
+}
+
 /// A PDF, Word or Excel file with a password is said to have one: never «damaged», never silent.
 #[test]
 fn a_file_with_a_password_says_so() {
