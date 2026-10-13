@@ -49,7 +49,28 @@ Lo que propone la IA (el Capturista) **no** sigue las reglas de «campo lleno» 
 | `core::reader::kinds::looks_like_other` | El archivo en el lugar equivocado |
 | `core::records::background` | Una lectura por documento a la vez; el evento `record-read` dice cómo terminó |
 
-## 3. Lo que entrega cada módulo para su cajón
+## 3. La capa con IA: llenar con los documentos (cuando el cajón la usa)
+
+Las reglas leen los formatos fijos al subir un archivo y no cuestan nada. Lo que está escrito de mil maneras (la misión, a quién atiende, el personal…) lo lee la capa con IA, solo cuando la persona la pide («Llenar con mis documentos»). Referencia: `core/reader/fill.rs` (C2, ADR-036).
+
+1. **Qué se pide:** solo los campos **vacíos** que la IA puede ver. Lo lleno no (ADR-038) y lo protegido tampoco: solo lo leen las reglas.
+2. **Qué se le da:** por campo, los 3 pasajes del cajón que mejor hablan de él. Se buscan por palabras (las del campo en una tabla, como `SEARCH`, más su título del manual) y por significado si hay vectores. Nunca documentos completos.
+3. **Una llamada por ventana** con el modelo más barato. Lleva los campos con cada opción y su nombre de la pantalla (`option_label`), y los pasajes numerados con su documento y página puestos por el código.
+4. **El código revisa:**
+   - el campo pedido;
+   - el pasaje mostrado;
+   - la cita dentro de ese pasaje;
+   - la cifra dentro de la cita (la IA no calcula);
+   - el valor que cabe.
+
+   Lo que pasa es sugerencia con documento y página, bajo la misma política (sección 2). Sin documentos, sin campos vacíos o sin pasajes, no se llama.
+5. **Su batería** (como `fixtures/expediente/lector.json` y `reader_live`):
+   - por campo, el valor esperado y sus páginas, o «nada» si ningún documento lo dice;
+   - primero en seco (la página esperada está entre los pasajes; la verificación descarta lo inventado);
+   - después, una corrida real con el modelo más barato: valores, páginas, inventados, llamadas, tokens, costo y tiempo, anotados en el roadmap y en `07-ia-y-costos.md`.
+   - Si falla, primero se mejora lo que se le da (palabras, pasajes, oficio, nombres de las opciones); solo después se mide un modelo más fuerte.
+
+## 4. Lo que entrega cada módulo para su cajón
 
 1. **Sus tipos de documento:** código, clase y las frases que los reconocen, sin acentos y en minúsculas.
 2. **Sus datos propios por documento:** las columnas de su ficha y una tabla de origen por campo como `core_record_field`, con `origin` y `source_ref`, que se queda aunque se borre el archivo.
@@ -71,7 +92,7 @@ Lo que propone la IA (el Capturista) **no** sigue las reglas de «campo lleno» 
    - El Expediente tapa todo y no rechaza (sus papeles traen por fuerza datos de personas).
    - Personal y Beneficiarios guardan fichas de personas: su Lector es solo de reglas y nada de ellas va a la IA (principio 5).
 
-## 4. Medir antes de cambiar
+## 5. Medir antes de cambiar
 
 Un cambio de regla, de motor o de umbral se justifica con una medición, primero en seco:
 
@@ -79,6 +100,7 @@ Un cambio de regla, de motor o de umbral se justifica con una medición, primero
 |---|---|
 | `cargo test pdf_report -- --ignored --nocapture` | Qué saca Pdfium de cada PDF de una carpeta (letras, palabras partidas, signos raros, páginas como imagen, párrafos, filas de tabla), sin imprimir el texto |
 | `cargo test reader_on_a_file -- --ignored --nocapture` | Qué entiende el Lector de un archivo real, sin guardar ni imprimir su texto |
-| `cargo test core::reader` | La batería y las pruebas de ciclo de vida |
+| `cargo test core::reader` | La batería y las pruebas de ciclo de vida, y la capa con IA en seco |
+| `cargo test reader_live -- --ignored --nocapture` | La capa con IA con el modelo más barato sobre el expediente ficticio (4 llamadas) |
 
 Las salidas con documentos reales van a un archivo en el equipo, nunca al repositorio.

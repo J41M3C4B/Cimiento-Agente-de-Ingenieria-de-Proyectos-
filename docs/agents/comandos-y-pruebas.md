@@ -61,6 +61,8 @@ pnpm tauri build --bundles nsis                        # instalador de Windows (
 cargo test pdf_grid                                    # tablas con bordes por las líneas del PDF (sin gasto)
 cargo test documents::pdf                              # el texto de un PDF con Pdfium (ADR-037): párrafos por la distancia entre renglones, guion de corte, contraseña, tablas con bordes en un formulario anidado
 cargo test core::records::background                   # una lectura en segundo plano por documento a la vez (ADR-038)
+cargo test core::reader::fill                          # «Llenar con mis documentos» en seco (C2): palabras por campo, la página esperada entre los pasajes (21 de 21), lo que el código descarta, sin documentos o sin IA
+cargo test reader_live -- --ignored --nocapture > reader_live.txt   # las 4 ventanas con el modelo más barato sobre el expediente ficticio (4 llamadas y los vectores de los fragmentos); valor, página, inventados y costo por campo
 cargo test pdf_rows                                    # tablas sin bordes por la posición de las letras (sin gasto)
 # qué saca Pdfium de cada PDF de una carpeta (ADR-037): letras, palabras partidas, signos raros, páginas como imagen, párrafos y filas de tabla; sin imprimir el texto salvo que se pida una página (solo con PDF públicos):
 #   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test pdf_report -- --ignored --nocapture > salida.txt   (opcional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3")

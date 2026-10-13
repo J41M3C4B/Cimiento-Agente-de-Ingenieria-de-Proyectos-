@@ -17,7 +17,9 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 >
 > La forma de trabajar quedó escrita para los módulos en la [metodología de los Lectores](agents/metodologia-lectores.md).
 >
-> **Siguiente:** pruebes todo esto junto (pasos abajo) y C1; después, **C2**, el Lector del Expediente que llena «Mi institución» buscando campo por campo.
+> **C2 también está hecho:** «Llenar con mis documentos» en cada ventana y «Llenar todo con mis documentos» en el Expediente. Con el modelo más barato: 18 de 18 campos bien, nada inventado, $0.14 MXN las cuatro ventanas.
+>
+> **Siguiente:** que lo pruebes con tus documentos (pasos abajo); después, **C3**: el Asistente pregunta al Lector del Expediente.
 
 ## Qué es SociAI, en una línea
 
@@ -29,7 +31,7 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 |---|---|---|---|
 | 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | **Hecho, por probar** |
 | — | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
-| 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | Pendiente |
+| 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | **Hecho, por probar** |
 | 3 | **C3** | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?») | Pendiente |
 | 4 | **C4** | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti | Pendiente |
 | 5 | **N5** | El expediente hacia Proyectos, la IA e Inicio | Pendiente |
@@ -39,9 +41,32 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar la lectura y el llenado** (pasos abajo) y **probar C1** (pasos más abajo); después, aprobar el inicio de C2.
+- **Probar C2, «Llenar con mis documentos»** (pasos abajo); después, aprobar el inicio de C3.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
+
+## Cómo probar C2 · «Llenar con mis documentos»
+
+1. Sube al Expediente varios documentos con texto: acta, constancia, informe anual, reglamento…
+2. **Mi institución → Expediente → «Llenar todo con mis documentos».**
+   - Mientras trabaja dice «Buscando en sus documentos…».
+   - Al terminar, un aviso dice cuántas sugerencias dejó y en cuántas ventanas.
+3. Abre cada ventana.
+   - Cada sugerencia dice «Lo leímos en «documento», página N».
+   - «Usar» la pone en su campo; nada se guarda hasta «Guardar».
+4. **Revisa que no invente.**
+   - Ningún campo que ya tenías escrito recibe sugerencia.
+   - Una cifra sugerida está escrita tal cual en el documento.
+   - Lo que ningún documento dice queda vacío.
+5. **El botón de una ventana:** «Llenar con mis documentos».
+   - Con todo escrito, avisa «Todos los campos que puedo llenar en esta ventana ya están escritos» y no gasta nada.
+   - Sin documentos, avisa que primero hay que subirlos.
+6. Descarta una sugerencia y vuelve a pulsar el botón: no vuelve a salir.
+7. El teléfono, el correo, el domicilio, el RFC, los folios y el representante nunca salen de este botón: los leen las reglas al subir el archivo.
+
+**Pruebas:**
+- `cargo test core::reader::fill`;
+- la corrida real `cargo test reader_live -- --ignored --nocapture > reader_live.txt` (4 llamadas, unos $0.14 MXN).
 
 ## Cómo probar la lectura y el llenado (ADR-035, 037 y 038)
 
@@ -90,6 +115,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-13 | **C2 · «Llenar con mis documentos»:** el Lector busca en el Expediente los pasajes de cada campo vacío y hace una llamada por ventana con el modelo más barato; el código revisa cita, página, cifra y valor. 18 de 18 campos bien, nada inventado, $0.14 MXN las cuatro ventanas. Las opciones van a la IA con su nombre en la pantalla | [ADR-036, precisiones C2](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-13 | **Lectura y llenado sin huecos (ADR-038):** una sola política de llenado (datos propios solos, sugerencias solo en campos vacíos, nunca lo rechazado, autoridad por campo, lugar equivocado); Pdfium lee también las tablas (salen `pdf-extract` y `lopdf`); OCR con prioridad baja, hojas giradas, páginas mixtas e imágenes en Word y Excel; el Expediente lee en segundo plano; la metodología para los módulos | [ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md), [metodología](agents/metodologia-lectores.md) |
 | 2026-10-13 | **Pdfium lee el texto de todo PDF:** palabras enteras (antes «Thi s report»), párrafos por la distancia entre renglones, guion de corte; de 5 a 20 veces más rápido. Un PDF, Word o Excel con contraseña lo dice en el Expediente y en las convocatorias | [ADR-037, bloque 2](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
 | 2026-10-13 | **Pdfium contra `pdf-extract` (medición):** en 24 PDF de muestra sacan las mismas letras, pero `pdf-extract` parte palabras («Thi s report outli nes») y es de 5 a 20 veces más lento; se decide Pdfium como único motor | [ADR-037](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |

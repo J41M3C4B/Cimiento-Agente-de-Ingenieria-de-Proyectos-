@@ -299,7 +299,12 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
     - La búsqueda (palabras y vectores) es siempre dentro de un cajón; los vectores solo se hacen en el Expediente; el Lector solo lee lo que entra al Expediente.
     - Un documento del Expediente tiene un solo archivo: al reemplazarlo o quitarlo, su texto sale del cajón.
     - Corregido: «Borrar esto y todo lo que salió de ahí» fallaba con un documento del que ya se había aceptado un dato (el historial no se puede borrar). Ahora conserva lo aceptado, su origen y su historial.
-  - [ ] **C2** Lector del Expediente: reglas primero, búsqueda por campo, una llamada por ventana con citas verificadas, «Llenar con mis documentos»; batería aprobada con el modelo más barato.
+  - [x] **C2** Lector del Expediente con IA (2026-10-13, `core/reader/fill.rs`, ADR-036 «Precisiones al aplicar C2»):
+    - «Llenar con mis documentos» en cada ventana de «Mi institución» y «Llenar todo con mis documentos» en la tarjeta del Expediente (decisión de la institución: solo cuando la persona lo pide; al subir un archivo siguen solo las reglas, sin costo).
+    - Búsqueda por campo (palabras por campo en `SEARCH` más su título del manual; vectores si hay): 3 pasajes por campo. Por palabras, la página esperada está entre los pasajes de 21 de 21 campos.
+    - Una llamada por ventana con el modelo más barato; el código se queda solo con lo que cita un pasaje mostrado, con palabras que están en él, una cifra que está en esas palabras y un valor que cabe; política del ADR-038 (solo campos vacíos, nunca lo rechazado, autoridad).
+    - Hallazgo de la primera corrida: la IA veía los códigos de las opciones solo en inglés y no supo que «ASISTENCIAL» es `assistance`. Ahora cada código va con su nombre en la pantalla (`option_label`, de `es-MX.ts`), para el Lector y el Capturista.
+    - **Batería `reader_live`** (`fixtures/expediente/lector.json`, `gemini-3.5-flash-lite`): 18 de 18 campos bien, 0 inventados, 18 de 18 páginas; 4 llamadas, $0.14 MXN, de 1.6 a 3.6 s por ventana. Revisado en el WebView real con dos PDF ficticios.
   - [ ] **C3** El Asistente como orquestador del núcleo: el Lector del Expediente como herramienta, mapa en el contexto, sin búsqueda general; medir herramientas nativas contra el protocolo JSON.
   - [ ] **C4** Revisión completa del núcleo: cada agente con su batería aprobada con el modelo más barato y cada pantalla probada por la institución; la metodología escrita para los módulos.
 - [ ] **N5** El expediente hacia Proyectos, la IA e Inicio.

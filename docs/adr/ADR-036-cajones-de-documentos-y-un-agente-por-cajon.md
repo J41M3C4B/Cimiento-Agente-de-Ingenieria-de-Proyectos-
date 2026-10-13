@@ -181,6 +181,29 @@ Cada bloque se prueba por la institución antes del siguiente.
   - `Unreadable::Roster` se quitó.
   - Prueba: `an_act_full_of_partners_is_kept_with_their_data_covered` (un acta ficticia con seis socios, su CURP y RFC, y un renglón «NOMBRE, EDAD, CURP»).
 
+### Precisiones al aplicar C2 (2026-10-13)
+
+- **Disparo (decisión de la institución):** «Llenar con mis documentos» en cada ventana de «Mi institución» (1 llamada) y «Llenar todo con mis documentos» en la tarjeta del Expediente (4 llamadas). Al subir un archivo siguen corriendo solo las reglas, sin costo.
+- **Búsqueda por campo** (`core/reader/fill.rs`):
+  - la consulta es el título del campo en el manual más sus palabras en `SEARCH` (cómo lo escriben los documentos);
+  - 3 pasajes por campo, por palabras y por significado cuando hay vectores, sin repetir fragmentos;
+  - solo los campos **vacíos** que la IA puede ver: lo lleno no se pide (ADR-038) y lo protegido solo lo leen las reglas.
+  - Sin documentos con texto, sin campos vacíos o sin pasajes, no se llama a la IA.
+- **Una llamada por ventana** con el modelo ligero (`core/agents/reader.v1.md`). Recibe los campos vacíos, con cada opción y su nombre en la pantalla, y los pasajes numerados con su documento y página.
+- **Lo que revisa el código:**
+  - que el campo sea uno de los pedidos;
+  - que el pasaje se haya mostrado;
+  - que la cita esté en ese pasaje (sin acentos ni puntuación);
+  - que una cifra esté en la cita, con cifras o con palabras: la IA no calcula;
+  - que el valor quepa en su campo.
+
+  Lo que pasa queda como sugerencia del Lector, con origen `document`, documento, página, cita, autoridad y huella, bajo la política del ADR-038.
+- **Medición** (`reader_live`, `fixtures/expediente/lector.json`, `gemini-3.5-flash-lite`):
+  - **primera corrida:** 16 bien, 0 inventados, 17 de 17 páginas. Faltó el rubro de donataria porque la IA veía los códigos de las opciones solo en inglés. Se corrigió en la causa: cada código va con su nombre de la pantalla (`option_label`, leído de `es-MX.ts`), para el Lector y para el Capturista;
+  - **segunda:** 18 de 18 bien, 0 mal, 0 faltantes, 0 inventados, 18 de 18 páginas; 4 llamadas, 11,428 tokens de entrada y 1,660 de salida, **$0.14 MXN las cuatro ventanas**, de 1.6 a 3.6 s cada una.
+  - En la ventana de capacidad, la IA intentó una cifra que no estaba en el texto (la suma de residentes y estancia de día) y el código la descartó.
+- **Revisado en el WebView real:** con dos PDF ficticios en el Expediente, «Llenar todo» dejó el personal (31) y el voluntariado (18), cada uno con «Lo leímos en «informe-anual-2025.pdf», página 1».
+
 ## Consecuencias
 
 - **Documentos cambia de función:** de cajón propio a bandeja; su pantalla se rediseña alrededor de «¿a qué cajón va?».
