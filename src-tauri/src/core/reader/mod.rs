@@ -11,6 +11,7 @@
 //! - **Invoices are not read here:** they are uploaded only in Finanzas.
 
 pub mod dates;
+pub mod fill;
 pub mod kinds;
 pub mod rules;
 

@@ -195,6 +195,20 @@ pub fn list(conn: &Connection) -> Result<Vec<DocumentSummary>, StorageError> {
     Ok(rows)
 }
 
+/// What a document is, as a type of the record (`doc_type`), if it was said or recognized.
+pub fn doc_type_of(conn: &Connection, id: &str) -> Result<Option<String>, StorageError> {
+    Ok(conn.query_row("SELECT doc_type FROM document WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0)).optional()?.flatten())
+}
+
+/// Whether a drawer has any document with text to read (none waiting to be deleted).
+pub fn drawer_has_text(conn: &Connection, drawer: Drawer) -> Result<bool, StorageError> {
+    Ok(conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM document_chunk c JOIN document d ON d.id = c.document_id WHERE d.drawer = ?1 AND d.hidden = 0)",
+        [drawer.as_str()],
+        |r| r.get(0),
+    )?)
+}
+
 /// Writes the class of a document and what it is (IA6). `origin`: `computed` when a rule recognized it, `user` when
 /// the person said it. A kind the person said is not changed by a rule. Says if the document exists.
 pub fn set_class(conn: &Connection, id: &str, category: Option<&str>, doc_type: Option<&str>, origin: &str) -> Result<bool, StorageError> {

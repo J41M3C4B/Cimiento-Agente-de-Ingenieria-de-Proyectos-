@@ -94,6 +94,8 @@ pub fn run() {
             commands::manual_entry,
             commands::assistant::assistant_ask,
             commands::assistant::capture_ask,
+            commands::assistant::institution_fill_from_documents,
+            commands::assistant::institution_fill_all_from_documents,
             commands::assistant::proposals_reject,
             commands::manual_search,
             commands::profile_confirm,

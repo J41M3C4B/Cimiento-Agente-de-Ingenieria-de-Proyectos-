@@ -111,6 +111,9 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("assistant_ask", Need::Permission(Permission::Use)),
     // the Capturist (IA4): it leaves suggestions; saving them is the usual `form_save`
     ("capture_ask", Need::Permission(Permission::Use)),
+    // the Reader of the Expediente (C2): it leaves suggestions from the documents; saving them is the usual `form_save`
+    ("institution_fill_from_documents", Need::Permission(Permission::Use)),
+    ("institution_fill_all_from_documents", Need::Permission(Permission::Use)),
     ("proposals_reject", Need::Permission(Permission::Use)),
     // the money (ADR-032)
     ("finance_get", Need::Permission(Permission::Use)),

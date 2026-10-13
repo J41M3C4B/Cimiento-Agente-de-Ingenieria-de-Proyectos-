@@ -113,17 +113,17 @@ fn lock(db: &SharedDb) -> Result<std::sync::MutexGuard<'_, rusqlite::Connection>
     db.lock().map_err(|_| ServiceError::Internal("lock".into()))
 }
 
-fn title(id: &str) -> String {
+pub(crate) fn title(id: &str) -> String {
     crate::core::manual::entry(id).map_or_else(|| id.to_string(), |e| e.entry.title)
 }
 
 /// The fields of a window the AI may suggest.
-fn open_fields(spec: &FormSpec) -> impl Iterator<Item = &FieldSpec> {
+pub(crate) fn open_fields(spec: &FormSpec) -> impl Iterator<Item = &FieldSpec> {
     spec.fields().filter(|f| f.ai != AiUse::Never)
 }
 
 /// How a field is described to the AI: its id, its title, the shape of its value, when it applies and what is saved.
-fn describe(f: &FieldSpec, saved: Option<&Value>) -> String {
+pub(crate) fn describe(f: &FieldSpec, saved: Option<&Value>) -> String {
     let shape = match f.kind {
         FieldKind::Text | FieldKind::Email | FieldKind::Phone => "texto corto".to_string(),
         FieldKind::LongText => "texto".to_string(),
@@ -183,7 +183,7 @@ pub fn context(spec: &FormSpec, name: &str, saved: &Values, history: &[Turn]) ->
 }
 
 /// Words compared without capitals, accents nor punctuation.
-fn plain(s: &str) -> String {
+pub(crate) fn plain(s: &str) -> String {
     let folded = crate::scanner::normalize::fold_str(s);
     folded.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ")
 }
@@ -195,7 +195,7 @@ fn said_by_the_person(quote: &str, told: &str) -> bool {
 }
 
 /// The value in the shape of its field, when the AI gave it in a near one: a number as text, one option alone…
-fn fit(f: &FieldSpec, v: &Value) -> Value {
+pub(crate) fn fit(f: &FieldSpec, v: &Value) -> Value {
     match (f.kind, v) {
         (FieldKind::Number | FieldKind::Money | FieldKind::Year, Value::String(s)) => {
             let digits: String = s.chars().filter(|c| !matches!(c, ' ' | ',')).collect();

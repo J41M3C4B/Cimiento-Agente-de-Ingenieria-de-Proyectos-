@@ -5,6 +5,7 @@ use super::guard;
 use crate::core::access::service::Session;
 use crate::core::agents::assistant::{self, Ask, AssistantOutcome};
 use crate::core::agents::capturist::{self, Capture, CaptureOutcome};
+use crate::core::reader::fill::{self, FillOutcome};
 use crate::error::UiError;
 use crate::scanner::guard::Decision;
 use crate::Db;
@@ -28,6 +29,27 @@ pub async fn capture_ask(session: State<'_, Session>, db: State<'_, Db>, capture
     let db = shared(&db);
     let provider = make_provider(&db);
     Ok(capturist::capture(&db, provider.as_deref(), capture, decision).await?)
+}
+
+/// «Llenar con mis documentos» (C2): the empty fields of a window of «Mi institución» as suggestions from the
+/// documents of the Expediente, each with its document and page. Nothing is saved.
+#[tauri::command]
+pub async fn institution_fill_from_documents(session: State<'_, Session>, db: State<'_, Db>, form: String) -> Result<FillOutcome, UiError> {
+    guard(&session, "institution_fill_from_documents")?;
+    let db = shared(&db);
+    let provider = make_provider(&db);
+    let embedder = crate::core::archive::vectors::embedder(&db, true);
+    Ok(fill::fill_window(&db, provider.as_deref(), embedder, &form).await?)
+}
+
+/// «Llenar todo con mis documentos» (C2): the four windows, one call each.
+#[tauri::command]
+pub async fn institution_fill_all_from_documents(session: State<'_, Session>, db: State<'_, Db>) -> Result<Vec<FillOutcome>, UiError> {
+    guard(&session, "institution_fill_all_from_documents")?;
+    let db = shared(&db);
+    let provider = make_provider(&db);
+    let embedder = crate::core::archive::vectors::embedder(&db, true);
+    Ok(fill::fill_all(&db, provider.as_deref(), embedder).await?)
 }
 
 /// The person discards suggestions of the AI: nothing of the institution changes.
