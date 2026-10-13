@@ -66,7 +66,7 @@ Decisiones de la institución (2026-10-10): Tesseract dentro del instalador, pre
    - 120 segundos por página.
    - 40 MB por archivo, como ya estaba.
 
-### Precisiones con documentos reales (2026-10-13) — **propuestas, por decidir**
+### Precisiones con documentos reales (2026-10-13) — **la 1 hecha; la 2 y la 3, propuestas por decidir**
 
 Al probar la aplicación con documentos reales salieron tres problemas. Se midieron en el equipo de desarrollo, con los mismos parámetros de la aplicación, sin guardar ni imprimir el texto (`cargo test reader_on_a_file`, que ahora también dice, por página, qué datos protegidos encuentra el escáner, sin sus valores). Nada de esos documentos entró al repositorio.
 
@@ -86,6 +86,15 @@ Al probar la aplicación con documentos reales salieron tres problemas. Se midie
 - Lo que no arregla ni agrandar ni entrenar: «I.A.P.» se lee «1.A.P.» en todas las escalas, porque en Arial la «I» y la «l» son el mismo dibujo. Eso lo arreglan reglas en el código para siglas y campos con formato (CURP, RFC, montos).
 - Veinte fotos de recibos en inglés, guardadas fuera del repositorio, sirven solo como prueba difícil de fotos (arrugadas, chuecas, con fondo). Agrandarlas ayuda menos (un total leyó «194,02» por 144.02): las fotos necesitan además recortar, enderezar y contraste. No sirven para entrenar.
 - **Propuesta:** Tesseract ya da la altura de cada palabra. Si la altura típica queda por debajo de unos 20 píxeles, la imagen se agranda para que la letra mida unos 30 y se lee otra vez. La resolución de una foto no se adivina: se mide en la primera lectura, y una página bien leída no se lee dos veces. Va con pruebas: una captura chica y una foto chica ficticias, con su texto esperado.
+- **Hecho (2026-10-13, `documents/ocr.rs`):**
+  - **Cómo se mide la letra:** el cuartil inferior de las alturas de las palabras de dos o más letras, con al menos 5 palabras. No la mediana: Tesseract da a algunas palabras la altura de todo su renglón (32 píxeles en una foto cuya letra mide 9), nunca menos que la suya. En los fixtures normales queda en 22 a 25 píxeles y no se relee nada.
+  - **Cuánto se agranda:** hasta que la letra mida 30 píxeles, a lo más ×4, y ningún lado pasa de 5000 píxeles. Menos de ×1.25 no se hace. Se queda la lectura más segura; si sigue «con dudas», el segundo intento con umbral adaptativo se hace sobre la imagen ganadora.
+  - **Una foto chica donde no se halla ni una palabra** no deja medir nada: Tesseract no encontró ninguna en la foto ficticia de un aviso tomado de lejos. Si la imagen mide menos de 1200 píxeles por su lado mayor, se agranda ×3 de todos modos. Una página de PDF (2550×3300 a 300 ppp) o una foto de celular son más grandes: una página en blanco no se lee dos veces.
+  - **El agrandado es nuestro (Lanczos de tres lóbulos, en gris).** El crate `image` (0.25.10, solo JPEG, PNG y PGM, sin hilos) solo abre la imagen. Su agrandado guarda cuatro números por pixel a medio camino: una página de PDF ocuparía unos 200 MB por cada página leída a la vez. Lo transparente de un PNG se ve blanco, como lo ve Tesseract.
+  - **Fixtures** (`fixtures/office/generar.py chicas`):
+    - `captura-chica.png`: ficha de un registro, Arial de 10 píxeles. Tal como llega pierde el título, lee «8213» por «48213», «Intemado», «Vale» y el correo sin «@». Agrandada ×4 lo lee todo, correo incluido.
+    - `foto-chica.jpg`: aviso borroso, un poco girado, en JPEG. Tal como llega, cero palabras; agrandada ×3 se lee completa.
+    - Sin el agrandado, sus dos pruebas fallan.
 
 **2. Las actas constitutivas se rechazan como «lista de personas».**
 
@@ -116,7 +125,7 @@ Al probar la aplicación con documentos reales salieron tres problemas. Se midie
   3. **Medir `tessdata_fast`** contra `tessdata_best`, ya con la imagen agrandada. Hoy cada renglón pasa por dos modelos precisos (`eng+spa`).
   4. **No releer una página casi vacía** aunque salga «con dudas»: una segunda lectura no le gana nada.
 
-**Orden propuesto:** primero la regla de «lista de personas» (hoy impide guardar cualquier acta real); después prioridad baja y agrandado de letra chica; al final la medición de `tessdata_fast` y la lectura en segundo plano.
+**Orden propuesto:** primero la regla de «lista de personas» (hoy impide guardar cualquier acta real); después prioridad baja y agrandado de letra chica; al final la medición de `tessdata_fast` y la lectura en segundo plano. *La institución pidió primero el agrandado (2026-10-13), y ya está hecho.*
 
 ## Mediciones (fixtures ficticios, 2026-10-10, un hilo)
 

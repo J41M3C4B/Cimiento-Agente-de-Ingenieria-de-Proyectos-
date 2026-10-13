@@ -247,14 +247,61 @@ def scans():
     inv.convert("RGB").save("factura-foto.jpg", "JPEG", quality=88)
 
 
+def small():
+    """Pictures with small letters: a screenshot and a little photo, read well only once enlarged (ADR-035)."""
+    from PIL import ImageFilter, ImageFont
+
+    sans = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 10)
+    sans_bold = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 11)
+
+    # a screenshot of the record of a public registry, at 96 dpi: letters about 7 pixels tall
+    shot = Image.new("RGB", (520, 230), "white")
+    d = ImageDraw.Draw(shot)
+    d.rectangle([0, 0, 520, 24], fill=(31, 78, 120))
+    d.text((10, 6), "Registro de Instituciones de Asistencia (ficticio)", fill="white", font=sans_bold)
+    lines = [
+        ("Folio de registro:", "48213"),
+        ("Denominación:", "Casa Hogar Ficticia del Valle"),
+        ("Representante:", "Lucía Hernández Ramírez"),
+        ("Modalidad:", "Internado"),
+        ("Población:", "personas adultas mayores"),
+        ("Servicios:", "atención médica, alimentación y albergue"),
+        ("Correo:", "registro@casaficticia.example.org"),
+    ]
+    for i, (label, value) in enumerate(lines):
+        y = 38 + i * 26
+        d.text((14, y), label, fill=(60, 60, 60), font=sans_bold)
+        d.text((150, y), value, fill=(20, 20, 20), font=sans)
+    shot.save("captura-chica.png", "PNG")
+
+    # a little photo of a notice taken from afar: small, a little turned and soft, on a gray table. Read as it
+    # comes, Tesseract finds no word in it at all
+    note_font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 11)
+    note = Image.new("L", (363, 126), 238)
+    d = ImageDraw.Draw(note)
+    for i, line in enumerate([
+        "AVISO DE FUNCIONAMIENTO",
+        "Casa Hogar Ficticia del Valle",
+        "Horario de visitas: martes a domingo",
+        "Responsable sanitario: Ernesto Martínez",
+    ]):
+        d.text((13, (14 + i * 30) * 11 // 13), line, fill=30, font=note_font)
+    photo = note.rotate(1.2, expand=True, fillcolor=130).filter(ImageFilter.GaussianBlur(0.7))
+    photo.convert("RGB").save("foto-chica.jpg", "JPEG", quality=70)
+
+
 import sys
 
 if sys.argv[1:] == ["escaneos"]:
     # only the scanned pages: the other files stay as they are
     scans()
+elif sys.argv[1:] == ["chicas"]:
+    # only the pictures with small letters
+    small()
 else:
     excel()
     word()
     pdf()
     scans()
+    small()
 print("ok")

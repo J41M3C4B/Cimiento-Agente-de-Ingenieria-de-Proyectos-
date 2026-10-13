@@ -3,6 +3,7 @@
 //! and no picture is written to disk: a page reaches Tesseract through its standard input.
 
 use pdfium_render::prelude::*;
+use std::borrow::Cow;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -24,6 +25,21 @@ const LANGUAGES: &str = "eng+spa";
 const COLUMN_GAP: f32 = 1.5;
 /// A page Tesseract has not read in this time is given up.
 const PAGE_TIMEOUT: Duration = Duration::from_secs(120);
+/// Letters shorter than this many pixels are read badly (a screenshot, a little photo): the picture is enlarged and
+/// read again. Measured 2026-10-13: a screenshot with letters of 7 pixels lost a number and a title, and read «m» for
+/// «rn»; four times bigger, it read them all.
+const SMALL_LETTERS: f32 = 20.0;
+/// How tall the letters of an enlarged picture are made...
+const LETTERS_TO: f32 = 30.0;
+/// ...but it is never enlarged more than this.
+const MAX_ENLARGE: f32 = 4.0;
+/// Fewer words than this do not tell how tall the letters are.
+const WORDS_TO_MEASURE: usize = 5;
+/// A picture shorter than this on its longest side where no word was measured is enlarged anyway, this many times:
+/// its letters may be too small to be found at all (a little photo taken from afar). A page of a PDF or a photo of a
+/// phone is bigger: a blank one is not read again.
+const SMALL_PICTURE: u32 = 1200;
+const UNREAD_ENLARGE: f32 = 3.0;
 
 #[derive(Debug, thiserror::Error)]
 pub enum OcrError {
@@ -43,6 +59,10 @@ pub struct PageRead {
     pub text: String,
     /// The mean confidence of its words (0–100), each weighed by its letters; 0 with no words.
     pub confidence: f32,
+    /// How tall its letters are, in pixels: the lower quarter of the heights of its words. Tesseract gives some
+    /// words the height of their whole line, never less than their own, so the lower quarter is the true one.
+    /// `None` with fewer than `WORDS_TO_MEASURE` words.
+    pub letters: Option<f32>,
 }
 
 impl PageRead {
@@ -87,18 +107,120 @@ pub fn available() -> bool {
 /// Reads the text of a picture (JPEG, PNG or PGM). `dpi` when it is known (a drawn page); a photo
 /// says its own or Tesseract estimates it.
 ///
+/// A picture with small letters is enlarged and read again, and the surer of the two readings is kept; one whose
+/// letters are big enough is not read twice for this.
+///
 /// A page read with doubts is read once more with the adaptive threshold of Leptonica, and the surer of the two
 /// is kept: a faded copy is read where the plain threshold finds nothing, but on a good page the adaptive one
 /// misreads signs like the «@» of an email, which the scanner then would not find.
 pub fn read_picture(picture: &[u8], dpi: Option<u32>) -> Result<PageRead, OcrError> {
-    let plain = run(picture, dpi, false)?;
-    if !plain.doubtful() {
-        return Ok(plain);
+    let mut best = run(picture, dpi, false)?;
+    let (mut picture, mut dpi) = (Cow::Borrowed(picture), dpi);
+    if let Some((big, times)) = enlarged(&picture, best.letters) {
+        let big_dpi = dpi.map(|d| (d as f32 * times).round() as u32);
+        if let Ok(read) = run(&big, big_dpi, false) {
+            if read.confidence >= best.confidence {
+                (best, picture, dpi) = (read, Cow::Owned(big), big_dpi);
+            }
+        }
     }
-    match run(picture, dpi, true) {
-        Ok(adaptive) if adaptive.confidence > plain.confidence => Ok(adaptive),
-        _ => Ok(plain),
+    if !best.doubtful() {
+        return Ok(best);
     }
+    match run(&picture, dpi, true) {
+        Ok(adaptive) if adaptive.confidence > best.confidence => Ok(adaptive),
+        _ => Ok(best),
+    }
+}
+
+/// How many times a picture is enlarged before it is read again, if at all: its letters were measured small, or
+/// none could be measured in a small picture. No side grows past `MAX_SIDE`.
+fn enlargement(letters: Option<f32>, longest: u32) -> Option<f32> {
+    let times = match letters {
+        Some(tall) if tall < SMALL_LETTERS => (LETTERS_TO / tall.max(1.0)).min(MAX_ENLARGE),
+        None if longest < SMALL_PICTURE => UNREAD_ENLARGE,
+        _ => return None,
+    };
+    let times = times.min(MAX_SIDE / longest.max(1) as f32);
+    // a little bigger reads the same
+    (times >= 1.25).then_some(times)
+}
+
+/// The picture enlarged, in gray as Tesseract reads it (PGM), and how many times, when its letters are small.
+fn enlarged(picture: &[u8], letters: Option<f32>) -> Option<(Vec<u8>, f32)> {
+    // first only its size, from the head of the file: a page with letters big enough is not opened
+    let open = || image::ImageReader::new(std::io::Cursor::new(picture)).with_guessed_format().ok();
+    let (w, h) = open()?.into_dimensions().ok().filter(|&(w, h)| w > 0 && h > 0)?;
+    let times = enlargement(letters, w.max(h))?;
+    let gray = gray_over_white(open()?.decode().ok()?);
+    let (nw, nh) = ((w as f32 * times).round() as usize, (h as f32 * times).round() as usize);
+    let mut out = format!("P5\n{nw} {nh}\n255\n").into_bytes();
+    out.extend(enlarge_gray(gray.as_raw(), w as usize, h as usize, nw, nh));
+    Some((out, times))
+}
+
+/// A picture in gray; what is transparent shows white, as Tesseract sees it.
+fn gray_over_white(picture: image::DynamicImage) -> image::GrayImage {
+    if !picture.color().has_alpha() {
+        return picture.into_luma8();
+    }
+    let rgba = picture.into_rgba8();
+    image::GrayImage::from_fn(rgba.width(), rgba.height(), |x, y| {
+        let [r, g, b, a] = rgba.get_pixel(x, y).0.map(u32::from);
+        let luma = (77 * r + 150 * g + 29 * b) >> 8;
+        image::Luma([((luma * a + 255 * (255 - a)) / 255) as u8])
+    })
+}
+
+/// Enlarges a gray picture of `w`×`h` to `nw`×`nh` with Lanczos (three lobes), first along its rows and then along its
+/// columns. Done here and not with the `image` crate, which keeps four numbers per pixel in between: a drawn page
+/// would take some 200 MB for each page read at the same time.
+fn enlarge_gray(gray: &[u8], w: usize, h: usize, nw: usize, nh: usize) -> Vec<u8> {
+    let pixel = |v: f32| v.round().clamp(0.0, 255.0) as u8;
+    let across = weights(w, nw);
+    let mut wide = Vec::with_capacity(nw * h);
+    for row in gray.chunks_exact(w).take(h) {
+        wide.extend(across.iter().map(|(first, k)| pixel(k.iter().zip(&row[*first..]).map(|(k, &p)| k * p as f32).sum())));
+    }
+    let mut out = Vec::with_capacity(nw * nh);
+    let mut line = vec![0f32; nw];
+    for (first, k) in weights(h, nh) {
+        line.fill(0.0);
+        for (j, k) in k.iter().enumerate() {
+            for (sum, &p) in line.iter_mut().zip(&wide[(first + j) * nw..][..nw]) {
+                *sum += k * p as f32;
+            }
+        }
+        out.extend(line.iter().map(|&v| pixel(v)));
+    }
+    out
+}
+
+/// For each pixel of a side grown from `old` to `new` pixels (`new` ≥ `old`): the first old pixel it takes from and
+/// how much each one counts, adding up to one.
+fn weights(old: usize, new: usize) -> Vec<(usize, Vec<f32>)> {
+    let lanczos = |x: f32| {
+        if x.abs() < 1e-6 {
+            1.0
+        } else if x.abs() >= 3.0 {
+            0.0
+        } else {
+            let px = std::f32::consts::PI * x;
+            3.0 * px.sin() * (px / 3.0).sin() / (px * px)
+        }
+    };
+    let scale = new as f32 / old as f32;
+    (0..new)
+        .map(|i| {
+            let center = (i as f32 + 0.5) / scale - 0.5;
+            let first = (center - 3.0).ceil().max(0.0) as usize;
+            let last = ((center + 3.0).floor().max(0.0) as usize).min(old - 1);
+            let mut k: Vec<f32> = (first..=last).map(|j| lanczos(j as f32 - center)).collect();
+            let sum: f32 = k.iter().sum();
+            k.iter_mut().for_each(|v| *v /= sum);
+            (first, k)
+        })
+        .collect()
 }
 
 fn run(picture: &[u8], dpi: Option<u32>, adaptive: bool) -> Result<PageRead, OcrError> {
@@ -170,6 +292,7 @@ fn from_tsv(tsv: &str) -> PageRead {
     // where the word before ends and how tall it is
     let (mut right, mut tall) = (0i64, 0i64);
     let (mut letters, mut sum) = (0f32, 0f32);
+    let mut heights = Vec::new();
     for row in tsv.lines().skip(1) {
         let c: Vec<&str> = row.split('\t').collect();
         // level 5 is a word: level, page, block, paragraph, line, word, left, top, width, height, conf, text
@@ -196,8 +319,14 @@ fn from_tsv(tsv: &str) -> PageRead {
         let n = word.chars().count() as f32;
         letters += n;
         sum += conf * n;
+        // a sign or a lone letter does not say how tall the letters are
+        if word.chars().filter(|c| c.is_alphanumeric()).count() >= 2 {
+            heights.push(height as f32);
+        }
     }
-    PageRead { text, confidence: if letters > 0.0 { sum / letters } else { 0.0 } }
+    heights.sort_by(f32::total_cmp);
+    let tall = (heights.len() >= WORDS_TO_MEASURE).then(|| heights[heights.len() / 4]);
+    PageRead { text, confidence: if letters > 0.0 { sum / letters } else { 0.0 }, letters: tall }
 }
 
 static PDFIUM: OnceLock<Option<Pdfium>> = OnceLock::new();
@@ -273,6 +402,47 @@ mod tests {
         // (4·90 + 12·90 + 3·60 + 1·30) / 20
         assert!((read.confidence - 82.5).abs() < 0.01, "{}", read.confidence);
         assert_eq!(from_tsv("level\n").confidence, 0.0);
+    }
+
+    /// How tall the letters are is the lower quarter of the heights of the words: some words come as tall as their
+    /// line. Signs and lone letters do not count, and a few words say nothing.
+    #[test]
+    fn the_letters_are_measured_by_the_lower_quarter_of_the_words() {
+        let head = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n";
+        let words = |list: &[(&str, u32)]| {
+            let rows: String = list.iter().enumerate().map(|(i, (w, h))| format!("5\t1\t1\t1\t1\t{i}\t{}\t0\t20\t{h}\t90\t{w}\n", i * 30)).collect();
+            from_tsv(&format!("{head}{rows}"))
+        };
+        let read = words(&[("Folio", 9), ("de", 8), ("registro", 30), ("48213", 9), ("Casa", 31), ("Hogar", 30), ("a", 2), ("—", 1)]);
+        assert_eq!(read.letters, Some(9.0));
+        assert_eq!(words(&[("Casa", 9), ("Hogar", 9), ("del", 9), ("Valle", 9)]).letters, None);
+    }
+
+    /// Small letters are enlarged to about 30 pixels, four times at most; letters big enough, never. A small picture
+    /// where nothing was measured is enlarged three times; a big one (a page, a photo of a phone) is not read again.
+    #[test]
+    fn a_picture_is_enlarged_only_when_its_letters_are_small() {
+        assert_eq!(enlargement(Some(7.0), 520), Some(MAX_ENLARGE));
+        assert_eq!(enlargement(Some(12.0), 1654), Some(2.5));
+        assert_eq!(enlargement(Some(22.0), 520), None);
+        assert_eq!(enlargement(Some(19.0), 4200), None, "no side past 5000 pixels leaves too little to gain");
+        assert_eq!(enlargement(None, 440), Some(UNREAD_ENLARGE));
+        assert_eq!(enlargement(None, 3300), None, "a blank page of a PDF is not read again");
+        assert_eq!(enlargement(Some(10.0), 2000), Some(2.5), "no side past 5000 pixels");
+    }
+
+    #[test]
+    fn an_enlarged_picture_keeps_its_grays_and_its_edges() {
+        let flat = enlarge_gray(&[200; 12], 4, 3, 13, 10);
+        assert_eq!(flat, vec![200; 130]);
+        // black then white: twice as wide, the edge stays in the middle and nothing goes past black or white
+        let edge = enlarge_gray(&[0, 0, 0, 255, 255, 255], 6, 1, 12, 2);
+        assert_eq!(edge.len(), 24);
+        assert!(edge[..4].iter().all(|&v| v < 20) && edge[8..12].iter().all(|&v| v > 235), "{edge:?}");
+        assert_eq!(edge[..12], edge[12..]);
+        // a photo with a see-through background turns white there, not black
+        let clear = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(2, 1, image::Rgba([0, 0, 0, 0])));
+        assert_eq!(gray_over_white(clear).as_raw(), &vec![255, 255]);
     }
 
     #[test]

@@ -36,6 +36,9 @@ pdf-extract = "0.12.1"
 lopdf = "0.42.0"
 # turns a scanned page into a picture for Tesseract (OCR, ADR-035); pdfium.dll ships in resources/ocr
 pdfium-render = { version = "0.9.4", default-features = false, features = ["pdfium_latest", "thread_safe"] }
+# opens a photo or a drawn page to enlarge small letters before Tesseract reads it again (ADR-035): Tesseract does
+# not enlarge; only the formats read here, no threads
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "pnm"] }
 base64 = "0.22.1"
 ulid = "3.0.0"
 sha2 = "0.11.0"

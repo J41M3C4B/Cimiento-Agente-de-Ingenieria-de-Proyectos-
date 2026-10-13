@@ -49,6 +49,44 @@ fn the_folder_of_an_upload_is_gone_when_it_is_dropped() {
     assert!(!path.exists());
 }
 
+/// A screenshot with letters of about 7 pixels is enlarged and read again: the title, the whole number and the «rn»
+/// that came out as «m» («Intemado») are read.
+#[test]
+fn a_screenshot_with_small_letters_is_enlarged_and_read_whole() {
+    needs_ocr();
+    let r = read_upload("captura.png", &std::fs::read(fixture("captura-chica.png")).unwrap()).unwrap();
+    let text = &r.pages[0];
+    for words in ["Registro de Instituciones", "48213", "Casa Hogar Ficticia del Valle", "Internado", "personas adultas mayores", "atención", "alimentación"] {
+        assert!(text.contains(words), "{words}: {text}");
+    }
+    assert!(text.contains("registro@casaficticia.example.org"), "the scanner will find it: {text}");
+    assert!(r.doubtful.is_empty());
+}
+
+/// A little photo taken from afar, where Tesseract finds no word as it comes, is enlarged three times and read.
+#[test]
+fn a_little_photo_where_no_word_was_found_is_enlarged_and_read() {
+    needs_ocr();
+    let r = read_file(&fixture("foto-chica.jpg")).unwrap();
+    let text = &r.pages[0];
+    for words in ["AVISO DE FUNCIONAMIENTO", "Casa Hogar Ficticia del Valle", "martes a domingo", "Ernesto"] {
+        assert!(text.contains(words), "{words}: {text}");
+    }
+}
+
+/// Pages with letters big enough are read once: neither the scanned pages nor the photos of the fixtures are
+/// enlarged.
+#[test]
+fn a_page_with_letters_big_enough_is_not_enlarged() {
+    needs_ocr();
+    let mut letters = vec![];
+    ocr::draw_pages(&fixture("acta-escaneada.pdf"), &[1], |_, picture, dpi| letters.push(ocr::read_picture(&picture, Some(dpi)).unwrap().letters)).unwrap();
+    for photo in ["constancia-foto.jpg", "factura-foto.jpg"] {
+        letters.push(ocr::read_picture(&std::fs::read(fixture(photo)).unwrap(), None).unwrap().letters);
+    }
+    assert!(letters.iter().all(|l| l.is_some_and(|tall| tall >= 20.0)), "{letters:?}");
+}
+
 /// A table read from a picture keeps its rows and parts its cells with « | »; the email of who sells is read with its
 /// «@», for the scanner to find it.
 #[test]

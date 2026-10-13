@@ -11,8 +11,8 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > Estamos en el **ADR-036 · Cajones de documentos con dueño**. **Primero solo el núcleo** («Inicio» y «Mi institución»): lo dejamos sin problemas y probado, y los módulos repiten después la misma forma de trabajar.
 > **C1 está hecho:** Documentos ya es la bandeja del Expediente. **Siguiente bloque: C2**, el Lector del Expediente. No empieza hasta que pruebes C1 y lo apruebes.
 
-> [!warning] Por decidir (2026-10-13): el OCR con documentos reales
-> Las actas constitutivas reales se rechazan como «lista de personas», la letra chica se lee mal y un acta larga ocupa demasiado el equipo. Mediciones y propuestas en el [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md). Hoy un acta real con varios socios suele quedar fuera del Expediente.
+> [!warning] OCR con documentos reales (2026-10-13)
+> **La letra chica ya se agranda** (captura y foto chicas, por probar). **Por decidir:** las actas constitutivas reales se rechazan como «lista de personas» y un acta larga ocupa demasiado el equipo. Mediciones y propuestas en el [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md). Hoy un acta real con varios socios suele quedar fuera del Expediente.
 
 ## Qué es SociAI, en una línea
 
@@ -23,7 +23,8 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | | Bloque | Qué hace | Estado |
 |---|---|---|---|
 | 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | **Hecho, por probar** |
-| — | **OCR** | Las actas ya no se rechazan como lista (van a cuarentena); la letra chica se agranda; Tesseract con prioridad baja; medir `tessdata_fast` | **Por decidir** (ADR-035, precisiones 2026-10-13) |
+| — | **OCR · letra chica** | Una imagen con letra de menos de 20 píxeles se agranda y se lee otra vez | **Hecho, por probar** |
+| — | **OCR · lo demás** | Las actas ya no se rechazan como lista (van a cuarentena); Tesseract con prioridad baja; medir `tessdata_fast` | **Por decidir** (ADR-035, precisiones 2026-10-13) |
 | 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | Pendiente |
 | 3 | **C3** | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?») | Pendiente |
 | 4 | **C4** | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti | Pendiente |
@@ -34,12 +35,19 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar C1** (pasos abajo) y aprobar el inicio de C2.
-- **Decidir el orden del OCR** (ADR-035, precisiones 2026-10-13): propuesta, primero la regla de «lista de personas», después prioridad baja y agrandado de letra chica, al final `tessdata_fast` y la lectura en segundo plano.
+- **Probar la letra chica del OCR** (pasos abajo) y **probar C1** (pasos más abajo); después, aprobar el inicio de C2.
+- **Decidir lo que falta del OCR** (ADR-035, precisiones 2026-10-13): propuesta, primero la regla de «lista de personas», después prioridad baja, al final `tessdata_fast` y la lectura en segundo plano.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
 
-## Cómo probar el último bloque (C1)
+## Cómo probar el último bloque (OCR · letra chica)
+
+1. `cargo test documents::reading` (desde `src-tauri/`): las 8 pruebas pasan, entre ellas la captura chica y la foto chica.
+2. En la app, **Mi institución → Expediente**: sube como foto una captura de pantalla pequeña de un registro (PNG) o una foto tomada de lejos. Antes perdía números, juntaba «rn» en «m» o no leía nada; ahora debe leerse completa. Tarda un poco más que una foto normal: se lee dos veces.
+3. Sube una foto o un PDF escaneado con letra normal: debe tardar lo mismo que antes (no se lee dos veces).
+4. Con un archivo real, sin imprimir su texto: `$env:CIMIENTO_READER_FILE="D:\...\captura.png"; cargo test reader_on_a_file -- --ignored --nocapture > salida.txt` y compara cuántas letras y qué datos encuentra contra la medición del 2026-10-13.
+
+## Cómo probar C1
 
 1. Empieza con una base vacía o vuelve a subir tus documentos: los de antes de C1 no tienen cajón y no aparecen.
 2. **Documentos → «Subir documento»:** debe preguntar «¿A qué cajón va?» (solo Expediente) y «¿Qué documento es?» (los del Expediente y «Otro documento»). Al seguir, se abre la misma ventana del Expediente de «Mi institución»; ahí pones el archivo.
@@ -53,6 +61,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-13 | **OCR · letra chica:** una imagen con letra de menos de 20 píxeles se agranda hasta que mida 30 (a lo más ×4) y se lee otra vez; una imagen chica sin ninguna palabra, ×3. Una captura ficticia pasa de 4 errores y sin título a leerse completa con su correo; una foto chica, de cero palabras a completa | [ADR-035, precisión 1](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
 | 2026-10-13 | **OCR con documentos reales (solo medición):** agrandar la letra chica lleva una captura de 13 palabras mal leídas a 2; dos actas reales se rechazan como «lista de personas» por dos reglas toscas del escáner; 37 páginas tardan 171 s en un equipo de 4 núcleos; no se entrena Tesseract ni se usa la nube | [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
 | 2026-10-12 | **C1:** cada documento lleva su cajón; Documentos es la bandeja (pregunta qué documento del Expediente es y abre su ventana); la búsqueda siempre en un cajón; quitar o reemplazar un archivo saca su texto del cajón; «Borrar esto y todo…» ya no falla con un dato aceptado | [ADR-036, precisiones C1](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-12 | **ADR-036:** cajones con dueño, un agente por cajón, el Asistente como orquestador, cada agente validado con el modelo más barato; primero el núcleo | [ADR-036](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
