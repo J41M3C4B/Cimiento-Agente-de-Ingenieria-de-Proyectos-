@@ -192,6 +192,7 @@ async fn the_battery_grades_what_it_should() {
 /// makes) and, with Gemini, the vectors of the fictitious fragments. For each one: the verdict, the tools, what it
 /// cited, the answer, calls, tokens, cost and time. Only fictitious text goes out. Its whole output goes to a file:
 ///   cargo test assistant_battery_live -- --ignored --nocapture > assistant_battery_live.txt
+/// With `CIMIENTO_ROUNDS` (1 to 5) it asks everything that many times, to see how steady the cheapest model is.
 #[tokio::test]
 #[ignore]
 async fn assistant_battery_live() {
@@ -220,36 +221,99 @@ async fn assistant_battery_live() {
             )
             .unwrap()
     };
-    let (mut passed, mut tools_ok, mut cites_ok, mut cites_asked, mut invented) = (0, 0, 0, 0, 0);
+    let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
+    let recording = Recording { inner: provider.as_ref(), log: Mutex::new(Vec::new()) };
     let all = cases();
-    for c in &all {
-        let before = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
-        let started = std::time::Instant::now();
-        let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), ask_of(c), None).await.unwrap();
-        let secs = started.elapsed().as_secs_f64();
-        let after = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
-        let tools = last_tools(&db);
-        let bad = grade(c, &out, &tools);
-        passed += usize::from(bad.is_empty());
-        tools_ok += usize::from(!bad.iter().any(|b| b.contains('`')));
-        if !c.paginas.is_empty() || c.con_cita {
-            cites_asked += 1;
-            cites_ok += usize::from(!bad.iter().any(|b| b.starts_with("citó") || b == "sin cita"));
+    let mut right_per_case = vec![0usize; all.len()];
+    let (mut passed, mut tools_ok, mut cites_ok, mut cites_asked, mut invented) = (0, 0, 0, 0, 0);
+    for round in 1..=rounds {
+        println!("\n######## Ronda {round} de {rounds}");
+        for (i, c) in all.iter().enumerate() {
+            let before = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
+            recording.log.lock().unwrap().clear();
+            let started = std::time::Instant::now();
+            let out = ask(&db, Some(&recording), embedder.clone(), Some(Role::Manager), ask_of(c), None).await.unwrap();
+            let secs = started.elapsed().as_secs_f64();
+            let after = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
+            let tools = last_tools(&db);
+            let bad = grade(c, &out, &tools);
+            right_per_case[i] += usize::from(bad.is_empty());
+            passed += usize::from(bad.is_empty());
+            tools_ok += usize::from(!bad.iter().any(|b| b.contains('`')));
+            if !c.paginas.is_empty() || c.con_cita {
+                cites_asked += 1;
+                cites_ok += usize::from(!bad.iter().any(|b| b.starts_with("citó") || b == "sin cita"));
+            }
+            invented += usize::from(bad.iter().any(|b| b.starts_with("INVENTÓ")));
+            let calls = (after.0 .0 - before.0 .0, after.1 .0 - before.1 .0);
+            let cost = (after.0 .3 - before.0 .3) + (after.1 .3 - before.1 .3);
+            let tokens = ((after.0 .1 - before.0 .1) + (after.1 .1 - before.1 .1), (after.0 .2 - before.0 .2) + (after.1 .2 - before.1 .2));
+            println!("\n== «{}» ({})  {}", c.q, c.pantalla, if bad.is_empty() { "BIEN".to_string() } else { format!("MAL: {}", bad.join("; ")) });
+            println!("   herramientas {tools:?}  llamadas asistente {} lector {}  entrada {} salida {}  costo ${cost:.4} MXN  {secs:.1} s", calls.0, calls.1, tokens.0, tokens.1);
+            // each step, as it went and came back (fictitious text only): what the Assistant asked for and what the
+            // Reader was asked and answered
+            for (task, user, value) in recording.log.lock().unwrap().iter() {
+                if task == "agent.reader_answer" {
+                    println!("   · Lector: {}\n     contestó {value}", user.lines().next().unwrap_or_default());
+                } else if !value["tool"].is_null() {
+                    println!("   · Asistente pidió `{}` con {}", value["tool"].as_str().unwrap_or("?"), value["args"]);
+                }
+            }
+            println!("   {out:?}");
         }
-        invented += usize::from(bad.iter().any(|b| b.starts_with("INVENTÓ")));
-        let calls = (after.0 .0 - before.0 .0, after.1 .0 - before.1 .0);
-        let cost = (after.0 .3 - before.0 .3) + (after.1 .3 - before.1 .3);
-        let tokens = ((after.0 .1 - before.0 .1) + (after.1 .1 - before.1 .1), (after.0 .2 - before.0 .2) + (after.1 .2 - before.1 .2));
-        println!("\n== «{}» ({})  {}", c.q, c.pantalla, if bad.is_empty() { "BIEN".to_string() } else { format!("MAL: {}", bad.join("; ")) });
-        println!("   herramientas {tools:?}  llamadas asistente {} lector {}  entrada {} salida {}  costo ${cost:.4} MXN  {secs:.1} s", calls.0, calls.1, tokens.0, tokens.1);
-        println!("   {out:?}");
     }
     let a = usage(&db, "agent.assistant");
     let r = usage(&db, "agent.reader_answer");
     let e = usage(&db, "embed.%");
-    println!("\nTOTAL: {passed} de {} bien  herramienta bien {tools_ok}  cita bien {cites_ok} de {cites_asked}  inventó {invented}", all.len());
+    println!("\nPor pregunta (bien de {rounds}):");
+    for (c, n) in all.iter().zip(&right_per_case) {
+        println!("  {n}/{rounds}  {}", c.q);
+    }
+    println!("\nTOTAL: {passed} de {} bien  herramienta bien {tools_ok}  cita bien {cites_ok} de {cites_asked}  inventó {invented}", all.len() * rounds);
     println!("Asistente: {} llamadas, {} entrada, {} salida, ${:.4} MXN", a.0, a.1, a.2, a.3);
     println!("Lector: {} llamadas, {} entrada, {} salida, ${:.4} MXN", r.0, r.1, r.2, r.3);
     println!("Vectores: {} solicitudes, ${:.4} MXN", e.0, e.3);
     println!("Todo: ${:.4} MXN", a.3 + r.3 + e.3);
+}
+
+/// A provider that writes down what each step asked and answered, for the real run to show it (fictitious text only).
+struct Recording<'a> {
+    inner: &'a dyn crate::ai::AiProvider,
+    log: Mutex<Vec<(String, String, Value)>>,
+}
+
+impl Recording<'_> {
+    fn keep(&self, req: &crate::ai::AiRequest, out: &Result<AiResponse, crate::ai::AiError>) {
+        let value = match out {
+            Ok(r) => r.value.clone(),
+            Err(e) => json!({ "error": e.kind() }),
+        };
+        let answer = if value["answer"].is_null() { value.clone() } else { value["answer"].clone() };
+        let shown = if req.task.as_str() == "agent.reader_answer" { answer } else { value };
+        let user = req.user.lines().find(|l| l.starts_with("Pregunta:")).unwrap_or(&req.user).to_string();
+        self.log.lock().unwrap().push((req.task.as_str().to_string(), user, shown));
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::ai::AiProvider for Recording<'_> {
+    async fn complete(&self, req: &crate::ai::AiRequest) -> Result<AiResponse, crate::ai::AiError> {
+        let out = self.inner.complete(req).await;
+        self.keep(req, &out);
+        out
+    }
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+    fn model_name(&self, tier: ModelTier) -> String {
+        self.inner.model_name(tier)
+    }
+    fn model_chain(&self, tier: ModelTier) -> Vec<String> {
+        self.inner.model_chain(tier)
+    }
+    async fn complete_with_model(&self, req: &crate::ai::AiRequest, model: &str) -> Result<AiResponse, crate::ai::AiError> {
+        let out = self.inner.complete_with_model(req, model).await;
+        self.keep(req, &out);
+        out
+    }
 }

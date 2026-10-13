@@ -33,7 +33,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 /// Its trade, versioned like a prompt: changing it is a new file.
-const TRADE: &str = include_str!("assistant.v5.md");
+const TRADE: &str = include_str!("assistant.v7.md");
 
 /// Where the Assistant may send the person: a page, or a window of «Mi institución» (`profile.<window>`).
 pub const GO_TO: &[&str] = &[
