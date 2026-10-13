@@ -290,6 +290,15 @@ def small():
     photo.convert("RGB").save("foto-chica.jpg", "JPEG", quality=70)
 
 
+def protected():
+    """A PDF that asks for a password to be opened: the program says so instead of calling it damaged."""
+    from reportlab.pdfgen import canvas
+
+    c = canvas.Canvas("protegido.pdf", encrypt="clave-ficticia")
+    c.drawString(72, 720, "Documento ficticio con contrasena.")
+    c.save()
+
+
 import sys
 
 if sys.argv[1:] == ["escaneos"]:
@@ -298,10 +307,14 @@ if sys.argv[1:] == ["escaneos"]:
 elif sys.argv[1:] == ["chicas"]:
     # only the pictures with small letters
     small()
+elif sys.argv[1:] == ["protegidos"]:
+    # only the files with a password
+    protected()
 else:
     excel()
     word()
     pdf()
     scans()
     small()
+    protected()
 print("ok")

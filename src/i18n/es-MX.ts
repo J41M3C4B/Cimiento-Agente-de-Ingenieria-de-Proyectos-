@@ -271,6 +271,8 @@ export const es = {
         not_found: "No se encontró el archivo. Elíjalo otra vez.",
         damaged: "El archivo está dañado o no se pudo abrir.",
         too_many_pages: "Ese archivo tiene más de 100 páginas escaneadas: son demasiadas para leerlas. Súbalo en partes.",
+        protected:
+          "Ese archivo tiene contraseña y no lo podemos abrir. Guarde una copia sin contraseña (o pida una a quien se lo dio) y súbala otra vez.",
       } as Record<string, string>,
     },
     modal: {
@@ -1886,6 +1888,7 @@ export const es = {
       scanned:
         "No pudimos leer el texto de las imágenes de ese archivo. Pruebe con un escaneo más claro o pida a quien convoca el archivo original.",
       too_many_pictures: "Ese archivo tiene más de 100 páginas escaneadas: son demasiadas para leerlas. Pida a quien convoca el archivo original.",
+      protected: "Ese archivo tiene contraseña y no lo podemos abrir. Pida a quien convoca una copia sin contraseña.",
       empty: "Ese archivo no tiene texto que podamos leer.",
       roster: "Ese archivo parece una lista de personas y esas no se guardan.",
       no_files: "Elija al menos un archivo.",

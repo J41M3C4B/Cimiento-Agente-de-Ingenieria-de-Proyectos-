@@ -25,8 +25,8 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | **Hecho, por probar** |
 | — | **OCR · letra chica** | Una imagen con letra de menos de 20 píxeles se agranda y se lee otra vez | **Hecho, por probar** |
 | — | **Expediente tapa** | Ningún archivo del Expediente se rechaza por datos personales ni pide «Tapar y seguir»: se tapan y se guarda | **Hecho, por probar** |
-| — | **Pdfium · texto** | ADR-037, bloque 2: el texto de todo PDF con Pdfium (`pdf-extract` partía palabras), con guion de corte y párrafos | **Siguiente**, espera tu visto bueno |
-| — | **Pdfium · tablas** | ADR-037, bloque 3: tablas con Pdfium; salen `pdf-extract` y `lopdf` | Pendiente |
+| — | **Pdfium · texto** | ADR-037, bloque 2: el texto de todo PDF con Pdfium (`pdf-extract` partía palabras), con guion de corte y párrafos; un archivo con contraseña lo dice | **Hecho, por probar** |
+| — | **Pdfium · tablas** | ADR-037, bloque 3: tablas con Pdfium; salen `pdf-extract` y `lopdf` | **Siguiente**, espera tu visto bueno |
 | — | **OCR · rapidez** | Tesseract con prioridad baja; medir `tessdata_fast`; leer en segundo plano | **Por decidir** (ADR-035, precisión 3) |
 | 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | Pendiente |
 | 3 | **C3** | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?») | Pendiente |
@@ -38,12 +38,21 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar que el Expediente tapa y guarda** (pasos abajo) y **probar C1** (pasos más abajo); después, aprobar el inicio de C2.
+- **Probar la lectura de PDF con Pdfium y el aviso de contraseña** (pasos abajo), **que el Expediente tapa y guarda** y **probar C1** (pasos más abajo); después, aprobar el inicio de C2.
 - **Decidir lo que falta del OCR** (ADR-035, precisión 3): propuesta, primero prioridad baja para Tesseract, después medir `tessdata_fast` y al final la lectura en segundo plano.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
 
-## Cómo probar el último bloque (el Expediente tapa, no rechaza)
+## Cómo probar el último bloque (Pdfium lee el texto de los PDF)
+
+1. **Mi institución → Expediente:** sube un PDF con texto (no escaneado) y busca en Documentos una frase suya: las palabras deben salir enteras, sin espacios en medio.
+2. Sube un **PDF con contraseña** (por ejemplo `D:\Agente Proyectos\pdf_pruebas\protected.pdf`): debe decir «Ese archivo tiene contraseña y no lo podemos abrir…», no «dañado».
+3. Lo mismo en **Mis proyectos → nueva convocatoria** con un PDF con contraseña.
+4. Un Word o Excel guardado con contraseña debe decir lo mismo.
+5. Una convocatoria real en PDF debe leerse como antes (su ficha, sus requisitos y montos).
+6. Pruebas: `cargo test documents::` y la comparación `cargo test compare_pdf_engines` (ver comandos).
+
+## Cómo probar el bloque anterior (el Expediente tapa, no rechaza)
 
 1. **Mi institución → Expediente → Acta constitutiva → Subir archivo**, con tu acta real. Antes decía «Ese archivo es una lista de personas»; ahora debe guardarse sin preguntar nada y avisar «Tapamos N datos personales en su texto…».
 2. Lo mismo con la **constancia de situación fiscal** y con un poder o un acta de asamblea.
@@ -73,6 +82,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-13 | **Pdfium lee el texto de todo PDF:** palabras enteras (antes «Thi s report»), párrafos por la distancia entre renglones, guion de corte; de 5 a 20 veces más rápido. Un PDF, Word o Excel con contraseña lo dice en el Expediente y en las convocatorias | [ADR-037, bloque 2](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
 | 2026-10-13 | **Pdfium contra `pdf-extract` (medición):** en 24 PDF de muestra sacan las mismas letras, pero `pdf-extract` parte palabras («Thi s report outli nes») y es de 5 a 20 veces más lento; se decide Pdfium como único motor | [ADR-037](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
 | 2026-10-13 | **El Expediente tapa, no rechaza:** ningún archivo del Expediente se rechaza por «lista de personas» ni pide «Tapar y seguir»; el escáner tapa todo, la pantalla dice cuántos datos y la bitácora guarda los conteos. Las convocatorias conservan el rechazo | [ADR-036, precisión del 2026-10-13](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-13 | **OCR · letra chica:** una imagen con letra de menos de 20 píxeles se agranda hasta que mida 30 (a lo más ×4) y se lee otra vez; una imagen chica sin ninguna palabra, ×3. Una captura ficticia pasa de 4 errores y sin título a leerse completa con su correo; una foto chica, de cero palabras a completa | [ADR-035, precisión 1](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |

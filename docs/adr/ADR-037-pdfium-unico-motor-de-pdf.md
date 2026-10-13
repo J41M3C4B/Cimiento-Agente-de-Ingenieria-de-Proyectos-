@@ -8,7 +8,7 @@ tags: [adr]
 ---
 # ADR-037 · Pdfium como único motor de PDF
 
-**Estado:** aceptada (2026-10-13, decisión de la institución), por bloques. **Bloque 1 (medición) hecho;** el 2 y el 3 pendientes.
+**Estado:** aceptada (2026-10-13, decisión de la institución), por bloques. **Bloques 1 (medición) y 2 (texto) hechos;** falta el 3 (tablas).
 
 ## Contexto
 
@@ -49,13 +49,36 @@ Desde el ADR-035, **Pdfium** (`pdfium-render` 0.9.4 y el `pdfium.dll` de Chrome)
 
 - **Guion de corte.** Pdfium marca con el signo U+0002 un guion al final del renglón (apareció en un archivo de 50 páginas). Se convierte en «-», como en la página.
 - **Párrafos.** Pdfium separa renglones con un salto, pero no deja renglón en blanco entre párrafos; `pdf-extract` sí. El corte de fragmentos para la búsqueda (`documents/chunking.rs`) separa por renglón en blanco: con Pdfium, cada página sería un solo párrafo cortado por palabras. Los párrafos se rehacen con la distancia entre renglones (la caja de cada letra la da Pdfium), y se mide que la búsqueda (`cargo test core::archive::search`) y las convocatorias (`cargo test canonical`) no empeoren.
-- **Sin `pdfium.dll` no se lee ningún PDF.** Hoy un PDF con texto se lee aunque falte. El instalador siempre lo trae y en desarrollo lo baja `scripts/fetch-ocr.ps1`; el error se dice con las palabras de siempre («lo que lee no está instalado»).
+- **Sin `pdfium.dll` no se lee ningún PDF.** Antes un PDF con texto se leía aunque faltara. El instalador siempre lo trae y en desarrollo lo baja `scripts/fetch-ocr.ps1`; si faltara, el PDF sale como «no se pudo abrir».
 
 ## Bloques
 
 1. **Medición** (hecho): la comparación de arriba.
-2. **El texto de cada página con Pdfium** (`pdf.rs`), con el guion de corte y los párrafos. Las tablas siguen como hoy. Pruebas de convocatorias, Lector, búsqueda y expediente.
+2. **El texto de cada página con Pdfium** (`pdf.rs`), con el guion de corte y los párrafos. Las tablas siguen como hoy. Pruebas de convocatorias, Lector, búsqueda y expediente. *Hecho, ver abajo.*
 3. **Las tablas con Pdfium:** `pdf_rows` sobre las cajas de letra de Pdfium y `pdf_grid` sobre sus trazos. Al final se quitan `pdf-extract` y `lopdf`.
+
+## Bloque 2 hecho (2026-10-13): el texto con Pdfium
+
+- **`pdf::read_pdf` lee con Pdfium** letra por letra, con la caja de cada una.
+  - Los renglones son los que da Pdfium.
+  - El signo U+0002 se escribe «-».
+  - Un renglón en blanco separa dos párrafos cuando la distancia entre dos renglones pasa de media altura del renglón más bajo, o cuando el siguiente sube en la página (otra columna). Se toma el más bajo porque bajo un título grande la distancia es chica comparada con el título, pero no con el texto; con el más alto, el título se pegaba al primer párrafo.
+- **Medido otra vez sobre los 24 PDF de muestra:**
+  - mismas letras que antes;
+  - sin signos raros;
+  - palabras de una letra (texto partido): de 34 a 1 en el peor archivo;
+  - párrafos parecidos a los de antes (53 contra 64, 35 contra 51; `pdf-extract` partía de más las listas);
+  - de 5 a 20 veces más rápido.
+- **Un archivo con contraseña lo dice** (pedido de la institución: que nada termine en silencio).
+  - Un PDF: Pdfium responde `PasswordError` → `PdfError::Protected` → `ReadError::Protected`.
+  - Un Word o Excel guardado con contraseña no es un ZIP: Office lo guarda en su contenedor viejo (empieza con D0 CF 11 E0) con una parte llamada «EncryptionInfo». Ese par se reconoce antes de intentar leerlo.
+  - En el Expediente (`Unreadable::Protected`) y en las convocatorias, la persona lee: «Ese archivo tiene contraseña y no lo podemos abrir. Guarde una copia sin contraseña (o pida una a quien se lo dio) y súbala otra vez.» Antes salía «dañado».
+  - Un PDF que solo restringe imprimir o copiar (contraseña de propietario) se abre y se lee como cualquier otro.
+- **Ya no hay segundo intento** cuando el texto no sale: antes, si `pdf-extract` fallaba, Pdfium contaba las páginas para leerlas como imagen. Ahora es el mismo motor, así que un archivo que Pdfium no abre está dañado.
+- **Fixtures y pruebas:**
+  - `fixtures/office/protegido.pdf` (`generar.py protegidos`);
+  - `paragraphs_come_from_how_far_apart_the_lines_are`, `a_pdf_with_a_password_says_so`, `the_text_of_a_page_keeps_its_paragraphs`, `a_file_with_a_password_says_so` y el Expediente en `what_cannot_be_taken_says_why…`.
+- **Lo que no mide este bloque:** la búsqueda y el Lector se prueban con textos ficticios (`.txt`), no con PDF. Su prueba real es subir los PDF de la institución.
 
 ## Consecuencias
 

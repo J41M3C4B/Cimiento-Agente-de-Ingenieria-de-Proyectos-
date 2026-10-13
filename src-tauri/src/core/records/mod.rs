@@ -138,6 +138,8 @@ pub enum Unreadable {
     Damaged,
     /// More scanned pages than can be read in one file (`reading::MAX_PICTURE_PAGES`).
     TooManyPages,
+    /// It asks for a password to be opened.
+    Protected,
 }
 
 #[derive(Debug, Serialize)]
@@ -381,6 +383,7 @@ pub fn read_original(path: &Path) -> Result<FileText, Unreadable> {
         ReadError::TooManyPictures => Unreadable::TooManyPages,
         ReadError::Unsupported => Unreadable::UnsupportedType,
         ReadError::Damaged => Unreadable::Damaged,
+        ReadError::Protected => Unreadable::Protected,
     })?;
     let pages: Vec<String> = raw.pages.iter().map(|p| crate::documents::text::clean_text(p)).collect();
     let letters = |t: &str| t.chars().filter(|c| c.is_alphabetic()).count();

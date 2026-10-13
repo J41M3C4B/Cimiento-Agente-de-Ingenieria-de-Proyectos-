@@ -36,7 +36,7 @@ cargo test overview                                    # la institución de un v
 cargo test core::history                               # origen por dato e historial ligero (ADR-033 §4): solo lo que cambia, lo protegido sin valor, cómo estaba en una fecha, solo crece
 cargo test profile::forms                              # las cuatro ventanas de «Mi institución»: guardado, reglas, Junta, escáner e historial en la misma transacción
 cargo test core::snapshot                              # foto mensual (ADR-033 §4): solo cifras, el mes en curso se actualiza, un mes pasado queda fijo y nada se borra
-cargo test documents::reading                          # leer escaneos y fotos (OCR, ADR-035): páginas sin texto dibujadas y leídas, la «@» de un correo, una página desteñida «con dudas», las celdas de una factura separadas con « | », la letra chica de una captura y de una foto se agranda y se lee, una página con letra normal no se relee, la carpeta temporal se borra
+cargo test documents::reading                          # leer escaneos y fotos (OCR, ADR-035): páginas sin texto dibujadas y leídas, la «@» de un correo, una página desteñida «con dudas», las celdas de una factura separadas con « | », la letra chica de una captura y de una foto se agranda y se lee, una página con letra normal no se relee, un PDF, Word o Excel con contraseña lo dice, la carpeta temporal se borra
 cargo test core::archive::search                       # búsqueda en los documentos (IA5): por palabras con el expediente ficticio, fusión, extractos, y la pregunta sale solo limpia
 cargo test core::archive::vectors                      # vectores del expediente (IA5): una vez, cada solicitud en ai_usage, otro modelo los rehace, el tope, el respaldo y el borrado
 #   la medición de IA5 con vectores reales (solo texto ficticio; ~170 textos, unas 7 solicitudes; con CIMIENTO_VEC_CACHE guarda los vectores y la siguiente vez no pide nada):
@@ -59,6 +59,7 @@ cargo test core::security                              # PIN, escaneo de la base
 #   $env:CIMIENTO_SAMPLE_DIR="D:\...\muestra"; cargo test write_a_sample_guide -- --ignored --nocapture
 pnpm tauri build --bundles nsis                        # instalador de Windows (con Strawberry Perl antes que el de Git en el PATH)
 cargo test pdf_grid                                    # tablas con bordes por las líneas del PDF (sin gasto)
+cargo test documents::pdf                              # el texto de un PDF con Pdfium (ADR-037): párrafos por la distancia entre renglones, guion de corte, contraseña
 cargo test pdf_rows                                    # tablas sin bordes por la posición de las letras (sin gasto)
 # los dos motores de PDF lado a lado (ADR-037): letras, palabras, acentos, signos raros, palabras partidas y tiempo de cada archivo de una carpeta; sin imprimir el texto salvo que se pida una página (solo con PDF públicos):
 #   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test compare_pdf_engines -- --ignored --nocapture > salida.txt   (opcional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3")

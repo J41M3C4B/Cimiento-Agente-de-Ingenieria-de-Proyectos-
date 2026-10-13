@@ -58,6 +58,8 @@ pub enum Unreadable {
     Scanned,
     /// More scanned pages than can be read in one file (`reading::MAX_PICTURE_PAGES`).
     TooManyPictures,
+    /// It asks for a password to be opened.
+    Protected,
     Empty,
     /// It looks like a list of people, which is never saved (`scanner`).
     Roster,
@@ -119,6 +121,7 @@ fn prepare(file: &UploadedFile, role: FileRole, scanner: &PublicDocScanner) -> R
     // a scanned page or a photo is read as a picture (OCR, ADR-035)
     let raw = read_upload(&format!("upload.{ext}"), &file.bytes).map_err(|e| match e {
         ReadError::TooManyPictures => Unreadable::TooManyPictures,
+        ReadError::Protected => Unreadable::Protected,
         _ => Unreadable::Damaged,
     })?;
 

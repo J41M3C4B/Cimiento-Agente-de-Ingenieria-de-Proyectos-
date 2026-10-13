@@ -39,6 +39,20 @@ fn a_pdf_with_text_keeps_its_text_and_other_files_are_not_read() {
     assert_eq!(read_upload("roto.pdf", b"esto no es un pdf"), Err(ReadError::Damaged));
 }
 
+/// A PDF, Word or Excel file with a password is said to have one: never «damaged», never silent.
+#[test]
+fn a_file_with_a_password_says_so() {
+    assert_eq!(read_file(&fixture("protegido.pdf")), Err(ReadError::Protected));
+    // what Office writes for a file saved with a password: its old container and a part named «EncryptionInfo»
+    let mut word = vec![0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+    word.extend(std::iter::repeat_n(0u8, 64));
+    word.extend("EncryptionInfo".encode_utf16().flat_map(u16::to_le_bytes));
+    assert_eq!(read_upload("estatutos.docx", &word), Err(ReadError::Protected));
+    assert_eq!(read_upload("cuotas.xlsx", &word), Err(ReadError::Protected));
+    // the same container without that part is an old file, not one with a password
+    assert_eq!(read_upload("viejo.docx", &word[..72]), Err(ReadError::Damaged));
+}
+
 #[test]
 fn the_folder_of_an_upload_is_gone_when_it_is_dropped() {
     let scratch = Scratch::new().unwrap();

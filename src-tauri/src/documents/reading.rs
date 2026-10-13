@@ -34,6 +34,8 @@ pub enum ReadError {
     Damaged,
     /// More pages to read as pictures than `MAX_PICTURE_PAGES`.
     TooManyPictures,
+    /// A PDF, Word or Excel file that asks for a password: the person is told so, it is not «damaged».
+    Protected,
 }
 
 /// Who hears how a reading of pictures goes (the screen, through an event): pages done and pages in all.
@@ -66,6 +68,9 @@ pub fn read_file(path: &Path) -> Result<Reading, ReadError> {
         return Err(ReadError::Unsupported);
     }
     if !matches!(ext.as_str(), "pdf" | "jpg" | "jpeg" | "png") {
+        if office_with_password(path) {
+            return Err(ReadError::Protected);
+        }
         let pages = super::canonical::package::read_pieces(path).map_err(|_| ReadError::Damaged)?;
         return Ok(Reading { pages, from_picture: vec![], doubtful: vec![] });
     }
@@ -83,6 +88,15 @@ pub fn read_file(path: &Path) -> Result<Reading, ReadError> {
         }
     }
     Ok(reading)
+}
+
+/// A Word or Excel file saved with a password is not a ZIP like the others: Office keeps it in an older container
+/// (its first bytes are D0 CF 11 E0) with a part named «EncryptionInfo».
+fn office_with_password(path: &Path) -> bool {
+    const CONTAINER: [u8; 8] = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+    let Ok(bytes) = std::fs::read(path) else { return false };
+    let name: Vec<u8> = "EncryptionInfo".encode_utf16().flat_map(u16::to_le_bytes).collect();
+    bytes.starts_with(&CONTAINER) && bytes.windows(name.len()).any(|w| w == name.as_slice())
 }
 
 /// Reads a file the screen sent as bytes: it is put in a folder of its own only while it is read, and the folder is
@@ -131,13 +145,11 @@ fn read_photo(bytes: &[u8]) -> Reading {
 }
 
 fn read_pdf(path: &Path) -> Result<Reading, ReadError> {
+    // Pdfium both takes out the text and draws the pages (ADR-037): a file it cannot open cannot be drawn either
     let (mut pages, scanned) = match super::pdf::read_pdf_with_rows(path) {
         Ok(t) => (t.pages, t.pages_without_text),
-        Err(_) => {
-            // the text could not be taken out; the pages may still be drawn (a scan the extractor does not follow)
-            let n = ocr::page_count(path).map_err(|_| ReadError::Damaged)?;
-            (vec![String::new(); n], (1..=n).collect())
-        }
+        Err(super::pdf::PdfError::Protected) => return Err(ReadError::Protected),
+        Err(_) => return Err(ReadError::Damaged),
     };
     let mut reading = Reading { pages: vec![], from_picture: vec![], doubtful: vec![] };
     if !scanned.is_empty() && ocr::available() {

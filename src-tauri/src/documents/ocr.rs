@@ -331,6 +331,7 @@ fn from_tsv(tsv: &str) -> PageRead {
 
 static PDFIUM: OnceLock<Option<Pdfium>> = OnceLock::new();
 
+/// Pdfium, bound once: it draws the scanned pages here and takes out the text of every PDF in `pdf` (ADR-037).
 pub(super) fn pdfium() -> Option<&'static Pdfium> {
     PDFIUM
         .get_or_init(|| {
@@ -338,12 +339,6 @@ pub(super) fn pdfium() -> Option<&'static Pdfium> {
             Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(&dir)).ok().map(Pdfium::new)
         })
         .as_ref()
-}
-
-/// How many pages a PDF has, by Pdfium: for a file whose text cannot be taken out.
-pub fn page_count(path: &Path) -> Result<usize, OcrError> {
-    let doc = pdfium().ok_or(OcrError::Missing)?.load_pdf_from_file(path, None).map_err(|e| OcrError::Draw(e.to_string()))?;
-    Ok(doc.pages().len() as usize)
 }
 
 /// Draws pages of a PDF (numbers from 1), one by one in gray, as Tesseract reads them (PGM), with the resolution

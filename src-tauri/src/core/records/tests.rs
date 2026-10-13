@@ -193,6 +193,8 @@ fn what_cannot_be_taken_says_why_and_a_word_file_goes_through_the_scanner() {
     let broken = dir.path().join("roto.pdf");
     std::fs::write(&broken, b"esto no es un pdf").unwrap();
     assert_eq!(why(&mut c, &broken), Unreadable::Damaged);
+    // a file with a password says so: the person learns why, nothing ends in silence
+    assert_eq!(why(&mut c, &fixture(dir.path(), "protegido.pdf")), Unreadable::Protected);
     assert!(store::rows(&c).unwrap().is_empty());
 
     let blocks = [crate::documents::docx::Block::Paragraph("Aviso de privacidad de la institución. Dudas con maria.lopez@example.com, responsable de los datos personales que se recaban.".into())];
