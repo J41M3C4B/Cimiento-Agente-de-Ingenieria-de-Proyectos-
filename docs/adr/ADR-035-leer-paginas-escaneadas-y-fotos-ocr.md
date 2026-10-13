@@ -66,6 +66,58 @@ Decisiones de la institución (2026-10-10): Tesseract dentro del instalador, pre
    - 120 segundos por página.
    - 40 MB por archivo, como ya estaba.
 
+### Precisiones con documentos reales (2026-10-13) — **propuestas, por decidir**
+
+Al probar la aplicación con documentos reales salieron tres problemas. Se midieron en el equipo de desarrollo, con los mismos parámetros de la aplicación, sin guardar ni imprimir el texto (`cargo test reader_on_a_file`, que ahora también dice, por página, qué datos protegidos encuentra el escáner, sin sus valores). Nada de esos documentos entró al repositorio.
+
+**1. La letra chica se lee mal: hay que agrandar la imagen, no entrenar el modelo.**
+
+- Una captura de pantalla de la ficha de un registro público (854×764 a 96 ppp, letra de unos 7 píxeles) perdía un número completo y un título, juntaba «rn» en «m» («Hemández», «Intemado») y cambiaba «t» por «l» («alención»).
+- La misma imagen agrandada con Lanczos:
+
+  | Escala | Confianza | Número y título | Palabras de prueba bien / mal |
+  |---|---|---|---|
+  | ×1 (como hoy) | 83.0 | se pierden | 9 / 13 |
+  | ×2 | 94.1 | se leen | 18 / 3 |
+  | ×3 | 93.3 | se leen | 19 / 2 |
+  | ×4 | 93.6 | se leen | 20 / 1 |
+
+- **Entrenar Tesseract no se hace por ahora.** Ya usamos el modelo más preciso (`tessdata_best`). Los conjuntos de datos públicos (inglés, letra a mano, recibos) no se parecen a un acta mexicana, y ajustar con ellos puede empeorar lo que ya se lee bien. Si algún día hace falta, será con texto ficticio generado por nosotros y después de agotar lo demás.
+- Lo que no arregla ni agrandar ni entrenar: «I.A.P.» se lee «1.A.P.» en todas las escalas, porque en Arial la «I» y la «l» son el mismo dibujo. Eso lo arreglan reglas en el código para siglas y campos con formato (CURP, RFC, montos).
+- Veinte fotos de recibos en inglés, guardadas fuera del repositorio, sirven solo como prueba difícil de fotos (arrugadas, chuecas, con fondo). Agrandarlas ayuda menos (un total leyó «194,02» por 144.02): las fotos necesitan además recortar, enderezar y contraste. No sirven para entrenar.
+- **Propuesta:** Tesseract ya da la altura de cada palabra. Si la altura típica queda por debajo de unos 20 píxeles, la imagen se agranda para que la letra mida unos 30 y se lee otra vez. La resolución de una foto no se adivina: se mide en la primera lectura, y una página bien leída no se lee dos veces. Va con pruebas: una captura chica y una foto chica ficticias, con su texto esperado.
+
+**2. Las actas constitutivas se rechazan como «lista de personas».**
+
+| Acta real | Páginas (escaneadas) | Lo que encuentra el escáner | Regla que la rechaza |
+|---|---|---|---|
+| A | 37 (37) | 3 CURP y 4 RFC de persona, en 3 páginas | Más de 5 datos bloqueantes en todo el archivo (`ROSTER_BLOCK_LIMIT`) |
+| B, testada | 69 (67) | 1 RFC y 1 NSS | Un renglón con «NOMBRE» y «EDAD», en una sola página |
+
+- La primera regla cuenta **datos**, no **personas**: la CURP y el RFC de un mismo socio suman dos, así que un acta con 3 o 4 socios ya rebasa el tope.
+- La segunda busca «EDAD» **dentro de palabras**: «soci**edad**», «propi**edad**», «activid**ad**» la activan. El renglón de B es una frase de 119 letras con dos comas, no el encabezado de una tabla.
+- **Propuesta** (`RegexScanner::looks_like_roster`):
+  - palabras completas («EDAD» sí, «SOCIEDAD» no);
+  - un encabezado de lista es un renglón de celdas cortas, no una frase;
+  - contar **personas distintas**: la CURP y el RFC de una persona empiezan con las mismas 10 letras;
+  - en la duda, **cuarentena** («Tapar y seguir») en lugar de rechazo. Un acta debe poder guardarse con los datos de los socios tapados; el rechazo completo queda para lo que de verdad es una lista.
+- Pruebas: un acta ficticia con varios socios y la palabra «sociedad» entra a cuarentena; una lista ficticia con encabezado y una con 6 o más personas distintas siguen rechazadas.
+
+**3. Leer un acta larga ocupa demasiado el equipo.**
+
+- Medido en un Ryzen 5 3400G (4 núcleos, 8 hilos, 16 GB), con 4 páginas a la vez:
+  - acta A: 37 páginas en 171 s;
+  - acta B: 67 páginas en 216 s. 20 de ellas quedaron «con dudas» y se leyeron dos veces; casi todas son pares (reversos con sello o franjas del testado, por confirmar).
+- En un equipo típico de una institución (2 núcleos, 4 a 8 GB) se calculan **8 a 10 minutos por acta** con el procesador muy ocupado.
+- **La nube no es opción para el OCR:** el escáner debe revisar el texto antes de que algo salga del equipo (principio 5), y una imagen no se puede revisar sin leerla primero.
+- **Propuestas, de la más barata a la más grande:**
+  1. Tesseract con **prioridad baja** (`BELOW_NORMAL_PRIORITY_CLASS`): Windows le da el procesador solo cuando nadie más lo usa. La computadora no se congela; la lectura tarda más.
+  2. **Leer en segundo plano y guardar el avance por página**: la persona sigue trabajando y puede cerrar el programa sin perder lo leído.
+  3. **Medir `tessdata_fast`** contra `tessdata_best`, ya con la imagen agrandada. Hoy cada renglón pasa por dos modelos precisos (`eng+spa`).
+  4. **No releer una página casi vacía** aunque salga «con dudas»: una segunda lectura no le gana nada.
+
+**Orden propuesto:** primero la regla de «lista de personas» (hoy impide guardar cualquier acta real); después prioridad baja y agrandado de letra chica; al final la medición de `tessdata_fast` y la lectura en segundo plano.
+
 ## Mediciones (fixtures ficticios, 2026-10-10, un hilo)
 
 | Archivo | Lectura | Confianza | Tiempo |

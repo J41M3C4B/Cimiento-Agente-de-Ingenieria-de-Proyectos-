@@ -1,6 +1,6 @@
 ---
 tipo: mapa
-actualizado: 2026-10-12
+actualizado: 2026-10-13
 ---
 
 # Mapa del proyecto
@@ -11,6 +11,9 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > Estamos en el **ADR-036 · Cajones de documentos con dueño**. **Primero solo el núcleo** («Inicio» y «Mi institución»): lo dejamos sin problemas y probado, y los módulos repiten después la misma forma de trabajar.
 > **C1 está hecho:** Documentos ya es la bandeja del Expediente. **Siguiente bloque: C2**, el Lector del Expediente. No empieza hasta que pruebes C1 y lo apruebes.
 
+> [!warning] Por decidir (2026-10-13): el OCR con documentos reales
+> Las actas constitutivas reales se rechazan como «lista de personas», la letra chica se lee mal y un acta larga ocupa demasiado el equipo. Mediciones y propuestas en el [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md). Hoy un acta real con varios socios suele quedar fuera del Expediente.
+
 ## Qué es SociAI, en una línea
 
 Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen sus datos y armen proyectos para pedir donativos. Lo usan directivas y religiosas sin perfil técnico. Ver [Visión](00-vision.md).
@@ -20,6 +23,7 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | | Bloque | Qué hace | Estado |
 |---|---|---|---|
 | 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | **Hecho, por probar** |
+| — | **OCR** | Las actas ya no se rechazan como lista (van a cuarentena); la letra chica se agranda; Tesseract con prioridad baja; medir `tessdata_fast` | **Por decidir** (ADR-035, precisiones 2026-10-13) |
 | 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | Pendiente |
 | 3 | **C3** | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?») | Pendiente |
 | 4 | **C4** | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti | Pendiente |
@@ -31,6 +35,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 ## Lo que espera tu respuesta
 
 - **Probar C1** (pasos abajo) y aprobar el inicio de C2.
+- **Decidir el orden del OCR** (ADR-035, precisiones 2026-10-13): propuesta, primero la regla de «lista de personas», después prioridad baja y agrandado de letra chica, al final `tessdata_fast` y la lectura en segundo plano.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
 
@@ -48,6 +53,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-13 | **OCR con documentos reales (solo medición):** agrandar la letra chica lleva una captura de 13 palabras mal leídas a 2; dos actas reales se rechazan como «lista de personas» por dos reglas toscas del escáner; 37 páginas tardan 171 s en un equipo de 4 núcleos; no se entrena Tesseract ni se usa la nube | [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
 | 2026-10-12 | **C1:** cada documento lleva su cajón; Documentos es la bandeja (pregunta qué documento del Expediente es y abre su ventana); la búsqueda siempre en un cajón; quitar o reemplazar un archivo saca su texto del cajón; «Borrar esto y todo…» ya no falla con un dato aceptado | [ADR-036, precisiones C1](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-12 | **ADR-036:** cajones con dueño, un agente por cajón, el Asistente como orquestador, cada agente validado con el modelo más barato; primero el núcleo | [ADR-036](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-12 | **IA6a con documentos reales:** el Lector entiende un acta real de 14 páginas y la ficha de la Junta (nombre, figura, año, objeto, número de institución); el objeto nunca incluye nombres del patronato | [Roadmap, IA6a](09-roadmap.md) |

@@ -150,6 +150,26 @@ fn reader_on_a_file() {
         println!("  p{:>2}: {:>5} letras  {}  {:?}", i + 1, letters, if read.from_picture.contains(&(i + 1)) { "imagen" } else { "texto " }, marks);
     }
     let pages: Vec<String> = read.pages.iter().map(|p| crate::documents::text::clean_text(p)).collect();
+    // what the scanner finds, only by kind and page (never the values), and whether the file is refused as a list
+    use crate::scanner::SensitiveScanner;
+    let scanner = crate::scanner::RegexScanner::new(Default::default());
+    let scanner = if read.from_picture.is_empty() { scanner } else { scanner.reading_pictures() };
+    let whole = scanner.scan(&pages.join("\n\n"));
+    println!("Escáner: {:?}  bloqueantes: {}  ¿lista de personas?: {}", whole.counts(), whole.count_blocking(), scanner.looks_like_roster(&pages.join("\n\n"), &whole));
+    for (i, p) in pages.iter().enumerate() {
+        // the lines that read as the header of a list of people: only which of its words are there
+        for line in crate::storage::fts::fold(p).lines() {
+            let seps = line.matches(['\t', '|', ';', ',']).count() + line.matches("  ").count();
+            let keys: Vec<&str> = ["edad", "diagnostico", "curp", "padecimiento", "fecha de nacimiento"].into_iter().filter(|k| line.contains(k)).collect();
+            if seps >= 2 && line.contains("nombre") && !keys.is_empty() {
+                println!("  p{:>2}: renglón como encabezado de lista: «nombre» + {:?}, {} separadores, {} letras", i + 1, keys, seps, line.chars().count());
+            }
+        }
+        let r = scanner.scan(p);
+        if r.count_blocking() > 0 {
+            println!("  p{:>2}: {:?}", i + 1, r.findings.iter().filter(|f| f.severity == crate::scanner::Severity::Block).map(|f| f.kind).collect::<Vec<_>>());
+        }
+    }
     // only when asked: a few words around the first place each of these appears, to see how the document writes it
     //   $env:CIMIENTO_READER_SHOW="objeto,denominacion"
     if let Ok(show) = std::env::var("CIMIENTO_READER_SHOW") {
