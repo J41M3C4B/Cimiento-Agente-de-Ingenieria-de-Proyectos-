@@ -163,3 +163,106 @@ fn a_number_is_in_words_or_in_figures() {
     assert!(says_number("treinta y una personas contratadas", 31));
     assert!(!says_number("Atendimos a 48 personas y a 22 más", 70), "a sum is not in the words");
 }
+
+/// How a suggestion (or its absence) compares with what `lector.json` expects of its field.
+fn grade(expected: &Value, got: Option<&proposals::Proposal>) -> (&'static str, bool) {
+    let plain_of = |v: &Value| plain(&v.as_str().map_or_else(|| v.to_string(), str::to_string));
+    let page_ok = |p: &proposals::Proposal| {
+        expected["paginas"].as_array().is_none_or(|pages| pages.iter().any(|e| Some(e[0].as_str().unwrap_or_default()) == p.document.as_deref() && e[1].as_i64() == p.page))
+    };
+    let Some(p) = got else {
+        return if expected["nada"].as_bool() == Some(true) { ("bien: nada", true) } else if expected["libre"].as_bool() == Some(true) { ("libre: nada", true) } else { ("FALTÓ", true) };
+    };
+    if expected["libre"].as_bool() == Some(true) {
+        return ("libre", page_ok(p));
+    }
+    if expected["nada"].as_bool() == Some(true) {
+        let fine = expected["aceptables"].as_array().is_some_and(|a| a.iter().any(|x| plain_of(x) == plain_of(&p.value)));
+        return (if fine { "aceptable" } else { "INVENTÓ" }, page_ok(p));
+    }
+    let right = if let Some(values) = expected["valores"].as_array() {
+        values.iter().any(|x| plain_of(x) == plain_of(&p.value))
+    } else if let Some(words) = expected["contiene"].as_array() {
+        words.iter().all(|w| plain_of(&p.value).contains(&plain_of(w)))
+    } else if let Some(words) = expected["alguno"].as_array() {
+        words.iter().any(|w| plain_of(&p.value).contains(&plain_of(w)))
+    } else if let Some(codes) = expected["incluye"].as_array() {
+        codes.iter().all(|c| p.value.as_array().is_some_and(|a| a.contains(c)))
+    } else {
+        false
+    };
+    (if right { "bien" } else { "MAL" }, page_ok(p))
+}
+
+/// The real run of C2 (ADR-036 §8), opt-in and capped: the four windows of «Mi institución» over the fictitious
+/// Expediente, with the provider and key saved in the app (4 calls with the cheapest model) and, with Gemini, the
+/// vectors of the fictitious fragments (a couple of requests). For every field of `lector.json`: the value, whether
+/// it is right, and whether its page is one expected; then calls, tokens, cost and time per window. Only fictitious
+/// text goes out. Its whole output goes to a file:
+///   cargo test reader_live -- --ignored --nocapture > reader_live.txt
+#[tokio::test]
+#[ignore]
+async fn reader_live() {
+    let (_d, db) = db(true);
+    let provider = {
+        let c = db.lock().unwrap();
+        let cfg = crate::ai::settings::load(&c).unwrap();
+        let key = crate::storage::get_api_key(cfg.provider.as_str()).unwrap().expect("save the key in the app first");
+        println!("Proveedor: {}  modelo ligero: {}", cfg.provider.as_str(), cfg.model_for(ModelTier::Light));
+        crate::ai::build_provider(&cfg, key)
+    };
+    let embedder = vectors::embedder(&db, false);
+    if let Some(e) = &embedder {
+        let made = vectors::index_pending(&db, e.as_ref()).await.unwrap();
+        println!("Vectores de los fragmentos: {made}");
+    } else {
+        println!("Sin vectores: solo por palabras");
+    }
+    let usage = |db: &SharedDb| -> (i64, i64, i64, f64) {
+        db.lock()
+            .unwrap()
+            .query_row(
+                "SELECT count(*), coalesce(sum(input_tokens),0), coalesce(sum(output_tokens),0), coalesce(sum(estimated_cost_mxn),0) FROM ai_usage WHERE task = 'agent.reader'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .unwrap()
+    };
+    let reference = reference();
+    let (mut right, mut wrong, mut missed, mut invented, mut pages_ok, mut graded) = (0, 0, 0, 0, 0, 0);
+    for (form, _, name) in FILLABLE {
+        let before = usage(&db);
+        let started = std::time::Instant::now();
+        let out = fill_window(&db, Some(provider.as_ref()), embedder.clone(), form).await.unwrap();
+        let after = usage(&db);
+        println!("\n== {name}: {:.1} s  llamadas {}  entrada {}  salida {}  costo ${:.4} MXN", started.elapsed().as_secs_f64(), after.0 - before.0, after.1 - before.1, after.2 - before.2, after.3 - before.3);
+        println!("{out:?}");
+        let waiting = proposals::pending(&db.lock().unwrap(), form, None).unwrap();
+        let saved = crate::core::profile::forms::saved_values(&db.lock().unwrap(), form).unwrap();
+        for (field, expected) in reference[*form].as_object().unwrap() {
+            if is_filled(saved.get(field.as_str())) {
+                println!("  {field:<40} ya escrito: no se pidió");
+                continue;
+            }
+            let got = waiting.iter().find(|p| &p.field_id == field);
+            let (verdict, page) = grade(expected, got);
+            let shown = got.map_or("—".to_string(), |p| format!("{}  ({}, p{})", p.value, p.document.as_deref().unwrap_or("?"), p.page.unwrap_or(0)));
+            let quote = got.and_then(|p| p.source_ref.as_deref()).and_then(|s| serde_json::from_str::<Value>(s).ok()).and_then(|v| v["quote"].as_str().map(str::to_string)).unwrap_or_default();
+            println!("  {field:<40} {verdict:<12} {}  {shown}\n      «{quote}»", if got.is_some() { if page { "página bien" } else { "PÁGINA MAL" } } else { "" });
+            match verdict {
+                "bien" => right += 1,
+                "MAL" => wrong += 1,
+                "FALTÓ" => missed += 1,
+                "INVENTÓ" => invented += 1,
+                _ => {}
+            }
+            if got.is_some() && expected["libre"].as_bool() != Some(true) {
+                graded += 1;
+                pages_ok += usize::from(page);
+            }
+        }
+    }
+    let total = usage(&db);
+    println!("\nTOTAL: bien {right}  mal {wrong}  faltó {missed}  inventó {invented}  páginas bien {pages_ok} de {graded}");
+    println!("Llamadas {}  entrada {}  salida {}  costo ${:.4} MXN", total.0, total.1, total.2, total.3);
+}

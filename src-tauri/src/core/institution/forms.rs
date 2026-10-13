@@ -275,6 +275,44 @@ pub const RECORD_KNOWN: FormSpec = FormSpec { id: "institution.record", sections
 /// The forms of the lists, one row each: they do not belong to the profile, so they are kept apart from `FORMS`.
 pub const LIST_FORMS: &[&FormSpec] = &[&BOARD_MEMBER, &BANK_ACCOUNT, &RECORD];
 
+/// The words of the screen (`src/i18n/es-MX.ts`, the one source of the words), read by the program too: the AI is
+/// shown each code of a field with its name, so it can tell that «ASISTENCIAL» in a document is `assistance`.
+const SCREEN_WORDS: &str = include_str!("../../../../src/i18n/es-MX.ts");
+
+/// The name of a code of a field on the screen («assistance» of «Rubro autorizado» → «Asistencial»), from the entry of
+/// the field in `forms.fields` or from the shared list it names (`options: STATES`).
+pub fn option_label(field: &str, code: &str) -> Option<&'static str> {
+    use std::collections::HashMap;
+    use std::sync::OnceLock;
+    static LABELS: OnceLock<HashMap<String, HashMap<String, &'static str>>> = OnceLock::new();
+    let labels = LABELS.get_or_init(|| {
+        let es = SCREEN_WORDS;
+        let Some(start) = es.find("forms: {") else { return HashMap::new() };
+        let block = &es[start..];
+        // `code: "Name"`, one per line or several on one line, inside the options of the field
+        let pair = regex::Regex::new(r#""?\b([a-z0-9_]+)"?:\s*"([^"]+)""#).unwrap();
+        let mut out = HashMap::new();
+        for f in FORMS.iter().chain(LIST_FORMS).flat_map(|f| f.fields()).filter(|f| !f.options.is_empty()) {
+            let head = format!("\"{}\": {{", f.id);
+            let Some(at) = block.find(&head) else { continue };
+            let rest = &block[at + head.len()..];
+            let entry = &rest[..rest.find("\n      \"").or_else(|| rest.find("\n    }")).unwrap_or(rest.len())];
+            let Some(options) = entry.split("options: ").nth(1).map(str::trim_start) else { continue };
+            let words: &str = if let Some(inner) = options.strip_prefix('{') {
+                &inner[..inner.find('}').unwrap_or(inner.len())]
+            } else {
+                let name: String = options.chars().take_while(|c| c.is_alphanumeric() || *c == '_').collect();
+                let Some(from) = es.find(&format!("const {name}")) else { continue };
+                &es[from..from + es[from..].find("};").unwrap_or(es.len() - from)]
+            };
+            let codes: HashMap<String, &'static str> = pair.captures_iter(words).map(|c| (c[1].to_string(), c.get(2).unwrap().as_str())).collect();
+            out.insert(f.id.to_string(), codes);
+        }
+        out
+    });
+    labels.get(field)?.get(code).copied()
+}
+
 /// A field of any form of the core, of the profile or of its lists.
 pub fn field(id: &str) -> Option<&'static FieldSpec> {
     FORMS.iter().chain(LIST_FORMS).find_map(|f| f.field(id))
@@ -286,6 +324,18 @@ mod tests {
 
     /// Every field has its words in the screen (ADR-033 §1): a label under `forms.fields` with its id, and a label
     /// for each of its codes, in its own entry or in the shared list it names (`options: STATES`).
+    #[test]
+    fn the_ai_is_shown_each_code_with_its_name_on_the_screen() {
+        assert_eq!(option_label("institution.donee_category", "assistance"), Some("Asistencial"));
+        assert_eq!(option_label("institution.legal_form", "iap"), option_label("institution.legal_form", "iap").filter(|l| !l.is_empty()));
+        for f in FORMS.iter().flat_map(|f| f.fields()).filter(|f| f.id != "institution.state") {
+            for code in f.options {
+                assert!(option_label(f.id, code).is_some(), "{}: the code {code} has no name for the AI", f.id);
+            }
+        }
+        assert_eq!(option_label("institution.legal_form", "nope"), None);
+    }
+
     #[test]
     fn every_field_of_every_form_has_its_words() {
         let es = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/i18n/es-MX.ts")).unwrap();

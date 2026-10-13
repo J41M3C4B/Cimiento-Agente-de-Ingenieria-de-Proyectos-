@@ -138,9 +138,13 @@ pub(crate) fn describe(f: &FieldSpec, saved: Option<&Value>) -> String {
             let codes: Vec<String> = f
                 .options
                 .iter()
-                .map(|c| match crate::core::institution::catalog::state_name(c) {
-                    Some(name) if f.id == "institution.state" => format!("{c} ({name})"),
-                    _ => (*c).to_string(),
+                // each code with its name on the screen: a document says «ASISTENCIAL», not `assistance`
+                .map(|c| match crate::core::institution::catalog::state_name(c).filter(|_| f.id == "institution.state") {
+                    Some(name) => format!("{c} ({name})"),
+                    None => match crate::core::institution::forms::option_label(f.id, c) {
+                        Some(label) => format!("{c} ({label})"),
+                        None => (*c).to_string(),
+                    },
                 })
                 .collect();
             let one = if f.kind == FieldKind::Select { "una opción" } else { "varias opciones" };
