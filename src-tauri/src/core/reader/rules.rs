@@ -3,7 +3,8 @@
 //! representative of the poder. No AI: each rule knows where the datum is and how it is written, and every value
 //! comes with the page and the line it was read from. What the rule does not find, it does not guess.
 
-use super::dates::{dates_in, dates_in_words};
+use super::dates::{dates_in, dates_in_words, leading_number_in_words};
+use crate::common::dates::add_days;
 use crate::common::forms::is_rfc_moral;
 use crate::storage::fts::fold;
 use regex::Regex;
@@ -19,6 +20,8 @@ pub struct Found {
     pub page: usize,
     /// The line it was read from.
     pub line: String,
+    /// Worked out by a rule from what the document says (origin `computed`), not written in it as such.
+    pub computed: bool,
 }
 
 macro_rules! re {
@@ -27,7 +30,8 @@ macro_rules! re {
     };
 }
 
-re!(RFC, r"(?i)\bR\.?F\.?C\.?\s*:?\s*([A-ZÑ&]{3}\d{6}[A-Z\d]{3})\b");
+// the six digits of the date may come from a picture with a letter in place of a digit («O» for «0»): read, then fixed
+re!(RFC, r"(?i)\bR\.?F\.?C\.?\s*:?\s*([A-ZÑ&]{3}[0-9OoIlSB]{6}[A-Z\d]{3})\b");
 re!(LEGAL_NAME, r"(?i)denominaci[oó]n\s*(?:o|/)\s*raz[oó]n\s+social\s*:?\s*(.+)$");
 re!(CAPITAL, r"(?i)r[eé]gimen\s+(?:de\s+)?capital\s*:?\s*(.+)$");
 re!(POSTAL, r"(?i)c[oó]digo\s+postal\s*:?\s*(\d{5})\b");
@@ -39,7 +43,7 @@ re!(NAMED_QUOTED, r#"(?i)denominad[ao]s?\s*[«"“]([^»"”]{3,120})[»"”]"#)
 re!(UNDER_NAME, r#"(?i)bajo\s+la\s+denominaci[oó]n\s+(?:de\s+)?[«"“]?([^«»"“”:]{3,120}?)[»"”]?\s*(?:,\s*(?:A\.?\s*C|[IL]\.?\s*A\.?\s*P|I\.?\s*B\.?\s*P|A\.?\s*B\.?\s*P|S\.?\s*C)\b|\.\s*-|\.-)"#);
 re!(LABEL_NAME, r"(?i)denominaci.n\s*:\s*([^:]{3,120}?)\s+(?:n[uú]mero|objeto|domicilio)\b");
 // the abbreviation of the legal form at the end of a name; a scan may read «I.A.P.» as «LAP»
-re!(LEGAL_SUFFIX, r"(?i),?\s*\b([IL]\.?\s*A\.?\s*P|A\.?\s*C|I\.?\s*B\.?\s*P|A\.?\s*B\.?\s*P|S\.?\s*C)\.?\s*$");
+re!(LEGAL_SUFFIX, r"(?i),?\s*\b([IL1]\.?\s*A\.?\s*P|A\.?\s*C|I\.?\s*B\.?\s*P|A\.?\s*B\.?\s*P|S\.?\s*C)\.?\s*$");
 // where the purpose starts: «tendrá por objeto», «tendrá como objetivo general», «el objeto social será», «Objeto:»;
 // never «con objeto de acordar», which is the purpose of a meeting
 re!(PURPOSE_START, r"(?i)\b(?:tendr[aá]|tiene|tenga|ser[aá])\s+(?:por|como)\s+objet(?:o|ivo)(?:\s+general|\s+social)?|\bobjeto\s+social\s+(?:ser[aá]|es|consiste\s+en)|\bcuyo\s+objeto\s+(?:ser[aá]|es)|\bobjeto\s*:");
@@ -55,6 +59,11 @@ re!(INSTITUTION_NUMBER, r"(?i)n[uú]mero\s+de\s+(?:instituci[oó]n|registro)\s*:
 re!(IN_FAVOR, r"a\s+favor\s+de\s+(?:(?:la|el)\s+(?:señora|señor|licenciada|licenciado|ciudadana|ciudadano|contadora|contador|C\.)\s+)?([A-ZÁÉÍÓÚÑ]{2,}(?:\s+[A-ZÁÉÍÓÚÑ]{2,}){1,5})");
 re!(CLUNI, r"(?i)\bCLUNI\)?\s*:?\s*([A-Z0-9]{10,20})\b");
 re!(FOLIO, r"(?i)\bfolio\s*(?:n[uú]mero|no\.?|n[uú]m\.?)?\s*:?\s*([A-Z0-9][A-Z0-9\-/]{2,20})");
+// the data of a document's own window (ADR-038): when it was issued, until when it is valid, its number
+re!(ISSUED, r"(?i)fecha\s+de\s+(?:emisi[oó]n|expedici[oó]n|presentaci[oó]n|inscripci[oó]n|registro)");
+re!(VALID_TO, r"(?i)\bvigen(?:te|cia)\b[^.]{0,160}?\bhasta\b");
+re!(DEED, r"(?i)\bescritura\s+(?:p[uú]blica\s+)?(?:n[uú]mero|n[uú]m\.?|no\.?)\s*:?\s*(.+)$");
+re!(ID_CIF, r"(?i)\bidCIF\s*:?\s*(\d{8,12})\b");
 
 /// The longest line kept as the place a datum was read from.
 const LINE_CHARS: usize = 200;
@@ -113,7 +122,8 @@ fn legal_name_in(pages: &[String]) -> Option<(usize, String, Option<&'static str
 
 /// The legal form an abbreviation names («A. C.», «I.A.P.», and «LAP» as a scan reads «I.A.P.»).
 fn suffix_form(abbr: &str) -> Option<&'static str> {
-    let a: String = abbr.chars().filter(|c| c.is_alphabetic()).collect::<String>().to_lowercase();
+    // a picture reads the «I» of «I.A.P.» as «1» too
+    let a: String = abbr.replace('1', "I").chars().filter(|c| c.is_alphabetic()).collect::<String>().to_lowercase();
     Some(match a.as_str() {
         "iap" | "lap" => "iap",
         "ac" => "ac",
@@ -125,7 +135,7 @@ fn suffix_form(abbr: &str) -> Option<&'static str> {
 }
 
 fn found(field: &'static str, value: Value, (page, line): (usize, String)) -> Found {
-    Found { field, value, page, line }
+    Found { field, value, page, line, computed: false }
 }
 
 /// The legal form a text names, as the catalog codes it.
@@ -240,7 +250,7 @@ fn purpose(pages: &[String], registry: bool) -> Option<Found> {
         let body = flat(body);
         (body.chars().count() >= 20).then(|| {
             let body: String = body.chars().take(PURPOSE_CHARS).collect();
-            Found { field: "institution.purpose", value: json!(body.trim_end()), page: i + 1, line: short(&body) }
+            Found { field: "institution.purpose", value: json!(body.trim_end()), page: i + 1, line: short(&body), computed: false }
         })
     })
 }
@@ -260,8 +270,8 @@ pub fn read(kind: &str, pages: &[String]) -> Vec<Found> {
     let mut out = Vec::new();
     match kind {
         "tax_status_certificate" => {
-            if let Some((p, rfc, line)) = first(pages, &RFC).filter(|x| is_rfc_moral(&x.1)) {
-                out.push(found("institution.legal_rfc", json!(rfc.to_uppercase()), (p, line)));
+            if let Some((p, rfc, line)) = first(pages, &RFC).map(|(p, r, l)| (p, rfc_digits(&r), l)).filter(|x| is_rfc_moral(&x.1)) {
+                out.push(found("institution.legal_rfc", json!(rfc), (p, line)));
             }
             if let Some((p, name, line)) = first(pages, &LEGAL_NAME) {
                 out.push(found("institution.legal_name", json!(name), (p, line)));
@@ -345,7 +355,95 @@ pub fn read(kind: &str, pages: &[String]) -> Vec<Found> {
         }
         _ => {}
     }
+    own(kind, pages, &mut out);
     out
+}
+
+/// An RFC as a picture may read it, in capitals, with the letters a scan puts in place of the six digits of its date
+/// fixed (O→0, I and l→1, S→5, B→8).
+fn rfc_digits(rfc: &str) -> String {
+    rfc.to_uppercase()
+        .chars()
+        .enumerate()
+        .map(|(i, c)| match (i, c) {
+            (3..=8, 'O') => '0',
+            (3..=8, 'I' | 'L') => '1',
+            (3..=8, 'S') => '5',
+            (3..=8, 'B') => '8',
+            _ => c,
+        })
+        .collect()
+}
+
+/// The first date after a label («Fecha de emisión: …»): on its line, else on the next one.
+fn date_after(pages: &[String], label: &Regex) -> Option<(String, (usize, String))> {
+    pages.iter().enumerate().find_map(|(i, p)| {
+        let lines: Vec<&str> = p.lines().collect();
+        lines.iter().enumerate().find_map(|(j, l)| {
+            let m = label.find(l)?;
+            let on_it = dates_in(&l[m.end()..]).into_iter().next().map(|(_, d)| (d, (i + 1, short(l))));
+            on_it.or_else(|| {
+                let next = lines.get(j + 1)?;
+                dates_in(next).into_iter().next().map(|(_, d)| (d, (i + 1, short(&format!("{l} {next}")))))
+            })
+        })
+    })
+}
+
+/// The date a document is valid until: the first date right after «vigente hasta» or «vigencia … hasta».
+fn valid_until(pages: &[String]) -> Option<(String, (usize, String))> {
+    pages.iter().enumerate().find_map(|(i, p)| {
+        let text = flat(p);
+        VALID_TO.find_iter(&text).find_map(|m| {
+            let rest: String = text[m.end()..].chars().take(120).collect();
+            let (at, iso) = dates_in(&rest).into_iter().next()?;
+            let gap = rest[..at].chars().count();
+            let around: String = text[m.start()..].chars().take(m.as_str().chars().count() + gap + 50).collect();
+            (gap <= 20).then(|| (iso, (i + 1, short(&around))))
+        })
+    })
+}
+
+/// The number of a notarial deed, in figures or in words («ESCRITURA PÚBLICA NÚMERO CUARENTA Y DOS MIL CIENTO DIEZ»).
+fn deed_number(pages: &[String]) -> Option<(String, (usize, String))> {
+    let (p, raw, line) = first(pages, &DEED)?;
+    let figures: String = raw.chars().take_while(|c| c.is_ascii_digit() || matches!(c, ',' | '.')).filter(char::is_ascii_digit).collect();
+    let number = if figures.is_empty() { leading_number_in_words(&raw)?.to_string() } else { figures };
+    Some((number, (p, line)))
+}
+
+/// What a document says of itself, for its own window (ADR-038): when it was issued, until when it is valid and its
+/// number. A deed is dated in words in its first pages; an oficio, by the first date of its first page; the rest, by
+/// the date after «fecha de emisión» (or of expedición, presentación, inscripción, registro). A 32-D is valid 30
+/// calendar days from its issue unless it says otherwise: that date is worked out (origin `computed`).
+fn own(kind: &str, pages: &[String], out: &mut Vec<Found>) {
+    let issued = match kind {
+        "articles_of_incorporation" | "bylaws_amendments" | "power_of_attorney" => first_date_in_words(pages, 2),
+        "donee_authorization" => first_date(pages, 1),
+        _ => None,
+    }
+    .or_else(|| date_after(pages, &ISSUED));
+    if let Some((date, at)) = &issued {
+        out.push(found("institution.record.issued_on", json!(date), at.clone()));
+    }
+    if let Some((date, at)) = valid_until(pages) {
+        out.push(found("institution.record.valid_until", json!(date), at));
+    } else if kind == "tax_compliance_opinion" {
+        if let Some((until, page)) = issued.as_ref().and_then(|(d, (p, _))| add_days(d, 30).map(|u| (u, *p))) {
+            out.push(Found { field: "institution.record.valid_until", value: json!(until), page, line: "30 días naturales desde su emisión".into(), computed: true });
+        }
+    }
+    let reference = match kind {
+        "articles_of_incorporation" | "bylaws_amendments" | "power_of_attorney" => deed_number(pages),
+        "donee_authorization" => first(pages, &OFICIO).map(|(p, n, l)| (n.trim_end_matches('.').to_string(), (p, l))),
+        "cluni_certificate" => first(pages, &CLUNI).map(|(p, n, l)| (n, (p, l))),
+        "junta_registration" | "tax_compliance_opinion" => first(pages, &FOLIO).filter(|x| x.1.chars().any(|c| c.is_ascii_digit())).map(|(p, n, l)| (n, (p, l))),
+        "tax_status_certificate" => first(pages, &ID_CIF).map(|(p, n, l)| (n, (p, l))),
+        _ => None,
+    };
+    if let Some((number, at)) = reference {
+        out.push(found("institution.record.reference", json!(number), at));
+    }
 }
 
 #[cfg(test)]
@@ -358,8 +456,51 @@ mod tests {
         fixture_pages(&std::fs::read_to_string(path).unwrap())
     }
 
+    /// What goes to «Mi institución»; the document's own window is checked by `what_each_document_says_of_itself`.
     fn values(found: &[Found]) -> Vec<(&str, Value, usize)> {
-        found.iter().map(|f| (f.field, f.value.clone(), f.page)).collect()
+        found.iter().filter(|f| !f.field.starts_with("institution.record.")).map(|f| (f.field, f.value.clone(), f.page)).collect()
+    }
+
+    /// The document's own window: (field without its prefix, value).
+    fn own_values(found: &[Found]) -> Vec<(&str, Value)> {
+        found.iter().filter_map(|f| f.field.strip_prefix("institution.record.").map(|k| (k, f.value.clone()))).collect()
+    }
+
+    /// The battery of the document's own window (ADR-038), one line per fictitious document of the record: when it
+    /// was issued, until when it is valid and its number, read by rules from where each kind writes them. This table
+    /// is the pattern every Reader of a module follows (`docs/agents/metodologia-lectores.md`).
+    #[test]
+    fn what_each_document_says_of_itself() {
+        let cases: &[(&str, &str, &[(&str, Value)])] = &[
+            ("constancia-situacion-fiscal.txt", "tax_status_certificate", &[("issued_on", json!("2026-02-06"))]),
+            ("oficio-donataria.txt", "donee_authorization", &[("issued_on", json!("2017-03-14")), ("reference", json!("600-04-02-2017-11234"))]),
+            ("acta-constitutiva.txt", "articles_of_incorporation", &[("issued_on", json!("2015-03-10")), ("reference", json!("42110"))]),
+            ("poder-notarial.txt", "power_of_attorney", &[("issued_on", json!("2024-01-18")), ("valid_until", json!("2027-01-18")), ("reference", json!("51300"))]),
+            ("aviso-funcionamiento.txt", "sanitary_notice", &[("issued_on", json!("2025-09-03"))]),
+            ("opinion-cumplimiento.txt", "tax_compliance_opinion", &[("issued_on", json!("2026-09-20")), ("valid_until", json!("2026-10-20")), ("reference", json!("26NB1234567"))]),
+            ("cluni.txt", "cluni_certificate", &[("issued_on", json!("2016-05-11")), ("reference", json!("CRF15031009015"))]),
+            ("registro-junta.txt", "junta_registration", &[("issued_on", json!("2015-06-02")), ("reference", json!("JAP-1234/2015"))]),
+            ("reglamento-interno.txt", "internal_rules", &[]),
+        ];
+        for (file, kind, expected) in cases {
+            let found = read(kind, &pages_of(file));
+            assert_eq!(own_values(&found), expected.to_vec(), "{file}");
+        }
+        // the validity of a 32-D is worked out from its issue, and says so
+        let f = read("tax_compliance_opinion", &pages_of("opinion-cumplimiento.txt"));
+        let until = f.iter().find(|x| x.field == "institution.record.valid_until").unwrap();
+        assert!(until.computed && until.line.contains("30 días"), "{until:?}");
+    }
+
+    /// What a picture reads wrong in a formatted datum is fixed by rule: an «O» in the date of an RFC, «1.A.P.».
+    #[test]
+    fn what_a_picture_misreads_in_an_rfc_or_a_legal_form_is_fixed() {
+        let pages = vec!["CONSTANCIA DE SITUACIÓN FISCAL\nRFC: CRF15O31OKX4\nDenominación/Razón Social: CASA FICTICIA\nRégimen capital: INSTITUCION DE ASISTENCIA PRIVADA".to_string()];
+        assert_eq!(values(&read("tax_status_certificate", &pages))[0], ("institution.legal_rfc", json!("CRF150310KX4"), 1));
+        let acta = vec!["Se constituye una institución que se denominará «Casa Ficticia del Ejemplo, 1.A.P.» con domicilio".to_string()];
+        let read_acta = read("articles_of_incorporation", &acta);
+        let f = values(&read_acta);
+        assert_eq!((f[0].1.clone(), f[1].1.clone()), (json!("Casa Ficticia del Ejemplo"), json!("iap")));
     }
 
     /// ADR-034, IA6: with fictitious fixtures, the RFC comes out of the constancia by rules, without AI; and so do

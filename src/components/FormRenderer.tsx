@@ -34,6 +34,8 @@ type Props = {
   suggestions?: Proposal[];
   onUse?: (p: Proposal) => void;
   onDiscard?: (p: Proposal) => void;
+  /** A line under a field that says where its value came from («Leído del archivo, pág. 2»), by field id. */
+  notes?: Record<string, string>;
 };
 
 /** A value in the words of its field: the names of its options, or the value as it is. */
@@ -72,7 +74,7 @@ function Suggestion({ f, p, onUse, onDiscard }: { f: FieldSpec; p: Proposal; onU
  * per field the input its kind asks for. The words come from `es.forms` under the id of each field; the «?» next to
  * each label opens what the manual says of it (ADR-034), one at a time.
  */
-export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard }: Props) {
+export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard, notes = {} }: Props) {
   const set = (id: string, v: FormValue) => onChange({ ...values, [id]: v });
   const [help, setHelp] = useState<string | null>(null);
   return (
@@ -89,6 +91,7 @@ export function FormRenderer({ spec, values, onChange, errors = {}, suggestions 
                 return (
                   <div key={f.id} className="min-w-0">
                     <Field f={f} value={values[f.id]} error={errors[f.id]} onChange={(v) => set(f.id, v)} aside={aside} />
+                    {notes[f.id] && <p className="mt-1 text-small text-ink-3">{notes[f.id]}</p>}
                     {help === f.id && <ManualPanel id={f.id} panelId={panelId} />}
                     {suggestions
                       .filter((p) => p.field_id === f.id)

@@ -37,24 +37,49 @@ pub fn read(pages: &[String], known: Option<&str>) -> Reading {
     Reading { kind, found: kind.map(|k| rules::read(k, pages)).unwrap_or_default() }
 }
 
+/// The data of a document's own window (ADR-038): written in it as soon as the file is read, when empty.
+pub const OWN_PREFIX: &str = "institution.record.";
+
+/// Whether a datum found is one of the document's own window, not of «Mi institución».
+pub fn is_own(f: &Found) -> bool {
+    f.field.starts_with(OWN_PREFIX)
+}
+
+/// Which documents have more say on a datum of «Mi institución», from most to least (ADR-038). The SAT's constancia
+/// says the legal name and form as they are today; a reform of the statutes, the purpose as it is today; the deed,
+/// how it was born. A kind not listed for a field has the least say.
+const AUTHORITY: &[(&str, &[&str])] = &[
+    ("institution.legal_name", &["tax_status_certificate", "junta_registration", "bylaws_amendments", "articles_of_incorporation"]),
+    ("institution.legal_form", &["tax_status_certificate", "junta_registration", "bylaws_amendments", "articles_of_incorporation"]),
+    ("institution.legal_rfc", &["tax_status_certificate", "tax_compliance_opinion"]),
+    ("institution.purpose", &["bylaws_amendments", "articles_of_incorporation", "junta_registration"]),
+    ("institution.founded_year", &["articles_of_incorporation", "junta_registration"]),
+    ("institution.legal_rep_name", &["power_of_attorney"]),
+    ("institution.legal_rep_valid_until", &["power_of_attorney"]),
+];
+
+/// How much say a document of this kind has on a field: more is more; 1 for a kind not listed for it.
+pub fn authority(field: &str, kind: Option<&str>) -> i64 {
+    let Some(order) = AUTHORITY.iter().find(|(f, _)| *f == field).map(|(_, o)| *o) else { return 1 };
+    kind.and_then(|k| order.iter().position(|c| *c == k)).map_or(1, |i| (order.len() - i + 1) as i64)
+}
+
 fn form_of(field: &str) -> Option<&'static str> {
     use crate::core::institution::forms::FORMS;
     FORMS.iter().find(|f| f.field(field).is_some()).map(|f| f.id)
 }
 
-/// Leaves the data found in a document as suggestions of their windows, citing the document and the page; the line
-/// it was read from goes too, unless the datum is protected. A datum the institution already has, with that same value,
-/// is not suggested again. Says how many were kept.
-pub fn propose(conn: &Connection, document_id: &str, found: &[Found]) -> Result<usize, ServiceError> {
+/// Leaves the data of «Mi institución» found in a document as suggestions of their windows, citing the document and
+/// the page, and the line it was read from unless the datum is protected. What it suggests follows the one policy of
+/// `proposals::propose` (ADR-038): nothing for a field already written, nothing the person rejected, and a suggestion of
+/// a document with more say on the field is not replaced by one with less. `kind`: what the document is. Says how
+/// many were kept.
+pub fn propose(conn: &Connection, document_id: &str, kind: Option<&str>, found: &[Found]) -> Result<usize, ServiceError> {
     let mut kept = 0;
-    for f in found {
+    for f in found.iter().filter(|f| !is_own(f)) {
         let Some(form_id) = form_of(f.field) else { continue };
-        let view = crate::core::profile::forms::get(conn, form_id)?;
-        if view.values.get(f.field) == Some(&f.value) {
-            continue;
-        }
         let protected = crate::core::institution::forms::field(f.field).is_some_and(|s| s.sensitivity == Sensitivity::InstitutionalPrivate);
-        let mut source = json!({ "document_id": document_id, "page": f.page });
+        let mut source = json!({ "document_id": document_id, "page": f.page, "rank": authority(f.field, kind), "sha": proposals::fingerprint(&f.value) });
         if !protected {
             source["quote"] = json!(f.line);
         }

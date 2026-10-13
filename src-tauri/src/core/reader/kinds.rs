@@ -54,23 +54,33 @@ fn matches(text: &str, phrase: &[&str]) -> bool {
 /// The kind of a document by its words, when a rule recognizes it: a phrase in its first lines counts three times
 /// one further on, and a tie between two kinds is no kind at all.
 pub fn recognize(pages: &[String]) -> Option<&'static str> {
-    let all = fold(&pages.join("\n"));
-    let body: String = all.chars().take(BODY_CHARS).collect();
-    let head: String = all.chars().take(HEAD_CHARS).collect();
-    let mut scored: Vec<(u32, &'static str)> = KINDS
-        .iter()
-        .map(|k| {
-            let s: u32 = k.phrases.iter().map(|p| if matches(&head, p) { 3 } else if matches(&body, p) { 1 } else { 0 }).sum();
-            (s, k.code)
-        })
-        .filter(|(s, _)| *s > 0)
-        .collect();
+    let mut scored: Vec<(u32, &'static str)> = scores(pages).into_iter().filter(|(s, _)| *s > 0).collect();
     scored.sort_by(|a, b| b.0.cmp(&a.0));
     match scored.as_slice() {
         [] => None,
         [(_, only)] => Some(only),
         [(a, best), (b, _), ..] => (a > b).then_some(*best),
     }
+}
+
+/// How much each kind's phrases are in a document: three for one in its first lines, one for one further on.
+fn scores(pages: &[String]) -> Vec<(u32, &'static str)> {
+    let all = fold(&pages.join("\n"));
+    let body: String = all.chars().take(BODY_CHARS).collect();
+    let head: String = all.chars().take(HEAD_CHARS).collect();
+    KINDS.iter().map(|k| (k.phrases.iter().map(|p| if matches(&head, p) { 3 } else if matches(&body, p) { 1 } else { 0 }).sum(), k.code)).collect()
+}
+
+/// The kind a file put on a document of another kind looks like (ADR-038): none of the phrases of the document it
+/// was put on are in it, and a rule recognizes another kind. Then nothing of it is read into any form: the rules of
+/// one kind read another badly. A file that names its own kind anywhere is taken as that kind.
+pub fn looks_like_other(pages: &[String], put_on: &str) -> Option<&'static str> {
+    kind(put_on)?;
+    let own = scores(pages).into_iter().find(|(_, c)| *c == put_on).map_or(0, |(s, _)| s);
+    if own > 0 {
+        return None;
+    }
+    recognize(pages).filter(|k| *k != put_on)
 }
 
 #[cfg(test)]
@@ -97,6 +107,9 @@ mod tests {
             ("estados-financieros-2025.txt", Some("financial_statements")),
             ("informe-anual-2025.txt", Some("annual_report")),
             ("programa-proteccion-civil.txt", Some("civil_protection_program")),
+            ("opinion-cumplimiento.txt", Some("tax_compliance_opinion")),
+            ("cluni.txt", Some("cluni_certificate")),
+            ("registro-junta.txt", Some("junta_registration")),
             ("contrato-comodato.txt", None),
         ] {
             assert_eq!(recognize(&pages_of(file)), expected, "{file}");

@@ -86,6 +86,18 @@ pub fn number_in_words(text: &str) -> Option<u32> {
     any.then_some(total + current)
 }
 
+/// The number written in words at the start of a text, up to the first word that is not part of it («cuarenta y dos
+/// mil ciento diez libro…» → 42110).
+pub fn leading_number_in_words(text: &str) -> Option<u32> {
+    let folded = fold(text);
+    let words: Vec<&str> = folded.split_whitespace().take_while(|w| *w == "y" || *w == "mil" || unit(w).is_some()).collect();
+    let words: &[&str] = match words.last() {
+        Some(&"y") => &words[..words.len() - 1],
+        _ => &words,
+    };
+    number_in_words(&words.join(" "))
+}
+
 fn iso(y: u32, m: u32, d: u32) -> Option<String> {
     let s = format!("{y:04}-{m:02}-{d:02}");
     is_date(&s).then_some(s)

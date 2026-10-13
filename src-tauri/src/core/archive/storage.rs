@@ -270,11 +270,17 @@ pub fn emergency_delete_document(conn: &mut Connection, doc_id: &str) -> Result<
     let tables: Vec<String> = {
         let mut stmt = tx.prepare(
             "SELECT m.name FROM sqlite_master m, pragma_table_info(m.name) p
-             WHERE m.type='table' AND p.name='source_ref' AND m.name NOT IN ('core_field', 'core_change')",
+             WHERE m.type='table' AND p.name='source_ref' AND m.name NOT IN ('core_field', 'core_change', 'core_record_field')",
         )?;
         let v = stmt.query_map([], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;
         v
     };
+    // what the person rejected from it is remembered only by its fingerprint (ADR-038): no value, no document
+    tx.execute(
+        "UPDATE ai_proposal SET value_json = 'null', source_ref = json_object('sha', json_extract(source_ref, '$.sha'))
+         WHERE status = 'rejected' AND json_valid(source_ref) AND json_extract(source_ref, '$.document_id') = ?1",
+        [doc_id],
+    )?;
     let mut derived = 0i64;
     for t in &tables {
         derived += tx.execute(

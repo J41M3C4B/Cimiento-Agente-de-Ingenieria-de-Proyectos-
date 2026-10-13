@@ -76,6 +76,9 @@ export const es = {
       total === 1 ? "Leyendo el texto de la imagen…" : `Leyendo las páginas escaneadas: ${done} de ${total}`,
     pageList: (pages: number[]) =>
       pages.length === 1 ? `la página ${pages[0]}` : `las páginas ${pages.slice(0, -1).join(", ")} y ${pages[pages.length - 1]}`,
+    // «Fecha de emisión», «Vigente hasta» y «Folio o número»
+    nameList: (names: string[]) =>
+      names.length === 1 ? `«${names[0]}»` : `${names.slice(0, -1).map((n) => `«${n}»`).join(", ")} y «${names[names.length - 1]}»`,
     close: "Cerrar",
     review: {
       title: (n: number) => (n === 1 ? "Hay 1 cosa por revisar" : `Hay ${n} cosas por revisar`),
@@ -252,7 +255,7 @@ export const es = {
       attach: "Subir archivo",
       replace: "Cambiar archivo",
       detach: "Quitar archivo",
-      detached: "Se quitó el archivo. Su texto se queda en Documentos.",
+      detached: "Se quitó el archivo y su texto. Lo que ya se llenó con él se queda.",
       open: "Abrir el original",
       openMissing: "El original ya no está donde estaba. Elíjalo otra vez con «Cambiar archivo».",
       attached: "Se guardó el archivo.",
@@ -263,6 +266,14 @@ export const es = {
         `Se guardó el archivo, pero ${pages} se leyó con dudas: su texto puede traer errores. Si importa, súbalo otra vez con un escaneo más claro.`,
       covered: (n: number) =>
         `${n === 1 ? "Tapamos 1 dato personal" : `Tapamos ${n} datos personales`} en su texto, como CURP, RFC de personas o correos. El archivo original no cambia.`,
+      // ADR-038: what the file filled in its own window, what it left for «Mi institución», and a file in the wrong place
+      filled: (fields: string) => `Llenamos ${fields} con lo que dice el archivo. Revíselo y corríjalo si hace falta.`,
+      suggested: (n: number) =>
+        n === 1 ? "Dejamos 1 sugerencia en «Mi institución»: revísela allá." : `Dejamos ${n} sugerencias en «Mi institución»: revíselas allá.`,
+      looksLike: (kind: string) =>
+        `Este archivo parece «${kind}», no este documento. Lo guardamos, pero no llenamos nada con él. Si lo subió en el lugar equivocado, quítelo y súbalo en el suyo.`,
+      readFrom: (page: number | null) => (page ? `Leído del archivo, página ${page}.` : "Leído del archivo."),
+      computedFrom: "Calculado con la fecha de emisión del archivo.",
       pickTitle: "Elija el archivo del documento",
       pickFilter: "PDF, Word o foto",
       unreadable: {

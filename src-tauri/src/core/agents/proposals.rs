@@ -86,6 +86,11 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
     if let Some(code) = problem(field, &p.value) {
         return refused(code);
     }
+    if p.origin == Origin::Document {
+        if let Some(code) = from_a_document(conn, &p)? {
+            return refused(code);
+        }
+    }
     // a protected datum of the institution read by a rule (its RFC, a folio) is its own, not a person's: covering it
     // would lose it; it never reaches the AI and its value is forgotten once the person decides (`forget_protected`)
     let own = p.origin == Origin::Document && field.sensitivity == Sensitivity::InstitutionalPrivate;
@@ -111,6 +116,80 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
         params![id, p.form_id, p.record_id, p.field_id, value.to_string(), p.origin.as_str(), p.source_ref, p.agent],
     )?;
     Ok(ProposeOutcome::Kept { id })
+}
+
+/// The one policy for what a document suggests (ADR-038), the same for every drawer:
+///
+/// - `filled`: a field that already has a value gets nothing, whatever the document says (decision of the
+///   institution, 2026-10-13);
+/// - `rejected_before`: what the person once rejected for a field is not suggested again, by the fingerprint of the
+///   value (`sha` in `source_ref`), which outlives the value and the document;
+/// - `lower_authority`: a suggestion still waiting that came from a document with more say on that field (its
+///   `rank` in `source_ref`, `reader::authority`) is not replaced by one with less; with the same, the newer wins.
+///
+/// What the AI proposes is not held to it: the person asked for that change in the chat.
+fn from_a_document(conn: &Connection, p: &NewProposal) -> Result<Option<&'static str>, ServiceError> {
+    if is_filled(saved_value(conn, &p.form_id, &p.field_id)?.as_ref()) {
+        return Ok(Some("filled"));
+    }
+    // by the fingerprint of the value: it stays when the value is forgotten or its document is deleted
+    let rejected: bool = conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM ai_proposal WHERE form_id = ?1 AND record_id IS ?2 AND field_id = ?3 AND status = 'rejected'
+                        AND origin = 'document' AND json_valid(source_ref) AND json_extract(source_ref, '$.sha') = ?4)",
+        params![p.form_id, p.record_id, p.field_id, fingerprint(&p.value)],
+        |r| r.get(0),
+    )?;
+    if rejected {
+        return Ok(Some("rejected_before"));
+    }
+    let waiting: Option<i64> = conn.query_row(
+        "SELECT max(coalesce(json_extract(source_ref, '$.rank'), 0)) FROM ai_proposal
+         WHERE form_id = ?1 AND record_id IS ?2 AND field_id = ?3 AND status = 'pending' AND origin = 'document' AND json_valid(source_ref)",
+        params![p.form_id, p.record_id, p.field_id],
+        |r| r.get(0),
+    )?;
+    if waiting.is_some_and(|w| w > rank_of(p.source_ref.as_deref())) {
+        return Ok(Some("lower_authority"));
+    }
+    Ok(None)
+}
+
+/// The fingerprint of a value a document suggested (SHA-256 of its JSON): enough to know the person already said
+/// no to it, without keeping the value.
+pub fn fingerprint(value: &Value) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(value.to_string().as_bytes()))
+}
+
+/// How much say the document a proposal came from has on its field (`rank` in its `source_ref`); 0 without one.
+fn rank_of(source_ref: Option<&str>) -> i64 {
+    source_ref.and_then(|s| serde_json::from_str::<Value>(s).ok()).and_then(|v| v["rank"].as_i64()).unwrap_or(0)
+}
+
+/// What a field of a form of «Mi institución» holds today; `None` for the forms of lists, which hold their own.
+fn saved_value(conn: &Connection, form_id: &str, field_id: &str) -> Result<Option<Value>, ServiceError> {
+    if !crate::core::institution::forms::FORMS.iter().any(|f| f.id == form_id) {
+        return Ok(None);
+    }
+    Ok(crate::core::profile::forms::saved_values(conn, form_id)?.remove(field_id))
+}
+
+/// Once a field is saved with a value, what documents suggested for it is set aside, as if the person had said no
+/// (ADR-038): it will not show again. Called in the transaction of the save. Says how many.
+pub fn discard_filled(conn: &Connection, form_id: &str, record_id: Option<&str>, values: &crate::common::forms::Values) -> rusqlite::Result<usize> {
+    let mut stmt = conn.prepare("SELECT id, field_id FROM ai_proposal WHERE form_id = ?1 AND record_id IS ?2 AND status = 'pending' AND origin = 'document'")?;
+    let ids: Vec<String> = stmt
+        .query_map(params![form_id, record_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter(|(_, field)| is_filled(values.get(field)))
+        .map(|(id, _)| id)
+        .collect();
+    for id in &ids {
+        conn.execute("UPDATE ai_proposal SET status = 'rejected', resolved_at = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ?1", [id])?;
+        forget_protected(conn, id)?;
+    }
+    Ok(ids.len())
 }
 
 fn read(r: &rusqlite::Row) -> rusqlite::Result<Proposal> {

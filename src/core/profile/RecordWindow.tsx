@@ -18,7 +18,7 @@ import {
   manualEntry,
   toAppError,
 } from "../../lib/tauri";
-import type { Decision, Expediente, FormValues, InstitutionRecord, ProfileIssue, QuarantineReport } from "../../lib/types";
+import type { AttachOutcome, Decision, Expediente, FormValues, InstitutionRecord, ProfileIssue, QuarantineReport } from "../../lib/types";
 
 const t = es.profile.records;
 
@@ -35,6 +35,29 @@ export const recordTitle = (r: Pick<InstitutionRecord, "type" | "custom_name">) 
 
 /** The files a document takes (Rust says again what it can read). */
 const EXTENSIONS = ["pdf", "docx", "jpg", "jpeg", "png"];
+
+/**
+ * What the person is told once a file is on its document: whether its text was read, what it filled in its own
+ * window, what it left as suggestions in «Mi institución», the data of people covered, and a file that looks like
+ * another document (ADR-038).
+ */
+export function attachedNotice(out: Extract<AttachOutcome, { status: "attached" }>): string {
+  const label = (field: string) => es.forms.fields[field]?.label ?? field;
+  const parts = [
+    !out.readable
+      ? t.attachedNoText
+      : out.doubtful.length > 0
+        ? t.attachedDoubtful(es.common.pageList(out.doubtful))
+        : out.from_picture
+          ? t.attachedFromPicture
+          : t.attached,
+  ];
+  if (out.looks_like) parts.push(t.looksLike(t.types[out.looks_like] ?? out.looks_like));
+  if (out.filled.length > 0) parts.push(t.filled(es.common.nameList(out.filled.map(label))));
+  if (out.suggested > 0) parts.push(t.suggested(out.suggested));
+  if (out.covered > 0) parts.push(t.covered(out.covered));
+  return parts.join(" ");
+}
 
 /**
  * The window of a document of the record (ADR-033 §5): what the manual says it is, its state, dates and folio
@@ -112,18 +135,13 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
         return;
       }
       kept(out.expediente);
+      // a document with its file is had; what the file filled in its window shows; what the person typed stays
+      const fresh = await institutionRecordForm(record.type, out.id);
+      qc.setQueryData(["institution", "record-form", record.type, out.id], fresh);
       setId(out.id);
-      // a document with its file is had; what the person typed stays
-      setValues((v) => ({ ...(v ?? {}), "institution.record.status": "have" }));
-      void form.refetch();
-      const said = !out.readable
-        ? t.attachedNoText
-        : out.doubtful.length > 0
-          ? t.attachedDoubtful(es.common.pageList(out.doubtful))
-          : out.from_picture
-            ? t.attachedFromPicture
-            : t.attached;
-      setNotice(out.covered > 0 ? `${said} ${t.covered(out.covered)}` : said);
+      const filled = Object.fromEntries(out.filled.filter((f) => f in fresh.values).map((f) => [f, fresh.values[f]]));
+      setValues((v) => ({ ...(v ?? {}), ...filled, "institution.record.status": "have" }));
+      setNotice(attachedNotice(out));
     });
 
   const open = () =>
@@ -142,6 +160,12 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
   const errors = Object.fromEntries(issues.map((i) => [i.field, es.issues[i.code] ?? es.issues.code_unknown]));
   const unplaced = issues.filter((i) => !form.data?.spec.sections.some((s) => s.fields.some((f) => f.id === i.field)));
   const file = form.data?.file ?? null;
+  // where each datum read from the file came from, while it still says what the file said
+  const readNotes = Object.fromEntries(
+    Object.entries(form.data?.read ?? {})
+      .filter(([field]) => values?.[field] === form.data?.values[field])
+      .map(([field, r]) => [field, r.computed ? t.computedFrom : t.readFrom(r.page)]),
+  );
   // an `other` gets its file once it is saved with its name
   const canAttach = record.type !== "other" || id !== null;
 
@@ -194,7 +218,7 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
           </Inset>
         )}
         {notice && <Alert tone="ok">{notice}</Alert>}
-        {form.data && values && <FormRenderer spec={form.data.spec} values={values} onChange={setValues} errors={errors} />}
+        {form.data && values && <FormRenderer spec={form.data.spec} values={values} onChange={setValues} errors={errors} notes={readNotes} />}
         {(failure || unplaced.length > 0) && <Alert tone="error">{failure ?? unplaced.map((i) => es.issues[i.code] ?? es.issues.code_unknown).join(" ")}</Alert>}
       </Modal>
       {held && <QuarantineDialog report={held.report} busy={busy} onRedact={() => held.retry("redact")} onNotPersonal={() => held.retry("not_personal")} onCancel={() => setHeld(null)} />}

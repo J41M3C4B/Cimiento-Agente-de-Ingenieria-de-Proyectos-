@@ -115,6 +115,125 @@ fn the_oficio_and_the_acta_suggest_their_data_and_a_kind_with_no_rules_suggests_
     assert!(!c.query_row("SELECT count(*) > 0 FROM ai_proposal WHERE agent <> 'reader'", [], |r| r.get::<_, bool>(0)).unwrap(), "no AI was asked");
 }
 
+/// A file put on its document, as the person would, keeping what the Reader did.
+fn attach_pages(c: &mut Connection, kind: &str, name: &str, pages: Vec<String>) -> AttachOutcome {
+    attach_read(c, kind, None, std::path::Path::new("C:/expediente/archivo.pdf"), FileText::of_pages(name, pages)).unwrap()
+}
+
+fn pending_of(c: &Connection, form: &str, field: &str) -> Option<Value> {
+    suggestions(c, form).into_iter().find(|p| p.field_id == field).map(|p| p.value)
+}
+
+/// ADR-038: a field already written gets no suggestion from any file, and saving a field sets aside what documents
+/// suggested for it.
+#[test]
+fn a_written_field_gets_no_suggestion_and_saving_sets_aside_what_waited() {
+    let (_d, mut c) = conn();
+    let name = [("institution.name".to_string(), json!("Casa de Reposo Ficticia San Ejemplo"))].into_iter().collect();
+    crate::core::profile::forms::save(&mut c, "institution.identity", name, None).unwrap();
+    attach(&mut c, "tax_status_certificate", "constancia-situacion-fiscal.txt");
+    assert!(pending_of(&c, "institution.legal", "institution.legal_name").is_some());
+    // the person writes the name by hand: the suggestion for it is set aside, the others still wait
+    let mut values = crate::core::profile::forms::get(&c, "institution.legal").unwrap().values;
+    values.insert("institution.legal_name".into(), json!("Casa Ficticia, como la escribimos"));
+    let out = crate::core::profile::forms::save(&mut c, "institution.legal", values, None).unwrap();
+    assert!(matches!(out, crate::core::profile::service::SaveProfileOutcome::Saved { .. }), "{out:?}");
+    assert_eq!(pending_of(&c, "institution.legal", "institution.legal_name"), None);
+    assert!(pending_of(&c, "institution.legal", "institution.legal_rfc").is_some());
+    let set_aside: String = c.query_row("SELECT status FROM ai_proposal WHERE field_id = 'institution.legal_name'", [], |r| r.get(0)).unwrap();
+    assert_eq!(set_aside, "rejected");
+    // another document that names it suggests nothing for it
+    attach(&mut c, "junta_registration", "registro-junta.txt");
+    assert_eq!(pending_of(&c, "institution.legal", "institution.legal_name"), None);
+    assert!(pending_of(&c, "institution.legal", "institution.junta_folio").is_some(), "an empty field still gets its suggestion");
+}
+
+/// ADR-038: what the person rejected is not suggested again, not even when the same file is put on its document
+/// again (the old one is deleted with what came from it, and only the fingerprint of the «no» is kept).
+#[test]
+fn what_the_person_rejected_is_not_suggested_again() {
+    let (_d, mut c) = conn();
+    attach(&mut c, "donee_authorization", "oficio-donataria.txt");
+    let category = suggestions(&c, "institution.legal").into_iter().find(|p| p.field_id == "institution.donee_category").unwrap();
+    proposals::reject(&c, &[category.id.clone()], None).unwrap();
+    attach(&mut c, "donee_authorization", "oficio-donataria.txt");
+    assert_eq!(pending_of(&c, "institution.legal", "institution.donee_category"), None);
+    assert!(pending_of(&c, "institution.legal", "institution.donee_letter_number").is_some(), "what was not rejected comes back");
+    let kept: (String, String) = c.query_row("SELECT value_json, source_ref FROM ai_proposal WHERE id = ?1", [&category.id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!(kept.0, "null");
+    assert!(!kept.1.contains("document_id") && kept.1.contains("sha"), "{}", kept.1);
+}
+
+/// ADR-038: a suggestion of a document with more say on a field is not replaced by one with less: the constancia of
+/// the SAT says the legal name as it is today, the deed as it was born.
+#[test]
+fn a_document_with_more_say_keeps_its_suggestion() {
+    let (_d, mut c) = conn();
+    attach(&mut c, "tax_status_certificate", "constancia-situacion-fiscal.txt");
+    attach(&mut c, "articles_of_incorporation", "acta-constitutiva.txt");
+    assert_eq!(pending_of(&c, "institution.legal", "institution.legal_name"), Some(json!("CASA DE REPOSO FICTICIA SAN EJEMPLO")));
+    assert_eq!(pending_of(&c, "institution.legal", "institution.founded_year"), Some(json!(2015)), "what only the deed says is suggested");
+    assert!(authority("institution.legal_name", Some("tax_status_certificate")) > authority("institution.legal_name", Some("articles_of_incorporation")));
+    assert_eq!(authority("institution.mission", Some("articles_of_incorporation")), 1);
+}
+
+/// ADR-038: the document's own window is written from its file at once (issue, validity, number), with the page;
+/// a file that replaces it is read again, but never over what the person wrote by hand.
+#[test]
+fn the_own_window_is_written_from_its_file_and_respects_what_the_person_wrote() {
+    let (_d, mut c) = conn();
+    let out = attach_pages(&mut c, "power_of_attorney", "poder.pdf", pages_of("poder-notarial.txt"));
+    let AttachOutcome::Attached { filled, looks_like, .. } = out else { panic!() };
+    assert_eq!(filled, vec!["institution.record.issued_on", "institution.record.valid_until", "institution.record.reference"]);
+    assert_eq!(looks_like, None);
+    let form = crate::core::records::form(&c, "power_of_attorney", None).unwrap();
+    assert_eq!(form.values["institution.record.issued_on"], json!("2024-01-18"));
+    assert_eq!(form.values["institution.record.valid_until"], json!("2027-01-18"));
+    assert_eq!(form.values["institution.record.reference"], json!("51300"));
+    assert_eq!(form.read["institution.record.valid_until"].page, Some(2));
+    // the folio is protected: its origin keeps no line with it
+    let source: String = c.query_row("SELECT source_ref FROM core_record_field WHERE field = 'institution.record.reference'", [], |r| r.get(0)).unwrap();
+    assert!(!source.contains("quote"), "{source}");
+
+    // the person corrects the validity by hand
+    let mut values = form.values.clone();
+    values.insert("institution.record.valid_until".into(), json!("2027-02-01"));
+    assert!(matches!(crate::core::records::save(&mut c, "power_of_attorney", None, values, None).unwrap(), crate::core::records::RecordOutcome::Saved { .. }));
+    // a new poder replaces the file: its issue date and number are read again, the validity the person wrote stays
+    let newer: Vec<String> = pages_of("poder-notarial.txt")
+        .into_iter()
+        .map(|p| p.replace("dieciocho días del mes de enero de dos mil veinticuatro", "cinco días del mes de mayo de dos mil veinticinco").replace("CINCUENTA Y UN MIL TRESCIENTOS", "SESENTA MIL"))
+        .collect();
+    let AttachOutcome::Attached { filled, .. } = attach_pages(&mut c, "power_of_attorney", "poder-2025.pdf", newer) else { panic!() };
+    assert_eq!(filled, vec!["institution.record.issued_on", "institution.record.reference"]);
+    let form = crate::core::records::form(&c, "power_of_attorney", None).unwrap();
+    assert_eq!(
+        (form.values["institution.record.issued_on"].clone(), form.values["institution.record.valid_until"].clone(), form.values["institution.record.reference"].clone()),
+        (json!("2025-05-05"), json!("2027-02-01"), json!("60000"))
+    );
+    assert!(!form.read.contains_key("institution.record.valid_until"), "what the person wrote is not «read from the file»");
+
+    // taking the file off keeps what was read from it
+    let id = form.values.get("institution.record.status").map(|_| crate::core::records::storage::by_type(&c, "power_of_attorney").unwrap().unwrap().id).unwrap();
+    crate::core::records::detach(&mut c, &id).unwrap();
+    assert_eq!(crate::core::records::form(&c, "power_of_attorney", None).unwrap().values["institution.record.issued_on"], json!("2025-05-05"));
+}
+
+/// ADR-038: a file put on a document of another kind is kept, but nothing of it is read into any form, and the
+/// person is told what it looks like.
+#[test]
+fn a_file_put_on_the_wrong_document_fills_nothing() {
+    let (_d, mut c) = conn();
+    let out = attach_pages(&mut c, "articles_of_incorporation", "constancia.pdf", pages_of("constancia-situacion-fiscal.txt"));
+    let AttachOutcome::Attached { readable, filled, suggested, looks_like, .. } = out else { panic!() };
+    assert!(readable);
+    assert_eq!((filled.len(), suggested, looks_like.as_deref()), (0, 0, Some("tax_status_certificate")));
+    assert!(suggestions(&c, "institution.legal").is_empty() && suggestions(&c, "institution.identity").is_empty());
+    // a deed that names itself is taken as what it says, wherever the words of others are in it
+    let out = attach_pages(&mut c, "articles_of_incorporation", "acta.pdf", pages_of("acta-constitutiva.txt"));
+    assert!(matches!(out, AttachOutcome::Attached { looks_like: None, .. }));
+}
+
 /// ADR-036: no new document is left without a drawer, whatever way it came in.
 #[test]
 fn no_new_document_is_left_without_a_drawer() {

@@ -114,6 +114,16 @@ pub struct RecordForm {
     pub values: Values,
     pub missing: Vec<&'static str>,
     pub file: Option<RecordFile>,
+    /// The data of its window that came from its file, by field: the page, and whether a rule worked it out (ADR-038).
+    pub read: std::collections::BTreeMap<String, ReadFrom>,
+}
+
+/// Where a datum of a document's window came from, when it was read from its file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReadFrom {
+    pub page: Option<i64>,
+    /// Worked out by a rule from what the file says (the validity of a 32-D), not written in it.
+    pub computed: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -147,8 +157,20 @@ pub enum Unreadable {
 pub enum AttachOutcome {
     /// The file is on the document. `readable = false`: a picture with no text that could be read;
     /// `from_picture`: its text was read from a picture, and `doubtful` are the pages read with doubts;
-    /// `covered`: how many data of people the scanner covered in its text.
-    Attached { id: String, readable: bool, from_picture: bool, doubtful: Vec<usize>, covered: i64, expediente: Expediente },
+    /// `covered`: how many data of people the scanner covered in its text; `filled`: the fields of its own window
+    /// written from the file; `suggested`: how many suggestions it left in «Mi institución»; `looks_like`: the kind the
+    /// file looks like when it is not the one it was put on (then nothing was read into any form, ADR-038).
+    Attached {
+        id: String,
+        readable: bool,
+        from_picture: bool,
+        doubtful: Vec<usize>,
+        covered: i64,
+        filled: Vec<String>,
+        suggested: usize,
+        looks_like: Option<String>,
+        expediente: Expediente,
+    },
     Unreadable { reason: Unreadable },
 }
 
@@ -290,7 +312,17 @@ pub fn form(conn: &Connection, kind: &str, id: Option<&str>) -> Result<RecordFor
         values.insert("institution.record.notes".into(), json!(r.notes));
     }
     values.retain(|k, v| is_filled(Some(v)) && spec.field(k).is_some());
-    Ok(RecordForm { spec, missing: spec.missing(&values), file: row.as_ref().and_then(file_of), values })
+    let mut read = std::collections::BTreeMap::new();
+    if let Some(r) = &row {
+        for (field, (origin, source_ref)) in store::field_origins(conn, &r.id)? {
+            if origin == "user" || !values.contains_key(&field) {
+                continue;
+            }
+            let page = source_ref.as_deref().and_then(|s| serde_json::from_str::<Value>(s).ok()).and_then(|v| v["page"].as_i64());
+            read.insert(field, ReadFrom { page, computed: origin == "computed" });
+        }
+    }
+    Ok(RecordForm { spec, missing: spec.missing(&values), file: row.as_ref().and_then(file_of), values, read })
 }
 
 /// Saves what the person writes of a document. A status out of its list, a date that does not exist or a validity
@@ -341,6 +373,20 @@ pub fn save(conn: &mut Connection, kind: &str, id: Option<&str>, mut values: Val
     };
     let tx = conn.transaction()?;
     let id = store::save(&tx, row.as_ref().map(|r| r.id.as_str()), kind, &input)?;
+    // a datum the person changed is the person's: no file writes over it again; one emptied may be filled again
+    for (field, before, after) in [
+        ("institution.record.issued_on", row.as_ref().and_then(|r| r.issued_on.clone()), issued_on.clone()),
+        ("institution.record.valid_until", row.as_ref().and_then(|r| r.valid_until.clone()), valid_until.clone()),
+        ("institution.record.reference", row.as_ref().and_then(|r| r.reference.clone()), reference.clone()),
+    ] {
+        if before == after {
+            continue;
+        }
+        match after {
+            Some(_) => store::set_field_origin(&tx, &id, field, "user", None)?,
+            None => store::clear_field_origin(&tx, &id, field)?,
+        }
+    }
     history::record_list_change(&tx, HISTORY_FIELD, &Source::user())?;
     tx.commit()?;
     Ok(RecordOutcome::Saved { id, expediente: expediente(conn)? })
@@ -433,12 +479,18 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
         Some(c) => Some(crate::core::archive::storage::add_paged_document(&tx, crate::core::archive::storage::Drawer::Record, &file.name, file.mime, &c.pages, c.covered, &file.marks)?),
         None => None,
     };
+    // a file that looks like another kind of document is kept, but nothing of it is read into any form (ADR-038)
+    let looks_like = file.pages.as_deref().and_then(|pages| crate::core::reader::kinds::looks_like_other(pages, kind));
+    let (mut filled, mut suggested) = (vec![], 0);
     if let (Some(d), Some(reading)) = (&doc, &reading) {
         let class = reading.kind.and_then(crate::core::reader::kinds::kind).map(|k| k.class);
         // the kind is the document the person put it on; for an «Otro documento», what a rule recognized
         let said = crate::core::reader::kinds::kind(kind).is_some();
         crate::core::archive::storage::set_class(&tx, d, class, reading.kind, if said { "user" } else { "computed" })?;
-        crate::core::reader::propose(&tx, d, &reading.found)?;
+        if looks_like.is_none() {
+            filled = write_own(&tx, &id, d, &reading.found)?;
+            suggested = crate::core::reader::propose(&tx, d, reading.kind, &reading.found)?;
+        }
     }
     store::set_file(&tx, &id, doc.as_deref(), &path.to_string_lossy(), &file.name)?;
     history::record_list_change(&tx, HISTORY_FIELD, &Source::user())?;
@@ -449,7 +501,63 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
     let readable = doc.is_some();
     let (from_picture, doubtful) = if readable { (!file.marks.from_picture.is_empty(), file.marks.doubtful) } else { (false, vec![]) };
     let covered = clean.map_or(0, |c| c.covered);
-    Ok(AttachOutcome::Attached { id, readable, from_picture, doubtful, covered, expediente: expediente(conn)? })
+    Ok(AttachOutcome::Attached {
+        id,
+        readable,
+        from_picture,
+        doubtful,
+        covered,
+        filled,
+        suggested,
+        looks_like: looks_like.map(str::to_string),
+        expediente: expediente(conn)?,
+    })
+}
+
+/// Writes in a document's own window what its file says of it (its date of issue, its validity, its number): a
+/// datum still empty, or one read from the file it replaces; never one the person wrote (ADR-038). A date the window
+/// would refuse (a validity before the issue) is left out. Says which fields were written.
+fn write_own(tx: &Connection, id: &str, document_id: &str, found: &[crate::core::reader::rules::Found]) -> Result<Vec<String>, ServiceError> {
+    let row = store::by_id(tx, id)?.ok_or(ServiceError::NotFound)?;
+    let origins = store::field_origins(tx, id)?;
+    let now = |field: &str| match field {
+        "institution.record.issued_on" => row.issued_on.clone(),
+        "institution.record.valid_until" => row.valid_until.clone(),
+        "institution.record.reference" => row.reference.clone(),
+        _ => None,
+    };
+    let mut written: Vec<String> = vec![];
+    let mut issued = row.issued_on.clone();
+    // the date of issue first: the validity is checked against it
+    let mut own: Vec<_> = found.iter().filter(|f| crate::core::reader::is_own(f)).collect();
+    own.sort_by_key(|f| f.field != "institution.record.issued_on");
+    for f in own {
+        let Some(value) = f.value.as_str().map(str::trim).filter(|v| !v.is_empty()) else { continue };
+        if written.iter().any(|w| w == f.field) {
+            continue;
+        }
+        let from_a_file = origins.get(f.field).is_some_and(|(o, _)| o != "user");
+        let empty = now(f.field).is_none_or(|v| v.trim().is_empty());
+        // a datum written before origins were kept has no line: it is the person's
+        if !(empty || from_a_file) {
+            continue;
+        }
+        if f.field == "institution.record.valid_until" && issued.as_deref().is_some_and(|i| days_between(i, value).is_some_and(|d| d < 0)) {
+            continue;
+        }
+        let protected = crate::core::institution::forms::field(f.field).is_some_and(|s| s.sensitivity == crate::common::forms::Sensitivity::InstitutionalPrivate);
+        let mut source = json!({ "document_id": document_id, "page": f.page });
+        if !protected {
+            source["quote"] = json!(f.line);
+        }
+        store::write_read(tx, id, f.field, value)?;
+        store::set_field_origin(tx, id, f.field, if f.computed { "computed" } else { "document" }, Some(&source.to_string()))?;
+        if f.field == "institution.record.issued_on" {
+            issued = Some(value.to_string());
+        }
+        written.push(f.field.to_string());
+    }
+    Ok(written)
 }
 
 /// Takes the file off a document, and its clean text out of the drawer (ADR-036): there is no document without a

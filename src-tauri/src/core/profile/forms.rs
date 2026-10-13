@@ -150,9 +150,13 @@ pub fn get(conn: &Connection, id: &str) -> Result<FormView, ServiceError> {
     let profile = store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
     let values = values_of(id, &profile);
     let origins = crate::core::history::origins(conn, &values)?;
+    // what a document suggests shows only while its field is empty (ADR-038); what the AI proposes, while it differs
     let proposals = crate::core::agents::proposals::pending(conn, id, None)?
         .into_iter()
-        .filter(|p| values.get(&p.field_id) != Some(&p.value))
+        .filter(|p| match p.origin {
+            crate::core::agents::proposals::Origin::Document => !crate::common::forms::is_filled(values.get(&p.field_id)),
+            crate::core::agents::proposals::Origin::AiAssumption => values.get(&p.field_id) != Some(&p.value),
+        })
         .collect();
     Ok(FormView { spec, missing: spec.missing(&values), origins, values, proposals, fill: crate::core::agents::capturist::fill_of_form(id) })
 }
@@ -193,7 +197,13 @@ pub fn save_using(conn: &mut Connection, id: &str, mut values: Values, decision:
         .map(|p| (p.field_id.clone(), crate::core::history::Source { origin: p.origin.as_str(), source_ref: p.source_ref.clone() }))
         .collect();
     let ids: Vec<String> = taken.into_iter().map(|p| p.id).collect();
-    let accept = move |tx: &Connection| crate::core::agents::proposals::accept_in(tx, &ids).map(|_| ()).map_err(Into::into);
+    // with the save, what documents suggested for the fields now written is set aside (ADR-038)
+    let (form_id, saved) = (id.to_string(), values.clone());
+    let accept = move |tx: &Connection| {
+        crate::core::agents::proposals::accept_in(tx, &ids)?;
+        crate::core::agents::proposals::discard_filled(tx, &form_id, None, &saved)?;
+        Ok(())
+    };
     let taken = crate::core::profile::service::Taken { sources, then: Some(Box::new(accept)) };
     crate::core::onboarding::service::save_profile_confirmed_from(conn, profile, decision, &taken)
 }

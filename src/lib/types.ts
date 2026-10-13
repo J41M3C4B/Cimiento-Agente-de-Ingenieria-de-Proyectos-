@@ -147,14 +147,31 @@ export interface RecordForm {
   values: FormValues;
   missing: string[];
   file: RecordFile | null;
+  /** the data of its window read from its file, by field: the page, and whether a rule worked it out (ADR-038) */
+  read: Record<string, { page: number | null; computed: boolean }>;
 }
 export type RecordOutcome =
   | { status: "saved"; id: string; expediente: Expediente }
   | { status: "invalid"; issues: ProfileIssue[] }
   | { status: "quarantine"; report: QuarantineReport };
 export type AttachOutcome =
-  /** `covered`: how many data of people the scanner covered in its text (it never refuses nor asks, 2026-10-13) */
-  | { status: "attached"; id: string; readable: boolean; from_picture: boolean; doubtful: number[]; covered: number; expediente: Expediente }
+  /**
+   * `covered`: data of people the scanner covered (it never refuses nor asks, 2026-10-13); `filled`: fields of its own
+   * window written from the file; `suggested`: suggestions left in «Mi institución»; `looks_like`: the kind the file
+   * looks like when it is not the one it was put on (then nothing was read into any form, ADR-038)
+   */
+  | {
+      status: "attached";
+      id: string;
+      readable: boolean;
+      from_picture: boolean;
+      doubtful: number[];
+      covered: number;
+      filled: string[];
+      suggested: number;
+      looks_like: string | null;
+      expediente: Expediente;
+    }
   | { status: "unreadable"; reason: string };
 export interface BoardMember {
   id: string;

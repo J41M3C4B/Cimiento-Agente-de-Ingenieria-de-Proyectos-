@@ -125,6 +125,49 @@ pub fn set_file(conn: &Connection, id: &str, document_id: Option<&str>, path: &s
     Ok(())
 }
 
+/// The column of `core_record` a datum of its own window is kept in.
+fn column_of(field: &str) -> Option<&'static str> {
+    Some(match field {
+        "institution.record.issued_on" => "issued_on",
+        "institution.record.valid_until" => "valid_until",
+        "institution.record.reference" => "reference",
+        _ => return None,
+    })
+}
+
+/// Writes one datum of a document read from its file (ADR-038). `false` for a field that is not one of its own.
+pub fn write_read(conn: &Connection, id: &str, field: &str, value: &str) -> Result<bool, StorageError> {
+    let Some(column) = column_of(field) else { return Ok(false) };
+    conn.execute(
+        &format!("UPDATE core_record SET {column} = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ?1"),
+        params![id, value],
+    )?;
+    Ok(true)
+}
+
+/// Where each datum of a document came from, by field: (origin, source_ref). A datum without a line is the person's.
+pub fn field_origins(conn: &Connection, id: &str) -> Result<std::collections::BTreeMap<String, (String, Option<String>)>, StorageError> {
+    let mut stmt = conn.prepare("SELECT field, origin, source_ref FROM core_record_field WHERE record_id = ?1")?;
+    let rows = stmt.query_map([id], |r| Ok((r.get::<_, String>(0)?, (r.get::<_, String>(1)?, r.get::<_, Option<String>>(2)?))))?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// Says where a datum of a document came from (`user`, `document` or `computed`).
+pub fn set_field_origin(conn: &Connection, id: &str, field: &str, origin: &str, source_ref: Option<&str>) -> Result<(), StorageError> {
+    conn.execute(
+        "INSERT INTO core_record_field (record_id, field, origin, source_ref, updated_at) VALUES (?1, ?2, ?3, ?4, strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+         ON CONFLICT (record_id, field) DO UPDATE SET origin = excluded.origin, source_ref = excluded.source_ref, updated_at = excluded.updated_at",
+        params![id, field, origin, source_ref],
+    )?;
+    Ok(())
+}
+
+/// Forgets where a datum came from, once it is emptied: the next file may fill it again.
+pub fn clear_field_origin(conn: &Connection, id: &str, field: &str) -> Result<(), StorageError> {
+    conn.execute("DELETE FROM core_record_field WHERE record_id = ?1 AND field = ?2", params![id, field])?;
+    Ok(())
+}
+
 /// Takes the file off a document (its text is deleted by the caller, ADR-036).
 pub fn clear_file(conn: &Connection, id: &str) -> Result<bool, StorageError> {
     Ok(conn.execute(

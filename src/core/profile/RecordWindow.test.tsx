@@ -22,6 +22,21 @@ const empty: RecordForm = {
   values: {},
   missing: ["institution.record.status"],
   file: null,
+  read: {},
+};
+// the same window once the file filled its date of issue (ADR-038)
+const withFile: RecordForm = {
+  spec: {
+    id: "institution.record",
+    sections: [
+      { id: "record_state", columns: 1, fields: [field("institution.record.status", "select", ["have", "in_progress", "missing", "not_applicable"])] },
+      { id: "record_dates", columns: 2, fields: [field("institution.record.issued_on", "date")] },
+    ],
+  },
+  values: { "institution.record.status": "have", "institution.record.issued_on": "2026-02-06" },
+  missing: [],
+  file: { name: "aviso.docx", readable: true, from_picture: true, doubtful: [2] },
+  read: { "institution.record.issued_on": { page: 1, computed: false } },
 };
 const expediente: Expediente = { records: [], summary: { expected: 12, have: 1, in_progress: 0, missing: 11, expiring: 0, expired: 0 } };
 
@@ -38,7 +53,7 @@ vi.mock("../../lib/tauri", () => ({
 }));
 
 import { open as pickFile } from "@tauri-apps/plugin-dialog";
-import { institutionRecordAttach, institutionRecordSave } from "../../lib/tauri";
+import { institutionRecordAttach, institutionRecordForm, institutionRecordSave } from "../../lib/tauri";
 import { RecordWindow } from "./RecordWindow";
 
 function draw(onDone = vi.fn()) {
@@ -52,7 +67,10 @@ function draw(onDone = vi.fn()) {
 }
 
 describe("RecordWindow", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(institutionRecordForm).mockImplementation(async () => empty);
+  });
 
   it("says what the document is, and a file chosen in the system is kept with the data of people covered, without asking", async () => {
     // a scan, read as pictures (OCR): its worn page was read with doubts, and the scanner covered an email
@@ -63,21 +81,49 @@ describe("RecordWindow", () => {
       from_picture: true,
       doubtful: [2],
       covered: 1,
+      filled: ["institution.record.issued_on"],
+      suggested: 2,
+      looks_like: null,
       expediente,
     });
+    // once the file is on it, the window says what the file filled
+    vi.mocked(institutionRecordForm).mockImplementation(async (_kind, id) => (id ? withFile : empty));
     draw();
     expect(await screen.findByText("El texto que explica a las personas qué datos suyos se piden.")).toBeInTheDocument();
     expect(screen.getByText("Sin archivo. Puede marcarlo aunque no lo suba.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Subir archivo" }));
     await waitFor(() => expect(institutionRecordAttach).toHaveBeenCalledWith("privacy_notice", null, "C:\\Documentos\\aviso.docx"));
-    expect(await screen.findByText(/pero la página 2 se leyó con dudas.*Tapamos 1 dato personal en su texto/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/pero la página 2 se leyó con dudas.*Llenamos «Fecha de emisión».*Dejamos 2 sugerencias en «Mi institución».*Tapamos 1 dato personal/),
+    ).toBeInTheDocument();
+    // the date the file filled shows in its field, saying where it came from
+    expect(await screen.findByText("Leído del archivo, página 1.")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("2026-02-06")).toBeInTheDocument();
     // nothing is asked: one window of the system, one reading
     expect(screen.queryByRole("button", { name: "Tapar y seguir" })).not.toBeInTheDocument();
     expect(pickFile).toHaveBeenCalledTimes(1);
     expect(institutionRecordAttach).toHaveBeenCalledTimes(1);
     // with its file it is had: the state goes with the save
     expect(await screen.findByRole("radio", { name: "Lo tenemos" })).toBeChecked();
+  });
+
+  it("a file that looks like another document fills nothing and says so", async () => {
+    vi.mocked(institutionRecordAttach).mockResolvedValueOnce({
+      status: "attached",
+      id: "rec_1",
+      readable: true,
+      from_picture: false,
+      doubtful: [],
+      covered: 0,
+      filled: [],
+      suggested: 0,
+      looks_like: "tax_status_certificate",
+      expediente,
+    });
+    draw();
+    fireEvent.click(await screen.findByRole("button", { name: "Subir archivo" }));
+    expect(await screen.findByText(/Este archivo parece «Constancia de situación fiscal», no este documento/)).toBeInTheDocument();
   });
 
   it("a file it cannot take says why, and saving sends what the person marked", async () => {
