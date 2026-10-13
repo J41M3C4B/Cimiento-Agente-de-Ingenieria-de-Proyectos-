@@ -358,6 +358,26 @@ def mixed():
     c.save()
 
 
+def turned_scan():
+    """A sheet scanned on its side: Tesseract's model of orientation puts it upright (ADR-035)."""
+    from PIL import ImageFont
+
+    font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 34)
+    bold = ImageFont.truetype("C:/Windows/Fonts/timesbd.ttf", 40)
+    img = Image.new("L", (1654, 1100), 246)
+    d = ImageDraw.Draw(img)
+    d.text((160, 120), "ACTA DE ASAMBLEA ORDINARIA", fill=20, font=bold)
+    for i, line in enumerate([
+        "Casa Hogar Ficticia del Valle, I.A.P.",
+        "Los asociados aprobaron por unanimidad el informe",
+        "anual de actividades y el presupuesto del siguiente",
+        "ejercicio, y acordaron renovar el aviso de funcionamiento.",
+    ]):
+        d.text((160, 240 + i * 52), line, fill=25, font=font)
+    # put in the scanner on its side: the page turns a quarter clockwise
+    img.rotate(-90, expand=True).save("acta-girada.pdf", "PDF", resolution=200.0)
+
+
 import sys
 
 if sys.argv[1:] == ["escaneos"]:
@@ -375,6 +395,9 @@ elif sys.argv[1:] == ["tablas"]:
 elif sys.argv[1:] == ["mixta"]:
     # only the page with a printed header and a scanned body
     mixed()
+elif sys.argv[1:] == ["girada"]:
+    # only the sheet scanned on its side
+    turned_scan()
 else:
     excel()
     word()
@@ -384,4 +407,5 @@ else:
     protected()
     ruled()
     mixed()
+    turned_scan()
 print("ok")

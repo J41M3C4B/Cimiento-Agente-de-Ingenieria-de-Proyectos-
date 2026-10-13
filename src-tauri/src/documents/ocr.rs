@@ -40,6 +40,13 @@ const WORDS_TO_MEASURE: usize = 5;
 /// phone is bigger: a blank one is not read again.
 const SMALL_PICTURE: u32 = 1200;
 const UNREAD_ENLARGE: f32 = 3.0;
+/// How sure Tesseract must be that a page is turned before it is put upright and read again (its «orientation
+/// confidence»; a page turned on its side gives 12 to 15, measured on the fixtures 2026-10-13).
+const TURN_SURE: f32 = 2.0;
+/// A pixel this much darker than the paper is ink.
+const INK_BELOW_PAPER: u8 = 50;
+/// A page with less ink than this share is blank or has only a stamp: it is not read again.
+const LITTLE_INK: f32 = 0.002;
 
 #[derive(Debug, thiserror::Error)]
 pub enum OcrError {
@@ -108,7 +115,8 @@ pub fn available() -> bool {
 /// says its own or Tesseract estimates it.
 ///
 /// A picture with small letters is enlarged and read again, and the surer of the two readings is kept; one whose
-/// letters are big enough is not read twice for this.
+/// letters are big enough is not read twice for this. A page still read with doubts that has ink on it is checked
+/// for being turned (on its side, upside down) and, if so, put upright and read again; a blank one is left as it is.
 ///
 /// A page read with doubts is read once more with the adaptive threshold of Leptonica, and the surer of the two
 /// is kept: a faded copy is read where the plain threshold finds nothing, but on a good page the adaptive one
@@ -124,8 +132,20 @@ pub fn read_picture(picture: &[u8], dpi: Option<u32>) -> Result<PageRead, OcrErr
             }
         }
     }
-    if !best.doubtful() {
+    // a blank back of a sheet or one with only a stamp: reading it again cannot gain anything
+    if !best.doubtful() || ink(&picture) < LITTLE_INK {
         return Ok(best);
+    }
+    // a sheet scanned on its side or upside down is put upright and read again
+    if let Some(up) = orientation(&picture).and_then(|turn| turned(&picture, turn)) {
+        if let Ok(read) = run(&up, dpi, false) {
+            if read.confidence > best.confidence {
+                (best, picture) = (read, Cow::Owned(up));
+            }
+        }
+        if !best.doubtful() {
+            return Ok(best);
+        }
     }
     match run(&picture, dpi, true) {
         Ok(adaptive) if adaptive.confidence > best.confidence => Ok(adaptive),
@@ -224,30 +244,49 @@ fn weights(old: usize, new: usize) -> Vec<(usize, Vec<f32>)> {
 }
 
 fn run(picture: &[u8], dpi: Option<u32>, adaptive: bool) -> Result<PageRead, OcrError> {
-    let (exe, data) = tesseract().ok_or(OcrError::Missing)?;
-    let mut cmd = Command::new(exe);
     // page segmentation 4 (one column of lines of any size): a table is read row by row; the automatic one (3) cut it
     // into a block per column. Two columns of prose came out the same with both (measured 2026-10-11)
-    cmd.args(["stdin", "stdout", "--tessdata-dir"]).arg(&data).args(["-l", LANGUAGES, "--oem", "1", "--psm", "4"]);
+    let mut args: Vec<String> = ["-l", LANGUAGES, "--oem", "1", "--psm", "4"].map(String::from).to_vec();
     if let Some(dpi) = dpi {
-        cmd.args(["--dpi", &dpi.to_string()]);
+        args.extend(["--dpi".to_string(), dpi.to_string()]);
     }
     if adaptive {
-        cmd.args(["-c", "thresholding_method=1"]);
+        args.extend(["-c".to_string(), "thresholding_method=1".to_string()]);
     }
-    // one thread each: the pages of a file are read side by side
-    cmd.arg("tsv").env("OMP_THREAD_LIMIT", "1").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    args.push("tsv".into());
+    Ok(from_tsv(&tesseract_on(picture, &args)?))
+}
+
+/// How many degrees a page has to turn clockwise to stand upright, when Tesseract is sure of it (its model of
+/// orientation, `osd`): 90, 180 or 270; `None` for a page upright, or when it cannot tell.
+fn orientation(picture: &[u8]) -> Option<u32> {
+    let said = tesseract_on(picture, &["--psm".into(), "0".into()]).ok()?;
+    let value = |label: &str| said.lines().find_map(|l| l.strip_prefix(label)).map(str::trim);
+    let turn: u32 = value("Rotate:")?.parse().ok()?;
+    let sure: f32 = value("Orientation confidence:")?.parse().ok()?;
+    (matches!(turn, 90 | 180 | 270) && sure >= TURN_SURE).then_some(turn)
+}
+
+/// Runs Tesseract on a picture given through its standard input, with `args` after its data, and gives what it
+/// writes. One thread each (the pages of a file are read side by side), below the normal priority: the computer is
+/// given to whoever uses it, and Tesseract takes what is left (decision of the institution, 2026-10-13).
+fn tesseract_on(picture: &[u8], args: &[String]) -> Result<String, OcrError> {
+    let (exe, data) = tesseract().ok_or(OcrError::Missing)?;
+    let mut cmd = Command::new(exe);
+    cmd.args(["stdin", "stdout", "--tessdata-dir"]).arg(&data).args(args);
+    cmd.env("OMP_THREAD_LIMIT", "1").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
+        const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x0000_4000;
+        cmd.creation_flags(CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS);
     }
     let mut child = cmd.spawn().map_err(|e| OcrError::Failed(e.to_string()))?;
     let (Some(mut input), Some(mut output), Some(mut errors)) = (child.stdin.take(), child.stdout.take(), child.stderr.take()) else {
         return Err(OcrError::Failed("no pipes".into()));
     };
-    let (status, tsv, said) = std::thread::scope(|s| {
+    let (status, out, said) = std::thread::scope(|s| {
         // the picture is written while the answer is read: neither side waits for the other
         s.spawn(move || {
             let _ = input.write_all(picture);
@@ -280,7 +319,44 @@ fn run(picture: &[u8], dpi: Option<u32>, adaptive: bool) -> Result<PageRead, Ocr
     if !status?.success() {
         return Err(OcrError::Failed(said.lines().last().unwrap_or_default().to_string()));
     }
-    Ok(from_tsv(&tsv))
+    Ok(out)
+}
+
+/// A picture turned clockwise `turn` degrees (90, 180 or 270), in gray as Tesseract reads it (PGM).
+fn turned(picture: &[u8], turn: u32) -> Option<Vec<u8>> {
+    let gray = gray_over_white(image::load_from_memory(picture).ok()?);
+    let up = match turn {
+        90 => image::imageops::rotate90(&gray),
+        180 => image::imageops::rotate180(&gray),
+        270 => image::imageops::rotate270(&gray),
+        _ => return None,
+    };
+    let mut out = format!("P5\n{} {}\n255\n", up.width(), up.height()).into_bytes();
+    out.extend_from_slice(up.as_raw());
+    Some(out)
+}
+
+/// How much of a picture is ink (0 to 1): the pixels clearly darker than its paper. The paper is its light gray (the
+/// lightest tenth of its pixels), so a faded copy with gray letters still has ink. A blank back of a sheet has so
+/// little that reading it again cannot gain anything.
+fn ink(picture: &[u8]) -> f32 {
+    let Some(gray) = image::load_from_memory(picture).ok().map(gray_over_white) else { return 1.0 };
+    let px = gray.as_raw();
+    if px.is_empty() {
+        return 0.0;
+    }
+    let mut counts = [0usize; 256];
+    for &p in px {
+        counts[p as usize] += 1;
+    }
+    // the paper: the gray below which nine tenths of the pixels are
+    let mut seen = 0;
+    let paper = (0..=255u8).find(|&g| {
+        seen += counts[g as usize];
+        seen * 10 >= px.len() * 9
+    });
+    let dark = paper.unwrap_or(255).saturating_sub(INK_BELOW_PAPER);
+    counts[..dark as usize].iter().sum::<usize>() as f32 / px.len() as f32
 }
 
 /// The text of Tesseract's table of words: a space between words, a line break between lines and an empty line
@@ -424,6 +500,42 @@ mod tests {
         assert_eq!(enlargement(None, 440), Some(UNREAD_ENLARGE));
         assert_eq!(enlargement(None, 3300), None, "a blank page of a PDF is not read again");
         assert_eq!(enlargement(Some(10.0), 2000), Some(2.5), "no side past 5000 pixels");
+    }
+
+    /// A blank back of a sheet or one with only a stamp has too little ink to be read again; a faded page of text has
+    /// enough (it is rescued by the second reading, ADR-035).
+    #[test]
+    fn a_blank_page_is_not_read_again_and_a_faded_one_is() {
+        let pgm = |w: usize, h: usize, px: Vec<u8>| {
+            let mut out = format!("P5\n{w} {h}\n255\n").into_bytes();
+            out.extend(px);
+            out
+        };
+        assert!(ink(&pgm(1000, 1400, vec![250; 1_400_000])) < LITTLE_INK);
+        // a stamp of 60 by 40 pixels on a page of 1000 by 1400
+        let mut stamp = vec![250u8; 1_400_000];
+        for y in 0..40 {
+            for x in 0..60 {
+                stamp[y * 1000 + x] = 30;
+            }
+        }
+        assert!(ink(&pgm(1000, 1400, stamp)) < LITTLE_INK);
+        let pages = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/office/acta-escaneada.pdf");
+        if available() {
+            let mut inks = vec![];
+            draw_pages(&pages, &[1, 2], |_, picture, _| inks.push(ink(&picture))).unwrap();
+            assert!(inks.iter().all(|i| *i >= LITTLE_INK), "{inks:?}");
+        }
+    }
+
+    /// A picture turned a quarter clockwise is upright again, and its size swaps.
+    #[test]
+    fn a_turned_picture_is_put_upright() {
+        let mut picture = b"P5\n3 2\n255\n".to_vec();
+        picture.extend([1, 2, 3, 4, 5, 6]);
+        let up = turned(&picture, 90).unwrap();
+        assert_eq!(up, [b"P5\n2 3\n255\n".to_vec(), vec![4, 1, 5, 2, 6, 3]].concat());
+        assert_eq!(turned(&picture, 45), None);
     }
 
     #[test]

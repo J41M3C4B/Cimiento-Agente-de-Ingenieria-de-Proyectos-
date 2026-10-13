@@ -145,6 +145,41 @@ struct Patterns {
     nss: Regex,
     /// An address ending in a known domain, glued to the word before it: an email whose «@» was misread.
     misread_email: Regex,
+    /// A CURP and an RFC of a person read from a picture, with letters where digits go («O» for «0»).
+    misread_curp: Regex,
+    misread_rfc_person: Regex,
+}
+
+/// What a picture puts in place of a digit: O→0, I and L→1, Z→2, S→5, G→6, B→8 (the text is in capitals here).
+fn as_digit(c: char) -> char {
+    match c {
+        'O' => '0',
+        'I' | 'L' => '1',
+        'Z' => '2',
+        'S' => '5',
+        'G' => '6',
+        'B' => '8',
+        _ => c,
+    }
+}
+
+/// An id read from a picture with the places that hold digits fixed, when it holds enough true digits there to be one
+/// (four of the six of its date): `None` otherwise, or when nothing needed fixing.
+fn with_digits_fixed(id: &str, places: &[std::ops::Range<usize>]) -> Option<String> {
+    let mut chars: Vec<char> = id.chars().collect();
+    let date = places.first()?;
+    if chars.get(date.clone())?.iter().filter(|c| c.is_ascii_digit()).count() < 4 {
+        return None;
+    }
+    let mut changed = false;
+    for range in places {
+        for c in chars.get_mut(range.clone())? {
+            let d = as_digit(*c);
+            changed |= d != *c;
+            *c = d;
+        }
+    }
+    changed.then(|| chars.into_iter().collect())
 }
 
 fn patterns() -> &'static Patterns {
@@ -162,6 +197,8 @@ fn patterns() -> &'static Patterns {
             card: r(r"\b\d(?:[ -]?\d){12,18}\b"),
             nss: r(r"\b\d{11}\b"),
             misread_email: r(r"[A-Z0-9][A-Z0-9._%+()-]*\.(?:COM|ORG|NET|MX|ES|GOB|EDU|INFO|IO|CO|US)(?:\.[A-Z]{2})?\b"),
+            misread_curp: r(r"\b[A-Z][AEIOUX][A-Z]{2}[0-9OILZSGB]{6}[HMX][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9][0-9OILZSGB]\b"),
+            misread_rfc_person: r(r"\b[A-Z&]{4}[0-9OILZSGB]{6}[A-Z0-9]{3}\b"),
         }
     })
 }
@@ -321,6 +358,22 @@ impl SensitiveScanner for RegexScanner {
         if self.pictures {
             for r in self.misread_emails(t) {
                 push(FindingKind::Email, Severity::Warn, r, 0.5);
+            }
+            // a CURP or an RFC of a person read with a letter where a digit goes: fixed, it must still be one (the
+            // check digit of a CURP, a real date in an RFC) to be covered
+            for m in p.misread_curp.find_iter(t) {
+                if let Some(fixed) = with_digits_fixed(m.as_str(), &[4..10, 17..18]) {
+                    if p.curp.is_match(&fixed) && checks::curp_ok(&fixed) {
+                        push(FindingKind::Curp, Severity::Block, m.range(), 0.8);
+                    }
+                }
+            }
+            for m in p.misread_rfc_person.find_iter(t) {
+                if let Some(fixed) = with_digits_fixed(m.as_str(), &[4..10]) {
+                    if checks::yymmdd_ok(&fixed[4..10]) {
+                        push(FindingKind::RfcPerson, Severity::Block, m.range(), 0.7);
+                    }
+                }
             }
         }
 

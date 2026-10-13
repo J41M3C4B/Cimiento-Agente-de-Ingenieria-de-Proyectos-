@@ -39,6 +39,17 @@ fn a_pdf_with_text_keeps_its_text_and_other_files_are_not_read() {
     assert_eq!(read_upload("roto.pdf", b"esto no es un pdf"), Err(ReadError::Damaged));
 }
 
+/// A sheet put in the scanner on its side: Tesseract's model of orientation says it is turned, and it is read
+/// upright (ADR-035).
+#[test]
+fn a_sheet_scanned_on_its_side_is_read_upright() {
+    needs_ocr();
+    let r = read_file(&fixture("acta-girada.pdf")).unwrap();
+    let text = r.pages[0].split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(text.contains("ACTA DE ASAMBLEA ORDINARIA") && text.contains("Casa Hogar Ficticia del Valle"), "{text}");
+    assert!(r.doubtful.is_empty(), "{:?}", r.doubtful);
+}
+
 /// ADR-037: a page with a printed line on top and its body scanned has text, but most of it is a picture: it is read
 /// as a picture, and what OCR reads, the body too, replaces its text.
 #[test]

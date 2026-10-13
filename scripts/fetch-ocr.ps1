@@ -16,6 +16,8 @@ $downloads = @{
     spanish   = @{ url = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/spa.traineddata"; sha = "e2c1ffdad8b30f26c45d4017a9183d3a7f9aa69e59918be4f88b126fac99ab2c" }
     # English goes first in the reading: the Spanish model has no «@», and an email it misreads escapes the scanner
     english   = @{ url = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/eng.traineddata"; sha = "8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba" }
+    # which way a page is turned (ADR-035): a sheet scanned sideways is put upright before it is read again
+    osd       = @{ url = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/osd.traineddata"; sha = "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff" }
     # the version pdfium-render reads with (feature pdfium_latest = 7881)
     pdfium    = @{ url = "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7881/pdfium-win-x64.tgz"; sha = "73cc0de638ac2095e7445bf56a38200a5b7c7ca0e9f4ba144598f2457377ac08" }
     sevenzip  = @{ url = "https://github.com/ip7z/7zip/releases/download/26.04/7z2604-x64.msi"; sha = "0b01334a418654293513449f61d6bfc99e5196ca371e3c3dc961eda57cd535c6" }
@@ -46,6 +48,7 @@ try {
     $setup = Get-Checked "tesseract"
     $spanish = Get-Checked "spanish"
     $english = Get-Checked "english"
+    $osd = Get-Checked "osd"
     $pdfium = Get-Checked "pdfium"
     $msi = Get-Checked "sevenzip"
 
@@ -72,6 +75,7 @@ try {
     Copy-Item (Join-Path $tess "tessdata\configs\tsv") (Join-Path $data "configs")
     Copy-Item $spanish (Join-Path $data "spa.traineddata")
     Copy-Item $english (Join-Path $data "eng.traineddata")
+    Copy-Item $osd (Join-Path $data "osd.traineddata")
     Copy-Item (Join-Path $pdf "bin\pdfium.dll") (Join-Path $dest "pdfium")
     Copy-Item (Join-Path $tess "doc\LICENSE") (Join-Path $licenses "tesseract.txt")
     Copy-Item (Join-Path $pdf "LICENSE") (Join-Path $licenses "pdfium-binaries.txt")

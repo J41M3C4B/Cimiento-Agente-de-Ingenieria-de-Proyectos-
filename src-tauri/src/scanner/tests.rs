@@ -132,6 +132,36 @@ fn an_email_with_its_at_sign_misread_is_found_in_a_text_read_from_a_picture() {
     assert!(RegexScanner::new(cfg).scan("Email: infoGorlandojuan.es").is_clean());
 }
 
+/// OCR (ADR-035): in a text read from a picture, a CURP or an RFC of a person with a letter where a digit goes («O» for
+/// «0», «S» for «5») is still covered, when fixed it is one: the check digit of the CURP, a real date in the RFC, and
+/// four true digits of the six of its date. Words with those letters are not; a typed text is not read this way.
+#[test]
+fn a_curp_or_an_rfc_with_a_letter_for_a_digit_is_found_in_a_text_read_from_a_picture() {
+    let pictures = RegexScanner::new(ScannerConfig::default()).reading_pictures();
+    for (misread, kind) in [
+        ("CURP: LOPM8001O1MDFRZN09", "curp"),
+        ("Su CURP es RAMC92121SMNLNRL0O.", "curp"),
+        ("RFC: LOPM8001O1AB3", "rfc_person"),
+    ] {
+        let r = pictures.scan(misread);
+        assert_eq!(kinds(&r), vec![kind], "{misread}");
+        assert!(r.has_blocking(), "{misread}");
+        assert!(!pictures.redact(misread, &r).contains("LOPM") && !pictures.redact(misread, &r).contains("RAMC"), "{misread}");
+    }
+    for not_one in [
+        // fixed, its check digit is wrong
+        "CURP: LOPM8001O1MDFRZN08",
+        // words whose letters could be digits: too few true digits in the date
+        "COSTOSBOLSOS y LIBROSOBRESALIENTES",
+        // fixed, its date does not exist
+        "RFC: LOPM8O13S1AB3",
+    ] {
+        assert!(!pictures.scan(not_one).has_blocking(), "{not_one}: {:?}", kinds(&pictures.scan(not_one)));
+    }
+    // a text typed by a person is not read from a picture
+    assert!(!RegexScanner::new(ScannerConfig::default()).scan("CURP: LOPM8001O1MDFRZN09").has_blocking());
+}
+
 /// ADR-033 §3: a CLABE of the institution is its own; any other CLABE, even one digit away, is still blocked.
 #[test]
 fn only_exactly_an_account_of_the_institution_is_let_through() {
