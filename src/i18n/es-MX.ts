@@ -273,6 +273,12 @@ export const es = {
       looksLike: (kind: string) =>
         `Este archivo parece «${kind}», no este documento. Lo guardamos, pero no llenamos nada con él. Si lo subió en el lugar equivocado, quítelo y súbalo en el suyo.`,
       readFrom: (page: number | null) => (page ? `Leído del archivo, página ${page}.` : "Leído del archivo."),
+      // the file is read in the background (ADR-038): the window may be closed
+      readingClose: "Puede cerrar esta ventana y seguir trabajando: le avisamos al terminar.",
+      readingRow: (done: number | null, total: number | null) =>
+        done !== null && total !== null && total > 1 ? `Leyendo: ${done} de ${total} páginas` : "Leyendo el archivo…",
+      alreadyReading: "Ya estamos leyendo un archivo de este documento. Espere a que termine.",
+      readEnded: (title: string, what: string) => `«${title}»: ${what}`,
       computedFrom: "Calculado con la fecha de emisión del archivo.",
       pickTitle: "Elija el archivo del documento",
       pickFilter: "PDF, Word o foto",

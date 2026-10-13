@@ -8,6 +8,8 @@ import { HomePage } from "./core/home/HomePage";
 import { DocumentsPage } from "./core/documents/DocumentsPage";
 import { HelpPage } from "./core/help/HelpPage";
 import { ProfilePage } from "./core/profile/ProfilePage";
+import { RecordReadingWatcher } from "./core/profile/recordReading";
+import { attachedNotice } from "./core/profile/RecordWindow";
 import type { Where } from "./core/profile/gaps";
 import { ProjectsPage } from "./modules/projects/ProjectsPage";
 import { StaffPage } from "./modules/hr/StaffPage";
@@ -71,6 +73,8 @@ export default function App() {
       {page === "admin" && access?.can("administer") && <AdminPage />}
       {page === "security" && <SecurityPage />}
       {page === "help" && <HelpPage />}
+      {/* the files of the Expediente read in the background say how they ended, wherever the person is (ADR-038) */}
+      <RecordReadingWatcher attachedText={attachedNotice} />
     </Shell>
     </AssistantProvider>
   );

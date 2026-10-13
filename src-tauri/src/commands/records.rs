@@ -44,30 +44,52 @@ pub fn institution_record_save(
     Ok(svc::save(&mut conn, &kind, id.as_deref(), values, decision)?)
 }
 
-/// Puts a file on a document, read from where it is on this computer (`path`, chosen by the person). A scan or a
-/// photo is read as pictures, a few seconds a page: the file is read without holding the database.
+/// How a reading in the background started.
+#[derive(Debug, serde::Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum AttachStart {
+    /// It is being read; `record-read` says how it ended, with `key`.
+    Reading { key: String },
+    /// That document is already being read.
+    AlreadyReading { key: String },
+}
+
+/// Puts a file on a document, read from where it is on this computer (`path`, chosen by the person). The file is
+/// read in the background (a scan or a photo takes a few seconds a page, an act several minutes) without holding the
+/// database: this answers at once, and the event `record-read` says how it ended, the outcome or the error, so
+/// nothing ends in silence, even with the window closed (ADR-038). The progress comes with its `key`.
 #[tauri::command]
 pub async fn institution_record_attach(
+    app: tauri::AppHandle,
     session: State<'_, Session>,
     db: State<'_, Db>,
     kind: String,
     id: Option<String>,
     path: String,
-) -> Result<AttachOutcome, UiError> {
+) -> Result<AttachStart, UiError> {
     guard(&session, "institution_record_attach")?;
+    let key = svc::background::key(&kind, id.as_deref());
+    let Some(reading) = svc::background::start(&key) else { return Ok(AttachStart::AlreadyReading { key }) };
     let shared = db.0.clone();
-    let outcome = tauri::async_runtime::spawn_blocking(move || {
-        let file = match svc::read_original(Path::new(&path)) {
-            Ok(file) => file,
-            Err(reason) => return Ok(AttachOutcome::Unreadable { reason }),
+    let started = key.clone();
+    std::thread::spawn(move || {
+        let _reading = reading;
+        let ended: Result<AttachOutcome, UiError> = (|| {
+            let file = match crate::documents::reading::labeled(&key, || svc::read_original(Path::new(&path))) {
+                Ok(file) => file,
+                Err(reason) => return Ok(AttachOutcome::Unreadable { reason }),
+            };
+            let mut conn = shared.lock().map_err(|_| UiError::internal())?;
+            Ok(svc::attach_read(&mut conn, &kind, id.as_deref(), Path::new(&path), file)?)
+        })();
+        let said = match &ended {
+            Ok(outcome) => serde_json::json!({ "key": key, "kind": kind, "outcome": outcome }),
+            Err(error) => serde_json::json!({ "key": key, "kind": kind, "error": error }),
         };
-        let mut conn = shared.lock().map_err(|_| UiError::internal())?;
-        Ok::<_, UiError>(svc::attach_read(&mut conn, &kind, id.as_deref(), Path::new(&path), file)?)
-    })
-    .await
-    .map_err(|_| UiError::internal())??;
-    super::index_documents(&db.0);
-    Ok(outcome)
+        let _ = tauri::Emitter::emit(&app, "record-read", said);
+        super::index_documents(&shared);
+    });
+    Ok(AttachStart::Reading { key: started })
 }
 
 #[tauri::command]

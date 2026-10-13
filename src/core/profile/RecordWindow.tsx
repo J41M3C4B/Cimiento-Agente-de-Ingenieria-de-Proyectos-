@@ -1,13 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { open as pickFile } from "@tauri-apps/plugin-dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FormRenderer } from "../../components/FormRenderer";
 import { Icon } from "../../components/icons";
 import { ManualText } from "../../components/ManualHelp";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Alert, Button, Inset, Modal } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import { useReadingProgress } from "../../lib/files";
 import {
   institutionRecordAttach,
   institutionRecordDetach,
@@ -18,7 +17,8 @@ import {
   manualEntry,
   toAppError,
 } from "../../lib/tauri";
-import type { AttachOutcome, Decision, Expediente, FormValues, InstitutionRecord, ProfileIssue, QuarantineReport } from "../../lib/types";
+import type { AttachOutcome, Decision, Expediente, FormValues, InstitutionRecord, ProfileIssue, QuarantineReport, RecordRead } from "../../lib/types";
+import { markReading, recordKey, useOpenWindow, useRecordReadings } from "./recordReading";
 
 const t = es.profile.records;
 
@@ -76,9 +76,14 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
   const [failure, setFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [held, setHeld] = useState<{ report: QuarantineReport; retry: (d: Decision) => void } | null>(null);
-  // a scan or a photo is read as pictures, a few seconds a page (OCR, ADR-035)
-  const [reading, setReading] = useState(false);
-  const progress = useReadingProgress(reading);
+  // a file is read in the background (ADR-038): this window may be closed while it is read, and says how it ended
+  // if it is still open
+  const key = recordKey(record.type, id);
+  useOpenWindow(key);
+  const readings = useRecordReadings();
+  const reading = readings.reading.get(key);
+  const ended = readings.ended.filter((e) => e.key === key).pop();
+  const seen = useRef(ended?.n ?? 0);
 
   // what is saved is the starting point, once
   useEffect(() => {
@@ -128,8 +133,22 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
     act(async () => {
       const chosen = await pickFile({ multiple: false, directory: false, title: t.pickTitle, filters: [{ name: t.pickFilter, extensions: EXTENSIONS }] });
       if (typeof chosen !== "string") return;
-      setReading(true);
-      const out = await institutionRecordAttach(record.type, id, chosen).finally(() => setReading(false));
+      const start = await institutionRecordAttach(record.type, id, chosen);
+      if (start.status === "already_reading") {
+        setFailure(t.alreadyReading);
+        return;
+      }
+      markReading(start.key, record.type);
+    });
+
+  // how the reading of a file ended, while this window is open
+  const ending = (r: RecordRead) =>
+    act(async () => {
+      const out = r.outcome;
+      if (r.error || !out) {
+        setFailure(r.error?.message ?? t.unreadable.damaged!);
+        return;
+      }
       if (out.status === "unreadable") {
         setFailure(t.unreadable[out.reason] ?? t.unreadable.damaged!);
         return;
@@ -143,6 +162,12 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
       setValues((v) => ({ ...(v ?? {}), ...filled, "institution.record.status": "have" }));
       setNotice(attachedNotice(out));
     });
+  useEffect(() => {
+    if (ended && ended.n > seen.current) {
+      seen.current = ended.n;
+      void ending(ended);
+    }
+  }, [ended]);
 
   const open = () =>
     act(async () => {
@@ -198,9 +223,13 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
             ) : (
               <p className="text-ui text-ink-3">{t.noFile}</p>
             )}
-            {reading && <p className="text-small text-ink-2">{progress ? es.common.readingPictures(progress.done, progress.total) : es.common.loading}</p>}
+            {reading && (
+              <p className="text-small text-ink-2">
+                {reading.progress ? es.common.readingPictures(reading.progress.done, reading.progress.total) : t.readingRow(null, null)} {t.readingClose}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" disabled={busy} onClick={() => void attach()}>
+              <Button size="sm" variant="secondary" disabled={busy || !!reading} onClick={() => void attach()}>
                 <Icon name="upload" size={16} />
                 {file ? t.replace : t.attach}
               </Button>

@@ -52,9 +52,12 @@ vi.mock("../../lib/tauri", () => ({
   toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
 }));
 
+import { act } from "@testing-library/react";
 import { open as pickFile } from "@tauri-apps/plugin-dialog";
 import { institutionRecordAttach, institutionRecordForm, institutionRecordSave } from "../../lib/tauri";
-import { RecordWindow } from "./RecordWindow";
+import type { AttachOutcome } from "../../lib/types";
+import { endedText, markEnded, markReading, resetRecordReadings, useRecordReadings } from "./recordReading";
+import { RecordWindow, attachedNotice } from "./RecordWindow";
 
 function draw(onDone = vi.fn()) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -66,34 +69,48 @@ function draw(onDone = vi.fn()) {
   return onDone;
 }
 
+const attached = (more: Partial<Extract<AttachOutcome, { status: "attached" }>> = {}): AttachOutcome => ({
+  status: "attached",
+  id: "rec_1",
+  readable: true,
+  from_picture: false,
+  doubtful: [],
+  covered: 0,
+  filled: [],
+  suggested: 0,
+  looks_like: null,
+  expediente,
+  ...more,
+});
+
+/** The file is read in the background (ADR-038): the window asks for it, and Rust says later how it ended. */
+async function upload(outcome: AttachOutcome) {
+  vi.mocked(institutionRecordAttach).mockResolvedValueOnce({ status: "reading", key: "privacy_notice" });
+  fireEvent.click(await screen.findByRole("button", { name: "Subir archivo" }));
+  await waitFor(() => expect(institutionRecordAttach).toHaveBeenCalledWith("privacy_notice", null, "C:\\Documentos\\aviso.docx"));
+  // while it is read: the window says so, and may be closed
+  expect(await screen.findByText(/Leyendo el archivo… Puede cerrar esta ventana/)).toBeInTheDocument();
+  act(() => {
+    markEnded({ key: "privacy_notice", kind: "privacy_notice", outcome });
+  });
+}
+
 describe("RecordWindow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRecordReadings();
     vi.mocked(institutionRecordForm).mockImplementation(async () => empty);
   });
 
   it("says what the document is, and a file chosen in the system is kept with the data of people covered, without asking", async () => {
-    // a scan, read as pictures (OCR): its worn page was read with doubts, and the scanner covered an email
-    vi.mocked(institutionRecordAttach).mockResolvedValueOnce({
-      status: "attached",
-      id: "rec_1",
-      readable: true,
-      from_picture: true,
-      doubtful: [2],
-      covered: 1,
-      filled: ["institution.record.issued_on"],
-      suggested: 2,
-      looks_like: null,
-      expediente,
-    });
     // once the file is on it, the window says what the file filled
     vi.mocked(institutionRecordForm).mockImplementation(async (_kind, id) => (id ? withFile : empty));
     draw();
     expect(await screen.findByText("El texto que explica a las personas qué datos suyos se piden.")).toBeInTheDocument();
     expect(screen.getByText("Sin archivo. Puede marcarlo aunque no lo suba.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Subir archivo" }));
-    await waitFor(() => expect(institutionRecordAttach).toHaveBeenCalledWith("privacy_notice", null, "C:\\Documentos\\aviso.docx"));
+    // a scan, read as pictures (OCR): its worn page was read with doubts, and the scanner covered an email
+    await upload(attached({ from_picture: true, doubtful: [2], covered: 1, filled: ["institution.record.issued_on"], suggested: 2 }));
     expect(
       await screen.findByText(/pero la página 2 se leyó con dudas.*Llenamos «Fecha de emisión».*Dejamos 2 sugerencias en «Mi institución».*Tapamos 1 dato personal/),
     ).toBeInTheDocument();
@@ -109,32 +126,50 @@ describe("RecordWindow", () => {
   });
 
   it("a file that looks like another document fills nothing and says so", async () => {
-    vi.mocked(institutionRecordAttach).mockResolvedValueOnce({
-      status: "attached",
-      id: "rec_1",
-      readable: true,
-      from_picture: false,
-      doubtful: [],
-      covered: 0,
-      filled: [],
-      suggested: 0,
-      looks_like: "tax_status_certificate",
-      expediente,
-    });
     draw();
-    fireEvent.click(await screen.findByRole("button", { name: "Subir archivo" }));
+    await upload(attached({ looks_like: "tax_status_certificate" }));
     expect(await screen.findByText(/Este archivo parece «Constancia de situación fiscal», no este documento/)).toBeInTheDocument();
   });
 
   it("a file it cannot take says why, and saving sends what the person marked", async () => {
-    vi.mocked(institutionRecordAttach).mockResolvedValueOnce({ status: "unreadable", reason: "too_many_pages" });
     const onDone = draw();
-    fireEvent.click(await screen.findByRole("button", { name: "Subir archivo" }));
+    await upload({ status: "unreadable", reason: "too_many_pages" });
     expect(await screen.findByText(/más de 100 páginas escaneadas/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("radio", { name: "En trámite" }));
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() => expect(onDone).toHaveBeenCalledWith("Listo, quedó guardado."));
     expect(vi.mocked(institutionRecordSave).mock.calls[0]).toEqual(["privacy_notice", null, { "institution.record.status": "in_progress" }, undefined]);
+  });
+
+  it("a document already being read is not read twice", async () => {
+    vi.mocked(institutionRecordAttach).mockResolvedValueOnce({ status: "already_reading", key: "privacy_notice" });
+    draw();
+    fireEvent.click(await screen.findByRole("button", { name: "Subir archivo" }));
+    expect(await screen.findByText("Ya estamos leyendo un archivo de este documento. Espere a que termine.")).toBeInTheDocument();
+  });
+});
+
+describe("the readings of the Expediente in the background", () => {
+  beforeEach(() => resetRecordReadings());
+
+  it("keep which documents are read and how each one ended, said with the name of its document", () => {
+    let seen: ReturnType<typeof useRecordReadings> | null = null;
+    function Probe() {
+      seen = useRecordReadings();
+      return null;
+    }
+    render(<Probe />);
+    act(() => markReading("articles_of_incorporation", "articles_of_incorporation"));
+    expect(seen!.reading.has("articles_of_incorporation")).toBe(true);
+    act(() => {
+      markEnded({ key: "articles_of_incorporation", kind: "articles_of_incorporation", outcome: attached({ filled: ["institution.record.reference"] }) });
+    });
+    expect(seen!.reading.size).toBe(0);
+    const last = seen!.ended[seen!.ended.length - 1]!;
+    expect(endedText(last, attachedNotice)).toMatch(/^«Acta constitutiva»: Se guardó el archivo\. Llenamos «Folio o número»/);
+    // an error ends it too, and says so: nothing ends in silence
+    const failed = markEnded({ key: "power_of_attorney", kind: "power_of_attorney", error: { code: "internal", message: "Algo salió mal." } });
+    expect(endedText(failed, attachedNotice)).toBe("«Poder del representante legal»: Algo salió mal.");
   });
 });

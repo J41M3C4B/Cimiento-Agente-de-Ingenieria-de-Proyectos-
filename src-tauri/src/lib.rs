@@ -29,8 +29,8 @@ pub fn run() {
             // pages are read
             documents::ocr::set_home(app.path().resource_dir()?.join("ocr"));
             let handle = app.handle().clone();
-            documents::reading::on_progress(move |done, total| {
-                let _ = tauri::Emitter::emit(&handle, "reading-progress", serde_json::json!({ "done": done, "total": total }));
+            documents::reading::on_progress(move |key, done, total| {
+                let _ = tauri::Emitter::emit(&handle, "reading-progress", serde_json::json!({ "key": key, "done": done, "total": total }));
             });
             #[allow(unused_mut)]
             let mut dir = app.path().app_data_dir()?;

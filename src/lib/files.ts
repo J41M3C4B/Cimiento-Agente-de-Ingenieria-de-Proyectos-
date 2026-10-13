@@ -14,7 +14,8 @@ export function toBase64(file: File): Promise<string> {
   });
 }
 
-export type ReadingProgress = { done: number; total: number };
+/** `key`: what is being read, when its reader named it (a document of the Expediente read in the background). */
+export type ReadingProgress = { key?: string | null; done: number; total: number };
 
 /**
  * How a reading of scanned pages or photos goes (OCR, ADR-035) while `active`: Rust says how many pages are read.

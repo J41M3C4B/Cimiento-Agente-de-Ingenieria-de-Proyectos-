@@ -21,6 +21,8 @@ import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { CARE_KEY } from "../../modules/care/CareTab";
 import { HR_KEY } from "../../modules/hr/StaffTab";
 import { useSession } from "../access/session";
+import { recordKey, useRecordReadings } from "./recordReading";
+import type { Reading } from "./recordReading";
 
 const t = es.profile;
 const count = (n: number) => n.toLocaleString("es-MX");
@@ -71,7 +73,9 @@ const recordDetail = (r: InstitutionRecord) =>
     .join(" · ");
 
 /** The state of a document, told with its words: what the institution has is also said expiring or expired. */
-function RecordState({ r }: { r: InstitutionRecord }) {
+function RecordState({ r, reading }: { r: InstitutionRecord; reading?: Reading }) {
+  // its file is being read in the background (ADR-038)
+  if (reading) return <Status kind="pending">{t.records.readingRow(reading.progress?.done ?? null, reading.progress?.total ?? null)}</Status>;
   if (r.status === "have" && r.validity === "expired") return <Status kind="error">{t.records.stateExpired}</Status>;
   if (r.status === "have" && r.validity === "expiring") return <Status kind="warn">{t.records.stateExpiring}</Status>;
   const kind = r.status === "have" ? "ok" : r.status === "in_progress" ? "pending" : "idle";
@@ -116,6 +120,7 @@ export function ProfilePage({
   const [list, setList] = useState<{ kind: ListKind; row: ListRowRef } | null>(null);
   // the record of the institution (ADR-033 §5): what it must have, with its state
   const records = useRecords();
+  const readings = useRecordReadings();
   const [record, setRecord] = useState<RecordRef | null>(null);
   const recordsPart = useRef<HTMLDivElement>(null);
   const [toRecords, setToRecords] = useState(0);
@@ -433,7 +438,7 @@ export function ProfilePage({
                       key={r.id ?? r.type}
                       title={recordTitle(r)}
                       detail={recordDetail(r) || undefined}
-                      state={<RecordState r={r} />}
+                      state={<RecordState r={r} reading={readings.reading.get(recordKey(r.type, r.id))} />}
                       actions={<IconButton icon="pencil" label={t.edit} variant="plain" size="sm" onClick={() => setRecord({ type: r.type, id: r.id, custom_name: r.custom_name })} />}
                     />
                   ))}

@@ -12,6 +12,7 @@
 //!   that can be read still counts as had, and the original is still opened from where it is.
 //! - **Nothing of it reaches the AI yet** (N5); the folio and the notes never will.
 
+pub mod background;
 pub mod storage;
 
 #[cfg(test)]

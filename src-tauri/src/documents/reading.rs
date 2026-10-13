@@ -38,19 +38,37 @@ pub enum ReadError {
     Protected,
 }
 
-/// Who hears how a reading of pictures goes (the screen, through an event): pages done and pages in all.
-type Listener = Box<dyn Fn(usize, usize) + Send + Sync>;
+/// Who hears how a reading of pictures goes (the screen, through an event): what is being read (the label its
+/// reader gave it, `labeled`), pages done and pages in all.
+type Listener = Box<dyn Fn(Option<&str>, usize, usize) + Send + Sync>;
 static LISTENER: OnceLock<Listener> = OnceLock::new();
 
 /// Set once at start: who is told how many pages are read.
-pub fn on_progress(listener: impl Fn(usize, usize) + Send + Sync + 'static) {
+pub fn on_progress(listener: impl Fn(Option<&str>, usize, usize) + Send + Sync + 'static) {
     let _ = LISTENER.set(Box::new(listener));
 }
 
-fn tell(done: usize, total: usize) {
+fn tell(label: Option<&str>, done: usize, total: usize) {
     if let Some(l) = LISTENER.get() {
-        l(done, total);
+        l(label, done, total);
     }
+}
+
+thread_local! {
+    static LABEL: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Reads with a label, so who hears the progress knows which reading it is: several documents may be read at the
+/// same time in the background (a document of the Expediente by its key).
+pub fn labeled<T>(label: &str, read: impl FnOnce() -> T) -> T {
+    LABEL.with(|l| *l.borrow_mut() = Some(label.to_string()));
+    let out = read();
+    LABEL.with(|l| *l.borrow_mut() = None);
+    out
+}
+
+fn label() -> Option<String> {
+    LABEL.with(|l| l.borrow().clone())
 }
 
 /// The last file read from pictures, by the fingerprint of its bytes: a file held for the scanner comes back with
@@ -130,9 +148,10 @@ impl Drop for Scratch {
 }
 
 fn read_photo(bytes: &[u8]) -> Reading {
-    tell(0, 1);
+    let label = label();
+    tell(label.as_deref(), 0, 1);
     let read = ocr::read_picture(bytes, None).ok();
-    tell(1, 1);
+    tell(label.as_deref(), 1, 1);
     let mut r = Reading { pages: vec![String::new()], from_picture: vec![], doubtful: vec![] };
     if let Some(read) = read.filter(|p| !p.text.trim().is_empty()) {
         r.from_picture.push(1);
@@ -178,7 +197,10 @@ fn read_pictures(path: &Path, numbers: &[usize]) -> Vec<(usize, PageRead)> {
     let readers = std::thread::available_parallelism().map_or(2, |n| n.get() / 2).clamp(1, 4);
     let (send, take) = mpsc::sync_channel::<(usize, Vec<u8>, u32)>(readers);
     let (take, done, out) = (Mutex::new(take), AtomicUsize::new(0), Mutex::new(Vec::new()));
-    tell(0, total);
+    // the label of who reads: the pages are read in other threads
+    let label = label();
+    let label = label.as_deref();
+    tell(label, 0, total);
     std::thread::scope(|s| {
         for _ in 0..readers {
             s.spawn(|| loop {
@@ -188,7 +210,7 @@ fn read_pictures(path: &Path, numbers: &[usize]) -> Vec<(usize, PageRead)> {
                         o.push((n, read));
                     }
                 }
-                tell(done.fetch_add(1, Ordering::SeqCst) + 1, total);
+                tell(label, done.fetch_add(1, Ordering::SeqCst) + 1, total);
             });
         }
         let _ = ocr::draw_pages(path, numbers, |n, picture, dpi| {

@@ -154,6 +154,15 @@ export type RecordOutcome =
   | { status: "saved"; id: string; expediente: Expediente }
   | { status: "invalid"; issues: ProfileIssue[] }
   | { status: "quarantine"; report: QuarantineReport };
+/** How a reading in the background started (ADR-038): `record-read` says how it ended, with the same `key`. */
+export type AttachStart = { status: "reading"; key: string } | { status: "already_reading"; key: string };
+/** How a reading in the background ended: what came of the file, or the error. */
+export interface RecordRead {
+  key: string;
+  kind: string;
+  outcome?: AttachOutcome;
+  error?: { code: string; message: string };
+}
 export type AttachOutcome =
   /**
    * `covered`: data of people the scanner covered (it never refuses nor asks, 2026-10-13); `filled`: fields of its own
