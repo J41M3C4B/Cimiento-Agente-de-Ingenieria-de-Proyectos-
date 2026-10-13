@@ -7,12 +7,17 @@ actualizado: 2026-10-13
 
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
-> [!info] Hoy (2026-10-12)
-> Estamos en el **ADR-036 · Cajones de documentos con dueño**. **Primero solo el núcleo** («Inicio» y «Mi institución»): lo dejamos sin problemas y probado, y los módulos repiten después la misma forma de trabajar.
-> **C1 está hecho:** Documentos ya es la bandeja del Expediente. **Siguiente bloque: C2**, el Lector del Expediente. No empieza hasta que pruebes C1 y lo apruebes.
-
-> [!warning] OCR con documentos reales (2026-10-13)
-> **La letra chica ya se agranda** y **el Expediente ya no rechaza ningún archivo por datos personales: los tapa y lo guarda** (ambos por probar). **Por decidir:** un acta larga ocupa demasiado el equipo. Mediciones y propuestas en el [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md).
+> [!info] Hoy (2026-10-13)
+> **La lectura de archivos y el llenado desde documentos quedaron cerrados** ([ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md)):
+> - una sola política de llenado;
+> - la ventana del propio documento se llena sola;
+> - Pdfium lee texto y tablas;
+> - el OCR endereza hojas y no congela el equipo;
+> - el Expediente lee en segundo plano.
+>
+> La forma de trabajar quedó escrita para los módulos en la [metodología de los Lectores](agents/metodologia-lectores.md).
+>
+> **Siguiente:** pruebes todo esto junto (pasos abajo) y C1; después, **C2**, el Lector del Expediente que llena «Mi institución» buscando campo por campo.
 
 ## Qué es SociAI, en una línea
 
@@ -23,50 +28,53 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | | Bloque | Qué hace | Estado |
 |---|---|---|---|
 | 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | **Hecho, por probar** |
-| — | **OCR · letra chica** | Una imagen con letra de menos de 20 píxeles se agranda y se lee otra vez | **Hecho, por probar** |
-| — | **Expediente tapa** | Ningún archivo del Expediente se rechaza por datos personales ni pide «Tapar y seguir»: se tapan y se guarda | **Hecho, por probar** |
-| — | **Pdfium · texto** | ADR-037, bloque 2: el texto de todo PDF con Pdfium (`pdf-extract` partía palabras), con guion de corte y párrafos; un archivo con contraseña lo dice | **Hecho, por probar** |
-| — | **Pdfium · tablas** | ADR-037, bloque 3: tablas con Pdfium; salen `pdf-extract` y `lopdf` | **Siguiente**, espera tu visto bueno |
-| — | **OCR · rapidez** | Tesseract con prioridad baja; medir `tessdata_fast`; leer en segundo plano | **Por decidir** (ADR-035, precisión 3) |
+| — | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
 | 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | Pendiente |
 | 3 | **C3** | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?») | Pendiente |
 | 4 | **C4** | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti | Pendiente |
 | 5 | **N5** | El expediente hacia Proyectos, la IA e Inicio | Pendiente |
-| — | Módulos | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería | Esperan al núcleo |
+| — | Módulos | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md) | Esperan al núcleo |
 
 Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar la lectura de PDF con Pdfium y el aviso de contraseña** (pasos abajo), **que el Expediente tapa y guarda** y **probar C1** (pasos más abajo); después, aprobar el inicio de C2.
-- **Decidir lo que falta del OCR** (ADR-035, precisión 3): propuesta, primero prioridad baja para Tesseract, después medir `tessdata_fast` y al final la lectura en segundo plano.
+- **Probar la lectura y el llenado** (pasos abajo) y **probar C1** (pasos más abajo); después, aprobar el inicio de C2.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
 
-## Cómo probar el último bloque (Pdfium lee el texto de los PDF)
+## Cómo probar la lectura y el llenado (ADR-035, 037 y 038)
 
-1. **Mi institución → Expediente:** sube un PDF con texto (no escaneado) y busca en Documentos una frase suya: las palabras deben salir enteras, sin espacios en medio.
-2. Sube un **PDF con contraseña** (por ejemplo `D:\Agente Proyectos\pdf_pruebas\protected.pdf`): debe decir «Ese archivo tiene contraseña y no lo podemos abrir…», no «dañado».
-3. Lo mismo en **Mis proyectos → nueva convocatoria** con un PDF con contraseña.
-4. Un Word o Excel guardado con contraseña debe decir lo mismo.
-5. Una convocatoria real en PDF debe leerse como antes (su ficha, sus requisitos y montos).
-6. Pruebas: `cargo test documents::` y la comparación `cargo test compare_pdf_engines` (ver comandos).
+**Antes:** corre una vez `powershell -ExecutionPolicy Bypass -File scripts/fetch-ocr.ps1`, que ahora también baja el modelo que endereza las hojas giradas.
 
-## Cómo probar el bloque anterior (el Expediente tapa, no rechaza)
+**La ventana del propio documento se llena sola**
+1. **Mi institución → Expediente → Poder del representante legal → Subir archivo**, con tu poder (o el acta, la constancia, el oficio de donataria, la 32-D).
+   - La ventana dice «Leyendo… Puede cerrar esta ventana»: ciérrala.
+   - La fila dice «Leyendo: N de M páginas».
+   - Al terminar, un aviso dice cómo fue.
+2. Vuelve a abrir el poder.
+   - Las fechas de emisión y de vigencia y el número de escritura están llenos.
+   - Debajo de cada uno dice «Leído del archivo, página N».
+   - En una 32-D, la vigencia dice «Calculado con la fecha de emisión del archivo».
+3. Corrige a mano la vigencia, guarda y sube otra vez el archivo: la vigencia que escribiste no cambia; la fecha de emisión y el número sí se leen del archivo nuevo.
 
-1. **Mi institución → Expediente → Acta constitutiva → Subir archivo**, con tu acta real. Antes decía «Ese archivo es una lista de personas»; ahora debe guardarse sin preguntar nada y avisar «Tapamos N datos personales en su texto…».
-2. Lo mismo con la **constancia de situación fiscal** y con un poder o un acta de asamblea.
-3. **Documentos:** el texto guardado no muestra CURP, RFC de personas, correos ni teléfonos; donde estaban dice `[CURP OCULTA]`, etc.
-4. Las sugerencias del Lector (nombre legal, RFC de la institución…) siguen apareciendo con su página.
-5. El nombre o las notas que escribes a mano en un documento siguen pidiendo «Tapar y seguir» si traen un dato de persona: eso no cambió.
-6. Pruebas: `cargo test core::records` y `pnpm test`.
+**«Mi institución» solo recibe sugerencias en campos vacíos**
+4. En «Datos legales y fiscales», escribe a mano el nombre legal y guarda: su sugerencia desaparece.
+   - Sube otro documento que traiga el nombre: no vuelve a sugerirlo.
+5. Descarta una sugerencia y vuelve a subir el mismo archivo: no vuelve.
 
-## Cómo probar el bloque anterior (OCR · letra chica)
+**Archivos que no van o no se pueden abrir**
+6. Sube la constancia en el lugar del acta.
+   - Debe guardarse y avisar «Este archivo parece «Constancia de situación fiscal», no este documento».
+   - No llena nada.
+7. Un PDF con contraseña (`D:\Agente Proyectos\pdf_pruebas\protected.pdf`) avisa «tiene contraseña», también en **Mis proyectos → nueva convocatoria**.
 
-1. `cargo test documents::reading` (desde `src-tauri/`): las 8 pruebas pasan, entre ellas la captura chica y la foto chica.
-2. En la app, **Mi institución → Expediente**: sube como foto una captura de pantalla pequeña de un registro (PNG) o una foto tomada de lejos. Antes perdía números, juntaba «rn» en «m» o no leía nada; ahora debe leerse completa. Tarda un poco más que una foto normal: se lee dos veces.
-3. Sube una foto o un PDF escaneado con letra normal: debe tardar lo mismo que antes (no se lee dos veces).
-4. Con un archivo real, sin imprimir su texto: `$env:CIMIENTO_READER_FILE="D:\...\captura.png"; cargo test reader_on_a_file -- --ignored --nocapture > salida.txt` y compara cuántas letras y qué datos encuentra contra la medición del 2026-10-13.
+**Escaneos y fotos**
+8. Un acta escaneada larga: la computadora no se congela mientras se lee.
+9. Una hoja escaneada de lado se lee bien, y una página con encabezado impreso y cuerpo escaneado también.
+10. Un Word con una hoja escaneada pegada: su texto aparece en Documentos.
+
+**Pruebas:** `cargo test core::reader documents:: core::records scanner` y `pnpm test`.
 
 ## Cómo probar C1
 
@@ -82,6 +90,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-13 | **Lectura y llenado sin huecos (ADR-038):** una sola política de llenado (datos propios solos, sugerencias solo en campos vacíos, nunca lo rechazado, autoridad por campo, lugar equivocado); Pdfium lee también las tablas (salen `pdf-extract` y `lopdf`); OCR con prioridad baja, hojas giradas, páginas mixtas e imágenes en Word y Excel; el Expediente lee en segundo plano; la metodología para los módulos | [ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md), [metodología](agents/metodologia-lectores.md) |
 | 2026-10-13 | **Pdfium lee el texto de todo PDF:** palabras enteras (antes «Thi s report»), párrafos por la distancia entre renglones, guion de corte; de 5 a 20 veces más rápido. Un PDF, Word o Excel con contraseña lo dice en el Expediente y en las convocatorias | [ADR-037, bloque 2](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
 | 2026-10-13 | **Pdfium contra `pdf-extract` (medición):** en 24 PDF de muestra sacan las mismas letras, pero `pdf-extract` parte palabras («Thi s report outli nes») y es de 5 a 20 veces más lento; se decide Pdfium como único motor | [ADR-037](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
 | 2026-10-13 | **El Expediente tapa, no rechaza:** ningún archivo del Expediente se rechaza por «lista de personas» ni pide «Tapar y seguir»; el escáner tapa todo, la pantalla dice cuántos datos y la bitácora guarda los conteos. Las convocatorias conservan el rechazo | [ADR-036, precisión del 2026-10-13](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
@@ -125,6 +134,7 @@ Capas (ADR-032): base → módulos → núcleo → proyectos → pantallas; cada
 | Cómo se ve el programa | [Sistema visual](13-sistema-visual.md) |
 | Qué dice la ayuda del programa | [Manual](manual/programa.md) · [Mi institución](manual/mi-institucion.md) |
 | Las reglas para trabajar en el código | [Principios](agents/principios-de-ingenieria.md) · [Flujo de trabajo](agents/flujo-de-trabajo.md) · [Comandos y pruebas](agents/comandos-y-pruebas.md) |
+| Cómo un cajón lee sus archivos y llena sus formularios (para cada módulo) | [Metodología de los Lectores](agents/metodologia-lectores.md) · [ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md) |
 | Por qué se decidió cada cosa | Los ADR, abajo · [Índice de ADR](adr/README.md) |
 
 ## Tus observaciones

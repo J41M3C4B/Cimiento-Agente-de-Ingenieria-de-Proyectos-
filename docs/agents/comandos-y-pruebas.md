@@ -43,7 +43,7 @@ cargo test core::archive::vectors                      # vectores del expediente
 #   $env:CIMIENTO_VEC_CACHE="D:\...\vectores.json"; cargo test search_live -- --ignored --nocapture > salida.txt
 #   lo que entiende el Lector de un archivo real, sin guardar nada ni imprimir su texto (páginas, tiempo, tipo y largo de cada dato, y qué datos protegidos halla el escáner por página y si lo toma por lista de personas):
 #   $env:CIMIENTO_READER_FILE="D:\...\acta.pdf"; cargo test reader_on_a_file -- --ignored --nocapture > salida.txt
-cargo test core::reader                                # el Lector (IA6a): el tipo de cada documento ficticio por sus palabras, fechas escritas con palabras, los datos de la constancia, el oficio, el acta y el poder, el RFC aunque lo guardado esté tapado, y lo que dijo la persona no lo cambia una regla
+cargo test core::reader                                # el Lector (IA6a) y la política de llenado (ADR-038): batería de los datos propios de 13 documentos, campo lleno, rechazado, autoridad, reemplazo, lugar equivocado; el tipo de cada documento ficticio por sus palabras, fechas escritas con palabras, los datos de la constancia, el oficio, el acta y el poder, el RFC aunque lo guardado esté tapado, y lo que dijo la persona no lo cambia una regla
 cargo test core::archive                               # Documentos: texto pegado y archivos (PDF, Word, Excel, fotos) con escáner, solo el texto limpio y las páginas leídas de imagen
 cargo test core::records                               # expediente (ADR-033 §5, N4): qué documentos tocan a cada institución, estado y vigencia, folio protegido, PDF y Word con escáner, escaneados y fotos, solo el texto limpio y dónde está el original
 cargo test core::examples                              # los dos ejemplos I.A.P. cargan completos al 100 % y sin nombres, folios ni CLABE hacia la IA
@@ -59,10 +59,11 @@ cargo test core::security                              # PIN, escaneo de la base
 #   $env:CIMIENTO_SAMPLE_DIR="D:\...\muestra"; cargo test write_a_sample_guide -- --ignored --nocapture
 pnpm tauri build --bundles nsis                        # instalador de Windows (con Strawberry Perl antes que el de Git en el PATH)
 cargo test pdf_grid                                    # tablas con bordes por las líneas del PDF (sin gasto)
-cargo test documents::pdf                              # el texto de un PDF con Pdfium (ADR-037): párrafos por la distancia entre renglones, guion de corte, contraseña
+cargo test documents::pdf                              # el texto de un PDF con Pdfium (ADR-037): párrafos por la distancia entre renglones, guion de corte, contraseña, tablas con bordes en un formulario anidado
+cargo test core::records::background                   # una lectura en segundo plano por documento a la vez (ADR-038)
 cargo test pdf_rows                                    # tablas sin bordes por la posición de las letras (sin gasto)
-# los dos motores de PDF lado a lado (ADR-037): letras, palabras, acentos, signos raros, palabras partidas y tiempo de cada archivo de una carpeta; sin imprimir el texto salvo que se pida una página (solo con PDF públicos):
-#   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test compare_pdf_engines -- --ignored --nocapture > salida.txt   (opcional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3")
+# qué saca Pdfium de cada PDF de una carpeta (ADR-037): letras, palabras partidas, signos raros, páginas como imagen, párrafos y filas de tabla; sin imprimir el texto salvo que se pida una página (solo con PDF públicos):
+#   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test pdf_report -- --ignored --nocapture > salida.txt   (opcional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3")
 # subir en seco los paquetes de un manifiesto, como lo haría una persona (tiempos, páginas, datos tapados; sin llamadas a servicios):
 #   $env:CIMIENTO_CANON_MANIFEST="D:\...\manifiesto.json"; cargo test call_ingest_real -- --ignored --nocapture
 # qué tablas salen de un PDF REAL, por bordes y por texto, y qué rejillas se descartan por ser diseño de la página:

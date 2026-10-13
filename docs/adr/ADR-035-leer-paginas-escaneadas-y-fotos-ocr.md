@@ -67,7 +67,7 @@ Decisiones de la institución (2026-10-10): Tesseract dentro del instalador, pre
    - 120 segundos por página.
    - 40 MB por archivo, como ya estaba.
 
-### Precisiones con documentos reales (2026-10-13) — **la 1 y la 2 hechas; la 3, propuesta por decidir**
+### Precisiones con documentos reales (2026-10-13) — **las tres hechas** (la 3, en el ADR-038)
 
 Al probar la aplicación con documentos reales salieron tres problemas. Se midieron en el equipo de desarrollo, con los mismos parámetros de la aplicación, sin guardar ni imprimir el texto (`cargo test reader_on_a_file`, que ahora también dice, por página, qué datos protegidos encuentra el escáner, sin sus valores). Nada de esos documentos entró al repositorio.
 
@@ -127,6 +127,12 @@ Al probar la aplicación con documentos reales salieron tres problemas. Se midie
   3. **Medir `tessdata_fast`** contra `tessdata_best`, ya con la imagen agrandada. Hoy cada renglón pasa por dos modelos precisos (`eng+spa`).
   4. **No releer una página casi vacía** aunque salga «con dudas»: una segunda lectura no le gana nada.
 
+- **Hecho (2026-10-13, ADR-038):**
+  - Tesseract con prioridad baja;
+  - el Expediente lee en segundo plano (sin reanudar al cerrar el programa);
+  - una página casi sin tinta, medida contra su propio papel (la desteñida del fixture tiene 0.46 %, la limpia 1.4 %), no se relee.
+  - `tessdata_fast` no se adoptó: la institución eligió precisión antes que rapidez (2026-10-10), y la prioridad baja y el segundo plano quitan el congelamiento.
+
 **Orden propuesto:** primero la regla de «lista de personas» (hoy impide guardar cualquier acta real); después prioridad baja y agrandado de letra chica; al final la medición de `tessdata_fast` y la lectura en segundo plano. *La institución pidió primero el agrandado (2026-10-13), y ya está hecho.*
 
 ## Mediciones (fixtures ficticios, 2026-10-10, un hilo)
@@ -157,6 +163,6 @@ El instalador crece unos 70 MB sin comprimir: 49 MB de Tesseract y sus bibliotec
 - Tauri da la carpeta de recursos con el prefijo `\\?\` de Windows, y Tesseract no abre sus modelos así: `ocr::set_home` lo quita. Las pruebas no lo ven porque usan la carpeta del código; se encontró al revisar en el WebView real.
 - Solo Windows: el script baja los binarios de Windows. Para otro sistema hará falta su propio Tesseract y Pdfium.
 - Queda para después:
-  - leer las imágenes dentro de Word y Excel;
-  - enderezar fotos giradas (`osd`);
+  - ~~leer las imágenes dentro de Word y Excel~~: hecho el 2026-10-13 (ADR-038). Las imágenes de `word/media` y `xl/media` de 600 píxeles o más por su lado mayor (una hoja pegada; un logo no) se leen con el mismo OCR, como páginas al final del texto (`word-con-imagen.docx`);
+  - ~~enderezar fotos giradas (`osd`)~~: hecho el 2026-10-13. Una página con dudas y con tinta se revisa con el modelo de orientación (`osd.traineddata` de `tessdata_best`, en `fetch-ocr.ps1` con su huella) y, girada, se endereza y se lee otra vez (`acta-girada.pdf`);
   - una vista del texto leído en Documentos, para revisar las páginas con dudas.

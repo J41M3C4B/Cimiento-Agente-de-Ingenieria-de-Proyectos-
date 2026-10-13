@@ -80,10 +80,11 @@ Si un archivo tiene más de N hallazgos `Block` (inicial: 5) o un patrón de tab
 
 El texto de un escaneo o de una foto (ADR-035) pasa por el escáner como cualquier otro, pero puede venir mal leído: una CURP con «O» en lugar de «0» o un correo borroso pueden escapar a los patrones. Por eso:
 - la lectura usa el modelo `eng+spa` (el de español no lee la «@» y perdía los correos);
+- en un texto leído de imagen, una CURP o un RFC de persona con una letra en lugar de un dígito («O» por «0», «S» por «5», «I» o «l» por «1», «B» por «8», «Z» por «2», «G» por «6») se tapa (`Block`) si, corregido, sigue siéndolo: el dígito verificador de la CURP, una fecha real en el RFC y al menos cuatro dígitos verdaderos en los seis de su fecha (ADR-038);
 - en un texto leído de imagen, el escáner también toma como correo (aviso, la persona decide) una dirección que termina en un dominio conocido (`.com`, `.org`, `.mx`, `.es`…) pegada a otra palabra, cuando su renglón habla de correo («Email», «Correo») o un signo ocupa el lugar de la «@» (`RegexScanner::reading_pictures`). Ejemplo real: «Email: infoGorlandojuan.es». Una dirección web (`www.`, `http`) y la de la institución no cuentan;
 - se avisa qué páginas se leyeron con dudas.
 
-Una CURP con «O» en lugar de «0» sigue pudiendo escapar.
+Puede escapar todavía una CURP o un RFC con más de dos letras en lugar de dígitos, o uno cuyo dígito verificador también se leyó mal.
 
 ## Pruebas obligatorias
 

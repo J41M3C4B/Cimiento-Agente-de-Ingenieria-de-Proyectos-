@@ -8,7 +8,7 @@ tags: [adr]
 ---
 # ADR-037 · Pdfium como único motor de PDF
 
-**Estado:** aceptada (2026-10-13, decisión de la institución), por bloques. **Bloques 1 (medición) y 2 (texto) hechos;** falta el 3 (tablas).
+**Estado:** aceptada (2026-10-13, decisión de la institución), por bloques. **Los tres bloques hechos** (medición, texto y tablas).
 
 ## Contexto
 
@@ -55,7 +55,7 @@ Desde el ADR-035, **Pdfium** (`pdfium-render` 0.9.4 y el `pdfium.dll` de Chrome)
 
 1. **Medición** (hecho): la comparación de arriba.
 2. **El texto de cada página con Pdfium** (`pdf.rs`), con el guion de corte y los párrafos. Las tablas siguen como hoy. Pruebas de convocatorias, Lector, búsqueda y expediente. *Hecho, ver abajo.*
-3. **Las tablas con Pdfium:** `pdf_rows` sobre las cajas de letra de Pdfium y `pdf_grid` sobre sus trazos. Al final se quitan `pdf-extract` y `lopdf`.
+3. **Las tablas con Pdfium:** `pdf_rows` sobre las cajas de letra de Pdfium y `pdf_grid` sobre sus trazos. Al final se quitan `pdf-extract` y `lopdf`. *Hecho, ver abajo.*
 
 ## Bloque 2 hecho (2026-10-13): el texto con Pdfium
 
@@ -79,6 +79,23 @@ Desde el ADR-035, **Pdfium** (`pdfium-render` 0.9.4 y el `pdfium.dll` de Chrome)
   - `fixtures/office/protegido.pdf` (`generar.py protegidos`);
   - `paragraphs_come_from_how_far_apart_the_lines_are`, `a_pdf_with_a_password_says_so`, `the_text_of_a_page_keeps_its_paragraphs`, `a_file_with_a_password_says_so` y el Expediente en `what_cannot_be_taken_says_why…`.
 - **Lo que no mide este bloque:** la búsqueda y el Lector se prueban con textos ficticios (`.txt`), no con PDF. Su prueba real es subir los PDF de la institución.
+
+## Bloque 3 hecho (2026-10-13): las tablas con Pdfium
+
+- **Una pasada por página** (`pdf::read`), que saca tres cosas:
+  - el texto;
+  - las letras, con `pdf_rows::glyphs_of`: el origen, la caja, el tamaño y el ángulo de cada una (`Dir`); un espacio que Pdfium infiere va como letra sin ancho, justo después de la anterior;
+  - las líneas, con `pdf_grid::rules_of_page`: los trazos pintados, siguiendo los formularios anidados con sus matrices.
+- La lógica de tablas sobre `Glyph` y `Rule` no cambió.
+- **Medido antes de quitar el motor viejo:** 605 filas de tabla en los 24 PDF de muestra y los fixtures. 601 iguales y 4 mejores: los espacios que el viejo se comía («Item 2 Item 3» en vez de «Item 2Item 3»).
+- **Un hueco encontrado con un fixture nuevo** (`tabla-con-lineas.pdf`: una tabla dentro de un formulario anidado, sobre un fondo de página):
+  - Pdfium cierra un rectángulo con su propio primer punto, y el rectángulo delgado relleno salía con seis puntos y no daba línea;
+  - así dibuja Word los bordes de sus tablas;
+  - las muestras no lo mostraban porque sus tablas usan líneas trazadas;
+  - corregido.
+- **Página mixta:** imágenes en la mitad o más de la página y menos de 200 letras (un encabezado impreso sobre un cuerpo escaneado) → se lee como imagen (`pagina-mixta.pdf`).
+- **Fuera del programa:** `pdf-extract`, `lopdf`, el recolector de letras y el intérprete de contenido.
+  - Las herramientas de medición quedan con Pdfium: `pdf_report`, `print_lines_of_a_page` y `count_tables_by_kind`.
 
 ## Consecuencias
 
