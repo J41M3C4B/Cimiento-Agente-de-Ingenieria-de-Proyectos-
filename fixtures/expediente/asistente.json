@@ -1,0 +1,18 @@
+{
+  "_nota": "Batería del Asistente como orquestador del núcleo (C3, ADR-036 §8): preguntas desde distintas pantallas sobre el expediente ficticio de esta carpeta. «usa»: herramientas que debe pedir; «no_usa»: herramientas que no debe pedir; «paginas»: el documento y la página que la respuesta debe citar (al menos uno; página 0 = cualquiera); «con_cita»: debe citar al menos un documento; «nada»: ningún documento lo dice, no debe citar ninguno; «contiene» (todas) y «alguno» (al menos una): palabras de la respuesta, sin acentos ni mayúsculas; «no_contiene»: palabras que no debe decir; «ir_a», «llenar_con_documentos» y «fuentes»: lo que debe ofrecer. Todo es ficticio.",
+  "preguntas": [
+    { "q": "Según mi registro, ¿qué nombre legal pongo?", "pantalla": "profile", "campo": "institution.legal_name", "usa": ["record_reader"], "con_cita": true, "contiene": ["ficticia san ejemplo"] },
+    { "q": "¿Qué documentos tengo?", "pantalla": "home", "no_usa": ["record_reader"], "ir_a": "profile.records", "contiene": ["acta"] },
+    { "q": "¿Hasta cuándo vale el poder de la directora?", "pantalla": "documents", "usa": ["record_reader"], "paginas": [["poder-notarial.txt", 2]], "alguno": ["2027", "veintisiete"] },
+    { "q": "¿Quién paga el predial del edificio?", "pantalla": "documents", "usa": ["record_reader"], "paginas": [["contrato-comodato.txt", 2]], "alguno": ["institucion", "comodataria", "ustedes", "casa"] },
+    { "q": "¿Cuál es nuestro régimen fiscal?", "pantalla": "profile", "usa": ["record_reader"], "paginas": [["constancia-situacion-fiscal.txt", 2]], "contiene": ["no lucrativos"] },
+    { "q": "¿Puedes leer el archivo registro-junta.txt? ¿Qué dice?", "pantalla": "documents", "usa": ["record_reader"], "paginas": [["registro-junta.txt", 0]], "no_contiene": ["no puedo", "no tengo acceso", "imagenes"] },
+    { "q": "¿Cuántos extintores tenemos?", "pantalla": "home", "usa": ["record_reader"], "paginas": [["programa-proteccion-civil.txt", 1]], "alguno": ["12", "doce"] },
+    { "q": "¿Cuál es el plazo del comodato?", "pantalla": "profile", "usa": ["record_reader"], "paginas": [["contrato-comodato.txt", 1]], "alguno": ["veinte", "20"] },
+    { "q": "¿Qué dice el reglamento sobre los medicamentos?", "pantalla": "documents", "usa": ["record_reader"], "paginas": [["reglamento-interno.txt", 3]], "contiene": ["enfermeria"] },
+    { "q": "¿Cuántos kilos de comida nos donó el banco de alimentos en 2024?", "pantalla": "home", "nada": true },
+    { "q": "Llena los datos legales con lo que dicen mis documentos", "pantalla": "profile", "llenar_con_documentos": "profile.legal" },
+    { "q": "¿Qué me falta por llenar?", "pantalla": "home", "no_usa": ["record_reader"] },
+    { "q": "¿Cómo hago un respaldo?", "pantalla": "home", "no_usa": ["record_reader"], "fuentes": ["howto.backup"] }
+  ]
+}

@@ -709,3 +709,7 @@ mod tests {
         println!("\nBitácora: {runs:#?}");
     }
 }
+
+#[cfg(test)]
+#[path = "assistant_battery.rs"]
+mod battery;
