@@ -317,3 +317,140 @@ impl crate::ai::AiProvider for Recording<'_> {
         out
     }
 }
+
+/// One question with the native function calling of Gemini instead of our JSON protocol: the same context, map,
+/// tools (the Reader keeps its one call through the pipeline) and grading. A measurement only (ADR-036 §7).
+async fn ask_native(
+    db: &SharedDb,
+    provider: &dyn crate::ai::AiProvider,
+    key: &str,
+    settings: &crate::ai::settings::AiSettings,
+    embedder: Option<Arc<dyn crate::documents::canonical::retrieve::Embedder>>,
+    c: &Case,
+) -> Result<(AssistantOutcome, crate::ai::gemini_native::NativeRun), crate::ai::AiError> {
+    use crate::core::agents::tools::{record_reader, toolbox_with, Reach};
+    let a = ask_of(c);
+    let reach = Reach { embedder, ..Default::default() };
+    let mut boxed: Vec<Box<dyn Tool + '_>> = toolbox_with(db.clone(), Some(Role::Manager), reach.clone()).into_iter().map(|t| t as Box<dyn Tool + '_>).collect();
+    boxed.push(record_reader(db.clone(), Some(Role::Manager), reach.clone(), provider));
+    let tools: Vec<&dyn Tool> = boxed.iter().map(|t| t.as_ref()).collect();
+    let (told, scanner) = {
+        let conn = db.lock().unwrap();
+        let mut told = context(&a);
+        told.extend(map(&conn, &a.question).unwrap());
+        (told, crate::core::screen::scanner_for(&conn).unwrap())
+    };
+    let ledger = crate::ai::pipeline::SqliteLedger(db.clone());
+    let run = crate::ai::gemini_native::run(key, settings, &ledger, &scanner, &agent(), &tools, Errand { context: told, request: a.question.clone() }).await?;
+    let cited = reach.cited.lock().unwrap().clone();
+    Ok((answered(&run.answer, a.question.clone(), &cited), run))
+}
+
+/// What one mode did over the battery.
+#[derive(Default)]
+struct Tally {
+    passed: usize,
+    tools_ok: usize,
+    cites_ok: usize,
+    cites_asked: usize,
+    invented: usize,
+    failed: usize,
+    calls: i64,
+    input: i64,
+    output: i64,
+    cost: f64,
+    model_ms: i64,
+}
+
+impl Tally {
+    fn add(&mut self, c: &Case, bad: &[String]) {
+        self.passed += usize::from(bad.is_empty());
+        self.tools_ok += usize::from(!bad.iter().any(|b| b.contains('`')));
+        if !c.paginas.is_empty() || c.con_cita {
+            self.cites_asked += 1;
+            self.cites_ok += usize::from(!bad.iter().any(|b| b.starts_with("citó") || b == "sin cita"));
+        }
+        self.invented += usize::from(bad.iter().any(|b| b.starts_with("INVENTÓ")));
+    }
+    fn line(&self, name: &str, n: usize) -> String {
+        format!(
+            "{name:<10} bien {}/{n}  herramienta {}  cita {}/{}  inventó {}  fallas del servicio {}  llamadas del Asistente {}  entrada {}  salida {}  costo ${:.4} MXN  tiempo del modelo {:.1} s",
+            self.passed, self.tools_ok, self.cites_ok, self.cites_asked, self.invented, self.failed, self.calls, self.input, self.output, self.cost, self.model_ms as f64 / 1000.0
+        )
+    }
+}
+
+/// The measurement of ADR-036 §7, opt-in and capped: every question of `asistente.json` once with our JSON protocol and
+/// once with the native function calling of Gemini, with the cheapest model, `CIMIENTO_ROUNDS` times (1 to 5). The
+/// same grading; calls, tokens and cost of the Assistant (the Reader is the same one call in both) and the time of the
+/// model without the waits for the pace of the plan. Only fictitious text goes out. Its whole output goes to a file:
+///   cargo test assistant_native_vs_json_live -- --ignored --nocapture > native_vs_json.txt
+#[tokio::test]
+#[ignore]
+async fn assistant_native_vs_json_live() {
+    let (_d, db) = db();
+    let (provider, key, settings) = {
+        let c = db.lock().unwrap();
+        let cfg = crate::ai::settings::load(&c).unwrap();
+        assert_eq!(cfg.provider.as_str(), "gemini", "the native tools are measured with Gemini");
+        let key = crate::storage::get_api_key(cfg.provider.as_str()).unwrap().expect("save the key in the app first");
+        println!("Proveedor: {}  modelo ligero: {}", cfg.provider.as_str(), cfg.model_for(ModelTier::Light));
+        (crate::ai::build_provider(&cfg, key.clone()), key, cfg)
+    };
+    let embedder = crate::core::archive::vectors::embedder(&db, false);
+    if let Some(e) = &embedder {
+        println!("Vectores de los fragmentos: {}", crate::core::archive::vectors::index_pending(&db, e.as_ref()).await.unwrap());
+    }
+    let assistant = |db: &SharedDb| -> (i64, i64, i64, f64, i64) {
+        db.lock()
+            .unwrap()
+            .query_row(
+                "SELECT count(*), coalesce(sum(input_tokens),0), coalesce(sum(output_tokens),0), coalesce(sum(estimated_cost_mxn),0), coalesce(sum(latency_ms),0) FROM ai_usage WHERE task = 'agent.assistant'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            )
+            .unwrap()
+    };
+    let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
+    let all = cases();
+    let (mut json_mode, mut native) = (Tally::default(), Tally::default());
+    for round in 1..=rounds {
+        println!("\n######## Ronda {round} de {rounds}");
+        for c in &all {
+            let before = assistant(&db);
+            let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), ask_of(c), None).await.unwrap();
+            let after = assistant(&db);
+            let bad = grade(c, &out, &last_tools(&db));
+            json_mode.add(c, &bad);
+            json_mode.failed += usize::from(matches!(out, AssistantOutcome::Manual { .. }));
+            json_mode.calls += after.0 - before.0;
+            json_mode.input += after.1 - before.1;
+            json_mode.output += after.2 - before.2;
+            json_mode.cost += after.3 - before.3;
+            json_mode.model_ms += after.4 - before.4;
+            println!("\n== «{}»\n   JSON:    {}  {:?}", c.q, if bad.is_empty() { "BIEN".to_string() } else { format!("MAL: {}", bad.join("; ")) }, last_tools(&db));
+
+            match ask_native(&db, provider.as_ref(), &key, &settings, embedder.clone(), c).await {
+                Ok((out, run)) => {
+                    let tools: BTreeMap<String, u64> = run.tools.clone();
+                    let bad = grade(c, &out, &tools);
+                    native.add(c, &bad);
+                    native.calls += i64::from(run.model_calls);
+                    native.input += (run.usage.input_tokens + run.usage.cache_read_tokens) as i64;
+                    native.output += run.usage.output_tokens as i64;
+                    native.cost += settings.cost_mxn(&settings.model_for(ModelTier::Light), &run.usage);
+                    native.model_ms += run.model_ms as i64;
+                    println!("   NATIVO:  {}  {tools:?}  rechazos {}", if bad.is_empty() { "BIEN".to_string() } else { format!("MAL: {}", bad.join("; ")) }, run.rejected);
+                    println!("   {out:?}");
+                }
+                Err(e) => {
+                    native.failed += 1;
+                    println!("   NATIVO:  FALLÓ {e:?}");
+                }
+            }
+        }
+    }
+    let n = all.len() * rounds;
+    println!("\n{}", json_mode.line("JSON", n));
+    println!("{}", native.line("Nativo", n));
+}

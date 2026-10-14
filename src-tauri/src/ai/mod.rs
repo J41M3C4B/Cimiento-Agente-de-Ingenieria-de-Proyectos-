@@ -7,6 +7,8 @@ pub mod agent;
 pub mod anthropic;
 pub mod figures;
 pub mod gemini;
+#[cfg(test)]
+pub mod gemini_native;
 pub mod metrics;
 #[cfg(test)]
 pub mod mock;

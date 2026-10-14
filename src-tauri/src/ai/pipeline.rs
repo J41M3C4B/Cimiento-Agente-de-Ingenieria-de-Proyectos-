@@ -88,7 +88,7 @@ fn validate(schema: &Value, value: &Value) -> Result<(), String> {
 /// Before each attempt: stop at the daily allowance (trying again today only wastes calls)
 /// and wait out the per-minute one instead of provoking an error. The count looks at the
 /// last 24 hours, which can only be stricter than the provider's own day.
-async fn pace(ledger: &dyn Ledger, settings: &AiSettings, model: &str) -> Result<(), AiError> {
+pub(crate) async fn pace(ledger: &dyn Ledger, settings: &AiSettings, model: &str) -> Result<(), AiError> {
     let Some(limit) = settings.rate_limits.get(model) else { return Ok(()) };
     if limit.per_day > 0 && ledger.window(model, 86_400)?.calls >= limit.per_day {
         return Err(AiError::QuotaReached);
