@@ -8,18 +8,15 @@ actualizado: 2026-10-13
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
 > [!info] Hoy (2026-10-13)
-> **La lectura de archivos y el llenado desde documentos quedaron cerrados** ([ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md)):
-> - una sola política de llenado;
-> - la ventana del propio documento se llena sola;
-> - Pdfium lee texto y tablas;
-> - el OCR endereza hojas y no congela el equipo;
-> - el Expediente lee en segundo plano.
+> **C3 está hecho: el Asistente le pregunta al Lector del Expediente** ([ADR-036, precisiones C3](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
+> - el Asistente ya no lee documentos: le pregunta al Lector, que contesta con la frase exacta, y el programa muestra el documento y la página;
+> - cada pregunta lleva el mapa del Expediente: qué documentos hay y cómo están (nunca qué dicen);
+> - la IA ve el tipo del documento, nunca el nombre del archivo (tu decisión), también en C2;
+> - «Llenar con mis documentos» también aparece bajo una respuesta del Asistente, como botón.
 >
-> La forma de trabajar quedó escrita para los módulos en la [metodología de los Lectores](agents/metodologia-lectores.md).
+> Con el modelo más barato: **26 de 26 preguntas bien en dos rondas**, nada inventado, unos $0.04 MXN por pregunta. Nuestro protocolo JSON le ganó a las funciones nativas de Gemini (26 contra 25 bien, 35 % más barato): se queda.
 >
-> **C2 también está hecho:** «Llenar con mis documentos» en cada ventana y «Llenar todo con mis documentos» en el Expediente. Con el modelo más barato: 18 de 18 campos bien, nada inventado, $0.14 MXN las cuatro ventanas.
->
-> **Siguiente:** que lo pruebes con tus documentos (pasos abajo); después, **C3**: el Asistente pregunta al Lector del Expediente.
+> **Siguiente:** que lo pruebes (pasos abajo); después, **C4**: la revisión completa del núcleo.
 
 ## Qué es SociAI, en una línea
 
@@ -27,23 +24,45 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 
 ## Qué sigue
 
-| | Bloque | Qué hace | Estado |
-|---|---|---|---|
-| 1 | **C1** | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón | **Hecho, por probar** |
-| — | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
-| 2 | **C2** | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos» | **Hecho, por probar** |
-| 3 | **C3** | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?») | Pendiente |
-| 4 | **C4** | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti | Pendiente |
-| 5 | **N5** | El expediente hacia Proyectos, la IA e Inicio | Pendiente |
-| — | Módulos | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md) | Esperan al núcleo |
+|     | Bloque                | Qué hace                                                                                                                                                                                                                                                                       | Estado                |
+| --- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
+| 1   | **C1**                | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón                                                                                                                 | **Hecho, por probar** |
+| —   | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
+| 2   | **C2**                | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos»                                                                                                                   | **Hecho, por probar** |
+| 3   | **C3**                | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?»)                                                                                                                                                   | **Hecho, por probar** |
+| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti                                                                                                                                                                     | Pendiente             |
+| 5   | **N5**                | El expediente hacia Proyectos, la IA e Inicio                                                                                                                                                                                                                                  | Pendiente             |
+| —   | Módulos               | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md)                                                     | Esperan al núcleo     |
 
 Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar C2, «Llenar con mis documentos»** (pasos abajo); después, aprobar el inicio de C3.
+- **Probar C3, el Asistente con el Lector** (pasos abajo) y, si no lo has hecho, C2; después, aprobar el inicio de C4.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
+
+## Cómo probar C3 · el Asistente le pregunta al Lector
+
+1. Sube al Expediente varios documentos con texto: acta, constancia, poder, reglamento… y al menos una foto o un escaneo.
+2. En **Mi institución**, abre el Asistente y pregunta **«Según mi registro, ¿qué nombre legal pongo?»**.
+   - Responde con el nombre legal y abajo dice «Lo tomé de sus documentos: ‹archivo›, página N».
+   - Ofrece «Ir a Datos legales y fiscales» y, si sirve, **«Llenar con mis documentos»**.
+3. Pregunta **«¿Qué documentos tengo?»**: dice por su nombre cuáles tienes y cuáles faltan, y ofrece ir al Expediente.
+4. **Nombra un archivo:** «¿Qué dice ‹tu archivo›.pdf?», y también con el nombre de la foto o del escaneo.
+   - Contesta con lo que dice ese documento.
+   - Nunca dice que no puede ver imágenes.
+5. Pregunta algo que **ningún documento dice**: debe decir que no lo encontró, sin inventar.
+6. Pide **«Llena los datos legales con mis documentos»** y pulsa el botón «Llenar con mis documentos».
+   - El panel dice cuántas sugerencias dejó, con «Revisarlas».
+   - Nada se guarda sin «Usar» y «Guardar».
+7. Pregunta **«¿Cómo hago un respaldo?»**: responde con el manual y muestra su fuente.
+
+Lo que no debe pasar: que diga el nombre de un archivo como si lo hubiera leído la IA (el nombre solo aparece en la línea «Lo tomé de sus documentos», y lo pone el programa) o que cite un documento que no habla del tema.
+
+**Pruebas:**
+- `cargo test core::agents::assistant` y `cargo test core::reader::ask`;
+- la corrida real `cargo test assistant_battery_live -- --ignored --nocapture > assistant_battery_live.txt` (unos $0.50 MXN por ronda).
 
 ## Cómo probar C2 · «Llenar con mis documentos»
 
@@ -115,6 +134,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-13 | **C3 · el Asistente como orquestador:** le pregunta al Lector del Expediente (`record_reader`), que contesta con su cita revisada por el código; el mapa del Expediente en cada pregunta; la IA ve el tipo del documento, nunca el nombre del archivo; «Llenar con mis documentos» bajo una respuesta. Batería de 13 preguntas: 26 de 26 en dos rondas con el modelo más barato, $0.04 MXN por pregunta. Se queda el protocolo JSON (las funciones nativas de Gemini: 25 de 26 y 52 % más caras) | [ADR-036, precisiones C3](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-13 | **C2 · «Llenar con mis documentos»:** el Lector busca en el Expediente los pasajes de cada campo vacío y hace una llamada por ventana con el modelo más barato; el código revisa cita, página, cifra y valor. 18 de 18 campos bien, nada inventado, $0.14 MXN las cuatro ventanas. Las opciones van a la IA con su nombre en la pantalla | [ADR-036, precisiones C2](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-13 | **Lectura y llenado sin huecos (ADR-038):** una sola política de llenado (datos propios solos, sugerencias solo en campos vacíos, nunca lo rechazado, autoridad por campo, lugar equivocado); Pdfium lee también las tablas (salen `pdf-extract` y `lopdf`); OCR con prioridad baja, hojas giradas, páginas mixtas e imágenes en Word y Excel; el Expediente lee en segundo plano; la metodología para los módulos | [ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md), [metodología](agents/metodologia-lectores.md) |
 | 2026-10-13 | **Pdfium lee el texto de todo PDF:** palabras enteras (antes «Thi s report»), párrafos por la distancia entre renglones, guion de corte; de 5 a 20 veces más rápido. Un PDF, Word o Excel con contraseña lo dice en el Expediente y en las convocatorias | [ADR-037, bloque 2](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |

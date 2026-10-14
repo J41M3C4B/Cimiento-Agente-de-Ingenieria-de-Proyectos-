@@ -70,6 +70,22 @@ Las reglas leen los formatos fijos al subir un archivo y no cuestan nada. Lo que
    - después, una corrida real con el modelo más barato: valores, páginas, inventados, llamadas, tokens, costo y tiempo, anotados en el roadmap y en `07-ia-y-costos.md`.
    - Si falla, primero se mejora lo que se le da (palabras, pasajes, oficio, nombres de las opciones); solo después se mide un modelo más fuerte.
 
+## 3b. El Lector contesta preguntas: el agente del cajón como herramienta del Asistente
+
+Referencia: `core/reader/ask.rs` y la herramienta `record_reader` (C3, ADR-036 §6).
+
+1. **El Asistente no lee documentos:** le pregunta al Lector del cajón. Recibe la respuesta ya revisada, nunca pasajes crudos, y solo cita los pasajes que el Lector le entregó. Un solo nivel de delegación: el Lector no pregunta a nadie.
+2. **El Lector busca en su cajón** los 4 pasajes que mejor responden, o solo en un documento cuando la persona lo nombró (con sus primeras páginas si ninguna palabra coincide). Hace una llamada con el modelo más barato.
+3. **El código revisa** que cada cita esté en un pasaje mostrado y que cada cifra esté en lo citado. Sin cita que pase, la respuesta es «no lo dice».
+4. **La IA ve el tipo del documento, nunca el nombre de su archivo** (decisión de la institución, 2026-10-13). El nombre es solo la referencia de la cita en la pantalla. Si la persona nombra un archivo, el código lo reconoce y le dice al agente qué documento es.
+5. **El mapa del cajón va en el contexto del Asistente:** qué documentos hay, por su tipo y su estado (con texto, de imagen, sin archivo, falta, vigencia), nunca qué dicen.
+6. **Su batería** (como `fixtures/expediente/asistente.json` y `assistant_battery_live`):
+   - preguntas desde varias pantallas, con la herramienta esperada, el documento y la página que se deben citar, y al menos una que ningún documento contesta;
+   - primero en seco (la página esperada está entre los pasajes);
+   - después, rondas reales con el modelo más barato, porque un modelo barato no decide igual cada vez.
+
+Personal y Beneficiarios no tienen esta capa: nada de sus fichas llega a la IA (principio 5).
+
 ## 4. Lo que entrega cada módulo para su cajón
 
 1. **Sus tipos de documento:** código, clase y las frases que los reconocen, sin acentos y en minúsculas.

@@ -204,6 +204,55 @@ Cada bloque se prueba por la institución antes del siguiente.
   - En la ventana de capacidad, la IA intentó una cifra que no estaba en el texto (la suma de residentes y estancia de día) y el código la descartó.
 - **Revisado en el WebView real:** con dos PDF ficticios en el Expediente, «Llenar todo» dejó el personal (31) y el voluntariado (18), cada uno con «Lo leímos en «informe-anual-2025.pdf», página 1».
 
+### Precisiones al aplicar C3 (2026-10-13)
+
+- **La IA ve el tipo del documento, nunca el nombre de su archivo** (decisión de la institución: «el nombre del archivo es simplemente la referencia de la cita»).
+  - Un documento llega a la IA como «Constancia de situación fiscal» (su tipo del catálogo, con su nombre de `es-MX.ts`) o con el nombre que la institución le dio a un «Otro documento».
+  - El nombre del archivo solo aparece en la pantalla, junto a la cita, y lo pone el código.
+  - Vale para todos los agentes: el mapa del Asistente, los pasajes del Lector que contesta y los pasajes de «Llenar con mis documentos» (C2).
+  - Si la persona nombra un archivo en su pregunta («¿qué dice registro_JAP.png?»), el código lo reconoce (sin acentos, mayúsculas, guiones ni extensión) y le dice al Asistente qué documento del mapa es, para que pregunte por ese documento.
+  - En el código: `core::records::ai_name`, `records::map` y `records::named_in`.
+- **El Lector también contesta preguntas** (`core/reader/ask.rs`, oficio `reader_answer.v1.md`):
+  - busca en su cajón los 4 pasajes que mejor responden, por palabras y por significado;
+  - si la pregunta es de un documento, busca solo en él, y si ninguna palabra coincide, lee sus primeras páginas;
+  - hace una llamada con el modelo más barato.
+  - El código se queda solo con citas que están en un pasaje mostrado y con cifras que están en lo citado, con números o con palabras («dos mil dieciséis»).
+  - Si ninguna cita pasa, la respuesta es «no lo dice». Sin documentos o sin pasajes, no llama a la IA.
+- **El Asistente como orquestador** (oficio v7):
+  - `documents_search` desaparece y la reemplaza `record_reader`, el Lector como herramienta: un solo nivel de delegación, porque el Lector no pregunta a nadie;
+  - el Asistente recibe la respuesta revisada del Lector, nunca pasajes crudos, y solo puede citar los pasajes que el Lector le entregó.
+- **El mapa en cada pregunta:**
+  - los documentos del Expediente con una clave (`D1`…), su tipo y su estado (con su texto, leído de una imagen, sin archivo, falta, vigencia);
+  - que los escaneos y las fotos ya están leídos como texto;
+  - lo que falta y las sugerencias que esperan en cada ventana de «Mi institución».
+
+  «¿Qué documentos tengo?» se contesta con el mapa, sin herramientas.
+- **«Llenar con mis documentos» desde el Asistente** (decisión de la institución: un botón que la persona pulsa). La respuesta trae `from_documents` con una ventana o «todas», y el panel ofrece el botón, que corre el Lector de C2 en el clic.
+- **Batería** (`fixtures/expediente/asistente.json`, 13 preguntas desde Inicio, Mi institución y Documentos). Prueba en seco: la página esperada está entre los pasajes del Lector en 7 de 7. Corridas reales con `gemini-3.5-flash-lite`:
+
+  | Oficio | Resultado | Qué falló y cómo se corrigió |
+  |---|---|---|
+  | v5 | 11 de 13 | No nombró los documentos del mapa; adivinó un `id` del manual. El v6 pide nombrarlos y prohíbe inventar un `id` |
+  | v6 | 11 de 13 | Para los extintores pidió la ficha en lugar del Lector. El v7 pide preguntarle al Lector antes de decir que no lo sabe |
+  | v7, dos rondas | **26 de 26** | Herramienta correcta en todas, 16 de 16 citas con la página esperada, 0 inventados |
+
+  - Costo del v7: unos $0.04 MXN por pregunta (2 llamadas del Asistente y 1 del Lector). Las 26 preguntas costaron $1.03 MXN, vectores incluidos.
+  - Tiempo: de 1 a 7 s por pregunta. Algunas tardaron unos 45 s porque el programa espera para no pasar de 15 llamadas por minuto, lo que permite el plan gratuito de ese modelo; con una persona preguntando, no pasa.
+  - Como el modelo barato no decide igual cada vez, la corrida real se repite en rondas (`CIMIENTO_ROUNDS`) y muestra cada paso: qué pidió el Asistente y qué preguntó y contestó el Lector.
+
+- **Herramientas nativas contra nuestro protocolo JSON (§7), medido: se queda el protocolo JSON.**
+  - Con `assistant_native_vs_json_live` (solo medición, `ai/gemini_native.rs`, no está en la app), la misma batería, el mismo agente, las mismas herramientas, el mismo tope y el escáner sobre lo que devuelve cada herramienta, con el mismo ritmo de llamadas por minuto, dos rondas y `gemini-3.5-flash-lite`.
+  - En Gemini con `generateContent`, las funciones nativas van como `functionDeclarations` y la respuesta final como salida estructurada, que Gemini 3 permite junto con funciones. Los turnos del modelo se devuelven tal como llegaron, con su firma de pensamiento.
+
+  | | Bien | Citas | Inventados | Llamadas del Asistente | Tokens de entrada | Costo del Asistente | Tiempo del modelo |
+  |---|---|---|---|---|---|---|---|
+  | **Protocolo JSON** | **26 de 26** | **16 de 16** | 0 | 48 | 89,397 | **$0.72 MXN** | 50.4 s |
+  | Funciones nativas | 25 de 26 | 15 de 16 | 0 | 53 | 175,000 | $1.10 MXN | 48.9 s |
+
+  - Las nativas eligen bien la herramienta igual (26 de 26), pero una vez no citaron el documento nombrado y gastan casi el doble de entrada, porque cada paso reenvía toda la conversación y las declaraciones de las funciones. Cuestan 52 % más y tardan lo mismo.
+  - Nuestro protocolo además funciona igual con cualquier proveedor (ADR-034 §2). Se vuelve a medir si cambia el modelo o el proveedor; la prueba queda para eso.
+  - Cambiar a un modelo más caro sería cambiar el costo por proceso, no la arquitectura ni el código (decisión de la institución).
+
 ## Consecuencias
 
 - **Documentos cambia de función:** de cajón propio a bandeja; su pantalla se rediseña alrededor de «¿a qué cajón va?».

@@ -305,6 +305,13 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
     - Una llamada por ventana con el modelo más barato; el código se queda solo con lo que cita un pasaje mostrado, con palabras que están en él, una cifra que está en esas palabras y un valor que cabe; política del ADR-038 (solo campos vacíos, nunca lo rechazado, autoridad).
     - Hallazgo de la primera corrida: la IA veía los códigos de las opciones solo en inglés y no supo que «ASISTENCIAL» es `assistance`. Ahora cada código va con su nombre en la pantalla (`option_label`, de `es-MX.ts`), para el Lector y el Capturista.
     - **Batería `reader_live`** (`fixtures/expediente/lector.json`, `gemini-3.5-flash-lite`): 18 de 18 campos bien, 0 inventados, 18 de 18 páginas; 4 llamadas, $0.14 MXN, de 1.6 a 3.6 s por ventana. Revisado en el WebView real con dos PDF ficticios.
-  - [ ] **C3** El Asistente como orquestador del núcleo: el Lector del Expediente como herramienta, mapa en el contexto, sin búsqueda general; medir herramientas nativas contra el protocolo JSON.
+  - [x] **C3** El Asistente como orquestador del núcleo (2026-10-13, ADR-036 «Precisiones al aplicar C3»):
+    - **La IA ve el tipo del documento, nunca el nombre de su archivo** (decisión de la institución), en todos los agentes, también en C2. Si la persona nombra un archivo, el código le dice al Asistente qué documento es.
+    - **El Lector contesta preguntas** (`core/reader/ask.rs`): 4 pasajes de su cajón o del documento nombrado, una llamada con el modelo más barato, cita y cifras revisadas por el código.
+    - **El Asistente le pregunta al Lector** (`record_reader`, agente como herramienta); `documents_search` desaparece. Cita solo lo que el Lector le entregó.
+    - **El mapa en cada pregunta:** documentos del Expediente por tipo y estado, los escaneos y fotos ya leídos, lo que falta y espera en cada ventana.
+    - **«Llenar con mis documentos» desde el Asistente:** un botón bajo la respuesta (decisión de la institución), con el Lector de C2.
+    - **Batería** `assistant_battery_live` (`fixtures/expediente/asistente.json`, 13 preguntas, `gemini-3.5-flash-lite`): con el oficio v5, 11 de 13; con el v6, 11 de 13; con el **v7, 26 de 26 en dos rondas**, 16 de 16 citas con su página, 0 inventados, unos $0.04 MXN por pregunta.
+    - **Herramientas nativas contra el protocolo JSON** (`assistant_native_vs_json_live`, solo medición, dos rondas, mismo ritmo): JSON 26 de 26, $0.72 MXN y 89,397 tokens de entrada; funciones nativas de Gemini 25 de 26, $1.10 MXN y 175,000 tokens, mismo tiempo. **Se queda el protocolo JSON.**
   - [ ] **C4** Revisión completa del núcleo: cada agente con su batería aprobada con el modelo más barato y cada pantalla probada por la institución; la metodología escrita para los módulos.
 - [ ] **N5** El expediente hacia Proyectos, la IA e Inicio.
