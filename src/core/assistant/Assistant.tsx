@@ -8,6 +8,7 @@ import { Alert, Bubble, Button, Composer, Disclosure, IconButton, TextButton } f
 import { es } from "../../i18n/es-MX";
 import { assistantAsk, captureAsk, institutionFillAllFromDocuments, institutionFillFromDocuments, manualEntry, toAppError } from "../../lib/tauri";
 import { useSession } from "../access/session";
+import { usePlaceName } from "../places";
 import { OVERVIEW_KEY } from "../profile/gaps";
 import { fillAllNotice, fillNotice } from "../profile/fromDocuments";
 import type { FillNotice } from "../profile/fromDocuments";
@@ -41,7 +42,8 @@ function turns(messages: Message[]): AssistantTurn[] {
     if (m.from === "documents") return [{ from: "assistant", text: m.notice.text }];
     if (m.from !== "assistant") return [];
     const o = m.outcome;
-    return [{ from: "assistant", text: o.status === "answered" ? o.text : `(${t.manualIntro} ${o.hits.map((h) => h.title).join("; ")})` }];
+    if (o.status === "answered") return [{ from: "assistant", text: o.text, documents: [...new Set(o.documents.map((d) => d.document_id))] }];
+    return [{ from: "assistant", text: `(${t.manualIntro} ${o.hits.map((h) => h.title).join("; ")})` }];
   });
 }
 
@@ -76,6 +78,7 @@ function Answer({
   onFill: (target: Fill) => void;
   onFromDocuments: (target: Fill) => void;
 }) {
+  const name = usePlaceName();
   return (
     <Bubble from="assistant">
       <p className="whitespace-pre-line">{text}</p>
@@ -93,7 +96,7 @@ function Answer({
         <div className="mt-3 flex flex-wrap gap-2">
           {place && (
             <Button size="sm" variant="secondary" onClick={() => onGo(place)}>
-              {t.goTo(t.places[place] ?? place)}
+              {t.goTo(name(place))}
               <Icon name="next" size={14} />
             </Button>
           )}
@@ -118,12 +121,13 @@ function Answer({
 /** What the Capturist left: what it says and, when it left suggestions, the way to the window to review them. */
 function Captured({ outcome, onGo }: { outcome: Extract<CaptureOutcome, { status: "proposed" }>; onGo: (place: string) => void }) {
   const n = outcome.fields.length;
+  const name = usePlaceName();
   return (
     <Bubble from="assistant">
       {outcome.note && <p className="whitespace-pre-line">{outcome.note}</p>}
       {n > 0 && (
         <>
-          <p className={outcome.note ? "mt-2" : ""}>{t.left(n, t.places[outcome.place] ?? outcome.place)}</p>
+          <p className={outcome.note ? "mt-2" : ""}>{t.left(n, name(outcome.place))}</p>
           <Button size="sm" variant="secondary" className="mt-3" onClick={() => onGo(outcome.place)}>
             {t.review}
             <Icon name="next" size={14} />
@@ -150,7 +154,7 @@ function FromDocuments({ target, notice, onGo }: { target: Fill; notice: FillNot
   );
 }
 
-/** The failures worth trying again, and those someone fixes in «Inteligencia artificial». */
+/** The failures worth trying again, and those someone fixes in «Ayuda automática». */
 const RETRY = ["offline", "busy", "unavailable"];
 const SETTINGS = ["not_configured", "key_rejected", "budget"];
 
@@ -210,6 +214,7 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
   const [filling, setFilling] = useState<Fill | null>(null);
   const [held, setHeld] = useState<{ report: QuarantineReport; question: string; target: Fill | null } | null>(null);
   const qc = useQueryClient();
+  const placeName = usePlaceName();
   const end = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -393,10 +398,10 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
               <div className="space-y-1 text-small text-ink-2">
                 <p className="flex items-center gap-2 font-semibold text-ink">
                   <Icon name="sparkles" size={14} />
-                  {t.filling(t.places[filling.place] ?? filling.place)}
+                  {t.filling(placeName(filling.place))}
                   <TextButton onClick={() => setFilling(null)}>{t.stopFilling}</TextButton>
                 </p>
-                <p>{t.fillIntro(t.places[filling.place] ?? filling.place)}</p>
+                <p>{t.fillIntro(placeName(filling.place))}</p>
               </div>
             )}
             {field && !filling && (

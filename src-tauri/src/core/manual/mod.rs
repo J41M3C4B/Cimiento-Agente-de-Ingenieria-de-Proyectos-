@@ -23,6 +23,10 @@ pub struct Entry {
     pub title: String,
     /// One paragraph per line of the manual.
     pub paragraphs: Vec<String>,
+    /// The entry of the place where this is done, when the heading names it (`{#howto.backup @screen.security}`):
+    /// the map of the program (`core::places`) takes the place from there.
+    #[serde(skip)]
+    pub at: Option<String>,
 }
 
 /// An entry as the screen shows it: with what uses the field, when it is one (codes of `used_by`).
@@ -42,15 +46,17 @@ pub struct Hit {
     pub snippet: String,
 }
 
-/// `Título {#clave}` → (title, id).
-fn heading(line: &str) -> Option<(String, String)> {
+/// `Título {#clave}` → (title, id, None); `Título {#clave @otra.clave}` → (title, id, the entry of its place).
+fn heading(line: &str) -> Option<(String, String, Option<String>)> {
     let text = line.trim_start_matches('#').trim();
     if !line.starts_with('#') || !text.ends_with('}') {
         return None;
     }
     let open = text.rfind("{#")?;
-    let id = text[open + 2..text.len() - 1].trim();
-    (!id.is_empty()).then(|| (text[..open].trim().to_string(), id.to_string()))
+    let mut key = text[open + 2..text.len() - 1].split_whitespace();
+    let id = key.next()?;
+    let at = key.next().and_then(|a| a.strip_prefix('@')).map(str::to_string);
+    Some((text[..open].trim().to_string(), id.to_string(), at))
 }
 
 /// The entries of one file of the manual. A heading without a key closes the entry before it and starts nothing.
@@ -60,8 +66,8 @@ pub fn parse(text: &str) -> Vec<Entry> {
     for line in text.lines() {
         if line.starts_with('#') {
             open = match heading(line) {
-                Some((title, id)) => {
-                    out.push(Entry { id, title, paragraphs: Vec::new() });
+                Some((title, id, at)) => {
+                    out.push(Entry { id, title, paragraphs: Vec::new(), at });
                     true
                 }
                 None => false,
@@ -210,10 +216,11 @@ mod tests {
 
     #[test]
     fn a_heading_carries_its_key_and_lines_are_paragraphs() {
-        let m = parse("# Pantalla {#screen.x}\n\nUno.\nDos.\n\n# Sin clave\nNo cuenta.\n## Campo {#a.b}\nQué poner: algo.\n");
-        assert_eq!(m.len(), 2);
-        assert_eq!((m[0].id.as_str(), m[0].title.as_str(), m[0].paragraphs.len()), ("screen.x", "Pantalla", 2));
+        let m = parse("# Pantalla {#screen.x}\n\nUno.\nDos.\n\n# Sin clave\nNo cuenta.\n## Campo {#a.b}\nQué poner: algo.\n# Cómo {#howto.y @screen.x}\nAsí.\n");
+        assert_eq!(m.len(), 3);
+        assert_eq!((m[0].id.as_str(), m[0].title.as_str(), m[0].paragraphs.len(), m[0].at.as_deref()), ("screen.x", "Pantalla", 2, None));
         assert_eq!(m[1].paragraphs, vec!["Qué poner: algo."]);
+        assert_eq!((m[2].id.as_str(), m[2].title.as_str(), m[2].at.as_deref()), ("howto.y", "Cómo", Some("screen.x")), "the place it names");
     }
 
     #[test]

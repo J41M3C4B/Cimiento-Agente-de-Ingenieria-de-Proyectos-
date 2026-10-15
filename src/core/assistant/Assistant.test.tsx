@@ -7,6 +7,11 @@ vi.mock("../../lib/tauri", () => ({
   captureAsk: vi.fn(),
   institutionFillFromDocuments: vi.fn(),
   institutionFillAllFromDocuments: vi.fn(),
+  appPlaces: vi.fn(async () => [
+    { id: "profile.legal", label: "Datos legales y fiscales" },
+    { id: "profile.institution", label: "Su institución" },
+    { id: "security", label: "Seguridad" },
+  ]),
   manualEntry: vi.fn(async (id: string) => ({ id, title: id === "howto.backup" ? "Hacer un respaldo" : "Folio ante la Junta", paragraphs: ["Qué poner: el folio."], used_by: [] })),
   toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
 }));
@@ -67,8 +72,13 @@ describe("Assistant", () => {
     expect(screen.getByText(/Lo tomé del manual: Folio ante la Junta/)).toBeInTheDocument();
     expect(screen.getByText("Lo tomé de sus documentos: Acta constitutiva, página 3")).toBeInTheDocument();
     expect(vi.mocked(assistantAsk).mock.calls[0]![0]).toEqual({ screen: "profile", field: null, question: "¿Dónde pongo el folio?", history: [] });
-    fireEvent.click(screen.getByRole("button", { name: /Ir a Datos legales y fiscales/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Ir a Datos legales y fiscales/ }));
     expect(onGo).toHaveBeenCalledWith("profile.legal");
+    // the next question carries the documents that answer was based on: «ese mismo» has a document
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y ese mismo?", text: "Sí.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
+    ask("¿Y ese mismo?");
+    await screen.findByText("Sí.");
+    expect(lastCall()[0].history[1]).toEqual({ from: "assistant", text: "En Datos legales y fiscales.", documents: ["doc_1"] });
   });
 
   it("«Preguntar más» opens it about the field, and without the AI the manual answers", async () => {
@@ -102,7 +112,7 @@ describe("Assistant", () => {
     ask("¿Y ahora?");
     expect(await screen.findByText(/falta su llave/)).toBeInTheDocument();
     expect(screen.getByText("Pídale a la persona administradora que la configure.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ir a «Inteligencia artificial»" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ir a «Ayuda automática»" })).toBeNull();
     expect(screen.getAllByRole("button", { name: "Intentar de nuevo" })).toHaveLength(1);
   });
 

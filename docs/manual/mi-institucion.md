@@ -1,4 +1,4 @@
-# Mi institución {#screen.institution}
+# Mi institución {#screen.profile}
 
 Aquí está todo lo que su institución es: quién es, a quién atiende, su ubicación, sus datos legales, su dinero, su personal, las personas que atiende y su inmueble.
 Cada parte del programa toma de aquí lo que necesita. Lo que escriba una vez ya no se lo vuelven a pedir.

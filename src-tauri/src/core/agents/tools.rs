@@ -183,7 +183,7 @@ impl Tool for ManualEntry {
         "manual_entry"
     }
     fn description(&self) -> &'static str {
-        "Devuelve una entrada del manual por su `id`: una pantalla (`screen.institution`), una ventana (`institution.legal`) o un campo (`institution.legal_rfc`)."
+        "Devuelve una entrada del manual por su `id`: una pantalla (`screen.profile`), una ventana (`institution.legal`) o un campo (`institution.legal_rfc`)."
     }
     fn args_schema(&self) -> Value {
         json!({

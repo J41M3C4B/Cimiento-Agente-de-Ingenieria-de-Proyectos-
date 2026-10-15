@@ -106,6 +106,7 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("profile_confirm", Need::Permission(Permission::Use)),
     // the manual of the program (ADR-034): help for anyone who is in, with no data of the institution
     ("manual_entry", Need::Session),
+    ("app_places", Need::Session),
     ("manual_search", Need::Session),
     // the Assistant (ADR-034 §4): its tools read only what the person may see
     ("assistant_ask", Need::Permission(Permission::Use)),

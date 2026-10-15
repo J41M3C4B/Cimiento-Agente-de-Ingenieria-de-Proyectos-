@@ -9,6 +9,7 @@ vi.mock("../../lib/tauri", () => ({
   institutionLists: vi.fn(async () => ({ board: [], accounts: [] })),
   institutionRecords: vi.fn(() => new Promise(() => {})),
   devLoadFixture: vi.fn(),
+  appPlaces: vi.fn(async () => [{ id: "profile.legal", label: "Datos legales y fiscales" }]),
   toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
 }));
 // the window itself is not what is tried here: only when it opens and closes

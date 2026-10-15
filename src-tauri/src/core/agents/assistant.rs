@@ -15,6 +15,9 @@
 //!   (never what they say, never the names of their files), that scans and photos are already read as text, and what
 //!   is missing and waiting in each window of «Mi institución». When the person names a file, the code says which
 //!   document of the map it is.
+//! - **The button of an answer is chosen by the code** (`core::places::choose`): the place of the manual entry the
+//!   answer was based on wins over a guess of the AI, and a place the person cannot open, or the page they are on, is
+//!   no button. The places come from the map of the program, never from a list written here.
 //! - **It fills nothing:** when the person tells data of the institution it offers «Llenarlo por mí» for a window
 //!   (`fill`), and the Capturist leaves suggestions there (IA4); when the person wants a window filled from the
 //!   documents, it offers «Llenar con mis documentos» (`from_documents`): the Reader of C2 runs on the click.
@@ -25,37 +28,18 @@ use crate::ai::{AiError, AiProvider, ModelTier};
 use crate::core::access::domain::Role;
 use crate::core::archive::search::Passage;
 use crate::core::error::ServiceError;
+use crate::core::places;
+use crate::core::records::MapDocument;
 use crate::documents::canonical::retrieve::Embedder;
 use crate::scanner::guard::{Decision, QuarantineReport};
 use crate::storage::SharedDb;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
-/// Its trade, versioned like a prompt: changing it is a new file.
-const TRADE: &str = include_str!("assistant.v7.md");
-
-/// Where the Assistant may send the person: a page, or a window of «Mi institución» (`profile.<window>`).
-pub const GO_TO: &[&str] = &[
-    "home", "profile", "profile.institution", "profile.contact", "profile.legal", "profile.capacity", "profile.board", "profile.records", "documents", "projects", "staff",
-    "people", "facilities", "finance", "help",
-];
-
-/// The screens of the app: (page, its name, its entry in the manual).
-const SCREENS: &[(&str, &str, Option<&str>)] = &[
-    ("home", "Inicio", Some("screen.home")),
-    ("profile", "Mi institución", Some("screen.institution")),
-    ("documents", "Documentos", Some("screen.documents")),
-    ("projects", "Proyectos", Some("screen.projects")),
-    ("staff", "Personal", Some("screen.staff")),
-    ("people", "Beneficiarios", Some("screen.people")),
-    ("facilities", "Instalaciones", Some("screen.facilities")),
-    ("finance", "Finanzas", Some("screen.finance")),
-    ("ai", "Inteligencia artificial (ajustes)", None),
-    ("security", "Seguridad", None),
-    ("admin", "Administración", None),
-    ("help", "Ayuda", None),
-];
+/// Its trade, versioned like a prompt: changing it is a new file. The places it may send the person to come from the
+/// map of the program (`core::places`), so a new page or window reaches it without touching it.
+static TRADE: LazyLock<String> = LazyLock::new(|| include_str!("assistant.v8.md").replace("{places}", &places::listed()));
 
 /// What the Assistant may offer to fill from the documents: a window of «Mi institución», or all of them.
 pub const FROM_DOCUMENTS: &[&str] = &["profile.institution", "profile.contact", "profile.legal", "profile.capacity", ALL_WINDOWS];
@@ -82,7 +66,7 @@ pub fn agent() -> Agent {
         task: "agent.assistant",
         name: "assistant",
         tier: ModelTier::Light,
-        trade: TRADE,
+        trade: TRADE.as_str(),
         tools: &["manual_entry", "manual_search", "fill_state", "sheet_section", "record_reader"],
         max_tool_calls: 4,
         max_tokens: 40_000,
@@ -91,7 +75,7 @@ pub fn agent() -> Agent {
             "type": "object",
             "properties": {
                 "text": { "type": "string" },
-                "go_to": { "anyOf": [{ "type": "string", "enum": GO_TO }, { "type": "null" }] },
+                "go_to": { "anyOf": [{ "type": "string", "enum": places::PLACES.iter().map(|p| p.id.as_str()).collect::<Vec<_>>() }, { "type": "null" }] },
                 "sources": { "type": "array", "items": { "type": "string" } },
                 "fill": { "anyOf": [{ "type": "string", "enum": crate::core::agents::capturist::FILLABLE.iter().map(|f| f.1).collect::<Vec<_>>() }, { "type": "null" }] },
                 "from_documents": { "anyOf": [{ "type": "string", "enum": FROM_DOCUMENTS.to_vec() }, { "type": "null" }] }
@@ -109,6 +93,10 @@ pub struct Turn {
     /// `person` or `assistant`.
     pub from: String,
     pub text: String,
+    /// The documents of the Expediente an answer was based on (their ids, from its citations): the next question may
+    /// speak of them («ese mismo»).
+    #[serde(default)]
+    pub documents: Vec<String>,
 }
 
 /// What the screen sends with a question.
@@ -182,35 +170,19 @@ fn source(id: &str) -> Option<Source> {
     crate::core::manual::entry(id).map(|e| Source { id: e.entry.id, title: e.entry.title })
 }
 
-/// Where a field of the catalog is filled in, as a place of `GO_TO`: the code knows it, the AI does not guess it.
-pub fn place_of_field(field: &str) -> Option<&'static str> {
-    use crate::core::institution::forms::{FORMS, LIST_FORMS};
-    let form = FORMS.iter().chain(LIST_FORMS).find(|f| f.field(field).is_some())?;
-    Some(match form.id {
-        "institution.identity" => "profile.institution",
-        "institution.contact" => "profile.contact",
-        "institution.legal" => "profile.legal",
-        "institution.capacity" => "profile.capacity",
-        "institution.board_member" | "institution.bank_account" => "profile.board",
-        "institution.record" => "profile.records",
-        _ => "profile",
-    })
-}
-
 /// What the Assistant is told besides the question: where the person is, the field and what the manual says of it,
-/// and the last turns of the conversation. Ids, never the content of a record.
-pub fn context(ask: &Ask) -> Vec<String> {
+/// and the last turns of the conversation, each answer with the documents of the map it was based on (`docs`). Ids
+/// and types, never the content of a record nor the name of a file.
+pub fn context(ask: &Ask, docs: &[MapDocument]) -> Vec<String> {
     let mut out = Vec::new();
-    let screen = SCREENS.iter().find(|(p, _, _)| *p == ask.screen);
-    let mut place = format!("La persona está en la pantalla «{}»", screen.map_or("(otra)", |s| s.1));
-    if let Some(id) = screen.and_then(|s| s.2) {
-        place.push_str(&format!(" (su entrada en el manual: `{id}`)"));
-    }
-    place.push('.');
-    out.push(place);
+    let screen = places::place(&ask.screen).filter(|p| !p.is_window());
+    out.push(match screen {
+        Some(p) => format!("La persona está en la pantalla «{}» (`{}`; su entrada en el manual: `{}`).", p.label, p.id, p.entry),
+        None => "La persona está en la pantalla «(otra)».".to_string(),
+    });
     if let Some(e) = ask.field.as_deref().and_then(crate::core::manual::entry) {
         let mut s = format!("Preguntó desde el campo «{}» (`{}`).", e.entry.title, e.entry.id);
-        if let Some(place) = place_of_field(&e.entry.id) {
+        if let Some(place) = places::of_entry(&e.entry.id) {
             s.push_str(&format!(" Ese campo se llena en el lugar `{place}`."));
         }
         s.push_str(&format!(" El manual dice de él:\n{}", e.entry.paragraphs.join("\n")));
@@ -220,9 +192,28 @@ pub fn context(ask: &Ask) -> Vec<String> {
     if !turns.is_empty() {
         let lines: String = turns
             .iter()
-            .map(|t| format!("{}: {}\n", if t.from == "assistant" { "Asistente" } else { "Persona" }, t.text.trim()))
+            .map(|t| {
+                let used: Vec<String> =
+                    t.documents.iter().filter_map(|id| docs.iter().find(|d| d.document_id.as_deref() == Some(id.as_str()))).map(|d| format!("{} {}", d.key, d.name)).collect();
+                let used = if used.is_empty() { String::new() } else { format!(" (lo tomó de {})", used.join(", ")) };
+                format!("{}: {}{used}\n", if t.from == "assistant" { "Asistente" } else { "Persona" }, t.text.trim())
+            })
             .collect();
         out.push(format!("La conversación hasta ahora:\n{lines}"));
+    }
+    // the last answer came from documents: the code names them, as when the person names a file, so «ese mismo» goes
+    // to the Reader and is not answered from what the conversation remembers
+    let last: Vec<&MapDocument> = turns
+        .iter()
+        .rev()
+        .find(|t| t.from == "assistant")
+        .map(|t| t.documents.iter().filter_map(|id| docs.iter().find(|d| d.document_id.as_deref() == Some(id.as_str()))).collect())
+        .unwrap_or_default();
+    if let Some(d) = last.first() {
+        out.push(format!(
+            "Su respuesta anterior salió de {} ({}). Si la persona sigue hablando de ese documento («ese mismo», «con base en eso», «y qué más dice»), lo que dice solo lo sabe el Lector: pregúntele con `document` = `{}` y responda con lo que conteste. No responda con lo que recuerda de la conversación, y el botón «Llenar con mis documentos» no sustituye la respuesta.",
+            d.key, d.name, d.key
+        ));
     }
     out
 }
@@ -262,6 +253,17 @@ pub fn map(conn: &rusqlite::Connection, question: &str) -> Result<Vec<String>, S
     }
     if !docs.iter().any(|d| d.document_id.is_some()) {
         s.push_str("Ningún documento del Expediente tiene un archivo con texto todavía: el Lector no tiene qué leer.\n");
+    }
+    // the documents by how they are, with how many, made by the code: the AI never counts (principle 2)
+    let mut totals = Vec::new();
+    for (status, words) in [("have", "Los tienen"), ("missing", "Faltan"), ("in_progress", "En trámite"), ("not_applicable", "No aplican")] {
+        let names: Vec<&str> = docs.iter().filter(|d| d.status == status).map(|d| d.name.as_str()).collect();
+        if !names.is_empty() {
+            totals.push(format!("{words} ({}): {}", names.len(), names.join(", ")));
+        }
+    }
+    if !totals.is_empty() {
+        s.push_str(&format!("En resumen: {}. Las cifras son estas, tal cual: nunca las cuente usted.\n", totals.join("; ")));
     }
     let pending = crate::core::agents::proposals::pending_counts(conn)?;
     s.push_str("Ventanas de «Mi institución» (lo que falta y las sugerencias que esperan que la persona las revise):\n");
@@ -332,21 +334,25 @@ pub async fn ask(
     boxed.push(crate::core::agents::tools::record_reader(db.clone(), role, reach.clone(), provider));
     let tools: Vec<&dyn Tool> = boxed.iter().map(|t| t.as_ref()).collect();
     let ledger = SqliteLedger(db.clone());
-    let mut told = context(&ask);
-    told.extend(map(&*lock(db)?, &asked)?);
+    let told = {
+        let conn = lock(db)?;
+        let mut told = context(&ask, &crate::core::records::map(&conn)?);
+        told.extend(map(&conn, &asked)?);
+        told
+    };
     let errand = Errand { context: told, request: asked.clone() };
     match agent::run(provider, &scanner, &ledger, &agent(), &tools, errand).await {
-        Ok(run) => Ok(answered(&run.answer, asked, &reach.cited.lock().map(|c| c.clone()).unwrap_or_default())),
+        Ok(run) => Ok(answered(&run.answer, asked, &reach.cited.lock().map(|c| c.clone()).unwrap_or_default(), &ask.screen, role)),
         Err(e) => manual(db, &ask, &asked, reason(&e)),
     }
 }
 
-/// The answer as the screen gets it: a place to go only if it is one of `GO_TO`, and the sources only if they are
-/// entries of the manual (with their titles, from the code) or passages the Reader handed in this errand (`cited`,
-/// with their document and page); a window to fill only if the Capturist or the Reader may fill it.
-fn answered(a: &Value, asked: String, cited: &[Passage]) -> AssistantOutcome {
+/// The answer as the screen gets it: the sources only if they are entries of the manual (with their titles, from the
+/// code) or passages the Reader handed in this errand (`cited`, with their document and page); a place to go chosen
+/// by the code from the entries it used and the place the AI said (`places::choose`, for the person on the page
+/// `here` with `role`); a window to fill only if the Capturist or the Reader may fill it.
+fn answered(a: &Value, asked: String, cited: &[Passage], here: &str, role: Option<Role>) -> AssistantOutcome {
     let text = a["text"].as_str().unwrap_or_default().trim().to_string();
-    let go_to = a["go_to"].as_str().filter(|g| GO_TO.contains(g)).map(str::to_string);
     let mut sources: Vec<Source> = Vec::new();
     let mut documents: Vec<DocumentSource> = Vec::new();
     for id in a["sources"].as_array().into_iter().flatten().filter_map(Value::as_str) {
@@ -359,6 +365,8 @@ fn answered(a: &Value, asked: String, cited: &[Passage]) -> AssistantOutcome {
             sources.push(s);
         }
     }
+    let used: Vec<&str> = sources.iter().map(|s| s.id.as_str()).collect();
+    let go_to = places::choose(a["go_to"].as_str(), &used, here, role).map(str::to_string);
     let fill = a["fill"].as_str().and_then(crate::core::agents::capturist::fill_of_place);
     let from_documents = a["from_documents"].as_str().and_then(from_documents_of);
     AssistantOutcome::Answered { asked, text, go_to, sources, documents, fill, from_documents }
@@ -427,7 +435,8 @@ mod tests {
                 ask: question("home", None, "¿Cómo hago un respaldo?"),
                 steps: vec![tool("manual_search", json!({ "query": "respaldo" })), answer("En Seguridad, use «Hacer un respaldo».", None, &["howto.backup"])],
                 seen: "howto.backup",
-                go_to: None,
+                // the AI gave no place: the button follows the entry it used (`@screen.security`)
+                go_to: Some("security"),
                 sources: &["howto.backup"],
             },
             // «¿qué me falta?»: the fill state, never a value
@@ -443,7 +452,8 @@ mod tests {
                 ask: question("finance", None, "¿Nos alcanza el dinero este año?"),
                 steps: vec![tool("sheet_section", json!({ "section": "money" })), answer("Sí, sus ingresos alcanzan a cubrir los egresos.", Some("finance"), &[])],
                 seen: "Balance del año",
-                go_to: Some("finance"),
+                // the person is already in Finanzas: a button there would lead nowhere
+                go_to: None,
                 sources: &[],
             },
             // «¿dónde está…?»: the screen entry and a place to go
@@ -533,6 +543,9 @@ mod tests {
         assert!(text.contains("Constancia de situación fiscal: lo tienen, con su texto."), "{text}");
         assert!(text.contains("Contrato de comodato del inmueble: lo tienen, con su texto."), "a document the institution named goes by that name: {text}");
         assert!(text.contains("Licencia de uso de suelo: falta."), "{text}");
+        let docs = crate::core::records::map(&c).unwrap();
+        let have = docs.iter().filter(|d| d.status == "have").count();
+        assert!(text.contains(&format!("En resumen: Los tienen ({have}): ")) && text.contains("; Faltan ("), "the code counts, never the AI: {text}");
         assert!(text.contains("escaneos y las fotos") && text.contains("`record_reader`"), "{text}");
         assert!(text.contains("`profile.legal` «Datos legales y fiscales»"), "{text}");
         assert!(!text.contains(".txt") && !text.contains("registro-junta.txt") && !text.contains("CRF150310"), "{text}");
@@ -541,15 +554,35 @@ mod tests {
         assert_eq!(map(&c, "¿Qué dice mi acta?").unwrap().len(), 1, "no file named");
     }
 
-    /// The screen and the last turns come with the question; older turns stay out.
+    /// The screen and the last turns come with the question; older turns stay out. An answer says which documents of
+    /// the map it was based on, by their key and type, so «ese mismo» has a document; never the name of the file.
     #[test]
     fn the_context_says_where_the_person_is_and_what_was_said() {
         let mut a = question("staff", None, "¿Y eso?");
-        a.history = (0..10).map(|i| Turn { from: if i % 2 == 0 { "person".into() } else { "assistant".into() }, text: format!("turno {i}") }).collect();
-        let c = context(&a);
+        a.history = (0..10).map(|i| Turn { from: if i % 2 == 0 { "person".into() } else { "assistant".into() }, text: format!("turno {i}"), documents: vec![] }).collect();
+        let c = context(&a, &[]);
         assert!(c[0].contains("«Personal»") && c[0].contains("`screen.staff`"), "{c:?}");
         assert!(c[1].contains("turno 9") && c[1].contains("turno 4") && !c[1].contains("turno 3"), "{c:?}");
-        assert!(context(&question("nowhere", None, "x"))[0].contains("(otra)"));
+        assert!(context(&question("nowhere", None, "x"), &[])[0].contains("(otra)"));
+        assert!(context(&question("security", None, "x"), &[])[0].contains("«Seguridad»"), "every page of the map, with its name");
+
+        let (_d, db) = rich_db();
+        let c = db.lock().unwrap();
+        crate::core::archive::search::tests::load_record(&c);
+        let docs = crate::core::records::map(&c).unwrap();
+        let junta = docs.iter().find(|d| d.name == "Registro ante la Junta").unwrap();
+        let mut a = question("profile", None, "¿Y con base en ese mismo qué pongo?");
+        a.history = vec![
+            Turn { from: "person".into(), text: "¿Qué dice mi registro?".into(), documents: vec![] },
+            Turn { from: "assistant".into(), text: "Dice su objeto.".into(), documents: vec![junta.document_id.clone().unwrap(), "doc_gone".into()] },
+        ];
+        let told = context(&a, &docs).join("\n");
+        assert!(told.contains(&format!("Asistente: Dice su objeto. (lo tomó de {} Registro ante la Junta)", junta.key)), "{told}");
+        assert!(!told.contains(".txt") && !told.contains("doc_gone"), "{told}");
+        assert!(told.contains(&format!("Su respuesta anterior salió de {} (Registro ante la Junta)", junta.key)) && told.contains(&format!("`document` = `{}`", junta.key)), "{told}");
+        // an answer with no documents after it: nothing to follow up
+        a.history.push(Turn { from: "assistant".into(), text: "Vaya a Seguridad.".into(), documents: vec![] });
+        assert!(!context(&a, &docs).join("\n").contains("Su respuesta anterior"));
     }
 
     /// Without the AI the manual answers; a question with data of a person waits for the person.
@@ -598,18 +631,19 @@ mod tests {
     #[test]
     fn a_place_or_a_source_the_code_does_not_know_is_dropped() {
         let a = json!({ "text": " Hola ", "go_to": "somewhere", "sources": ["institution.name", "invented.entry", "institution.name"], "fill": "profile.board" });
-        let AssistantOutcome::Answered { text, go_to, sources, fill, .. } = answered(&a, "q".into(), &[]) else { panic!() };
-        assert_eq!((text.as_str(), go_to, fill), ("Hola", None, None), "the board is never filled by the AI");
-        let AssistantOutcome::Answered { fill, .. } = answered(&json!({ "text": "x", "fill": "profile.capacity" }), "q".into(), &[]) else { panic!() };
+        let AssistantOutcome::Answered { text, go_to, sources, fill, .. } = answered(&a, "q".into(), &[], "home", Some(Role::Manager)) else { panic!() };
+        // a place it does not know is dropped; the button follows the entry the answer used
+        assert_eq!((text.as_str(), go_to.as_deref(), fill), ("Hola", Some("profile.institution"), None), "the board is never filled by the AI");
+        let AssistantOutcome::Answered { fill, .. } = answered(&json!({ "text": "x", "fill": "profile.capacity" }), "q".into(), &[], "home", None) else { panic!() };
         // a passage is cited only if the search handed it; its name and page come from the code
         let cited = vec![Passage { chunk: 7, document_id: "doc_1".into(), document: "Contrato de comodato".into(), page: Some(2), snippet: "…".into() }];
-        let AssistantOutcome::Answered { documents, sources: manual_sources, .. } = answered(&json!({ "text": "x", "sources": ["doc:7", "doc:8", "doc:7", "howto.backup"] }), "q".into(), &cited) else { panic!() };
+        let AssistantOutcome::Answered { documents, sources: manual_sources, .. } = answered(&json!({ "text": "x", "sources": ["doc:7", "doc:8", "doc:7", "howto.backup"] }), "q".into(), &cited, "home", None) else { panic!() };
         assert_eq!(documents, vec![DocumentSource { document_id: "doc_1".into(), document: "Contrato de comodato".into(), page: Some(2) }]);
         assert_eq!(manual_sources.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec!["howto.backup"]);
         assert_eq!(fill.map(|f| f.form), Some("institution.capacity"));
         assert_eq!(sources, vec![Source { id: "institution.name".into(), title: "Nombre de la institución".into() }]);
         // «Llenar con mis documentos»: a window the Reader fills, or all of them; never one it does not
-        let from = |w: &str| match answered(&json!({ "text": "x", "from_documents": w }), "q".into(), &[]) {
+        let from = |w: &str| match answered(&json!({ "text": "x", "from_documents": w }), "q".into(), &[], "home", None) {
             AssistantOutcome::Answered { from_documents, .. } => from_documents.map(|f| (f.form, f.place)),
             _ => panic!(),
         };
@@ -618,27 +652,19 @@ mod tests {
         assert_eq!(from("profile.board"), None);
     }
 
-    /// Every field of the catalog has its place, and it is one the Assistant may offer.
-    #[test]
-    fn every_field_has_the_place_where_it_is_filled_in() {
-        use crate::core::institution::forms::{FORMS, LIST_FORMS};
-        for f in FORMS.iter().chain(LIST_FORMS).flat_map(|f| f.fields()) {
-            let place = place_of_field(f.id).unwrap();
-            assert!(GO_TO.contains(&place) && place != "profile", "{}: {place}", f.id);
-        }
-        assert_eq!(place_of_field("institution.junta_folio"), Some("profile.legal"));
-        assert_eq!(place_of_field("institution.bank.clabe"), Some("profile.board"));
-        assert_eq!(place_of_field("nope"), None);
-    }
-
-    /// Every place the trade offers is one the code knows, and the other way round; so are the windows to fill.
+    /// Every place of the map is in the trade and in the schema of its answer, written by the code; so are the
+    /// windows to fill.
     #[test]
     fn the_trade_names_every_place() {
-        for g in GO_TO {
-            assert!(TRADE.contains(&format!("`{g}`:")), "{g} is not in the trade");
+        assert_eq!(include_str!("assistant.v8.md").matches("{places}").count(), 1, "the list of places is written by the code");
+        let schema = agent().answer["properties"]["go_to"]["anyOf"][0]["enum"].clone();
+        for p in places::PLACES.iter() {
+            assert!(TRADE.contains(&format!("`{}`:", p.id)), "{} is not in the trade", p.id);
+            assert!(schema.as_array().unwrap().iter().any(|v| v == p.id.as_str()), "{} is not in the schema", p.id);
         }
+        assert!(TRADE.contains("`security`: Seguridad."), "a page born from its entry in the manual reaches the trade");
         for (_, place, _) in crate::core::agents::capturist::FILLABLE {
-            assert!(GO_TO.contains(place) && TRADE.contains(&format!("`{place}`")), "{place}");
+            assert!(places::place(place).is_some() && TRADE.contains(&format!("`{place}`")), "{place}");
         }
         for place in FROM_DOCUMENTS {
             assert!(TRADE.contains(&format!("`{place}`")), "{place}");

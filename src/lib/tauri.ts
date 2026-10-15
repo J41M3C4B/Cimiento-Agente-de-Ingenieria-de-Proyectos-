@@ -10,6 +10,7 @@ import type {
   AiStatusView,
   AnswerOutcome,
   AppError,
+  AppPlace,
   AssistantAsk,
   AttachStart,
   Expediente,
@@ -114,6 +115,7 @@ export const institutionFillAllFromDocuments = () => invoke<FillOutcome[]>("inst
 export const proposalsReject = (ids: string[]) => invoke<number>("proposals_reject", { ids });
 // The manual of the program (ADR-034): the «?» of each field and the search in Ayuda, offline
 export const manualEntry = (id: string) => invoke<ManualEntry | null>("manual_entry", { id });
+export const appPlaces = () => invoke<AppPlace[]>("app_places");
 export const manualSearch = (query: string) => invoke<ManualHit[]>("manual_search", { query });
 // Documents of the institution (global): the files of a call come in with their project
 export const documentsList = () => invoke<DocumentSummary[]>("documents_list");

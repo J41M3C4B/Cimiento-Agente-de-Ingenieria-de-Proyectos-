@@ -134,6 +134,13 @@ pub fn manual_entry(session: State<'_, Session>, id: String) -> Result<Option<cr
     Ok(crate::core::manual::entry(&id))
 }
 
+/// The places of the program and their names (`core::places`): what the buttons «Ir a…» say.
+#[tauri::command]
+pub fn app_places(session: State<'_, Session>) -> Result<Vec<crate::core::places::Place>, UiError> {
+    guard(&session, "app_places")?;
+    Ok(crate::core::places::PLACES.clone())
+}
+
 /// Searches the manual (ADR-034 §4): it works offline.
 #[tauri::command]
 pub fn manual_search(session: State<'_, Session>, db: State<Db>, query: String) -> Result<Vec<crate::core::manual::Hit>, UiError> {

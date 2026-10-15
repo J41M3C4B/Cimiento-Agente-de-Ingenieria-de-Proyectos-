@@ -92,6 +92,7 @@ pub fn run() {
             commands::records::institution_record_open,
             commands::institution::institution_clabe_reveal,
             commands::manual_entry,
+            commands::app_places,
             commands::assistant::assistant_ask,
             commands::assistant::capture_ask,
             commands::assistant::institution_fill_from_documents,

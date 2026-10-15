@@ -1,5 +1,5 @@
 {
-  "_nota": "Batería del Asistente como orquestador del núcleo (C3, ADR-036 §8): preguntas desde distintas pantallas sobre el expediente ficticio de esta carpeta. «usa»: herramientas que debe pedir; «no_usa»: herramientas que no debe pedir; «paginas»: el documento y la página que la respuesta debe citar (al menos uno; página 0 = cualquiera); «con_cita»: debe citar al menos un documento; «nada»: ningún documento lo dice, no debe citar ninguno; «contiene» (todas) y «alguno» (al menos una): palabras de la respuesta, sin acentos ni mayúsculas; «no_contiene»: palabras que no debe decir; «ir_a», «llenar_con_documentos» y «fuentes»: lo que debe ofrecer. Todo es ficticio.",
+  "_nota": "Batería del Asistente como orquestador del núcleo (C3, ADR-036 §8): preguntas desde distintas pantallas sobre el expediente ficticio de esta carpeta. «usa»: herramientas que debe pedir; «no_usa»: herramientas que no debe pedir; «paginas»: el documento y la página que la respuesta debe citar (al menos uno; página 0 = cualquiera); «con_cita»: debe citar al menos un documento; «nada»: ningún documento lo dice, no debe citar ninguno; «contiene» (todas) y «alguno» (al menos una): palabras de la respuesta, sin acentos ni mayúsculas; «no_contiene»: palabras que no debe decir; «ir_a», «llenar_con_documentos» y «fuentes»: lo que debe ofrecer; «historial»: la conversación antes de la pregunta, con los archivos en que se basó cada respuesta. Todo es ficticio.",
   "preguntas": [
     { "q": "Según mi registro, ¿qué nombre legal pongo?", "pantalla": "profile", "campo": "institution.legal_name", "usa": ["record_reader"], "con_cita": true, "contiene": ["ficticia san ejemplo"] },
     { "q": "¿Qué documentos tengo?", "pantalla": "home", "no_usa": ["record_reader"], "ir_a": "profile.records", "contiene": ["acta"] },
@@ -13,6 +13,10 @@
     { "q": "¿Cuántos kilos de comida nos donó el banco de alimentos en 2024?", "pantalla": "home", "nada": true },
     { "q": "Llena los datos legales con lo que dicen mis documentos", "pantalla": "profile", "llenar_con_documentos": "profile.legal" },
     { "q": "¿Qué me falta por llenar?", "pantalla": "home", "no_usa": ["record_reader"] },
-    { "q": "¿Cómo hago un respaldo?", "pantalla": "home", "no_usa": ["record_reader"], "fuentes": ["howto.backup"] }
+    { "q": "¿Cómo hago un respaldo?", "pantalla": "profile", "no_usa": ["record_reader"], "fuentes": ["howto.backup"], "ir_a": "security" },
+    { "q": "Va, y con base en ese mismo, ¿qué pongo en a quién atienden y cómo?", "pantalla": "profile", "historial": [
+        { "de": "persona", "texto": "¿Qué dice mi registro ante la Junta?" },
+        { "de": "asistente", "texto": "Su registro ante la Junta dice que la denominación es Casa de Reposo Ficticia San Ejemplo, I.A.P., con el número de institución 77.", "documentos": ["registro-junta.txt"] }
+      ], "usa": ["record_reader"], "paginas": [["registro-junta.txt", 1]], "alguno": ["adultas mayores", "adultos mayores"] }
   ]
 }

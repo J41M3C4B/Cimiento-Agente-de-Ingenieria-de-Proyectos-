@@ -45,6 +45,18 @@ pub struct Case {
     pub llenar_con_documentos: Option<String>,
     #[serde(default)]
     pub fuentes: Vec<String>,
+    /// The conversation before the question (a follow-up such as «ese mismo»).
+    #[serde(default)]
+    pub historial: Vec<Said>,
+}
+
+/// A turn before the question: who said it (`persona` or `asistente`), what, and the files its answer was based on.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Said {
+    pub de: String,
+    pub texto: String,
+    #[serde(default)]
+    pub documentos: Vec<String>,
 }
 
 pub fn cases() -> Vec<Case> {
@@ -67,8 +79,20 @@ pub fn db() -> (tempfile::TempDir, SharedDb) {
     (dir, Arc::new(Mutex::new(c)))
 }
 
-pub fn ask_of(c: &Case) -> Ask {
-    Ask { screen: c.pantalla.clone(), field: c.campo.clone(), question: c.q.clone(), history: vec![] }
+/// The question as the screen sends it: the files of its history become the ids of their documents, as the screen
+/// keeps them from the citations.
+pub fn ask_of(c: &Case, db: &SharedDb) -> Ask {
+    let map = crate::core::records::map(&db.lock().unwrap()).unwrap();
+    let history = c
+        .historial
+        .iter()
+        .map(|t| Turn {
+            from: if t.de == "asistente" { "assistant".into() } else { "person".into() },
+            text: t.texto.clone(),
+            documents: t.documentos.iter().map(|f| crate::core::records::named_in(&map, f).and_then(|d| d.document_id.clone()).unwrap_or_else(|| panic!("{f} is not in the Expediente"))).collect(),
+        })
+        .collect();
+    Ask { screen: c.pantalla.clone(), field: c.campo.clone(), question: c.q.clone(), history }
 }
 
 /// What is wrong with an answer, against what its case expects; empty when it passes. `tools`: the tools the
@@ -148,7 +172,8 @@ async fn the_page_of_each_question_is_among_the_passages_of_the_reader() {
     let (mut asked, mut found) = (0, 0);
     for c in cases().iter().filter(|c| !c.paginas.is_empty()) {
         let map = crate::core::records::map(&db.lock().unwrap()).unwrap();
-        let only = crate::core::records::named_in(&map, &c.q).and_then(|d| d.document_id.clone());
+        // the file named in the question, or the one of the answer it follows up
+        let only = crate::core::records::named_in(&map, &c.q).and_then(|d| d.document_id.clone()).or_else(|| ask_of(c, &db).history.iter().rev().find_map(|t| t.documents.first().cloned()));
         let shown = crate::core::reader::ask::passages_for(&db, None, &c.q, only.as_deref()).await.unwrap();
         let hit = c.paginas.iter().any(|(f, p)| shown.iter().any(|s| &s.passage.document == f && (*p == 0 || s.passage.page == Some(*p))));
         println!("{:<60} {} {:?}", c.q, if hit { "sí" } else { "NO" }, shown.iter().map(|s| (s.passage.document.as_str(), s.passage.page)).collect::<Vec<_>>());
@@ -175,7 +200,7 @@ async fn the_battery_grades_what_it_should() {
         reply(json!({ "tool": null, "args": null, "answer": { "found": true, "text": "La comodataria paga el predial.", "citations": [{ "passage": p.id, "quote": "del impuesto predial" }] } })),
         reply(json!({ "tool": null, "args": null, "answer": { "text": "Lo paga la institución, como comodataria.", "go_to": null, "sources": [source], "fill": null, "from_documents": null } })),
     ]);
-    let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(predial), None).await.unwrap();
+    let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(predial, &db), None).await.unwrap();
     let tools = last_tools(&db);
     assert_eq!(grade(predial, &out, &tools), Vec::<String>::new(), "{out:?}");
 
@@ -232,7 +257,7 @@ async fn assistant_battery_live() {
             let before = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
             recording.log.lock().unwrap().clear();
             let started = std::time::Instant::now();
-            let out = ask(&db, Some(&recording), embedder.clone(), Some(Role::Manager), ask_of(c), None).await.unwrap();
+            let out = ask(&db, Some(&recording), embedder.clone(), Some(Role::Manager), ask_of(c, &db), None).await.unwrap();
             let secs = started.elapsed().as_secs_f64();
             let after = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
             let tools = last_tools(&db);
@@ -329,21 +354,21 @@ async fn ask_native(
     c: &Case,
 ) -> Result<(AssistantOutcome, crate::ai::gemini_native::NativeRun), crate::ai::AiError> {
     use crate::core::agents::tools::{record_reader, toolbox_with, Reach};
-    let a = ask_of(c);
+    let a = ask_of(c, db);
     let reach = Reach { embedder, ..Default::default() };
     let mut boxed: Vec<Box<dyn Tool + '_>> = toolbox_with(db.clone(), Some(Role::Manager), reach.clone()).into_iter().map(|t| t as Box<dyn Tool + '_>).collect();
     boxed.push(record_reader(db.clone(), Some(Role::Manager), reach.clone(), provider));
     let tools: Vec<&dyn Tool> = boxed.iter().map(|t| t.as_ref()).collect();
     let (told, scanner) = {
         let conn = db.lock().unwrap();
-        let mut told = context(&a);
+        let mut told = context(&a, &crate::core::records::map(&conn).unwrap());
         told.extend(map(&conn, &a.question).unwrap());
         (told, crate::core::screen::scanner_for(&conn).unwrap())
     };
     let ledger = crate::ai::pipeline::SqliteLedger(db.clone());
     let run = crate::ai::gemini_native::run(key, settings, &ledger, &scanner, &agent(), &tools, Errand { context: told, request: a.question.clone() }).await?;
     let cited = reach.cited.lock().unwrap().clone();
-    Ok((answered(&run.answer, a.question.clone(), &cited), run))
+    Ok((answered(&run.answer, a.question.clone(), &cited, &a.screen, Some(Role::Manager)), run))
 }
 
 /// What one mode did over the battery.
@@ -418,7 +443,7 @@ async fn assistant_native_vs_json_live() {
         println!("\n######## Ronda {round} de {rounds}");
         for c in &all {
             let before = assistant(&db);
-            let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), ask_of(c), None).await.unwrap();
+            let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), ask_of(c, &db), None).await.unwrap();
             let after = assistant(&db);
             let bad = grade(c, &out, &last_tools(&db));
             json_mode.add(c, &bad);

@@ -19,6 +19,7 @@ pub mod institution;
 pub mod manual;
 pub mod onboarding;
 pub mod overview;
+pub mod places;
 pub mod profile;
 pub mod protected;
 pub mod reader;

@@ -40,6 +40,27 @@ También puede preguntarle al Asistente qué dice un documento, por ejemplo «¿
 Si el documento trae datos de su institución, como el RFC o el número del oficio de donataria, los deja como sugerencias en Mi institución, ventana «Datos legales y fiscales», con el documento y la página. Usted decide cuáles usar.
 Las facturas y los recibos no se suben aquí: se registrarán en Finanzas.
 
+# Seguridad {#screen.security}
+
+Aquí cuida sus datos. Puede poner un PIN para que la pantalla se cierre cuando alguien más usa su computadora.
+También crea un respaldo con contraseña de todo lo que hay en el programa, para cambiar de computadora o por si algo falla, y restaura uno que ya tenga.
+«Revisar ahora» busca datos de personas, como CURP, cuentas o tarjetas, en todo lo que guarda el programa. Solo cuenta lo que encuentra; no muestra los datos.
+
+# Ayuda automática {#screen.ai}
+
+Aquí se elige el servicio de ayuda automática, se guarda su llave y se pone el tope de gasto de cada mes.
+Solo la persona que puede cambiar la configuración entra a esta sección.
+
+# Administración {#screen.admin}
+
+Aquí se decide quién puede entrar al programa y qué puede hacer cada persona. También están lo que alguien pidió borrar, la bitácora de lo que ha pasado y el código de recuperación.
+Solo la persona administradora entra a esta sección.
+
+# Ayuda {#screen.help}
+
+Aquí están los pasos de un proyecto, qué hacer si algo no funciona y cómo se cuidan sus datos.
+También puede buscar en este manual con sus palabras, sin internet.
+
 # ¿Se guarda lo que escribo? {#howto.saving}
 
 Sí. Cada ventana guarda al tocar «Guardar», aunque falten datos.
@@ -51,7 +72,7 @@ Todo se guarda en esta computadora, cifrado.
 La ayuda automática solo recibe textos ya revisados y cifras de su institución, sin nombres, teléfonos, CURP ni sueldos de nadie.
 Si un texto parece traer datos de una persona, el programa se detiene y le pregunta antes de guardarlo.
 
-# ¿Qué es la ayuda automática? {#howto.ai}
+# ¿Qué es la ayuda automática? {#howto.ai @screen.ai}
 
 Es la parte del programa que hace preguntas, sugiere y redacta. Es opcional: sin ella el programa sigue funcionando.
 Nunca hace las cuentas ni guarda nada por su cuenta. Lo que sugiere, usted lo revisa y lo confirma.
@@ -64,19 +85,19 @@ Bajo el «?» de cada dato, «Preguntar más» lo abre con la pregunta ya escrit
 El asistente no guarda nada: le dice dónde hacerlo o, si usted quiere, deja sugerencias en la ventana para que usted las revise (vea «Llenar una ventana con el asistente»). Sin internet o sin la ayuda automática, le responde con lo que dice este manual.
 La conversación se borra al cerrar el programa. No escriba nombres ni datos de personas: el programa los busca y le pregunta antes de enviar.
 
-# Llenar una ventana con el asistente {#howto.fill}
+# Llenar una ventana con el asistente {#howto.fill @screen.profile}
 
 En las ventanas de «Mi institución», «Llenarlo por mí» abre el asistente para que usted le cuente con sus palabras lo que sabe: a quién atienden, cómo, desde cuándo. El asistente también se lo ofrece cuando, platicando, usted le cuenta datos de su institución.
 El asistente deja sugerencias debajo de cada dato, con las palabras suyas de donde las tomó. «Usar» pone la sugerencia en su lugar, donde puede corregirla; «Descartar» la quita. Nada se guarda hasta que pulse «Guardar».
 Las sugerencias que no revise se quedan para después, y «Mi institución» le avisa cuántas hay. El teléfono, el correo, el domicilio, el RFC, los folios, las claves, el representante legal, el patronato y las cuentas los escribe usted: el asistente nunca los ve.
 
-# Llenar con mis documentos {#howto.fill_documents}
+# Llenar con mis documentos {#howto.fill_documents @screen.profile}
 
 En las ventanas de «Mi institución», «Llenar con mis documentos» busca en los documentos de su Expediente lo que dicen de los datos que faltan: a quién atienden, desde cuándo, su objeto social, cuántas personas trabajan. En la parte del Expediente, «Llenar todo con mis documentos» lo hace con las cuatro ventanas a la vez.
 Cada sugerencia dice de qué documento y de qué página salió. «Usar» la pone en su lugar, donde puede corregirla; «Descartar» la quita, y ese dato no se le vuelve a sugerir. Nada se guarda hasta que pulse «Guardar».
 Solo llena lo que está vacío: lo que usted ya escribió no se toca. El teléfono, el correo, el domicilio, el RFC, los folios, las claves y el representante legal no los busca la ayuda automática: los lee el programa del documento que los trae, al subirlo.
 Usa la ayuda automática (una consulta por ventana). Sin ella, el programa le avisa.
 
-# Cambiar de computadora o hacer un respaldo {#howto.backup}
+# Cambiar de computadora o hacer un respaldo {#howto.backup @screen.security}
 
 En «Seguridad» cree un respaldo con contraseña, llévelo a la otra computadora y restáurelo ahí.

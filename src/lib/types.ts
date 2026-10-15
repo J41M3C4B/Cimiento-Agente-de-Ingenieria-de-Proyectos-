@@ -220,6 +220,13 @@ export type ListOutcome = { status: "saved"; lists: InstitutionLists } | { statu
 export interface AssistantTurn {
   from: "person" | "assistant";
   text: string;
+  /** the documents of the Expediente the answer was based on (ids, from its citations): «ese mismo» has a document */
+  documents?: string[];
+}
+/** A place of the program a button may take the person to, with its name (core/places.rs). */
+export interface AppPlace {
+  id: string;
+  label: string;
 }
 export interface AssistantAsk {
   /** the page where the person is */

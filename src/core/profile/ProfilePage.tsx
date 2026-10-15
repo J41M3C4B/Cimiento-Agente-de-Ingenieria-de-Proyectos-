@@ -23,6 +23,7 @@ import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { CARE_KEY } from "../../modules/care/CareTab";
 import { HR_KEY } from "../../modules/hr/StaffTab";
 import { useSession } from "../access/session";
+import { usePlaceName } from "../places";
 import { recordKey, useRecordReadings } from "./recordReading";
 import type { Reading } from "./recordReading";
 
@@ -115,6 +116,7 @@ export function ProfilePage({
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
   // what each module has and what is missing, composed in Rust (ADR-033): this page only draws it
   const overview = useOverview();
+  const placeName = usePlaceName();
 
   const [edit, setEdit] = useState<Edit | null>(null);
   // the board and the accounts of the institution (ADR-033 §3): never to the AI
@@ -327,7 +329,7 @@ export function ProfilePage({
           <div className="space-y-2 min-[1000px]:col-span-2">
             {o.suggestions.map((x) => (
               <Alert key={x.place} tone="info">
-                <p>{es.suggestions.pending(x.count, es.assistant.places[`profile.${x.place}`] ?? x.place)}</p>
+                <p>{es.suggestions.pending(x.count, placeName(`profile.${x.place}`))}</p>
                 <Button size="sm" variant="secondary" className="mt-2" onClick={() => goTo(x.place)}>
                   {es.suggestions.review}
                 </Button>

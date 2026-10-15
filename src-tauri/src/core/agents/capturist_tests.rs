@@ -194,7 +194,7 @@ fn the_context_names_the_fields_and_never_a_protected_value() {
     let spec = crate::core::institution::forms::form("institution.legal").unwrap();
     let saved = crate::core::profile::forms::saved_values(&c, "institution.legal").unwrap();
     assert!(saved.contains_key("institution.legal_rfc"));
-    let history = vec![Turn { from: "person".into(), text: "Somos I.A.P. desde 1950".into() }];
+    let history = vec![Turn { from: "person".into(), text: "Somos I.A.P. desde 1950".into(), documents: vec![] }];
     let ctx = context(spec, "Datos legales y fiscales", &saved, &history).join("\n");
     assert!(ctx.contains("`institution.legal_form`") && ctx.contains("iap") && ctx.contains("Solo aplica si `institution.authorized_donee` es yes"), "{ctx}");
     assert!(ctx.contains("no los sugiera") && ctx.contains("Persona: Somos I.A.P. desde 1950"), "{ctx}");
