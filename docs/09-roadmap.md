@@ -233,7 +233,7 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
     - **El historial dice el origen de cada dato:** lo que se guardó tal como se sugirió queda como `ai_assumption`, con la cita y quién lo confirmó; lo que la persona corrigió es suyo (`user`).
     - **Lo que no se revisa se queda para después:** «Mi institución» avisa cuántas sugerencias esperan en cada ventana, con «Revisarlas».
     - Batería en seco: ninguna sugerencia se guarda sin el clic, se descarta lo inventado, lo protegido y lo que no cabe, y lo aceptado pasa por la validación y el escáner.
-    - Corrida real (`cargo test capturist_live -- --ignored --nocapture`, 2026-10-10, Gemini `gemini-3.5-flash-lite`, un párrafo para «Su institución»): 5 de 5 sugerencias correctas (a quién, sexo, modalidad, áreas y edad mínima), 0 descartadas, 1 llamada, 1,580 tokens de entrada y 295 de salida, **$0.0224 MXN**, 1.7 s.
+    - Corrida real (2026-10-10, Gemini `gemini-3.5-flash-lite`, un párrafo para «Su institución»): 5 de 5 sugerencias correctas (a quién, sexo, modalidad, áreas y edad mínima), 0 descartadas, 1 llamada, 1,580 tokens de entrada y 295 de salida, **$0.0224 MXN**, 1.7 s. La reemplaza la batería de C4 (`capturist_battery_live`).
 - [x] **N4** Expediente (`core_record`) y subir PDF y Word (2026-10-10, migración 0028, `core/records/`, comandos `institution_record*`):
   - **Una lista de lo que la institución debe tener,** en «Mi institución» («Expediente»): cada documento con su estado («Lo tenemos», «En trámite», «Falta», «No aplica»), fechas de emisión y de vigencia, folio y notas (descritos en el catálogo, `RECORD`). El archivo es opcional. Se ve «Tiene N de M», lo que está en trámite y lo que vence; aparte del porcentaje de «Mi institución».
   - **Rust decide qué documentos le tocan** (`catalog::RECORD_TYPES`, 18 tipos): el oficio de donataria solo si es donataria o está en trámite, la CLUNI si la tiene, el registro y el presupuesto ante la Junta para I.A.P., I.B.P. y A.B.P., el Registro de Centros de Asistencia Social si atiende menores, el aviso sanitario si atiende con estancia o residencia. La institución agrega los suyos («Agregar otro documento»). Lo que ya tiene sigue en la lista aunque deje de tocarle.
@@ -319,5 +319,14 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
     - **«Ese mismo»:** cada respuesta guarda en la pantalla los documentos que citó; el contexto dice de cuál salió la respuesta anterior y su clave. El mapa trae los documentos por estado con sus cifras, para que la IA no cuente.
     - Manual: pantallas Seguridad, Ayuda automática, Administración y Ayuda; el botón «Ir a «Inteligencia artificial»» ahora dice «Ayuda automática», como la barra.
     - Batería con el oficio v8 (14 preguntas, dos rondas, `gemini-3.5-flash-lite`): 25 de 28, 0 inventados, $1.14 MXN. Detalle en `07-ia-y-costos.md`.
-  - [ ] **C4** Revisión completa del núcleo: cada agente con su batería aprobada con el modelo más barato y cada pantalla probada por la institución; la metodología escrita para los módulos.
+  - [ ] **C4** Revisión completa del núcleo: cada agente con su batería aprobada con el modelo más barato y cada pantalla probada por la institución; la metodología escrita para los módulos. Criterio de aprobación de un agente: nada inventado y al menos 90 % bien en dos rondas.
+    - [x] **Fase 1 · batería del Capturista** (2026-10-15, ADR-036 «Precisiones al aplicar C4»):
+      - `fixtures/capturista.json`: 12 casos en las cuatro ventanas, con trampas (suma, edad supuesta, sin datos, cifras con palabras, conversación previa, datos protegidos).
+      - El código ahora revisa que una cifra esté en las palabras de la persona, como el Lector.
+      - La IA ya no escribe la nota (oficio v2): el programa dice qué dejó, qué no tomó y qué falta contar.
+      - Con el modelo más barato: 68 de 69 casos contestados bien en tres corridas de dos rondas, 0 inventados, $0.40 MXN las 24.
+    - [ ] Fase 2 · las tres preguntas del Asistente que salen 1 de 2 («ese mismo», «¿qué documentos tengo?», el régimen fiscal).
+    - [ ] Fase 3 · corrida final de las tres baterías y tabla de aprobación.
+    - [ ] Fase 4 · guion de pruebas por pantalla para la institución.
+    - [ ] Fase 5 · metodología de agentes para los módulos.
 - [ ] **N5** El expediente hacia Proyectos, la IA e Inicio.

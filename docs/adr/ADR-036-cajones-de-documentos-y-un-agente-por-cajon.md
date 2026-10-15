@@ -253,6 +253,27 @@ Cada bloque se prueba por la institución antes del siguiente.
   - Nuestro protocolo además funciona igual con cualquier proveedor (ADR-034 §2). Se vuelve a medir si cambia el modelo o el proveedor; la prueba queda para eso.
   - Cambiar a un modelo más caro sería cambiar el costo por proceso, no la arquitectura ni el código (decisión de la institución).
 
+### Precisiones al aplicar C4 · el Capturista (2026-10-15)
+
+- **Su batería** (`fixtures/capturista.json`, `capturist_battery_live`): 12 casos en las cuatro ventanas. Cada caso trae lo que cuenta la persona y lo que debe quedar en cada campo, o «nada» cuando no lo dijo.
+  - Hay trampas: una suma, «personas mayores» sin edad, un párrafo sin datos, cifras escritas con palabras, una conversación previa («Sí, por favor»), domicilio, teléfono y RFC.
+  - En seco, el código tira las 10 respuestas tramposas de la batería.
+- **El código revisa la cifra** (hallazgo en seco): el Capturista aceptaba una cifra con cualquier frase que dijo la persona; «60 años» pasaba con «personas mayores». Ahora, como el Lector, una cifra solo pasa si está en las palabras copiadas (`reader::fill::says_number`). En la corrida real atrapó ese mismo «60» y la suma de camas (20 + 15 = 35), que el modelo propuso en 4 de 4 rondas.
+- **Las palabras para la persona son del programa, no de la IA** (hallazgo de la primera corrida). La IA escribía la nota antes de que el código revisara, y prometía lo que el código tiró: «le dejé sugerida la capacidad total sumando las camas», o «edad mínima y máxima» cuando solo propuso la mínima.
+  - Con el oficio v2, la IA ya no escribe nota.
+  - El código dice qué dejó, por los títulos del manual, y que lo que habría tenido que calcular o suponer no lo dejó. También dice qué puede contar todavía: los campos que aplican y están vacíos, sin sugerencia.
+  - Es lo mismo que ya hacía «Llenar con mis documentos».
+- **Medición** (`gemini-3.5-flash-lite`, dos rondas cada una):
+
+  | Oficio | Resultado | Notas |
+  |---|---|---|
+  | v1 | 23 de 24 casos, 137 de 138 campos, 0 inventados | Copió mal una cita («sua casa») y el código la tiró; la nota prometió lo tirado |
+  | v2 | 24 de 24, 138 de 138, 0 inventados | Tres veces dejó `answer` vacío cuando no había nada que sugerir, y el bucle volvió a preguntar |
+  | v2 final | 23 de 24 casos, 136 de 138 campos, 0 inventados, 24 llamadas para 24 casos | Una vez no propuso «¿A quién atienden?»; el programa se lo pidió a la persona |
+
+  - Con el v2 final salieron bien 68 de los 69 casos que el modelo contestó (una corrida perdió 3 por la cuota por minuto; ahora la batería espera 4 s entre casos).
+  - Cuesta unos $0.017 MXN por caso, de 1.6 a 6 s.
+
 ## Consecuencias
 
 - **Documentos cambia de función:** de cajón propio a bandeja; su pantalla se rediseña alrededor de «¿a qué cajón va?».
