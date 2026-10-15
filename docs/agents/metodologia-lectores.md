@@ -59,7 +59,7 @@ Las reglas leen los formatos fijos al subir un archivo y no cuestan nada. Lo que
 4. **El código revisa:**
    - el campo pedido;
    - el pasaje mostrado;
-   - la cita dentro de ese pasaje;
+   - la cita dentro de ese pasaje (`core::reader::quote::find`, la misma para todo agente que cita; ver abajo);
    - la cifra dentro de la cita (la IA no calcula);
    - el valor que cabe.
 
@@ -83,6 +83,12 @@ Referencia: `core/reader/ask.rs` y la herramienta `record_reader` (C3, ADR-036 �
    - preguntas desde varias pantallas, con la herramienta esperada, el documento y la página que se deben citar, y al menos una que ningún documento contesta;
    - primero en seco (la página esperada está entre los pasajes);
    - después, rondas reales con el modelo más barato, porque un modelo barato no decide igual cada vez.
+
+**Cómo se revisa una cita** (`core::reader::quote::find`, C4). La usan el Lector de C2 y C3 y el Capturista:
+- sin mayúsculas, acentos ni signos;
+- se perdona un desliz de copia del modelo: «Reg1menes» por «Regímenes», o letras escritas como HTML (`&eacute;`). Una cita de 12 letras o más puede diferir en una letra de cada 20, a lo más 3; una más corta debe ser exacta;
+- **nunca una cifra:** los números de la cita deben ser los mismos que los de las palabras halladas;
+- lo que se guarda y se muestra son las palabras del documento (o de la persona), nunca la copia del modelo.
 
 Personal y Beneficiarios no tienen esta capa: nada de sus fichas llega a la IA (principio 5).
 

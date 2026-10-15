@@ -325,7 +325,12 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
       - El código ahora revisa que una cifra esté en las palabras de la persona, como el Lector.
       - La IA ya no escribe la nota (oficio v2): el programa dice qué dejó, qué no tomó y qué falta contar.
       - Con el modelo más barato: 68 de 69 casos contestados bien en tres corridas de dos rondas, 0 inventados, $0.40 MXN las 24.
-    - [ ] Fase 2 · las tres preguntas del Asistente que salen 1 de 2 («ese mismo», «¿qué documentos tengo?», el régimen fiscal).
+    - [x] **Fase 2 · el Asistente y los hallazgos de la prueba de la fase 1** (2026-10-15, ADR-036 «Precisiones al aplicar C4»):
+      - Las tres preguntas que salían 1 de 2 y dos casos nuevos de la prueba de la institución: un dato contado después de hablar de otro documento, y «viven 12 niñas» desde el chat.
+      - Una sola revisión de citas para C2, C3 y el Capturista (`core::reader::quote`): perdona un desliz de copia, nunca una cifra, y guarda las palabras del texto.
+      - «Ese mismo»: el código le pregunta al Lector antes que la IA. La lista de documentos la escribe el programa.
+      - El bucle de agentes corre la herramienta antes que una respuesta prematura. Oficios: Asistente v9, Capturista v3.
+      - Con el modelo más barato: Asistente 32 de 32, Capturista 28 de 28, «Llenar con mis documentos» 18 de 18; nada inventado.
     - [ ] Fase 3 · corrida final de las tres baterías y tabla de aprobación.
     - [ ] Fase 4 · guion de pruebas por pantalla para la institución.
     - [ ] Fase 5 · metodología de agentes para los módulos.

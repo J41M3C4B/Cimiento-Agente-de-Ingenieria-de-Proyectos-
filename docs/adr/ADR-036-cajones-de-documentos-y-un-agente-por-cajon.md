@@ -274,6 +274,24 @@ Cada bloque se prueba por la institución antes del siguiente.
   - Con el v2 final salieron bien 68 de los 69 casos que el modelo contestó (una corrida perdió 3 por la cuota por minuto; ahora la batería espera 4 s entre casos).
   - Cuesta unos $0.017 MXN por caso, de 1.6 a 6 s.
 
+### Precisiones al aplicar C4 · el Asistente y la prueba de la institución (2026-10-15)
+
+La fase 2 atendió las tres preguntas que salían 1 de 2 y dos hallazgos de la prueba de la institución. Primero se midió una línea base con el oficio v8 (24 de 32, los dos casos nuevos 0 de 2) y cada causa se tomó de lo que contestó el modelo:
+
+| Caso | Causa | Arreglo |
+|---|---|---|
+| El régimen fiscal sin cita | El Lector lo encontró, pero copió «Reg1menes» por «Regímenes» y la revisión exacta tiró la cita | Una sola revisión de citas (`core::reader::quote::find`) para C2, C3 y el Capturista: perdona un desliz de copia en citas de 12 letras o más (una letra de cada 20, a lo más 3) y las letras escritas como HTML; **nunca una cifra distinta**; guarda las palabras del texto, no la copia del modelo |
+| «Con base en ese mismo» contestado de memoria | El modelo no siempre le pregunta al Lector | El código reconoce que la persona vuelve al documento de la respuesta anterior (`assistant::back_to`) y le pregunta al Lector antes que la IA |
+| «Tenemos 35 espacios» se fue al poder | La frase de C3 que empujaba cada pregunta al documento de la respuesta anterior | Se quitó: volver a un documento lo decide el código por las palabras de la persona |
+| «¿Qué documentos tengo?» con cifras y sin nombres | La IA resumía la lista | La lista la escribe el programa (`records`): tiene, faltan, en trámite, por vencer y vencidos; la IA solo pide la lista y dice una frase de entrada |
+| «30 espacios y viven 12 niñas» sin «Llenarlo por mí» | El oficio ponía primero las preguntas y el mapa no decía qué lleva cada ventana | Oficio v9: primero ver qué hace la persona en su último mensaje; el mapa dice los campos de cada ventana |
+| «¿Cuántos extintores?»: «Voy a revisar…» | El modelo pidió la herramienta y escribió una respuesta en el mismo paso, y el bucle tomaba la respuesta | El bucle de agentes corre la herramienta primero si es suya y le quedan pasos (todos los agentes) |
+| El Capturista no tomaba «viven 12 niñas» ni «30 abuelitos» | La persona no usa las palabras de los campos | Capturista v3: pensar a qué campo va cada cosa dicha. Darle el «Qué poner» del manual se midió y empeoró (24 de 28) |
+
+- **Medición** (`gemini-3.5-flash-lite`, dos rondas): Asistente v9 **32 de 32**, 18 de 18 citas, $1.21 MXN; Capturista v3 **28 de 28**, 154 de 154 campos, $0.52 MXN; «Llenar con mis documentos» **18 de 18** tras el cambio de la revisión de citas, $0.14 MXN. Nada inventado.
+- La regla del Asistente sobre nombres sigue el ADR-040: no pide nombres de personas, pero sí dice el de alguien de la institución que el Lector encontró en un documento.
+- Una fecha sola («2027-01-18») se mostraba un día antes en México (`formatDate` la leía como medianoche en Londres); se corrigió para toda la app.
+
 ## Consecuencias
 
 - **Documentos cambia de función:** de cajón propio a bandeja; su pantalla se rediseña alrededor de «¿a qué cajón va?».

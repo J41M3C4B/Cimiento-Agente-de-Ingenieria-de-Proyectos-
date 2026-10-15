@@ -7,15 +7,25 @@ actualizado: 2026-10-15
 
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
-> [!info] Hoy (2026-10-15)
-> **C4 empezó. Fase 1 hecha: el Capturista tiene su batería** ([ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
+> [!info] Hoy (2026-10-15, tarde)
+> **C4, fase 2 hecha: el Asistente y lo que encontraste al probar la fase 1** ([ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md), [ADR-040](adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md)):
+> - «Tenemos 35 espacios» después de hablar del poder ya no se va al poder: la causa era una frase mía de C3, que se quitó. Ahora ofrece «Llenarlo por mí»;
+> - «Tenemos 30 espacios… y viven 12 niñas» deja las dos cifras;
+> - «con base en ese mismo» siempre le pregunta al Lector (lo hace el código), y «¿qué documentos tengo?» trae la lista con sus nombres, escrita por el programa;
+> - el modelo a veces copia mal una letra («Reg1menes»): la cita ya no se pierde por eso, pero una cifra distinta nunca pasa;
+> - los nombres de la institución en sus documentos sí llegan a la IA (tu decisión, ADR-040).
+>
+> Con el modelo más barato: Asistente 32 de 32, Capturista 28 de 28, «Llenar con mis documentos» 18 de 18; nada inventado.
+>
+> **Siguiente:** que lo pruebes (pasos abajo); después, la fase 3 de C4: la corrida final de las tres baterías y la tabla de aprobación.
+>
+> **Antes (2026-10-15, mañana): C4 empezó. Fase 1 hecha: el Capturista tiene su batería** ([ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
 > - 12 casos de lo que una persona cuenta en el chat, con trampas: sumas, edades supuestas, cifras con palabras, datos protegidos;
 > - el código ahora revisa que una cifra esté en tus palabras: «20 camas arriba y 15 abajo» ya no se vuelve «35»;
 > - lo que dice el Capturista después de llenar ya lo escribe el programa: qué dejó, qué no tomó y qué falta contar. Antes la IA podía prometer algo que el código había tirado.
 >
 > Con el modelo más barato: 68 de 69 casos bien, nada inventado, unos $0.02 MXN por caso.
 >
-> **Siguiente:** fase 2 de C4, las tres preguntas del Asistente que salen bien solo 1 de 2 veces.
 >
 > **Antes (2026-10-14): arreglos tras tu prueba de C3** ([ADR-039](adr/ADR-039-mapa-de-lugares-desde-el-manual.md)):
 > - el botón «Ir a…» ya no se escribe a mano: sale de un mapa armado con el manual y los formularios. Una página nueva solo necesita su entrada en el manual;
@@ -46,7 +56,7 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | —   | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
 | 2   | **C2**                | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos»                                                                                                                   | **Hecho, por probar** |
 | 3   | **C3**                | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?»)                                                                                                                                                   | **Hecho y probado**   |
-| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fase 1 (Capturista) hecha; siguen el Asistente, la corrida final, el guion por pantalla y la metodología de agentes                                               | **En curso**          |
+| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 (Capturista) y 2 (Asistente) hechas; siguen la corrida final, el guion por pantalla y la metodología de agentes                                               | **En curso**          |
 | 5   | **N5**                | El expediente hacia Proyectos, la IA e Inicio                                                                                                                                                                                                                                  | Pendiente             |
 | —   | Módulos               | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md)                                                     | Esperan al núcleo     |
 
@@ -54,9 +64,13 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar el Capturista:** en «Mi institución», abre el Asistente y pulsa «Llenarlo por mí» en «Capacidad y cifras rápidas». Escribe «Tenemos 20 camas arriba y 15 abajo y nos ayudan 6 voluntarios».
-  - Debe dejar solo los voluntarios y decir que lo que habría tenido que calcular no lo dejó.
-  - Debe decir qué más puedes contarle.
+- **Probar la fase 2 de C4** en «Mi institución», con el Asistente:
+  - Pregunta algo del poder y luego escribe «Ahora tenemos 35 espacios». Debe ofrecer «Llenarlo por mí» en Capacidad, sin volver al poder.
+  - Escribe «Tenemos 30 espacios para atender y viven 12 niñas» y pulsa «Llenarlo por mí»: deben quedar las dos cifras.
+  - Pregunta «¿Qué dice mi registro ante la Junta?» y luego «Con base en ese mismo, ¿a quién atendemos?»: debe citar el registro.
+  - Pregunta «¿Qué documentos tengo?»: debe salir la lista con los nombres (tiene, faltan, por vencer).
+  - «¿Cuál es nuestro régimen fiscal?»: debe citar la constancia.
+- **Llave de pago antes de documentos reales** (ADR-040): con la llave gratuita, Google puede usar lo que se le manda.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
 
@@ -152,6 +166,7 @@ Lo que no debe pasar: que diga el nombre de un archivo como si lo hubiera leído
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-15 | **C4, fase 2 · el Asistente y la prueba de la fase 1:** una sola revisión de citas que perdona un desliz de copia y nunca una cifra; «ese mismo» va al Lector por el código; la lista de documentos la escribe el programa; el bucle corre la herramienta antes que una respuesta prematura; Asistente v9 y Capturista v3. 32 de 32, 28 de 28 y 18 de 18, nada inventado. ADR-040: los nombres de la institución en su Expediente sí llegan a la IA | [ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md), [ADR-040](adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md) |
 | 2026-10-15 | **C4, fase 1 · batería del Capturista:** 12 casos con trampas en las cuatro ventanas; el código revisa que cada cifra esté en las palabras de la persona; la IA ya no escribe la nota, el programa dice qué dejó, qué no tomó y qué falta contar. 68 de 69 casos bien, nada inventado | [ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-14 | **El mapa de lugares y «ese mismo»:** los botones «Ir a…» salen de un mapa armado con el manual y los formularios (sin listas a mano); el código elige el botón y nunca ofrece la pantalla donde ya estás; el respaldo lleva a Seguridad; la pregunta que sigue a un documento va al Lector con la clave de ese documento; el mapa del Expediente trae sus cifras para que la IA no cuente. Batería de 14: 25 de 28 en dos rondas, nada inventado | [ADR-039](adr/ADR-039-mapa-de-lugares-desde-el-manual.md) |
 | 2026-10-13 | **C3 · el Asistente como orquestador:** le pregunta al Lector del Expediente (`record_reader`), que contesta con su cita revisada por el código; el mapa del Expediente en cada pregunta; la IA ve el tipo del documento, nunca el nombre del archivo; «Llenar con mis documentos» bajo una respuesta. Batería de 13 preguntas: 26 de 26 en dos rondas con el modelo más barato, $0.04 MXN por pregunta. Se queda el protocolo JSON (las funciones nativas de Gemini: 25 de 26 y 52 % más caras) | [ADR-036, precisiones C3](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
