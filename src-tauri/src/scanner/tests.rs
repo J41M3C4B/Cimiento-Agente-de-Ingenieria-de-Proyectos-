@@ -94,6 +94,19 @@ fn spans_point_to_the_original_text_with_accents() {
     assert_eq!(&text[f.span.clone()], "(33) 3456-7890");
 }
 
+/// ADR-041: what the person said is not personal in an errand is not covered again before the AI; only that text,
+/// and only a warning. A CURP stays blocked even if it was listed.
+#[test]
+fn what_the_person_cleared_is_not_flagged_again() {
+    let text = "Nuestro RFC es CSE870512AB3 y el teléfono 33 1234 5678.";
+    assert_eq!(kinds(&scanner().scan(text)), vec!["rfc_company", "phone"]);
+    let s = RegexScanner::new(ScannerConfig { cleared: vec!["CSE870512AB3".into(), "33 1234 5678".into(), "LOPM800101MDFRZN09".into()], ..Default::default() });
+    assert!(s.scan(text).is_clean(), "{:?}", kinds(&s.scan(text)));
+    // another phone is still a phone; a CURP is never cleared
+    assert_eq!(kinds(&s.scan("Y el 55 9999 0000.")), vec!["phone"]);
+    assert_eq!(kinds(&s.scan("La CURP LOPM800101MDFRZN09.")), vec!["curp"]);
+}
+
 #[test]
 fn institutional_phone_and_email_are_not_flagged() {
     let s = RegexScanner::new(ScannerConfig {

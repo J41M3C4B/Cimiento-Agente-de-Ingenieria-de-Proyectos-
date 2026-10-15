@@ -34,6 +34,11 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
   // the suggestions put in their fields, saved with «Guardar»
   const [used, setUsed] = useState<string[]>([]);
   const assistant = useAssistant();
+  // closing the window (saved or not) ends «Llenarlo por mí» for it in the Assistant
+  const close = () => {
+    assistant?.windowClosed(id);
+    onClose();
+  };
   // «Llenar con mis documentos» (C2): the Reader looks in the Expediente for the empty fields of this window
   const [searching, setSearching] = useState(false);
   const [fromDocs, setFromDocs] = useState<FillNotice | null>(null);
@@ -88,7 +93,7 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
         void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
         void qc.invalidateQueries({ queryKey: formKey(id) });
         onSaved(out.profile);
-        onClose();
+        close();
       } else if (out.status === "invalid") {
         setQuarantine(null);
         setIssues(out.issues);
@@ -109,10 +114,10 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
     <>
       <Modal
         title={title}
-        onClose={onClose}
+        onClose={close}
         footer={
           <>
-            <Button onClick={onClose}>{es.common.cancel}</Button>
+            <Button onClick={close}>{es.common.cancel}</Button>
             <Button variant="primary" disabled={busy || !values} onClick={() => void save()}>
               {busy ? es.common.saving : es.common.save}
             </Button>

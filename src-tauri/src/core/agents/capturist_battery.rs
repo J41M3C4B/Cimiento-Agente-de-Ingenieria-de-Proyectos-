@@ -26,6 +26,10 @@ struct Case {
     campos: serde_json::Map<String, Value>,
     #[serde(default)]
     trampas: Vec<Value>,
+    /// The person answered «No es dato personal» to the scanner (the institution's own phone or RFC): what they wrote
+    /// goes as it is. Otherwise, covered.
+    #[serde(default)]
+    no_es_personal: bool,
 }
 
 /// A turn before what the person tells now: who said it (`persona` or `asistente`) and what.
@@ -48,6 +52,15 @@ fn db() -> (tempfile::TempDir, SharedDb) {
     let identity: Values = serde_json::from_value(json!({ "institution.name": "Casa Ficticia" })).unwrap();
     assert!(matches!(save(&mut c, "institution.identity", identity, None).unwrap(), SaveProfileOutcome::Saved { .. }));
     (dir, Arc::new(Mutex::new(c)))
+}
+
+/// What the person decided before the scanner.
+fn decision_of(c: &Case) -> Decision {
+    if c.no_es_personal {
+        Decision::NotPersonal
+    } else {
+        Decision::Redact
+    }
 }
 
 fn capture_of(c: &Case) -> Capture {
@@ -74,7 +87,7 @@ fn the_battery_speaks_of_fields_the_capturist_may_suggest() {
         let spec = crate::core::institution::forms::form(&c.ventana).unwrap_or_else(|| panic!("{}: no window {}", c.id, c.ventana));
         assert!(fill_of_form(&c.ventana).is_some(), "{}: the Capturist does not fill {}", c.id, c.ventana);
         for (field, expected) in &c.campos {
-            assert!(open_fields(spec).any(|f| f.id == field), "{}: {field} is not a field it may suggest", c.id);
+            assert!(told_fields(spec).any(|f| f.id == field), "{}: {field} is not a field it may suggest", c.id);
             for n in expected["valores"].as_array().into_iter().flatten().filter_map(Value::as_i64) {
                 assert!(crate::core::reader::fill::says_number(&told(c), n), "{}: {n} is not in the person's words", c.id);
             }
@@ -100,7 +113,7 @@ async fn the_code_drops_every_trap_of_the_battery() {
     for c in cases().iter().filter(|c| !c.trampas.is_empty()) {
         let (_d, db) = db();
         let p = MockProvider::new(vec![reply(json!({ "proposals": c.trampas }))]);
-        let out = capture(&db, Some(&p), capture_of(c), Some(Decision::Redact)).await.unwrap();
+        let out = capture(&db, Some(&p), capture_of(c), Some(decision_of(c))).await.unwrap();
         let CaptureOutcome::Proposed { fields, dropped, .. } = out else { panic!("{}: {out:?}", c.id) };
         assert_eq!((fields, dropped), (Vec::<String>::new(), c.trampas.len()), "{}", c.id);
         assert!(proposals::pending_counts(&db.lock().unwrap()).unwrap().is_empty(), "{}", c.id);
@@ -194,7 +207,7 @@ async fn capturist_battery_live() {
             let (_d, db) = db();
             recording.log.lock().unwrap().clear();
             let started = std::time::Instant::now();
-            let out = capture(&db, Some(&recording), capture_of(c), Some(Decision::Redact)).await.unwrap();
+            let out = capture(&db, Some(&recording), capture_of(c), Some(decision_of(c))).await.unwrap();
             let secs = started.elapsed().as_secs_f64();
             let conn = db.lock().unwrap();
             let used: (i64, i64, i64, f64) = conn

@@ -126,6 +126,9 @@ pub struct ScannerConfig {
     /// The CLABE of each bank account of the institution (ADR-033 §3): a CLABE in a text is let through only when it
     /// is exactly one of these.
     pub institutional_clabes: Vec<String>,
+    /// What the person said is not personal in this errand («No es dato personal»): a warning on exactly one of these
+    /// texts is not raised again before the AI (ADR-041). A blocking finding (a CURP, the RFC of a person) never is.
+    pub cleared: Vec<String>,
 }
 
 pub trait SensitiveScanner: Send + Sync {
@@ -385,6 +388,12 @@ impl SensitiveScanner for RegexScanner {
         let health = names::find_health(&norm, &name_findings);
         found.extend(name_findings);
         found.extend(health);
+
+        // what the person cleared in this errand: a warning on the same text, and only a warning
+        if !self.cfg.cleared.is_empty() {
+            let cleared: Vec<String> = self.cfg.cleared.iter().map(|c| normalize::fold_str(c.trim())).collect();
+            found.retain(|f| f.severity != Severity::Warn || !text.get(f.span.clone()).is_some_and(|s| cleared.contains(&normalize::fold_str(s.trim()))));
+        }
 
         ScanReport { findings: resolve_overlaps(found) }
     }

@@ -2,10 +2,12 @@
 //! for the fields of a window of «Mi institución». It never saves: each suggestion waits in `ai_proposal` until the
 //! person puts it in its field (and saves) or discards it.
 //!
-//! - **The code decides what may be suggested:** only the fields of that window the AI may see (never the contact,
-//!   the address, the folios, the keys nor the legal representative), each value fitting its field, and only what
-//!   the person said: every suggestion carries the words it came from and the code finds them in what the person
-//!   wrote, with a figure that is in those words (it never counts), or drops it.
+//! - **The code decides what may be suggested:** the fields of that window the AI may see and, since ADR-041, the
+//!   institution's own data the person tells (contact, address, RFC, folios, keys, legal representative), each value
+//!   fitting its field, and only what the person said: every suggestion carries the words it came from and the code
+//!   finds them in what the person wrote, with a figure that is in those words (it never counts), or drops it.
+//! - **The institution's own data are copied, never made:** their letters and digits are the person's, one by one,
+//!   and a date is one the person wrote. What is saved of them is never shown to the AI.
 //! - **What the person writes goes through the scanner first,** as every text (quarantine).
 //! - The person asks for it from the Assistant («Llenarlo por mí») or from the window; the code runs it, never
 //!   another model (one level of delegation).
@@ -13,7 +15,7 @@
 use crate::ai::agent::{self, Agent};
 use crate::ai::pipeline::SqliteLedger;
 use crate::ai::{AiProvider, ModelTier};
-use crate::common::forms::{is_filled, AiUse, FieldKind, FieldSpec, FormSpec, Values};
+use crate::common::forms::{is_filled, AiUse, FieldKind, FieldSpec, FormSpec, Sensitivity, Values};
 use crate::core::agents::assistant::{reason, Turn, HISTORY_TURNS};
 use crate::core::agents::proposals::{self, NewProposal, Origin, ProposeOutcome};
 use crate::core::error::ServiceError;
@@ -23,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// Its trade, versioned like a prompt: changing it is a new file.
-const TRADE: &str = include_str!("capturist.v3.md");
+const TRADE: &str = include_str!("capturist.v4.md");
 
 /// The windows it may fill: (form, the place of the window, its name).
 pub const FILLABLE: &[(&str, &str, &str)] = &[
@@ -32,6 +34,9 @@ pub const FILLABLE: &[(&str, &str, &str)] = &[
     ("institution.legal", "profile.legal", "Datos legales y fiscales"),
     ("institution.capacity", "profile.capacity", "Capacidad y cifras rápidas"),
 ];
+
+/// The agent that signs its proposals.
+pub const AGENT: &str = "capturist";
 
 /// The longest text the person may tell at once, in characters.
 pub const MAX_TOLD_CHARS: usize = 2_000;
@@ -123,6 +128,35 @@ pub(crate) fn open_fields(spec: &FormSpec) -> impl Iterator<Item = &FieldSpec> {
     spec.fields().filter(|f| f.ai != AiUse::Never)
 }
 
+/// The fields the Capturist may suggest from what the person tells: those the AI may see and the institution's own
+/// (ADR-041), copied from the person's words. The other agents keep to `open_fields`.
+pub(crate) fn told_fields(spec: &FormSpec) -> impl Iterator<Item = &FieldSpec> {
+    spec.fields().filter(|f| f.ai != AiUse::Never || own(f))
+}
+
+/// The institution's own, protected datum: its contact, address, RFC, folios, keys and representative.
+fn own(f: &FieldSpec) -> bool {
+    f.sensitivity == Sensitivity::InstitutionalPrivate
+}
+
+/// Letters and digits only, without capitals nor accents: «33 1234-5678» and «3312345678» are the same.
+fn letters(s: &str) -> String {
+    crate::scanner::normalize::fold_str(s).chars().filter(|c| c.is_alphanumeric()).collect()
+}
+
+/// An own datum is copied from the person's words: its letters and digits are in them, one by one, and a date is one
+/// the person wrote («18 de enero de 2027»).
+fn copied(f: &FieldSpec, value: &Value, quote: &str) -> bool {
+    match (f.kind, value) {
+        (FieldKind::Date, Value::String(d)) => crate::core::reader::dates::dates_in(quote).iter().any(|(_, said)| said == d),
+        (_, Value::String(s)) => {
+            let v = letters(s);
+            !v.is_empty() && letters(quote).contains(&v)
+        }
+        _ => false,
+    }
+}
+
 /// How a field is described to the AI: its id, its title, the shape of its value, when it applies and what is saved.
 pub(crate) fn describe(f: &FieldSpec, saved: Option<&Value>) -> String {
     let shape = match f.kind {
@@ -159,6 +193,8 @@ pub(crate) fn describe(f: &FieldSpec, saved: Option<&Value>) -> String {
     };
     let saved = match saved.filter(|v| is_filled(Some(v))) {
         None => "vacío".to_string(),
+        // what is saved of a protected datum never reaches the AI, only that there is one
+        Some(_) if f.ai == AiUse::Never => "lleno".to_string(),
         Some(Value::String(s)) if s.chars().count() > SAVED_TEXT_CHARS => format!("«{}…»", s.chars().take(SAVED_TEXT_CHARS).collect::<String>()),
         Some(Value::String(s)) => format!("«{s}»"),
         Some(v) => v.to_string(),
@@ -171,9 +207,9 @@ pub(crate) fn describe(f: &FieldSpec, saved: Option<&Value>) -> String {
 pub fn context(spec: &FormSpec, name: &str, saved: &Values, history: &[Turn]) -> Vec<String> {
     let mut out = vec![format!("La persona quiere llenar la ventana «{name}» de «Mi institución».")];
     // the «Qué poner» of the manual with each field was measured (C4): worse, 24 of 28 against 27 of 28 with the titles
-    let fields: Vec<String> = open_fields(spec).map(|f| describe(f, saved.get(f.id))).collect();
+    let fields: Vec<String> = told_fields(spec).map(|f| describe(f, saved.get(f.id))).collect();
     out.push(format!("Campos que puede sugerir:\n{}", fields.join("\n")));
-    let by_hand: Vec<String> = spec.fields().filter(|f| f.ai == AiUse::Never).map(|f| format!("«{}»", title(f.id))).collect();
+    let by_hand: Vec<String> = spec.fields().filter(|f| !told_fields(spec).any(|t| t.id == f.id)).map(|f| format!("«{}»", title(f.id))).collect();
     if !by_hand.is_empty() {
         out.push(format!("Campos que la persona escribe a mano (no los sugiera): {}.", by_hand.join(", ")));
     }
@@ -219,7 +255,7 @@ pub fn keep(conn: &rusqlite::Connection, spec: &FormSpec, saved: &Values, told: 
             dropped += 1;
             continue;
         };
-        let Some(f) = open_fields(spec).find(|f| f.id == field) else {
+        let Some(f) = told_fields(spec).find(|f| f.id == field) else {
             dropped += 1;
             continue;
         };
@@ -238,6 +274,11 @@ pub fn keep(conn: &rusqlite::Connection, spec: &FormSpec, saved: &Values, told: 
             dropped += 1;
             continue;
         }
+        // an own datum (an RFC, a phone, a folio, a date) is copied, never completed nor corrected (ADR-041)
+        if (own(f) || f.kind == FieldKind::Date) && !copied(f, &value, quote) {
+            dropped += 1;
+            continue;
+        }
         let new = NewProposal {
             form_id: spec.id.to_string(),
             record_id: None,
@@ -245,7 +286,7 @@ pub fn keep(conn: &rusqlite::Connection, spec: &FormSpec, saved: &Values, told: 
             value,
             origin: Origin::AiAssumption,
             source_ref: Some(json!({ "from": "chat", "quote": quote.trim() }).to_string()),
-            agent: "capturist",
+            agent: AGENT,
         };
         match proposals::propose(conn, new)? {
             ProposeOutcome::Kept { .. } => {
@@ -273,7 +314,8 @@ pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Captur
         let conn = lock(db)?;
         let fields = vec![("said".to_string(), said.to_string())];
         match crate::core::screen::guard_texts(&conn, "capturist_said", &fields, decision)? {
-            Ok(mut t) => (t.remove(0), crate::core::screen::scanner_for(&conn)?, crate::core::profile::forms::saved_values(&conn, form)?),
+            // «No es dato personal» (the institution's own phone or RFC): what the person cleared reaches the AI
+            Ok(mut t) => (t.remove(0), crate::core::screen::scanner_clearing(&conn, &[said], decision)?, crate::core::profile::forms::saved_values(&conn, form)?),
             Err(report) => return Ok(CaptureOutcome::Quarantine { report }),
         }
     };
@@ -301,7 +343,7 @@ fn still_to_tell(conn: &rusqlite::Connection, spec: &FormSpec, saved: &Values) -
     for p in proposals::pending(conn, spec.id, None)? {
         known.entry(p.field_id).or_insert(p.value);
     }
-    Ok(open_fields(spec).filter(|f| spec.applies(f, &known) && !is_filled(known.get(f.id))).map(|f| title(f.id)).collect())
+    Ok(told_fields(spec).filter(|f| spec.applies(f, &known) && !is_filled(known.get(f.id))).map(|f| title(f.id)).collect())
 }
 
 #[cfg(test)]

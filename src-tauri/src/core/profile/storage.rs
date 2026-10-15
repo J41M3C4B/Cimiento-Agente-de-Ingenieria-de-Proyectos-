@@ -428,6 +428,7 @@ pub fn scanner_config(conn: &Connection) -> Result<ScannerConfig, StorageError> 
             institutional_emails: email.into_iter().collect(),
             safe_phrases: std::iter::once(name).chain(rep).chain(board).collect(),
             institutional_clabes: clabes,
+            cleared: Vec::new(),
         },
     })
 }

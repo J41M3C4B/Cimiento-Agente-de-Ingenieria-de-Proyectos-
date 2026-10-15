@@ -186,8 +186,8 @@ async fn without_the_ai_nothing_is_suggested_and_the_reason_is_said() {
     assert!(proposals::pending_counts(&db.lock().unwrap()).unwrap().is_empty());
 }
 
-/// The window, its fields with what is saved, the fields only the person writes and the last turns; never a
-/// protected value, even if it is saved.
+/// The window, its fields with what is saved and the last turns; never a protected value, even if it is saved: of
+/// the institution's own data the AI only learns whether they are filled (ADR-041).
 #[test]
 fn the_context_names_the_fields_and_never_a_protected_value() {
     let (_d, db) = db();
@@ -198,8 +198,8 @@ fn the_context_names_the_fields_and_never_a_protected_value() {
     let history = vec![Turn { from: "person".into(), text: "Somos I.A.P. desde 1950".into(), documents: vec![] }];
     let ctx = context(spec, "Datos legales y fiscales", &saved, &history).join("\n");
     assert!(ctx.contains("`institution.legal_form`") && ctx.contains("iap") && ctx.contains("Solo aplica si `institution.authorized_donee` es yes"), "{ctx}");
-    assert!(ctx.contains("no los sugiera") && ctx.contains("Persona: Somos I.A.P. desde 1950"), "{ctx}");
-    assert!(!ctx.contains("AFI200101AB1") && !ctx.contains("`institution.legal_rfc`"), "{ctx}");
+    assert!(ctx.contains("Persona: Somos I.A.P. desde 1950"), "{ctx}");
+    assert!(ctx.contains("`institution.legal_rfc`") && ctx.contains("Guardado: lleno") && !ctx.contains("AFI200101AB1"), "{ctx}");
     let state = context(crate::core::institution::forms::form("institution.contact").unwrap(), "x", &Values::new(), &[]).join("\n");
     assert!(state.contains("cdmx (Ciudad de México)"), "{state}");
 }
@@ -214,4 +214,66 @@ fn it_fills_only_the_windows_of_the_catalog() {
         assert_eq!(fill_of_place(place).unwrap().form, *form);
     }
     assert!(fill_of_form("institution.board_member").is_none() && fill_of_form("institution.bank_account").is_none());
+}
+
+/// ADR-041: the institution's own data the person tells are suggested copied from their words, letter by letter and
+/// digit by digit; a date is one they wrote. A changed digit, a completed value or a date not said is dropped, and no
+/// other agent of the AI may propose them.
+#[test]
+fn the_institutions_own_data_are_copied_never_made() {
+    let (_d, db) = db();
+    let c = db.lock().unwrap();
+    let keep_one = |form: &str, told: &str, field: &str, value: Value, quote: &str| {
+        let spec = crate::core::institution::forms::form(form).unwrap();
+        let answer = json!({ "proposals": [{ "field": field, "value": value, "quote": quote }] });
+        keep(&c, spec, &Values::new(), told, &answer).unwrap().0
+    };
+    let contact = "Estamos en Calle Volcanes #412, C.P. 55060. Nuestro teléfono es 33 1234 5678.";
+    assert_eq!(keep_one("institution.contact", contact, "institution.contact_phone", json!("3312345678"), "Nuestro teléfono es 33 1234 5678"), vec!["institution.contact_phone"]);
+    assert_eq!(keep_one("institution.contact", contact, "institution.postal_code", json!("55060"), "C.P. 55060"), vec!["institution.postal_code"]);
+    assert_eq!(keep_one("institution.contact", contact, "institution.street", json!("Calle Volcanes"), "Calle Volcanes #412"), vec!["institution.street"]);
+    // a digit changed, a value completed, a quote without it
+    assert!(keep_one("institution.contact", contact, "institution.contact_phone", json!("3312345679"), "Nuestro teléfono es 33 1234 5678").is_empty());
+    assert!(keep_one("institution.contact", contact, "institution.postal_code", json!("55060"), "Estamos en Calle Volcanes").is_empty());
+    assert!(keep_one("institution.contact", contact, "institution.street", json!("Calle Volcanes Norte"), "Calle Volcanes #412").is_empty());
+    let legal = "Nuestro RFC es CSE870512AB3 y el poder vale hasta el 18 de enero de 2027.";
+    assert_eq!(keep_one("institution.legal", legal, "institution.legal_rfc", json!("CSE870512AB3"), "Nuestro RFC es CSE870512AB3"), vec!["institution.legal_rfc"]);
+    assert!(keep_one("institution.legal", legal, "institution.legal_rfc", json!("CSE870512AB8"), "Nuestro RFC es CSE870512AB3").is_empty());
+    assert_eq!(keep_one("institution.legal", legal, "institution.legal_rep_valid_until", json!("2027-01-18"), "vale hasta el 18 de enero de 2027"), vec!["institution.legal_rep_valid_until"]);
+    assert!(keep_one("institution.legal", legal, "institution.legal_rep_valid_until", json!("2027-01-31"), "vale hasta el 18 de enero de 2027").is_empty());
+    // its value is kept as told (not covered by the scanner), and only the Capturist may propose it
+    let rfc: String = c.query_row("SELECT value_json FROM ai_proposal WHERE field_id = 'institution.legal_rfc' AND status = 'pending'", [], |r| r.get(0)).unwrap();
+    assert_eq!(rfc, "\"CSE870512AB3\"");
+    let other = NewProposal {
+        form_id: "institution.legal".into(),
+        record_id: None,
+        field_id: "institution.legal_rfc".into(),
+        value: json!("CSE870512AB3"),
+        origin: Origin::AiAssumption,
+        source_ref: None,
+        agent: "assistant",
+    };
+    assert!(matches!(proposals::propose(&c, other).unwrap(), ProposeOutcome::Refused { code: "not_for_the_ai" }));
+}
+
+/// ADR-041 with the scanner: the person said «No es dato personal» for the institution's RFC, so it reaches the
+/// Capturist as it is and is suggested; covered, the AI never sees it and nothing is suggested for it.
+#[tokio::test]
+async fn what_the_person_cleared_reaches_the_capturist() {
+    let said = "Nuestro RFC es CSE870512AB3.";
+    let answer = json!({ "proposals": [{ "field": "institution.legal_rfc", "value": "CSE870512AB3", "quote": "Nuestro RFC es CSE870512AB3" }] });
+    let (_d, db) = db();
+    let held = capture(&db, None, told("institution.legal", said), None).await.unwrap();
+    assert!(matches!(held, CaptureOutcome::Quarantine { .. }), "the scanner asks first: {held:?}");
+    let p = MockProvider::new(vec![reply(answer.clone())]);
+    let out = capture(&db, Some(&p), told("institution.legal", said), Some(Decision::NotPersonal)).await.unwrap();
+    let CaptureOutcome::Proposed { fields, .. } = out else { panic!("{out:?}") };
+    assert_eq!(fields, vec!["institution.legal_rfc"]);
+    assert!(p.requests()[0].user.contains("CSE870512AB3"), "{}", p.requests()[0].user);
+
+    let (_d2, covered) = self::db();
+    let p = MockProvider::new(vec![reply(answer)]);
+    let out = capture(&covered, Some(&p), told("institution.legal", said), Some(Decision::Redact)).await.unwrap();
+    let CaptureOutcome::Proposed { fields, .. } = out else { panic!("{out:?}") };
+    assert!(fields.is_empty() && !p.requests()[0].user.contains("CSE870512AB3"), "{}", p.requests()[0].user);
 }

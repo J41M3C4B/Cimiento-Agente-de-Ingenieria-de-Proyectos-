@@ -21,7 +21,14 @@ const t = es.assistant;
  * What any screen may do with the Assistant: open it, about a field and with a question already written, or to fill
  * a window for the person («Llenarlo por mí», IA4).
  */
-type AssistantApi = { open: (about?: { field?: string; question?: string }) => void; fill: (target: Fill) => void; toggle: () => void; isOpen: boolean };
+type AssistantApi = {
+  open: (about?: { field?: string; question?: string }) => void;
+  fill: (target: Fill) => void;
+  /** The window of a form was closed (saved or not): if it was being filled, filling ends. */
+  windowClosed: (form: string) => void;
+  toggle: () => void;
+  isOpen: boolean;
+};
 
 const AssistantContext = createContext<AssistantApi | null>(null);
 
@@ -236,7 +243,8 @@ function Unavailable({ reason, hits, busy, onRetry, onGo }: { reason: string; hi
  * this only draws the conversation, which lives here and is gone when the program closes.
  *
  * While it fills a window («Llenarlo por mí»), what the person writes goes to the Capturist, which leaves suggestions
- * in that window; the person reviews them there.
+ * in that window; the person reviews them there. Closing that window ends the filling, so a later question does not
+ * go to the Capturist because «Dejar de llenar» was forgotten.
  */
 export function AssistantProvider({ screen, onGo, children }: { screen: string; onGo: (place: string) => void; children: ReactNode }) {
   const [isOpen, setOpen] = useState(false);
@@ -266,6 +274,7 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
       setFilling(target);
       window.setTimeout(() => box.current?.focus(), 0);
     },
+    windowClosed: (form) => setFilling((f) => (f?.form === form ? null : f)),
   };
 
   // the last message in view. In braces: a newer WebView2 returns a promise from scrollIntoView, and an effect that

@@ -1,5 +1,5 @@
 {
-  "_nota": "Batería del Capturista (IA4, C4): lo que una persona cuenta en el chat de su institución y lo que debe quedar sugerido en la ventana. «campos»: por campo, «valores» (uno de estos, sin acentos ni mayúsculas), «contiene» (el texto lleva estas palabras), «incluye» (la lista lleva estos códigos), «nada» (la persona no lo dijo: no debe sugerirse) o «libre» (no se califica). Un campo que no está en «campos» y se sugiere cuenta como «de más». «trampas»: respuestas que un modelo podría dar y que el código debe tirar todas (en seco). «historial»: la conversación antes de lo que dice ahora. Todo es ficticio.",
+  "_nota": "Batería del Capturista (IA4, C4): lo que una persona cuenta en el chat de su institución y lo que debe quedar sugerido en la ventana. «campos»: por campo, «valores» (uno de estos, sin acentos ni mayúsculas), «contiene» (el texto lleva estas palabras), «incluye» (la lista lleva estos códigos), «nada» (la persona no lo dijo: no debe sugerirse) o «libre» (no se califica). Un campo que no está en «campos» y se sugiere cuenta como «de más». «trampas»: respuestas que un modelo podría dar y que el código debe tirar todas (en seco). «historial»: la conversación antes de lo que dice ahora. «no_es_personal»: ante el escáner la persona contestó «No es dato personal» (el teléfono o el RFC de la institución); si no, se tapa. Los datos propios de la institución se copian de sus palabras (ADR-041). Todo es ficticio.",
   "casos": [
     {
       "id": "asilo-mixto",
@@ -177,8 +177,10 @@
     {
       "id": "legal-iap",
       "ventana": "institution.legal",
+      "no_es_personal": true,
       "dice": "Somos una I.A.P. fundada en 1987. Somos donataria autorizada en el rubro asistencial y la CLUNI todavía está en trámite. Nuestro RFC es CSE870512AB3.",
       "campos": {
+        "institution.legal_rfc": { "valores": ["CSE870512AB3"] },
         "institution.legal_form": { "valores": ["iap"] },
         "institution.founded_year": { "valores": [1987] },
         "institution.authorized_donee": { "valores": ["yes"] },
@@ -190,6 +192,7 @@
       },
       "trampas": [
         { "field": "institution.legal_rfc", "value": "CSE870512AB3", "quote": "Nuestro RFC es" },
+        { "field": "institution.legal_rfc", "value": "CSE870512AB8", "quote": "Nuestro RFC es CSE870512AB3" },
         { "field": "institution.founded_year", "value": 1988, "quote": "fundada en 1987" },
         { "field": "institution.junta_folio", "value": "123", "quote": "Somos una I.A.P." }
       ]
@@ -212,15 +215,43 @@
     {
       "id": "contacto",
       "ventana": "institution.contact",
+      "no_es_personal": true,
       "dice": "Estamos en la calle Hidalgo 45, colonia Centro, en Zapopan, Jalisco. Nuestro teléfono es 33 1234 5678.",
       "campos": {
         "institution.municipality": { "valores": ["Zapopan"] },
-        "institution.state": { "valores": ["jal"] }
+        "institution.state": { "valores": ["jal"] },
+        "institution.street": { "contiene": ["hidalgo"] },
+        "institution.ext_number": { "valores": ["45"] },
+        "institution.neighborhood": { "contiene": ["centro"] },
+        "institution.contact_phone": { "valores": ["3312345678", "33 1234 5678"] },
+        "institution.contact_email": { "nada": true },
+        "institution.postal_code": { "nada": true },
+        "institution.int_number": { "nada": true }
       },
       "trampas": [
-        { "field": "institution.street", "value": "Hidalgo", "quote": "calle Hidalgo 45" },
         { "field": "institution.contact_phone", "value": "3312345678", "quote": "Nuestro teléfono es" },
+        { "field": "institution.contact_phone", "value": "3312345679", "quote": "Nuestro teléfono es 33 1234 5678" },
+        { "field": "institution.postal_code", "value": "45000", "quote": "en Zapopan, Jalisco" },
         { "field": "institution.capacity_total", "value": 45, "quote": "calle Hidalgo 45" }
+      ]
+    },
+    {
+      "id": "domicilio-completo",
+      "ventana": "institution.contact",
+      "dice": "Nuestro domicilio es Calle Volcanes #412, Colonia Jardines de Morelos, Ecatepec de Morelos, Estado de México, C.P. 55060.",
+      "campos": {
+        "institution.street": { "contiene": ["volcanes"] },
+        "institution.ext_number": { "valores": ["412", "#412"] },
+        "institution.neighborhood": { "contiene": ["jardines de morelos"] },
+        "institution.postal_code": { "valores": ["55060"] },
+        "institution.municipality": { "contiene": ["ecatepec"] },
+        "institution.state": { "valores": ["mex"] },
+        "institution.int_number": { "nada": true },
+        "institution.contact_phone": { "nada": true },
+        "institution.contact_email": { "nada": true }
+      },
+      "trampas": [
+        { "field": "institution.postal_code", "value": "55070", "quote": "C.P. 55060" }
       ]
     }
   ]

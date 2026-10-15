@@ -76,8 +76,10 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
     let refused = |code| Ok(ProposeOutcome::Refused { code });
     let Some(form) = crate::core::institution::forms::form(&p.form_id) else { return refused("form_unknown") };
     let Some(field) = form.field(&p.field_id) else { return refused("field_unknown") };
-    // what the AI never sees it cannot propose; a document can (read by rules, ADR-034 §3)
-    if p.origin == Origin::AiAssumption && field.ai == AiUse::Never {
+    // what the AI never sees it cannot propose; a document can (read by rules, ADR-034 §3), and the Capturist the
+    // institution's own data the person told it, copied from their words (ADR-041)
+    let told_own = p.agent == crate::core::agents::capturist::AGENT && field.sensitivity == Sensitivity::InstitutionalPrivate;
+    if p.origin == Origin::AiAssumption && field.ai == AiUse::Never && !told_own {
         return refused("not_for_the_ai");
     }
     if !is_filled(Some(&p.value)) {
@@ -93,7 +95,7 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
     }
     // a protected datum of the institution read by a rule (its RFC, a folio) is its own, not a person's: covering it
     // would lose it; it never reaches the AI and its value is forgotten once the person decides (`forget_protected`)
-    let own = p.origin == Origin::Document && field.sensitivity == Sensitivity::InstitutionalPrivate;
+    let own = (p.origin == Origin::Document || told_own) && field.sensitivity == Sensitivity::InstitutionalPrivate;
     let value = match &p.value {
         Value::String(s) if !own => {
             let fields = [(p.field_id.clone(), s.clone())];

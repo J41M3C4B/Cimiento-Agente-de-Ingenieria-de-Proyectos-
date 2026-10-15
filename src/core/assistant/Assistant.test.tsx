@@ -30,12 +30,24 @@ function Opener() {
   return <button onClick={() => a?.open()}>abrir</button>;
 }
 
+/** A window of «Mi institución» closing, as FormWindow tells the Assistant. */
+function Closer() {
+  const a = useAssistant();
+  return (
+    <>
+      <button onClick={() => a?.windowClosed("institution.identity")}>cerrar Su institución</button>
+      <button onClick={() => a?.windowClosed("institution.legal")}>cerrar Datos legales</button>
+    </>
+  );
+}
+
 function draw(onGo = vi.fn()) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
       <AssistantProvider screen="profile" onGo={onGo}>
         <Opener />
+        <Closer />
         <ManualPanel id="institution.junta_folio" panelId="p" />
       </AssistantProvider>
     </QueryClientProvider>,
@@ -188,6 +200,28 @@ describe("Assistant", () => {
     ask("¿Y luego?");
     expect(await screen.findByText("Guarde la ventana.")).toBeInTheDocument();
     expect(captureAsk).toHaveBeenCalledTimes(2);
+  });
+
+  it("closing the window it fills ends «Llenarlo por mí»: the next question goes to the Assistant", async () => {
+    const asked = "Somos una I.A.P.";
+    const fill = { form: "institution.identity", place: "profile.institution" };
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "Va en «Su institución».", go_to: null, sources: [], documents: [], fill, from_documents: null });
+    vi.mocked(captureAsk).mockResolvedValueOnce({ status: "proposed", asked, form: fill.form, place: fill.place, fields: ["institution.populations"], left: ["¿A quién atienden?"], still: [], dropped: 0 });
+    draw();
+    fireEvent.click(screen.getByText("abrir"));
+    ask(asked);
+    fireEvent.click(await screen.findByRole("button", { name: "Llenarlo por mí" }));
+    await screen.findByText(/Dejé 1 sugerencia/);
+    // another window closing changes nothing
+    fireEvent.click(screen.getByText("cerrar Datos legales"));
+    expect(screen.getByText("Llenando «Su institución»")).toBeInTheDocument();
+    // the person saved or closed the window it was filling: filling ends with no click on «Dejar de llenar»
+    fireEvent.click(screen.getByText("cerrar Su institución"));
+    expect(screen.queryByText("Llenando «Su institución»")).toBeNull();
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Cómo hago un respaldo?", text: "En Seguridad.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
+    ask("¿Cómo hago un respaldo?");
+    expect(await screen.findByText("En Seguridad.")).toBeInTheDocument();
+    expect(captureAsk).toHaveBeenCalledTimes(1);
   });
 
   it("«Llenar con mis documentos» under an answer: the Reader fills that window, and the program says how many it left", async () => {
