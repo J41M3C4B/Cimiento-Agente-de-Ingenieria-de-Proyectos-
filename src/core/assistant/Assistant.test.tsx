@@ -81,6 +81,30 @@ describe("Assistant", () => {
     expect(lastCall()[0].history[1]).toEqual({ from: "assistant", text: "En Datos legales y fiscales.", documents: ["doc_1"] });
   });
 
+  it("«¿Qué documentos tengo?»: the program writes the list by names under the answer, and it goes with the next question", async () => {
+    vi.mocked(assistantAsk).mockResolvedValueOnce({
+      status: "answered",
+      asked: "¿Qué documentos tengo?",
+      text: "Esto tiene en su Expediente.",
+      go_to: "profile.records",
+      sources: [],
+      documents: [],
+      fill: null,
+      from_documents: null,
+      records: { have: ["Acta constitutiva", "Poder notarial"], missing: ["CLUNI"], in_progress: [], expiring: [{ name: "Poder notarial", date: "2027-01-18" }], expired: [] },
+    });
+    draw();
+    fireEvent.click(screen.getByText("abrir"));
+    ask("¿Qué documentos tengo?");
+    expect(await screen.findByText("Tiene 2: Acta constitutiva, Poder notarial.")).toBeInTheDocument();
+    expect(screen.getByText("Le falta 1: CLUNI.")).toBeInTheDocument();
+    expect(screen.getByText("Por vencer: Poder notarial (18 de enero de 2027).")).toBeInTheDocument();
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y la CLUNI?", text: "Súbala en el Expediente.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
+    ask("¿Y la CLUNI?");
+    await screen.findByText("Súbala en el Expediente.");
+    expect(lastCall()[0].history[1].text).toContain("Le falta 1: CLUNI.");
+  });
+
   it("«Preguntar más» opens it about the field, and without the AI the manual answers", async () => {
     vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "manual", asked: "¿Cómo hago un respaldo?", reason: "offline", hits: [{ id: "howto.backup", title: "Hacer un respaldo" }] });
     draw();

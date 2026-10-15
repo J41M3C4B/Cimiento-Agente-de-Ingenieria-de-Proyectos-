@@ -24,7 +24,7 @@ No escriba nombres de personas ni datos de contacto: el programa los busca y le 
 
 ## ¿A quién atienden? {#institution.populations}
 
-Qué poner: marque todas las edades que atienden. Si atienden a niñas y niños y también a personas mayores, marque las dos.
+Qué poner: marque a quiénes atienden según su edad: niñas y niños, adolescentes, jóvenes, personas adultas o personas mayores (los abuelitos). Si atienden a varias, márquelas todas.
 Para qué sirve: decide qué le pide cada sección. Por ejemplo, Beneficiarios le pregunta lo que importa para esas edades, y Personal le sugiere puestos que suelen hacer falta.
 También dice a qué convocatorias le conviene entrar, porque muchas apoyan solo a una población.
 
@@ -265,7 +265,7 @@ Para qué sirve: con ella se calcula qué tan llena está la casa y cuántos lug
 
 ## ¿Cuántas personas atienden hoy? {#institution.served_estimate}
 
-Qué poner: cuántas personas atienden hoy, más o menos. No tiene que ser exacto.
+Qué poner: cuántas personas atienden hoy, más o menos: las que viven en la casa y las que vienen de día. No tiene que ser exacto.
 Para qué sirve: mientras no registre a cada persona en Beneficiarios, el programa usa esta cifra y la marca como aproximada.
 
 ## ¿Cuántas personas trabajan con sueldo? {#institution.staff_paid_estimate}

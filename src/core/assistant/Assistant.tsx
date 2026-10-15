@@ -8,11 +8,12 @@ import { Alert, Bubble, Button, Composer, Disclosure, IconButton, TextButton } f
 import { es } from "../../i18n/es-MX";
 import { assistantAsk, captureAsk, institutionFillAllFromDocuments, institutionFillFromDocuments, manualEntry, toAppError } from "../../lib/tauri";
 import { useSession } from "../access/session";
+import { formatDate } from "../../lib/format";
 import { usePlaceName } from "../places";
 import { OVERVIEW_KEY } from "../profile/gaps";
 import { fillAllNotice, fillNotice } from "../profile/fromDocuments";
 import type { FillNotice } from "../profile/fromDocuments";
-import type { AssistantOutcome, AssistantTurn, CaptureOutcome, Decision, DocumentSource, Fill, ManualSource, QuarantineReport } from "../../lib/types";
+import type { AssistantOutcome, AssistantTurn, CaptureOutcome, Decision, DocumentSource, Fill, ManualSource, QuarantineReport, RecordsList } from "../../lib/types";
 
 const t = es.assistant;
 
@@ -42,9 +43,22 @@ function turns(messages: Message[], name: (place: string) => string): AssistantT
     if (m.from === "documents") return [{ from: "assistant", text: m.notice.text }];
     if (m.from !== "assistant") return [];
     const o = m.outcome;
-    if (o.status === "answered") return [{ from: "assistant", text: o.text, documents: [...new Set(o.documents.map((d) => d.document_id))] }];
+    if (o.status === "answered")
+      return [{ from: "assistant", text: [o.text, ...(o.records ? listed(o.records) : [])].join(" "), documents: [...new Set(o.documents.map((d) => d.document_id))] }];
     return [{ from: "assistant", text: `(${t.manualIntro} ${o.hits.map((h) => h.title).join("; ")})` }];
   });
+}
+
+/** The documents of the Expediente by how they are, in the program's words: the AI never lists nor counts them. */
+function listed(r: RecordsList): string[] {
+  const dated = (items: RecordsList["expiring"]) => items.map((d) => t.recordsDated(d.name, formatDate(d.date) || d.date)).join(", ");
+  return [
+    ...(r.have.length > 0 ? [t.recordsHave(r.have.length, r.have.join(", "))] : []),
+    ...(r.missing.length > 0 ? [t.recordsMissing(r.missing.length, r.missing.join(", "))] : []),
+    ...(r.in_progress.length > 0 ? [t.recordsInProgress(r.in_progress.join(", "))] : []),
+    ...(r.expiring.length > 0 ? [t.recordsExpiring(dated(r.expiring))] : []),
+    ...(r.expired.length > 0 ? [t.recordsExpired(dated(r.expired))] : []),
+  ];
 }
 
 /** One entry of the manual, opened in place. */
@@ -59,6 +73,7 @@ function Answer({
   text,
   sources,
   documents,
+  records,
   place,
   fill,
   fromDocuments,
@@ -70,6 +85,7 @@ function Answer({
   text: string;
   sources: ManualSource[];
   documents: DocumentSource[];
+  records: RecordsList | null;
   place: string | null;
   fill: Fill | null;
   fromDocuments: Fill | null;
@@ -82,6 +98,12 @@ function Answer({
   return (
     <Bubble from="assistant">
       <p className="whitespace-pre-line">{text}</p>
+      {records &&
+        listed(records).map((line, i) => (
+          <p key={i} className="mt-2">
+            {line}
+          </p>
+        ))}
       {sources.length > 0 && (
         <p className="mt-2 text-small text-ink-3">
           {t.sources} {sources.map((s) => s.title).join(", ")}
@@ -382,6 +404,7 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
                   text={m.outcome.text}
                   sources={m.outcome.sources}
                   documents={m.outcome.documents ?? []}
+                  records={m.outcome.records ?? null}
                   place={m.outcome.go_to}
                   fill={m.outcome.fill}
                   fromDocuments={m.outcome.from_documents ?? null}

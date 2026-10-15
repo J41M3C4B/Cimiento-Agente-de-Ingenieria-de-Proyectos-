@@ -190,7 +190,10 @@ pub async fn run(
             }
             Err(e) => break Err(AgentError::Ai(e)),
         };
-        if !step["answer"].is_null() {
+        // a tool of its own and an answer in the same step: the answer is a promise («voy a revisar…») written before
+        // the tool ran (measured in C4), so the tool goes first while requests are left
+        let wants_a_tool = left > 0 && step["tool"].as_str().is_some_and(|n| usable(agent, toolbox).iter().any(|t| t.name() == n));
+        if !step["answer"].is_null() && !wants_a_tool {
             break Ok(step["answer"].clone());
         }
         let Some(name) = step["tool"].as_str().map(str::to_string) else {
@@ -352,6 +355,25 @@ mod tests {
         // the audit log keeps counts, never content
         let d = run_details(&conn);
         assert_eq!(d, json!({ "agent": "test", "model_calls": 3, "tool_calls": 2, "tools": { "first": 1, "second": 1 }, "rejected": 0, "result": "answered" }));
+    }
+
+    /// A step with a tool and an answer (C4, the cheapest model): «Voy a revisar los documentos…» with `record_reader`.
+    /// The tool runs and the promise is dropped; with no request left, or a tool that is not its own, the answer stands.
+    #[tokio::test]
+    async fn a_tool_asked_with_an_answer_runs_first() {
+        let (_d, l, _c) = ledger();
+        let first = Echo::new("first", Ok(json!({ "extintores": 12 })));
+        let both = |tool: &str| reply(json!({ "tool": tool, "args": { "what": "x" }, "answer": { "text": "Voy a revisar." } }), 100);
+        let p = MockProvider::new(vec![both("first"), answer("Tienen 12.")]);
+        let done = run(&p, &scanner(), &l, &agent(4), &[&first], errand()).await.unwrap();
+        assert_eq!((done.answer["text"].as_str(), first.times(), done.model_calls), (Some("Tienen 12."), 1, 2));
+
+        let p = MockProvider::new(vec![both("delete_all")]);
+        let done = run(&p, &scanner(), &l, &agent(4), &[&first], errand()).await.unwrap();
+        assert_eq!((done.answer["text"].as_str(), done.model_calls), (Some("Voy a revisar."), 1), "not one of its tools");
+        let p = MockProvider::new(vec![ask("first"), both("first")]);
+        let done = run(&p, &scanner(), &l, &agent(1), &[&first], errand()).await.unwrap();
+        assert_eq!(done.answer["text"].as_str(), Some("Voy a revisar."), "no request left");
     }
 
     #[tokio::test]

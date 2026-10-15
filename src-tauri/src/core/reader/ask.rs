@@ -13,7 +13,6 @@ use crate::ai::agent::{self, Agent, Errand};
 use crate::ai::pipeline::SqliteLedger;
 use crate::ai::{AiProvider, ModelTier};
 use crate::core::agents::assistant::reason;
-use crate::core::agents::capturist::plain;
 use crate::core::archive::search::{self, Passage};
 use crate::core::archive::storage::{self as docs, Drawer};
 use crate::core::error::ServiceError;
@@ -129,15 +128,13 @@ pub fn check(answer: &Value, shown: &[Shown], question: &str) -> ReaderAnswer {
     for c in answer["citations"].as_array().into_iter().flatten() {
         let (Some(id), Some(quote)) = (c["passage"].as_str(), c["quote"].as_str()) else { continue };
         let Some(s) = shown.iter().find(|s| s.id == id.trim()) else { continue };
-        let q = plain(quote);
-        if q.is_empty() || !plain(&s.passage.snippet).contains(&q) {
-            continue;
-        }
-        if !citations.iter().any(|x| x.passage.chunk == s.passage.chunk && x.quote == quote.trim()) {
-            citations.push(Citation { name: s.name.clone(), passage: s.passage.clone(), quote: quote.trim().to_string() });
+        // the words of the passage, never the AI's copy of them
+        let Some(quote) = super::quote::find(quote, &s.passage.snippet) else { continue };
+        if !citations.iter().any(|x| x.passage.chunk == s.passage.chunk && x.quote == quote) {
+            citations.push(Citation { name: s.name.clone(), passage: s.passage.clone(), quote });
         }
     }
-    let text = answer["text"].as_str().unwrap_or_default().trim().to_string();
+    let text = super::quote::unescape(answer["text"].as_str().unwrap_or_default().trim());
     if answer["found"] != json!(true) || text.is_empty() {
         return ReaderAnswer::NotFound { looked, dropped: false };
     }

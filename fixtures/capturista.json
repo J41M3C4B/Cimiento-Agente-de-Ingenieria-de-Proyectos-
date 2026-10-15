@@ -142,6 +142,39 @@
       }
     },
     {
+      "id": "desde-el-chat-tras-otro-tema",
+      "ventana": "institution.capacity",
+      "historial": [
+        { "de": "persona", "texto": "¿En qué documento viene el representante legal?" },
+        { "de": "asistente", "texto": "Viene en el poder notarial: ahí dice quién representa a la institución y hasta cuándo." },
+        { "de": "persona", "texto": "Ya lo subí, gracias." },
+        { "de": "asistente", "texto": "Con gusto. Si quiere, puede revisar su Expediente para ver qué documentos le faltan." }
+      ],
+      "dice": "Tenemos 30 espacios disponibles para atender y viven 12 niñas",
+      "campos": {
+        "institution.capacity_total": { "valores": [30] },
+        "institution.served_estimate": { "valores": [12] },
+        "institution.staff_paid_estimate": { "nada": true },
+        "institution.staff_volunteer_estimate": { "nada": true },
+        "institution.notes": { "libre": true }
+      }
+    },
+    {
+      "id": "lugares-libres",
+      "ventana": "institution.capacity",
+      "dice": "Ahorita nos quedan 5 lugares libres y viven aquí 25 señores.",
+      "campos": {
+        "institution.capacity_total": { "nada": true },
+        "institution.served_estimate": { "valores": [25] },
+        "institution.staff_paid_estimate": { "nada": true },
+        "institution.staff_volunteer_estimate": { "nada": true },
+        "institution.notes": { "libre": true }
+      },
+      "trampas": [
+        { "field": "institution.capacity_total", "value": 30, "quote": "nos quedan 5 lugares libres y viven aquí 25 señores" }
+      ]
+    },
+    {
       "id": "legal-iap",
       "ventana": "institution.legal",
       "dice": "Somos una I.A.P. fundada en 1987. Somos donataria autorizada en el rubro asistencial y la CLUNI todavía está en trámite. Nuestro RFC es CSE870512AB3.",

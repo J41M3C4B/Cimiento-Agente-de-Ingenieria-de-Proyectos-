@@ -43,6 +43,12 @@ pub struct Case {
     pub ir_a: Option<String>,
     #[serde(default)]
     pub llenar_con_documentos: Option<String>,
+    /// The program must write the list of the documents under the answer.
+    #[serde(default)]
+    pub lista: bool,
+    /// The window it must offer to fill with what the person tells («Llenarlo por mí»).
+    #[serde(default)]
+    pub llenar: Option<String>,
     #[serde(default)]
     pub fuentes: Vec<String>,
     /// The conversation before the question (a follow-up such as «ese mismo»).
@@ -98,7 +104,7 @@ pub fn ask_of(c: &Case, db: &SharedDb) -> Ask {
 /// What is wrong with an answer, against what its case expects; empty when it passes. `tools`: the tools the
 /// Assistant asked for that ran, by name.
 pub fn grade(c: &Case, out: &AssistantOutcome, tools: &BTreeMap<String, u64>) -> Vec<String> {
-    let AssistantOutcome::Answered { text, go_to, sources, documents, from_documents, .. } = out else {
+    let AssistantOutcome::Answered { text, go_to, sources, documents, fill, from_documents, records, .. } = out else {
         return vec![format!("no respondió: {out:?}")];
     };
     let mut bad = Vec::new();
@@ -122,7 +128,12 @@ pub fn grade(c: &Case, out: &AssistantOutcome, tools: &BTreeMap<String, u64>) ->
     if c.nada && !cited.is_empty() {
         bad.push(format!("INVENTÓ: citó {cited:?} y ningún documento lo dice"));
     }
-    let said = fold(text);
+    if c.lista && records.is_none() {
+        bad.push("sin la lista de documentos".into());
+    }
+    // what the person reads: the answer and the list the program writes under it
+    let listed = records.iter().flat_map(|r| r.have.iter().chain(&r.missing).chain(&r.in_progress)).cloned().collect::<Vec<_>>().join(", ");
+    let said = fold(&format!("{text} {listed}"));
     for w in &c.contiene {
         if !said.contains(&fold(w)) {
             bad.push(format!("no dice «{w}»"));
@@ -144,6 +155,11 @@ pub fn grade(c: &Case, out: &AssistantOutcome, tools: &BTreeMap<String, u64>) ->
     if let Some(w) = &c.llenar_con_documentos {
         if from_documents.as_ref().map(|f| f.place) != from_documents_of(w).map(|f| f.place) {
             bad.push(format!("ofreció llenar {from_documents:?}, se esperaba {w}"));
+        }
+    }
+    if let Some(w) = &c.llenar {
+        if fill.as_ref().map(|f| f.place) != Some(w.as_str()) {
+            bad.push(format!("ofreció llenarlo por la persona {fill:?}, se esperaba {w}"));
         }
     }
     for f in &c.fuentes {
@@ -198,7 +214,7 @@ async fn the_battery_grades_what_it_should() {
     let m = MockProvider::new(vec![
         reply(json!({ "tool": "record_reader", "args": { "question": predial.q, "document": null }, "answer": null })),
         reply(json!({ "tool": null, "args": null, "answer": { "found": true, "text": "La comodataria paga el predial.", "citations": [{ "passage": p.id, "quote": "del impuesto predial" }] } })),
-        reply(json!({ "tool": null, "args": null, "answer": { "text": "Lo paga la institución, como comodataria.", "go_to": null, "sources": [source], "fill": null, "from_documents": null } })),
+        reply(json!({ "tool": null, "args": null, "answer": { "text": "Lo paga la institución, como comodataria.", "go_to": null, "sources": [source], "fill": null, "from_documents": null, "records": false } })),
     ]);
     let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(predial, &db), None).await.unwrap();
     let tools = last_tools(&db);
@@ -260,7 +276,11 @@ async fn assistant_battery_live() {
             let out = ask(&db, Some(&recording), embedder.clone(), Some(Role::Manager), ask_of(c, &db), None).await.unwrap();
             let secs = started.elapsed().as_secs_f64();
             let after = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
-            let tools = last_tools(&db);
+            let mut tools = last_tools(&db);
+            // the code asked the Reader before the AI (going back to a document): it was asked all the same
+            if after.1 .0 > before.1 .0 {
+                tools.entry("record_reader".to_string()).or_insert(0);
+            }
             let bad = grade(c, &out, &tools);
             right_per_case[i] += usize::from(bad.is_empty());
             passed += usize::from(bad.is_empty());
@@ -368,7 +388,8 @@ async fn ask_native(
     let ledger = crate::ai::pipeline::SqliteLedger(db.clone());
     let run = crate::ai::gemini_native::run(key, settings, &ledger, &scanner, &agent(), &tools, Errand { context: told, request: a.question.clone() }).await?;
     let cited = reach.cited.lock().unwrap().clone();
-    Ok((answered(&run.answer, a.question.clone(), &cited, &a.screen, Some(Role::Manager)), run))
+    let docs = crate::core::records::map(&db.lock().unwrap()).unwrap();
+    Ok((answered(&run.answer, a.question.clone(), &cited, &a.screen, Some(Role::Manager), &docs), run))
 }
 
 /// What one mode did over the battery.

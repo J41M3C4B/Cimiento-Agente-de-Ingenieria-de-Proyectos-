@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// Its trade, versioned like a prompt: changing it is a new file.
-const TRADE: &str = include_str!("capturist.v2.md");
+const TRADE: &str = include_str!("capturist.v3.md");
 
 /// The windows it may fill: (form, the place of the window, its name).
 pub const FILLABLE: &[(&str, &str, &str)] = &[
@@ -170,6 +170,7 @@ pub(crate) fn describe(f: &FieldSpec, saved: Option<&Value>) -> String {
 /// is saved, the fields only the person writes, and the last turns of the conversation.
 pub fn context(spec: &FormSpec, name: &str, saved: &Values, history: &[Turn]) -> Vec<String> {
     let mut out = vec![format!("La persona quiere llenar la ventana «{name}» de «Mi institución».")];
+    // the «Qué poner» of the manual with each field was measured (C4): worse, 24 of 28 against 27 of 28 with the titles
     let fields: Vec<String> = open_fields(spec).map(|f| describe(f, saved.get(f.id))).collect();
     out.push(format!("Campos que puede sugerir:\n{}", fields.join("\n")));
     let by_hand: Vec<String> = spec.fields().filter(|f| f.ai == AiUse::Never).map(|f| format!("«{}»", title(f.id))).collect();
@@ -187,16 +188,11 @@ pub fn context(spec: &FormSpec, name: &str, saved: &Values, history: &[Turn]) ->
     out
 }
 
-/// Words compared without capitals, accents nor punctuation.
+/// Words compared without capitals, accents nor punctuation (the batteries grade with it).
+#[cfg(test)]
 pub(crate) fn plain(s: &str) -> String {
     let folded = crate::scanner::normalize::fold_str(s);
     folded.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ")
-}
-
-/// Whether the person said these words (in what they tell now or in their earlier turns).
-fn said_by_the_person(quote: &str, told: &str) -> bool {
-    let q = plain(quote);
-    !q.is_empty() && plain(told).contains(&q)
 }
 
 /// The value in the shape of its field, when the AI gave it in a near one: a number as text, one option alone…
@@ -231,10 +227,12 @@ pub fn keep(conn: &rusqlite::Connection, spec: &FormSpec, saved: &Values, told: 
         if saved.get(field) == Some(&value) {
             continue; // already so: nothing to suggest
         }
-        if !said_by_the_person(quote, told) {
+        // the words the person said (now or in their earlier turns), never the AI's copy of them
+        let Some(quote) = crate::core::reader::quote::find(quote, told) else {
             dropped += 1;
             continue;
-        }
+        };
+        let quote = quote.as_str();
         // the AI does not count: a number is in the words it copied (principle 2)
         if matches!(f.kind, FieldKind::Number | FieldKind::Money | FieldKind::Year) && !value.as_i64().is_some_and(|n| crate::core::reader::fill::says_number(quote, n)) {
             dropped += 1;

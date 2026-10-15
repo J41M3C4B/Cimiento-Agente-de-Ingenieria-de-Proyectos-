@@ -1,4 +1,5 @@
 use super::*;
+use crate::core::agents::capturist::plain;
 use crate::ai::mock::MockProvider;
 use crate::ai::{AiError, AiResponse, Usage};
 use crate::core::archive::search::tests::load_record;

@@ -1216,6 +1216,13 @@ export const es = {
     sources: "Lo tomé del manual:",
     documentSources: "Lo tomé de sus documentos:",
     documentPage: (document: string, page: number | null) => (page ? `${document}, página ${page}` : document),
+    // the documents of the Expediente, written by the program under «¿qué documentos tengo?» (C4)
+    recordsHave: (n: number, names: string) => `${n === 1 ? "Tiene 1" : `Tiene ${n}`}: ${names}.`,
+    recordsMissing: (n: number, names: string) => `${n === 1 ? "Le falta 1" : `Le faltan ${n}`}: ${names}.`,
+    recordsInProgress: (names: string) => `En trámite: ${names}.`,
+    recordsExpiring: (names: string) => `Por vencer: ${names}.`,
+    recordsExpired: (names: string) => `Vencidos: ${names}.`,
+    recordsDated: (name: string, date: string) => `${name} (${date})`,
     goTo: (place: string) => `Ir a ${place}`,
     manualIntro: "Encontré esto en el manual:",
     noHits: "No encontré nada en el manual con esas palabras. Pruebe con otras o vea la sección «Ayuda».",

@@ -241,6 +241,14 @@ export interface ManualSource {
   title: string;
 }
 /** A passage of a document of the institution an answer is based on: its name and page come from the code (IA5). */
+/** The documents of the Expediente by their names and how they are (core/agents/assistant.rs). */
+export interface RecordsList {
+  have: string[];
+  missing: string[];
+  in_progress: string[];
+  expiring: { name: string; date: string }[];
+  expired: { name: string; date: string }[];
+}
 export interface DocumentSource {
   document_id: string;
   document: string;
@@ -257,6 +265,8 @@ export type AssistantOutcome =
       fill: Fill | null;
       /** «Llenar con mis documentos» (C3) for a window, or all of them (`form: "all"`), run on the click. */
       from_documents: Fill | null;
+      /** The documents of the Expediente by how they are, written by the program under the answer (C4). */
+      records?: RecordsList | null;
     }
   | { status: "manual"; asked: string; reason: string; hits: ManualSource[] }
   | { status: "quarantine"; report: QuarantineReport };

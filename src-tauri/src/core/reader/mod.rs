@@ -14,6 +14,7 @@ pub mod ask;
 pub mod dates;
 pub mod fill;
 pub mod kinds;
+pub mod quote;
 pub mod rules;
 
 use crate::common::forms::Sensitivity;

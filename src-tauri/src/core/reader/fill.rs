@@ -17,7 +17,7 @@ use crate::ai::pipeline::SqliteLedger;
 use crate::ai::{AiProvider, ModelTier};
 use crate::common::forms::{is_filled, FieldKind, FieldSpec, FormSpec, Values};
 use crate::core::agents::assistant::reason;
-use crate::core::agents::capturist::{describe, fit, open_fields, plain, title, FILLABLE};
+use crate::core::agents::capturist::{describe, fit, open_fields, title, FILLABLE};
 use crate::core::agents::proposals::{self, NewProposal, Origin, ProposeOutcome};
 use crate::core::archive::storage::{self as docs, Drawer};
 use crate::core::archive::{search, vectors};
@@ -210,11 +210,12 @@ pub fn keep(conn: &rusqlite::Connection, spec: &FormSpec, asked: &[&FieldSpec], 
             dropped += 1;
             continue;
         };
-        let q = plain(quote);
-        if q.is_empty() || !plain(&passage.text).contains(&q) {
+        // the words of the passage, never the AI's copy of them
+        let Some(quote) = super::quote::find(quote, &passage.text) else {
             dropped += 1;
             continue;
-        }
+        };
+        let quote = quote.as_str();
         let value = fit(f, &p["value"]);
         // the AI does not count: a number is in the words it copied
         if matches!(f.kind, FieldKind::Number | FieldKind::Money | FieldKind::Year) && !value.as_i64().is_some_and(|n| says_number(quote, n)) {

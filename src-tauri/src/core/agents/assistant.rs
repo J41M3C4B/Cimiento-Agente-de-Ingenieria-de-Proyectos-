@@ -18,6 +18,10 @@
 //! - **The button of an answer is chosen by the code** (`core::places::choose`): the place of the manual entry the
 //!   answer was based on wins over a guess of the AI, and a place the person cannot open, or the page they are on, is
 //!   no button. The places come from the map of the program, never from a list written here.
+//! - **When the person goes back to a document of the last answer** («ese mismo», «con base en eso»), the code asks
+//!   the Reader with that document before the AI answers (C4): the cheapest model answered from memory 1 time in 2.
+//! - **The list of the documents is written by the program** (C4): «¿qué documentos tengo?» gets `records`, the names
+//!   by how they are, from the map; the AI only says a sentence before it, and never counts.
 //! - **It fills nothing:** when the person tells data of the institution it offers «Llenarlo por mí» for a window
 //!   (`fill`), and the Capturist leaves suggestions there (IA4); when the person wants a window filled from the
 //!   documents, it offers «Llenar con mis documentos» (`from_documents`): the Reader of C2 runs on the click.
@@ -39,7 +43,7 @@ use std::sync::{Arc, LazyLock};
 
 /// Its trade, versioned like a prompt: changing it is a new file. The places it may send the person to come from the
 /// map of the program (`core::places`), so a new page or window reaches it without touching it.
-static TRADE: LazyLock<String> = LazyLock::new(|| include_str!("assistant.v8.md").replace("{places}", &places::listed()));
+static TRADE: LazyLock<String> = LazyLock::new(|| include_str!("assistant.v9.md").replace("{places}", &places::listed()));
 
 /// What the Assistant may offer to fill from the documents: a window of «Mi institución», or all of them.
 pub const FROM_DOCUMENTS: &[&str] = &["profile.institution", "profile.contact", "profile.legal", "profile.capacity", ALL_WINDOWS];
@@ -78,9 +82,10 @@ pub fn agent() -> Agent {
                 "go_to": { "anyOf": [{ "type": "string", "enum": places::PLACES.iter().map(|p| p.id.as_str()).collect::<Vec<_>>() }, { "type": "null" }] },
                 "sources": { "type": "array", "items": { "type": "string" } },
                 "fill": { "anyOf": [{ "type": "string", "enum": crate::core::agents::capturist::FILLABLE.iter().map(|f| f.1).collect::<Vec<_>>() }, { "type": "null" }] },
-                "from_documents": { "anyOf": [{ "type": "string", "enum": FROM_DOCUMENTS.to_vec() }, { "type": "null" }] }
+                "from_documents": { "anyOf": [{ "type": "string", "enum": FROM_DOCUMENTS.to_vec() }, { "type": "null" }] },
+                "records": { "type": "boolean" }
             },
-            "required": ["text", "go_to", "sources", "fill", "from_documents"],
+            "required": ["text", "go_to", "sources", "fill", "from_documents", "records"],
             "additionalProperties": false
         }),
         knows_institution: true,
@@ -140,11 +145,62 @@ pub enum AssistantOutcome {
         fill: Option<crate::core::agents::capturist::Fill>,
         /// «Llenar con mis documentos» for a window (or `all`), run when the person clicks.
         from_documents: Option<crate::core::agents::capturist::Fill>,
+        /// The documents of the Expediente by how they are, written by the program under the answer.
+        records: Option<RecordsList>,
     },
     /// The AI could not answer (`reason`): the manual answers instead.
     Manual { asked: String, reason: &'static str, hits: Vec<Source> },
     /// The question has data of a person: nothing was asked.
     Quarantine { report: QuarantineReport },
+}
+
+/// The documents of the Expediente by how they are, by their names: what the program writes under «¿qué documentos
+/// tengo?». The AI never counts nor lists them (principles 1 and 2).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct RecordsList {
+    pub have: Vec<String>,
+    pub missing: Vec<String>,
+    pub in_progress: Vec<String>,
+    /// Those about to expire and those expired, with their date.
+    pub expiring: Vec<DatedName>,
+    pub expired: Vec<DatedName>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DatedName {
+    pub name: String,
+    pub date: String,
+}
+
+/// The list of the documents of the map.
+pub fn records_list(docs: &[MapDocument]) -> RecordsList {
+    use crate::core::records::Validity;
+    let names = |status: &str| docs.iter().filter(|d| d.status == status).map(|d| d.name.clone()).collect();
+    let dated = |v: Validity| {
+        docs.iter()
+            .filter(|d| d.status == "have" && d.validity == Some(v))
+            .filter_map(|d| d.valid_until.clone().map(|date| DatedName { name: d.name.clone(), date }))
+            .collect()
+    };
+    RecordsList { have: names("have"), missing: names("missing"), in_progress: names("in_progress"), expiring: dated(Validity::Expiring), expired: dated(Validity::Expired) }
+}
+
+/// The words with which a person goes back to the document of the last answer, without capitals nor accents.
+const BACK_TO_IT: &[&str] = &[
+    "ese mismo", "esa misma", "eso mismo", "ese documento", "ese papel", "ese archivo", "ahi mismo", "de ahi",
+    "con base en eso", "con base en ese", "con base en esa", "en base a eso", "en base a ese", "en base a esa",
+    "segun eso", "segun ese", "segun esa", "que mas dice", "y que dice",
+];
+
+/// The document of the last answer, when the person goes back to it («ese mismo»): the code asks the Reader with it.
+pub fn back_to<'a>(ask: &Ask, docs: &'a [MapDocument]) -> Option<&'a MapDocument> {
+    let folded = crate::storage::fts::fold(&ask.question);
+    let words = format!(" {} ", folded.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" "));
+    if !BACK_TO_IT.iter().any(|p| words.contains(&format!(" {p} "))) {
+        return None;
+    }
+    let last = ask.history.iter().rev().find(|t| t.from == "assistant")?;
+    last.documents.iter().find_map(|id| docs.iter().find(|d| d.document_id.as_deref() == Some(id.as_str())))
 }
 
 /// Why the AI did not answer, in a word the screen puts into words (and says what to do).
@@ -201,20 +257,8 @@ pub fn context(ask: &Ask, docs: &[MapDocument]) -> Vec<String> {
             .collect();
         out.push(format!("La conversación hasta ahora:\n{lines}"));
     }
-    // the last answer came from documents: the code names them, as when the person names a file, so «ese mismo» goes
-    // to the Reader and is not answered from what the conversation remembers
-    let last: Vec<&MapDocument> = turns
-        .iter()
-        .rev()
-        .find(|t| t.from == "assistant")
-        .map(|t| t.documents.iter().filter_map(|id| docs.iter().find(|d| d.document_id.as_deref() == Some(id.as_str()))).collect())
-        .unwrap_or_default();
-    if let Some(d) = last.first() {
-        out.push(format!(
-            "Su respuesta anterior salió de {} ({}). Si la persona sigue hablando de ese documento («ese mismo», «con base en eso», «y qué más dice»), lo que dice solo lo sabe el Lector: pregúntele con `document` = `{}` y responda con lo que conteste. No responda con lo que recuerda de la conversación, y el botón «Llenar con mis documentos» no sustituye la respuesta.",
-            d.key, d.name, d.key
-        ));
-    }
+    // a sentence here pushed every next question to the document of the last answer (measured in C4: «tenemos 35
+    // espacios» went to the Reader with the poder); going back to a document is found by the code (`back_to`)
     out
 }
 
@@ -280,7 +324,11 @@ pub fn map(conn: &rusqlite::Connection, question: &str) -> Result<Vec<String>, S
             1 => "1 sugerencia espera".to_string(),
             n => format!("{n} sugerencias esperan"),
         };
-        s.push_str(&format!("- `{place}` «{name}»: {missing}; {waiting}.\n"));
+        // what goes in each window, by the titles of its fields: «30 espacios» finds «Capacidad total»
+        let holds: Vec<String> = crate::core::institution::forms::form(form)
+            .map(|spec| crate::core::agents::capturist::open_fields(spec).map(|f| format!("«{}»", crate::core::agents::capturist::title(f.id))).collect())
+            .unwrap_or_default();
+        s.push_str(&format!("- `{place}` «{name}» (lleva {}): {missing}; {waiting}.\n", holds.join(", ")));
     }
     let mut out = vec![s.trim_end().to_string()];
     if let Some(d) = crate::core::records::named_in(&docs, question) {
@@ -334,15 +382,27 @@ pub async fn ask(
     boxed.push(crate::core::agents::tools::record_reader(db.clone(), role, reach.clone(), provider));
     let tools: Vec<&dyn Tool> = boxed.iter().map(|t| t.as_ref()).collect();
     let ledger = SqliteLedger(db.clone());
-    let told = {
+    let (mut told, docs) = {
         let conn = lock(db)?;
-        let mut told = context(&ask, &crate::core::records::map(&conn)?);
+        let docs = crate::core::records::map(&conn)?;
+        let mut told = context(&ask, &docs);
         told.extend(map(&conn, &asked)?);
-        told
+        (told, docs)
     };
+    // back to the document of the last answer: the code asks its Reader first, so the answer never comes from memory
+    if let Some(d) = back_to(&ask, &docs) {
+        if let Some(reader) = tools.iter().find(|t| t.name() == "record_reader") {
+            if let Ok(said) = reader.run(&json!({ "question": asked, "document": d.key })).await {
+                told.push(format!(
+                    "La persona sigue hablando de {} ({}). El programa ya le preguntó al Lector con su pregunta y ese documento; esto contestó:\n{said}\nResponda con lo que contestó y ponga en `sources` los `source` de sus citas. Si no lo encontró, dígalo.",
+                    d.key, d.name
+                ));
+            }
+        }
+    }
     let errand = Errand { context: told, request: asked.clone() };
     match agent::run(provider, &scanner, &ledger, &agent(), &tools, errand).await {
-        Ok(run) => Ok(answered(&run.answer, asked, &reach.cited.lock().map(|c| c.clone()).unwrap_or_default(), &ask.screen, role)),
+        Ok(run) => Ok(answered(&run.answer, asked, &reach.cited.lock().map(|c| c.clone()).unwrap_or_default(), &ask.screen, role, &docs)),
         Err(e) => manual(db, &ask, &asked, reason(&e)),
     }
 }
@@ -351,8 +411,8 @@ pub async fn ask(
 /// code) or passages the Reader handed in this errand (`cited`, with their document and page); a place to go chosen
 /// by the code from the entries it used and the place the AI said (`places::choose`, for the person on the page
 /// `here` with `role`); a window to fill only if the Capturist or the Reader may fill it.
-fn answered(a: &Value, asked: String, cited: &[Passage], here: &str, role: Option<Role>) -> AssistantOutcome {
-    let text = a["text"].as_str().unwrap_or_default().trim().to_string();
+fn answered(a: &Value, asked: String, cited: &[Passage], here: &str, role: Option<Role>, docs: &[MapDocument]) -> AssistantOutcome {
+    let text = crate::core::reader::quote::unescape(a["text"].as_str().unwrap_or_default().trim());
     let mut sources: Vec<Source> = Vec::new();
     let mut documents: Vec<DocumentSource> = Vec::new();
     for id in a["sources"].as_array().into_iter().flatten().filter_map(Value::as_str) {
@@ -369,7 +429,8 @@ fn answered(a: &Value, asked: String, cited: &[Passage], here: &str, role: Optio
     let go_to = places::choose(a["go_to"].as_str(), &used, here, role).map(str::to_string);
     let fill = a["fill"].as_str().and_then(crate::core::agents::capturist::fill_of_place);
     let from_documents = a["from_documents"].as_str().and_then(from_documents_of);
-    AssistantOutcome::Answered { asked, text, go_to, sources, documents, fill, from_documents }
+    let records = (a["records"] == json!(true)).then(|| records_list(docs));
+    AssistantOutcome::Answered { asked, text, go_to, sources, documents, fill, from_documents, records }
 }
 
 #[cfg(test)]
@@ -402,7 +463,7 @@ mod tests {
         reply(json!({ "tool": name, "args": args, "answer": null }))
     }
     fn answer(text: &str, go_to: Option<&str>, sources: &[&str]) -> Result<AiResponse, AiError> {
-        reply(json!({ "tool": null, "args": null, "answer": { "text": text, "go_to": go_to, "sources": sources, "fill": null, "from_documents": null } }))
+        reply(json!({ "tool": null, "args": null, "answer": { "text": text, "go_to": go_to, "sources": sources, "fill": null, "from_documents": null, "records": false } }))
     }
 
     fn question(screen: &str, field: Option<&str>, q: &str) -> Ask {
@@ -555,7 +616,8 @@ mod tests {
     }
 
     /// The screen and the last turns come with the question; older turns stay out. An answer says which documents of
-    /// the map it was based on, by their key and type, so «ese mismo» has a document; never the name of the file.
+    /// the map it was based on, by their key and type; never the name of the file. Going back to that document is
+    /// found by the code from the words of the person, never pushed on every next question (C4).
     #[test]
     fn the_context_says_where_the_person_is_and_what_was_said() {
         let mut a = question("staff", None, "¿Y eso?");
@@ -579,10 +641,69 @@ mod tests {
         let told = context(&a, &docs).join("\n");
         assert!(told.contains(&format!("Asistente: Dice su objeto. (lo tomó de {} Registro ante la Junta)", junta.key)), "{told}");
         assert!(!told.contains(".txt") && !told.contains("doc_gone"), "{told}");
-        assert!(told.contains(&format!("Su respuesta anterior salió de {} (Registro ante la Junta)", junta.key)) && told.contains(&format!("`document` = `{}`", junta.key)), "{told}");
-        // an answer with no documents after it: nothing to follow up
+        assert_eq!(back_to(&a, &docs).map(|d| d.key.as_str()), Some(junta.key.as_str()));
+        // another subject after an answer from a document: nothing pushes it back to that document
+        let mut other = a.clone();
+        other.question = "Ahora mismo tenemos 35 espacios disponibles".into();
+        assert!(back_to(&other, &docs).is_none());
+        assert!(!context(&other, &docs).join("\n").contains("pregúntele"), "no push to the Reader");
+        for words in ["Según eso, ¿qué pongo?", "¿Y qué más dice?", "Con base en esa, ¿cuál es el objeto?"] {
+            other.question = words.into();
+            assert!(back_to(&other, &docs).is_some(), "{words}");
+        }
+        // an answer with no documents after it: nothing to go back to
         a.history.push(Turn { from: "assistant".into(), text: "Vaya a Seguridad.".into(), documents: vec![] });
-        assert!(!context(&a, &docs).join("\n").contains("Su respuesta anterior"));
+        assert!(back_to(&a, &docs).is_none());
+    }
+
+    /// «Y con base en ese mismo…» (C4): the code asks the Reader with the document of the last answer before the AI
+    /// answers, and the AI answers with what the Reader said; the cheapest model answered from memory 1 time in 2.
+    #[tokio::test]
+    async fn going_back_to_a_document_the_code_asks_its_reader_first() {
+        let (_d, db) = rich_db();
+        crate::core::archive::search::tests::load_record(&db.lock().unwrap());
+        let docs = crate::core::records::map(&db.lock().unwrap()).unwrap();
+        let comodato = docs.iter().find(|d| d.name == "Contrato de comodato del inmueble").unwrap();
+        let id = comodato.document_id.clone().unwrap();
+        let q = "Va, y con base en ese mismo, ¿quién paga el predial?";
+        let shown = crate::core::reader::ask::passages_for(&db, None, q, Some(&id)).await.unwrap();
+        let passage = shown.iter().find(|s| s.passage.snippet.contains("impuesto predial")).unwrap();
+        let source = crate::core::agents::tools::passage_source(&passage.passage);
+        let p = MockProvider::new(vec![
+            // the Reader, asked by the code
+            reply(json!({ "tool": null, "args": null, "answer": { "found": true, "text": "La institución paga el predial.", "citations": [{ "passage": passage.id, "quote": "del impuesto predial" }] } })),
+            // the Assistant answers with it
+            answer("La institución paga el predial.", None, &[&source]),
+        ]);
+        let mut a = question("profile", None, q);
+        a.history = vec![
+            Turn { from: "person".into(), text: "¿Cuál es el plazo del comodato?".into(), documents: vec![] },
+            Turn { from: "assistant".into(), text: "Veinte años.".into(), documents: vec![id.clone()] },
+        ];
+        let out = ask(&db, Some(&p), None, Some(Role::Manager), a, None).await.unwrap();
+        let AssistantOutcome::Answered { documents, .. } = out else { panic!("{out:?}") };
+        assert_eq!(documents.iter().map(|d| (d.document.as_str(), d.page)).collect::<Vec<_>>(), vec![("contrato-comodato.txt", Some(2))]);
+        let reqs = p.requests();
+        assert_eq!(reqs.iter().map(|r| r.task.as_str()).collect::<Vec<_>>(), vec!["agent.reader_answer", "agent.assistant"]);
+        assert!(reqs[1].context.iter().any(|c| c.contains("El programa ya le preguntó al Lector") && c.contains("La institución paga el predial") && c.contains(&source)), "{:?}", reqs[1].context);
+    }
+
+    /// «¿Qué documentos tengo?» (C4): the program writes the list by names, from the map; the AI only asks for it.
+    #[test]
+    fn the_program_writes_the_list_of_the_documents() {
+        let (_d, db) = rich_db();
+        let c = db.lock().unwrap();
+        crate::core::archive::search::tests::load_record(&c);
+        let docs = crate::core::records::map(&c).unwrap();
+        let list = records_list(&docs);
+        assert!(list.have.iter().any(|n| n == "Registro ante la Junta") && list.have.iter().any(|n| n == "Constancia de situación fiscal"), "{list:?}");
+        assert_eq!(list.have.len() + list.missing.len() + list.in_progress.len(), docs.iter().filter(|d| d.status != "not_applicable").count());
+        let asked = |records: bool| match answered(&json!({ "text": "Esto tiene en su Expediente.", "records": records }), "q".into(), &[], "home", None, &docs) {
+            AssistantOutcome::Answered { records, .. } => records,
+            o => panic!("{o:?}"),
+        };
+        assert_eq!(asked(true), Some(list));
+        assert_eq!(asked(false), None);
     }
 
     /// Without the AI the manual answers; a question with data of a person waits for the person.
@@ -631,19 +752,19 @@ mod tests {
     #[test]
     fn a_place_or_a_source_the_code_does_not_know_is_dropped() {
         let a = json!({ "text": " Hola ", "go_to": "somewhere", "sources": ["institution.name", "invented.entry", "institution.name"], "fill": "profile.board" });
-        let AssistantOutcome::Answered { text, go_to, sources, fill, .. } = answered(&a, "q".into(), &[], "home", Some(Role::Manager)) else { panic!() };
+        let AssistantOutcome::Answered { text, go_to, sources, fill, .. } = answered(&a, "q".into(), &[], "home", Some(Role::Manager), &[]) else { panic!() };
         // a place it does not know is dropped; the button follows the entry the answer used
         assert_eq!((text.as_str(), go_to.as_deref(), fill), ("Hola", Some("profile.institution"), None), "the board is never filled by the AI");
-        let AssistantOutcome::Answered { fill, .. } = answered(&json!({ "text": "x", "fill": "profile.capacity" }), "q".into(), &[], "home", None) else { panic!() };
+        let AssistantOutcome::Answered { fill, .. } = answered(&json!({ "text": "x", "fill": "profile.capacity" }), "q".into(), &[], "home", None, &[]) else { panic!() };
         // a passage is cited only if the search handed it; its name and page come from the code
         let cited = vec![Passage { chunk: 7, document_id: "doc_1".into(), document: "Contrato de comodato".into(), page: Some(2), snippet: "…".into() }];
-        let AssistantOutcome::Answered { documents, sources: manual_sources, .. } = answered(&json!({ "text": "x", "sources": ["doc:7", "doc:8", "doc:7", "howto.backup"] }), "q".into(), &cited, "home", None) else { panic!() };
+        let AssistantOutcome::Answered { documents, sources: manual_sources, .. } = answered(&json!({ "text": "x", "sources": ["doc:7", "doc:8", "doc:7", "howto.backup"] }), "q".into(), &cited, "home", None, &[]) else { panic!() };
         assert_eq!(documents, vec![DocumentSource { document_id: "doc_1".into(), document: "Contrato de comodato".into(), page: Some(2) }]);
         assert_eq!(manual_sources.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec!["howto.backup"]);
         assert_eq!(fill.map(|f| f.form), Some("institution.capacity"));
         assert_eq!(sources, vec![Source { id: "institution.name".into(), title: "Nombre de la institución".into() }]);
         // «Llenar con mis documentos»: a window the Reader fills, or all of them; never one it does not
-        let from = |w: &str| match answered(&json!({ "text": "x", "from_documents": w }), "q".into(), &[], "home", None) {
+        let from = |w: &str| match answered(&json!({ "text": "x", "from_documents": w }), "q".into(), &[], "home", None, &[]) {
             AssistantOutcome::Answered { from_documents, .. } => from_documents.map(|f| (f.form, f.place)),
             _ => panic!(),
         };
@@ -656,7 +777,7 @@ mod tests {
     /// windows to fill.
     #[test]
     fn the_trade_names_every_place() {
-        assert_eq!(include_str!("assistant.v8.md").matches("{places}").count(), 1, "the list of places is written by the code");
+        assert_eq!(include_str!("assistant.v9.md").matches("{places}").count(), 1, "the list of places is written by the code");
         let schema = agent().answer["properties"]["go_to"]["anyOf"][0]["enum"].clone();
         for p in places::PLACES.iter() {
             assert!(TRADE.contains(&format!("`{}`:", p.id)), "{} is not in the trade", p.id);
