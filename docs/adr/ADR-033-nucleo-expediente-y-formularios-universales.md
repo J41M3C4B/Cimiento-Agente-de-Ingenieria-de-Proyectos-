@@ -3,7 +3,7 @@ adr: 33
 estado: aceptada
 fecha: 2026-10-09
 tema: [nucleo]
-reemplazado_en_parte_por: ["[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]"]
+reemplazado_en_parte_por: ["[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]", "[[ADR-040-nombres-propios-de-la-institucion-en-su-expediente]]"]
 tags: [adr]
 ---
 # ADR-033 · El núcleo como fuente de la institución: formularios universales, expediente, datos institucionales protegidos e historial ligero
@@ -19,7 +19,7 @@ La auditoría encontró que «Mi institución» guarda lo básico, pero no alcan
 - **Los campos propios** (`hr_custom_field`, `care_custom_field`) ya son un formulario descrito por datos, pero cada módulo lo resolvió por su cuenta.
 
 Decisiones de la institución (2026-10-09):
-1. Los integrantes del patronato **se guardan con su nombre**, sin llegar nunca a la IA.
+1. Los integrantes del patronato **se guardan con su nombre**, sin llegar nunca a la IA. *El ADR-040 lo precisa: su nombre sí llega cuando viene en un documento del Expediente que lee el Lector; desde la tabla del patronato, nunca.*
 2. La cuenta bancaria de la institución **es dato institucional**, distinto de los datos bancarios del personal.
 3. Se quiere un **historial ultraligero** para medir el progreso.
 4. **Varias sedes:** se prepara el modelo, pero se construye después.
