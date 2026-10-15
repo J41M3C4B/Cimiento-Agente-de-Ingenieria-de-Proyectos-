@@ -1,14 +1,21 @@
 ---
 tipo: mapa
-actualizado: 2026-10-13
+actualizado: 2026-10-14
 ---
 
 # Mapa del proyecto
 
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
-> [!info] Hoy (2026-10-13)
-> **C3 está hecho: el Asistente le pregunta al Lector del Expediente** ([ADR-036, precisiones C3](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
+> [!info] Hoy (2026-10-14)
+> **Arreglos tras tu prueba de C3** ([ADR-039](adr/ADR-039-mapa-de-lugares-desde-el-manual.md)):
+> - el botón «Ir a…» ya no se escribe a mano: sale de un mapa armado con el manual y los formularios. Una página nueva solo necesita su entrada en el manual;
+> - el respaldo desde «Mi institución» lleva a **Seguridad**, y nunca se ofrece un botón a la pantalla donde ya estás;
+> - «con base en ese mismo» ahora le pregunta al Lector por el documento de la respuesta anterior, en vez de contestar de memoria (1 de 2 rondas; la otra ofrece «Llenar con mis documentos»).
+>
+> Batería de 14 preguntas con el modelo más barato, dos rondas: 25 de 28, nada inventado, $1.14 MXN.
+>
+> **Antes (2026-10-13): C3 está hecho: el Asistente le pregunta al Lector del Expediente** ([ADR-036, precisiones C3](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
 > - el Asistente ya no lee documentos: le pregunta al Lector, que contesta con la frase exacta, y el programa muestra el documento y la página;
 > - cada pregunta lleva el mapa del Expediente: qué documentos hay y cómo están (nunca qué dicen);
 > - la IA ve el tipo del documento, nunca el nombre del archivo (tu decisión), también en C2;
@@ -38,7 +45,8 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar C3, el Asistente con el Lector** (pasos abajo) y, si no lo has hecho, C2; después, aprobar el inicio de C4.
+- **Probar los arreglos del Asistente:** desde Mi institución, «¿Cómo hago un respaldo?» debe ofrecer «Ir a Seguridad» y llevarte ahí; desde Seguridad, la misma pregunta no muestra botón. Pregunta «¿Qué dice mi registro ante la Junta?» y luego «con base en ese mismo, ¿qué pongo en a quién atienden?».
+- Después, aprobar el inicio de C4.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
 
@@ -134,6 +142,7 @@ Lo que no debe pasar: que diga el nombre de un archivo como si lo hubiera leído
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-14 | **El mapa de lugares y «ese mismo»:** los botones «Ir a…» salen de un mapa armado con el manual y los formularios (sin listas a mano); el código elige el botón y nunca ofrece la pantalla donde ya estás; el respaldo lleva a Seguridad; la pregunta que sigue a un documento va al Lector con la clave de ese documento; el mapa del Expediente trae sus cifras para que la IA no cuente. Batería de 14: 25 de 28 en dos rondas, nada inventado | [ADR-039](adr/ADR-039-mapa-de-lugares-desde-el-manual.md) |
 | 2026-10-13 | **C3 · el Asistente como orquestador:** le pregunta al Lector del Expediente (`record_reader`), que contesta con su cita revisada por el código; el mapa del Expediente en cada pregunta; la IA ve el tipo del documento, nunca el nombre del archivo; «Llenar con mis documentos» bajo una respuesta. Batería de 13 preguntas: 26 de 26 en dos rondas con el modelo más barato, $0.04 MXN por pregunta. Se queda el protocolo JSON (las funciones nativas de Gemini: 25 de 26 y 52 % más caras) | [ADR-036, precisiones C3](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-13 | **C2 · «Llenar con mis documentos»:** el Lector busca en el Expediente los pasajes de cada campo vacío y hace una llamada por ventana con el modelo más barato; el código revisa cita, página, cifra y valor. 18 de 18 campos bien, nada inventado, $0.14 MXN las cuatro ventanas. Las opciones van a la IA con su nombre en la pantalla | [ADR-036, precisiones C2](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-13 | **Lectura y llenado sin huecos (ADR-038):** una sola política de llenado (datos propios solos, sugerencias solo en campos vacíos, nunca lo rechazado, autoridad por campo, lugar equivocado); Pdfium lee también las tablas (salen `pdf-extract` y `lopdf`); OCR con prioridad baja, hojas giradas, páginas mixtas e imágenes en Word y Excel; el Expediente lee en segundo plano; la metodología para los módulos | [ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md), [metodología](agents/metodologia-lectores.md) |

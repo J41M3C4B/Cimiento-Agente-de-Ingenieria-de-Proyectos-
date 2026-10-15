@@ -76,6 +76,11 @@ Si la calidad de una tarea Light no alcanza en pruebas, se sube a Strong y se do
     - por pregunta, 1 o 2 llamadas del Asistente y, si toca, 1 del Lector: de 1,600 a 6,800 tokens de entrada y unos 300 de salida, **unos $0.04 MXN**, de 1 a 7 s;
     - las 26 preguntas: 50 llamadas del Asistente ($0.75), 21 del Lector ($0.26) y 21 solicitudes de vectores ($0.02), **$1.03 MXN**.
   - Algunas preguntas tardaron unos 45 s: el programa espera para no pasar de 15 llamadas por minuto del plan gratuito; con una persona preguntando, no pasa.
+  - **Oficio v8 y el mapa de lugares** (2026-10-14, ADR-039; batería de 14 preguntas: se agregó «ese mismo» después de una respuesta del registro, y el respaldo se pregunta desde «Mi institución»):
+    - primera ronda: 13 de 14; el seguimiento contestó «adultas mayores» de memoria, sin Lector ni cita. El código ahora dice en el contexto de qué documento salió la respuesta anterior y su clave;
+    - tercera y cuarta ronda (v8 final, dos rondas): **25 de 28, 0 inventados**, 16 de 18 citas con su página. El respaldo va a «Seguridad» 2 de 2; el seguimiento, 1 de 2 (la otra ofrece «Llenar con mis documentos» en lugar de preguntarle al Lector); «¿Qué documentos tengo?», 1 de 2 (da las cifras sin nombrarlos); el régimen fiscal, 1 de 2 (sin cita);
+    - una vez contó mal los documentos («dieciséis» con 13 en el mapa): ahora el mapa trae los documentos por estado con sus cifras, hechas por el código;
+    - las 28 preguntas: 50 llamadas del Asistente ($0.87), 20 del Lector ($0.26), **$1.14 MXN**; la lista de lugares del oficio sale del mapa, unos 300 tokens más por llamada.
   - **Funciones nativas de Gemini contra nuestro protocolo JSON** (misma batería, dos rondas, mismo ritmo): JSON, 26 de 26 y $0.72 MXN del Asistente con 89,397 tokens de entrada; nativas, 25 de 26 y $1.10 MXN con 175,000, porque cada paso reenvía la conversación y las declaraciones. Mismo tiempo. Se queda el protocolo JSON (ADR-036, precisiones C3).
 
 ## Técnicas de ahorro

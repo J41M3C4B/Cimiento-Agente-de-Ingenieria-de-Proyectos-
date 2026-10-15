@@ -63,4 +63,5 @@ La tabla `PLACES` de `architecture_tests.rs` dice a qué capa pertenece cada car
 - **Errores:** en Rust usa `thiserror` en módulos y convierte a un error serializable para la UI con un mensaje amigable en español + código interno.
 - **Pruebas obligatorias** para: escáner (cada patrón, con positivos y negativos), cálculos de presupuesto, transiciones de etapa, lectura/escritura de Excel y Word con fixtures.
 - **Migraciones** numeradas y nunca editadas una vez aplicadas.
+- **Lugares a los que lleva un botón** (ADR-039): salen del mapa de `core/places.rs`, que se arma con el manual y los formularios. Una página nueva nace con su entrada `screen.<página>` en `docs/manual/`; una duda de uso dice su lugar con `@` en su encabezado. No se escriben listas de lugares ni sus nombres en otro sitio.
 - No agregues dependencias pesadas sin justificarlo en el PR/commit.
