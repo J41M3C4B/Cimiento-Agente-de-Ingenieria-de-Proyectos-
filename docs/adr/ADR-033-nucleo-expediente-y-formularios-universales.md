@@ -3,7 +3,7 @@ adr: 33
 estado: aceptada
 fecha: 2026-10-09
 tema: [nucleo]
-reemplazado_en_parte_por: ["[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]", "[[ADR-040-nombres-propios-de-la-institucion-en-su-expediente]]"]
+reemplazado_en_parte_por: ["[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]", "[[ADR-040-nombres-propios-de-la-institucion-en-su-expediente]]", "[[ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion]]"]
 tags: [adr]
 ---
 # ADR-033 · El núcleo como fuente de la institución: formularios universales, expediente, datos institucionales protegidos e historial ligero
@@ -36,7 +36,7 @@ Decisiones de la institución (2026-10-09):
   - `id` estable (`institution.legal_name`, `care.person.mobility`) y tipo (`text`, `long_text`, `number`, `money`, `year`, `date`, `select`, `multi_select`, `yes_no`, `email`, `phone`, `catalog`);
   - opciones (códigos), obligatorio o no, validación (reglas con nombre, en Rust);
   - **`applies_when`**: cuándo aparece, según el perfil de atención (abajo) o según otro campo;
-  - **sensibilidad**: `public`, `internal`, `institutional_private` (nunca a la IA, la inserta el código al exportar) o `personal` (fichas de personas);
+  - **sensibilidad**: `public`, `internal`, `institutional_private` (nunca a la IA, la inserta el código al exportar; *el ADR-041 lo precisa: el Capturista puede sugerirlo copiado de lo que la persona le cuenta, sin ver lo guardado*) o `personal` (fichas de personas);
   - **`ai`**: si llega a la IA y cómo (`as_is`, `aggregate_only` o `never`);
   - **quién lo usa**: qué módulos y procesos lo consumen, para el «¿para qué sirve?».
 - **Los textos no viven en Rust:** la etiqueta corta, en `es-MX.ts` con la clave del `id`. La explicación larga, en el manual del ERP (ADR-034). Una prueba exige que cada `id` tenga las dos.
