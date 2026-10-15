@@ -134,13 +134,16 @@ describe("Assistant", () => {
     const fill = { form: "institution.identity", place: "profile.institution" };
     vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "En «Su institución».", go_to: "profile.institution", sources: [], documents: [], fill, from_documents: null });
     vi.mocked(captureAsk)
-      .mockResolvedValueOnce({ status: "proposed", asked, form: fill.form, place: fill.place, fields: ["institution.populations", "institution.sex_served"], dropped: 0, note: "Dejé a quién atienden." })
+      .mockResolvedValueOnce({ status: "proposed", asked, form: fill.form, place: fill.place, fields: ["institution.populations", "institution.sex_served"], left: ["¿A quién atienden?", "¿Atienden a mujeres, a hombres o a ambos?"], still: ["¿A qué se dedica?"], dropped: 1 })
       .mockResolvedValueOnce({ status: "unavailable", asked: "Somos I.A.P.", reason: "offline" });
     const onGo = draw();
     fireEvent.click(screen.getByText("abrir"));
     ask(asked);
     fireEvent.click(await screen.findByRole("button", { name: "Llenarlo por mí" }));
-    expect(await screen.findByText("Dejé 2 sugerencias en «Su institución».")).toBeInTheDocument();
+    // the program's words: what the code kept, what it did not take and what is still to tell
+    expect(await screen.findByText("Dejé 2 sugerencias en «Su institución»: «¿A quién atienden?» y «¿Atienden a mujeres, a hombres o a ambos?».")).toBeInTheDocument();
+    expect(screen.getByText(/Lo que habría tenido que calcular o suponer no lo dejé/)).toBeInTheDocument();
+    expect(screen.getByText("Todavía puede contarme: «¿A qué se dedica?».")).toBeInTheDocument();
     expect(vi.mocked(captureAsk).mock.calls[0]![0]).toEqual({ form: "institution.identity", said: asked, history: [] });
     expect(screen.getAllByText(asked)).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Revisarlas" }));
@@ -153,7 +156,7 @@ describe("Assistant", () => {
     expect(screen.queryByText("Mientras tanto, le respondo con el manual:")).toBeNull();
     const last = vi.mocked(captureAsk).mock.calls[1]![0];
     expect(last.said).toBe("Somos I.A.P.");
-    expect(last.history.map((h) => h.text)).toEqual([asked, "En «Su institución».", "Dejé a quién atienden."]);
+    expect(last.history.map((h) => h.text)).toEqual([asked, "En «Su institución».", expect.stringMatching(/^Dejé 2 sugerencias en «Su institución»: .*Todavía puede contarme: «¿A qué se dedica\?»\.$/)]);
 
     // back to questions
     fireEvent.click(screen.getByRole("button", { name: "Dejar de llenar" }));

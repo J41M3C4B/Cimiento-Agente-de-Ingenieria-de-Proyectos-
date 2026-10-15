@@ -1249,6 +1249,16 @@ export const es = {
     fillIntro: (place: string) =>
       `Cuénteme con sus palabras lo que sepa de «${place}». Yo dejo sugerencias en la ventana y usted decide cuáles usar: nada se guarda hasta que pulse «Guardar».`,
     left: (n: number, place: string) => (n === 1 ? `Dejé 1 sugerencia en «${place}».` : `Dejé ${n} sugerencias en «${place}».`),
+    // what the Capturist left and what is still to tell, in the program's words (the titles come from the manual)
+    leftWhich: (n: number, place: string, titles: string[]) =>
+      `${n === 1 ? "Dejé 1 sugerencia" : `Dejé ${n} sugerencias`} en «${place}»: ${es.assistant.list(titles)}.`,
+    leftNone: (place: string) => `En lo que me contó no encontré datos para «${place}».`,
+    notTaken: "Lo que habría tenido que calcular o suponer no lo dejé: escríbalo usted en la ventana.",
+    still: (titles: string[]) => `Todavía puede contarme: ${es.assistant.list(titles)}.`,
+    list: (items: string[]) => {
+      const quoted = items.map((i) => `«${i}»`);
+      return quoted.length < 2 ? quoted.join("") : `${quoted.slice(0, -1).join(", ")} y ${quoted[quoted.length - 1]}`;
+    },
     review: "Revisarlas",
   },
   // The suggestions of the AI in a window (ADR-034, IA4): the person uses or discards each one

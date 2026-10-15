@@ -186,7 +186,7 @@ pub fn context(name: &str, fields: &[&FieldSpec], passages: &[Passage]) -> Vec<S
 }
 
 /// Whether a number is in a text, written with figures or in words («cuarenta y ocho», «dos mil quince»).
-pub(super) fn says_number(text: &str, n: i64) -> bool {
+pub(crate) fn says_number(text: &str, n: i64) -> bool {
     if crate::ai::figures::source_numbers(text).contains(&n.to_string()) {
         return true;
     }

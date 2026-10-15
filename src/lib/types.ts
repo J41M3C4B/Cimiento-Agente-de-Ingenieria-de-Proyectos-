@@ -272,7 +272,7 @@ export type FillOutcome =
   | { status: "nothing"; form: string; place: string; reason: string }
   | { status: "unavailable"; form: string; place: string; reason: string };
 export type CaptureOutcome =
-  | { status: "proposed"; asked: string; form: string; place: string; fields: string[]; dropped: number; note: string }
+  | { status: "proposed"; asked: string; form: string; place: string; fields: string[]; left: string[]; still: string[]; dropped: number }
   | { status: "unavailable"; asked: string; reason: string }
   | { status: "quarantine"; report: QuarantineReport };
 // The manual of the program (ADR-034, core/manual): in the program, with no AI and no internet.

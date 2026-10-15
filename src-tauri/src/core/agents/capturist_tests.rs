@@ -41,14 +41,13 @@ fn suggestions() -> Value {
             { "field": "institution.age_min", "value": "60", "quote": "de 60 años en adelante" },
             { "field": "institution.modalities", "value": "residential", "quote": "viven aquí" },
             { "field": "institution.care_areas", "value": ["food", "health"], "quote": "les damos comida y atención médica" }
-        ],
-        "note": "Dejé cinco sugerencias. Cuénteme también a qué se dedica la institución."
+        ]
     })
 }
 
-fn proposed(out: CaptureOutcome) -> (Vec<String>, usize, String) {
+fn proposed(out: CaptureOutcome) -> (Vec<String>, usize, Vec<String>) {
     match out {
-        CaptureOutcome::Proposed { fields, dropped, note, .. } => (fields, dropped, note),
+        CaptureOutcome::Proposed { fields, dropped, still, .. } => (fields, dropped, still),
         other => panic!("nothing proposed: {other:?}"),
     }
 }
@@ -60,9 +59,11 @@ async fn a_suggestion_is_never_saved_without_a_click() {
     let (_d, db) = db();
     let before = get(&db.lock().unwrap(), "institution.identity").unwrap().values;
     let p = MockProvider::new(vec![reply(suggestions())]);
-    let (fields, dropped, note) = proposed(capture(&db, Some(&p), told("institution.identity", TOLD), None).await.unwrap());
+    let (fields, dropped, still) = proposed(capture(&db, Some(&p), told("institution.identity", TOLD), None).await.unwrap());
     assert_eq!(fields, ["institution.populations", "institution.sex_served", "institution.age_min", "institution.modalities", "institution.care_areas"]);
-    assert_eq!((dropped, note.starts_with("Dejé cinco")), (0, true));
+    assert_eq!(dropped, 0);
+    // what the person may still tell, by its title: never what is written (the name) nor what waits
+    assert_eq!(still, ["¿A qué se dedica?", "¿Qué servicios o programas ofrecen?", "Edad máxima que reciben", "¿Qué piden para que alguien ingrese?"]);
 
     let c = db.lock().unwrap();
     let view = get(&c, "institution.identity").unwrap();
@@ -98,13 +99,14 @@ async fn the_code_drops_what_the_person_did_not_say_what_is_protected_and_what_d
             // what is saved already: nothing to suggest, nothing dropped
             { "field": "institution.name", "value": "Asilo Ficticio", "quote": "Somos un asilo" },
             // said with other capitals and accents: still the person's words
-            { "field": "institution.sex_served", "value": "women", "quote": "38 SENORAS" }
-        ],
-        "note": "Listo."
+            { "field": "institution.sex_served", "value": "women", "quote": "38 SENORAS" },
+            // a figure the person never said: the AI counted
+            { "field": "institution.age_min", "value": 65, "quote": "de 60 años en adelante" }
+        ]
     });
     let p = MockProvider::new(vec![reply(answer)]);
     let (fields, dropped, _) = proposed(capture(&db, Some(&p), told("institution.identity", TOLD), None).await.unwrap());
-    assert_eq!((fields, dropped), (vec!["institution.sex_served".to_string()], 4));
+    assert_eq!((fields, dropped), (vec!["institution.sex_served".to_string()], 5));
 
     // a window the Capturist does not fill, or one it does not know
     assert!(matches!(capture(&db, Some(&p), told("institution.board_member", TOLD), None).await, Err(ServiceError::NotFound)));
@@ -159,8 +161,7 @@ async fn a_suggested_text_is_scanned() {
     let (_d, db) = db();
     let said = "A qué nos dedicamos: cuidamos personas mayores; informes con maria.lopez@example.com";
     let answer = json!({
-        "proposals": [{ "field": "institution.mission", "value": "Cuidamos personas mayores; informes con maria.lopez@example.com", "quote": "cuidamos personas mayores" }],
-        "note": "Listo."
+        "proposals": [{ "field": "institution.mission", "value": "Cuidamos personas mayores; informes con maria.lopez@example.com", "quote": "cuidamos personas mayores" }]
     });
     let p = MockProvider::new(vec![reply(answer)]);
     // the person's words are held first: covered, they go on without the email
@@ -213,28 +214,4 @@ fn it_fills_only_the_windows_of_the_catalog() {
         assert_eq!(fill_of_place(place).unwrap().form, *form);
     }
     assert!(fill_of_form("institution.board_member").is_none() && fill_of_form("institution.bank_account").is_none());
-}
-
-/// The real run of IA4, opt-in and capped: one window, one paragraph told by a person, with the provider and key
-/// saved in the app (one call). It prints the suggestions kept, the dropped and what it cost.
-///   cargo test capturist_live -- --ignored --nocapture
-#[tokio::test]
-#[ignore]
-async fn capturist_live() {
-    let (_d, db) = db();
-    let provider = {
-        let c = db.lock().unwrap();
-        let cfg = crate::ai::settings::load(&c).unwrap();
-        let key = crate::storage::get_api_key(cfg.provider.as_str()).unwrap().expect("save the key in the app first");
-        println!("Proveedor: {}  modelo ligero: {}", cfg.provider.as_str(), cfg.model_for(ModelTier::Light));
-        crate::ai::build_provider(&cfg, key)
-    };
-    let started = std::time::Instant::now();
-    let out = capture(&db, Some(provider.as_ref()), told("institution.identity", TOLD), None).await.unwrap();
-    let c = db.lock().unwrap();
-    let (calls, input, output, cost): (i64, i64, i64, f64) = c
-        .query_row("SELECT count(*), coalesce(sum(input_tokens),0), coalesce(sum(output_tokens),0), coalesce(sum(estimated_cost_mxn),0) FROM ai_usage", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
-        .unwrap();
-    println!("\n{out:#?}\nSugerencias: {:#?}", get(&c, "institution.identity").unwrap().proposals.iter().map(|p| (&p.field_id, &p.value, &p.said)).collect::<Vec<_>>());
-    println!("Llamadas: {calls}  entrada: {input}  salida: {output}  costo: ${cost:.4} MXN  tiempo: {:.1} s", started.elapsed().as_secs_f64());
 }

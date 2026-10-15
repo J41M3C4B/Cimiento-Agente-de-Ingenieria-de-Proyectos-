@@ -35,10 +35,10 @@ type Message =
   | { from: "error"; text: string };
 
 /** The turns that go with a question: what the person asked and what was answered, in words. */
-function turns(messages: Message[]): AssistantTurn[] {
+function turns(messages: Message[], name: (place: string) => string): AssistantTurn[] {
   return messages.flatMap((m): AssistantTurn[] => {
     if (m.from === "person") return [{ from: "person", text: m.text }];
-    if (m.from === "capture") return m.outcome.status === "proposed" && m.outcome.note ? [{ from: "assistant", text: m.outcome.note }] : [];
+    if (m.from === "capture") return m.outcome.status === "proposed" ? [{ from: "assistant", text: captured(m.outcome, name(m.outcome.place)).join(" ") }] : [];
     if (m.from === "documents") return [{ from: "assistant", text: m.notice.text }];
     if (m.from !== "assistant") return [];
     const o = m.outcome;
@@ -118,21 +118,32 @@ function Answer({
   );
 }
 
-/** What the Capturist left: what it says and, when it left suggestions, the way to the window to review them. */
-function Captured({ outcome, onGo }: { outcome: Extract<CaptureOutcome, { status: "proposed" }>; onGo: (place: string) => void }) {
+/** What the Capturist left, in the program's words: what the code kept, what it did not take and what is still to
+ * tell. Never the AI's words, which may promise what the code dropped. */
+function captured(outcome: Extract<CaptureOutcome, { status: "proposed" }>, place: string): string[] {
   const n = outcome.fields.length;
+  return [
+    n > 0 ? t.leftWhich(n, place, outcome.left) : t.leftNone(place),
+    ...(outcome.dropped > 0 ? [t.notTaken] : []),
+    ...(outcome.still.length > 0 ? [t.still(outcome.still)] : []),
+  ];
+}
+
+/** What the Capturist left and, when it left suggestions, the way to the window to review them. */
+function Captured({ outcome, onGo }: { outcome: Extract<CaptureOutcome, { status: "proposed" }>; onGo: (place: string) => void }) {
   const name = usePlaceName();
   return (
     <Bubble from="assistant">
-      {outcome.note && <p className="whitespace-pre-line">{outcome.note}</p>}
-      {n > 0 && (
-        <>
-          <p className={outcome.note ? "mt-2" : ""}>{t.left(n, name(outcome.place))}</p>
-          <Button size="sm" variant="secondary" className="mt-3" onClick={() => onGo(outcome.place)}>
-            {t.review}
-            <Icon name="next" size={14} />
-          </Button>
-        </>
+      {captured(outcome, name(outcome.place)).map((line, i) => (
+        <p key={i} className={i > 0 ? "mt-2" : ""}>
+          {line}
+        </p>
+      ))}
+      {outcome.fields.length > 0 && (
+        <Button size="sm" variant="secondary" className="mt-3" onClick={() => onGo(outcome.place)}>
+          {t.review}
+          <Icon name="next" size={14} />
+        </Button>
       )}
     </Bubble>
   );
@@ -296,15 +307,15 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
   function fillFrom(at: number, target: Fill) {
     const asked = messages[at - 1];
     setFilling(target);
-    if (asked?.from === "person") void capture(target, asked.text, turns(messages.slice(0, at - 1)), undefined, false);
+    if (asked?.from === "person") void capture(target, asked.text, turns(messages.slice(0, at - 1), placeName), undefined, false);
   }
 
   async function send(question: string, decision?: Decision) {
-    if (filling) return capture(filling, question, turns(messages), decision);
+    if (filling) return capture(filling, question, turns(messages, placeName), decision);
     setBusy(true);
     const before = messages;
     try {
-      const out = await assistantAsk({ screen, field, question, history: turns(before) }, decision);
+      const out = await assistantAsk({ screen, field, question, history: turns(before, placeName) }, decision);
       if (out.status === "quarantine") {
         setHeld({ report: out.report, question, target: null });
         return;
@@ -361,7 +372,7 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
                     key={i}
                     reason={m.outcome.reason}
                     busy={busy}
-                    onRetry={() => void capture(m.target, m.outcome.asked, turns(messages.slice(0, i - 1)), undefined, false)}
+                    onRetry={() => void capture(m.target, m.outcome.asked, turns(messages.slice(0, i - 1), placeName), undefined, false)}
                     onGo={onGo}
                   />
                 )
@@ -443,8 +454,8 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
         <QuarantineDialog
           report={held.report}
           busy={busy}
-          onRedact={() => void (held.target ? capture(held.target, held.question, turns(messages), "redact") : send(held.question, "redact"))}
-          onNotPersonal={() => void (held.target ? capture(held.target, held.question, turns(messages), "not_personal") : send(held.question, "not_personal"))}
+          onRedact={() => void (held.target ? capture(held.target, held.question, turns(messages, placeName), "redact") : send(held.question, "redact"))}
+          onNotPersonal={() => void (held.target ? capture(held.target, held.question, turns(messages, placeName), "not_personal") : send(held.question, "not_personal"))}
           onCancel={() => setHeld(null)}
         />
         </div>

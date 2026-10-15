@@ -5,7 +5,7 @@
 //! - **The code decides what may be suggested:** only the fields of that window the AI may see (never the contact,
 //!   the address, the folios, the keys nor the legal representative), each value fitting its field, and only what
 //!   the person said: every suggestion carries the words it came from and the code finds them in what the person
-//!   wrote, or drops it.
+//!   wrote, with a figure that is in those words (it never counts), or drops it.
 //! - **What the person writes goes through the scanner first,** as every text (quarantine).
 //! - The person asks for it from the Assistant («Llenarlo por mí») or from the window; the code runs it, never
 //!   another model (one level of delegation).
@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// Its trade, versioned like a prompt: changing it is a new file.
-const TRADE: &str = include_str!("capturist.v1.md");
+const TRADE: &str = include_str!("capturist.v2.md");
 
 /// The windows it may fill: (form, the place of the window, its name).
 pub const FILLABLE: &[(&str, &str, &str)] = &[
@@ -64,10 +64,9 @@ pub fn agent() -> Agent {
                         "required": ["field", "value", "quote"],
                         "additionalProperties": false
                     }
-                },
-                "note": { "type": "string" }
+                }
             },
-            "required": ["proposals", "note"],
+            "required": ["proposals"],
             "additionalProperties": false
         }),
         knows_institution: true,
@@ -101,8 +100,10 @@ pub struct Capture {
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum CaptureOutcome {
-    /// The suggestions were left in the window (`fields`, by id, in order); `dropped` did not pass the code.
-    Proposed { asked: String, form: &'static str, place: &'static str, fields: Vec<String>, dropped: usize, note: String },
+    /// The suggestions were left in the window (`fields`, by id, in order, and `left`, by their titles in the manual);
+    /// `dropped` did not pass the code; `still` are the titles of the fields of the window the person may still tell.
+    /// The words for the person are the program's, never the AI's: they say what the code kept.
+    Proposed { asked: String, form: &'static str, place: &'static str, fields: Vec<String>, left: Vec<String>, still: Vec<String>, dropped: usize },
     /// The AI could not do it (`reason`, as in the Assistant): nothing was suggested.
     Unavailable { asked: String, reason: &'static str },
     /// What the person wrote has data of a person: nothing was asked.
@@ -234,6 +235,11 @@ pub fn keep(conn: &rusqlite::Connection, spec: &FormSpec, saved: &Values, told: 
             dropped += 1;
             continue;
         }
+        // the AI does not count: a number is in the words it copied (principle 2)
+        if matches!(f.kind, FieldKind::Number | FieldKind::Money | FieldKind::Year) && !value.as_i64().is_some_and(|n| crate::core::reader::fill::says_number(quote, n)) {
+            dropped += 1;
+            continue;
+        }
         let new = NewProposal {
             form_id: spec.id.to_string(),
             record_id: None,
@@ -283,11 +289,27 @@ pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Captur
     };
     // what the person said: now and in their earlier turns
     let told = c.history.iter().filter(|t| t.from != "assistant").map(|t| t.text.as_str()).chain([asked.as_str()]).collect::<Vec<_>>().join("\n");
-    let (fields, dropped) = keep(&*lock(db)?, spec, &saved, &told, &run.answer)?;
-    let note = run.answer["note"].as_str().unwrap_or_default().trim().to_string();
-    Ok(CaptureOutcome::Proposed { asked, form, place, fields, dropped, note })
+    let conn = lock(db)?;
+    let (fields, dropped) = keep(&conn, spec, &saved, &told, &run.answer)?;
+    let left = fields.iter().map(|f| title(f)).collect();
+    let still = still_to_tell(&conn, spec, &saved)?;
+    Ok(CaptureOutcome::Proposed { asked, form, place, fields, left, still, dropped })
+}
+
+/// The titles of the fields of a window the person may still tell: the AI may suggest them, they apply (with what is
+/// saved and what waits), nothing is saved in them and no suggestion waits for them.
+fn still_to_tell(conn: &rusqlite::Connection, spec: &FormSpec, saved: &Values) -> Result<Vec<String>, ServiceError> {
+    let mut known = saved.clone();
+    for p in proposals::pending(conn, spec.id, None)? {
+        known.entry(p.field_id).or_insert(p.value);
+    }
+    Ok(open_fields(spec).filter(|f| spec.applies(f, &known) && !is_filled(known.get(f.id))).map(|f| title(f.id)).collect())
 }
 
 #[cfg(test)]
 #[path = "capturist_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "capturist_battery.rs"]
+mod battery;
