@@ -405,8 +405,9 @@ fn valid_until(pages: &[String]) -> Option<(String, (usize, String))> {
 }
 
 /// The number of a notarial deed, in figures or in words («ESCRITURA PÚBLICA NÚMERO CUARENTA Y DOS MIL CIENTO DIEZ»).
+/// Read with the page on one line: a long number in words goes on to the next line («… OCHOCIENTOS / VEINTE»).
 fn deed_number(pages: &[String]) -> Option<(String, (usize, String))> {
-    let (p, raw, line) = first(pages, &DEED)?;
+    let (p, raw, line) = first_flat(pages, &DEED)?;
     let figures: String = raw.chars().take_while(|c| c.is_ascii_digit() || matches!(c, ',' | '.')).filter(char::is_ascii_digit).collect();
     let number = if figures.is_empty() { leading_number_in_words(&raw)?.to_string() } else { figures };
     Some((number, (p, line)))
@@ -545,6 +546,16 @@ mod tests {
         let purpose = f[3].value.as_str().unwrap();
         assert_eq!((f[3].field, f[3].page), ("institution.purpose", 2));
         assert!(purpose.starts_with("I. Brindar alojamiento") && purpose.contains("IV. Recibir donativos") && !purpose.contains("ARTÍCULO QUINTO"), "{purpose}");
+    }
+
+    /// A scan breaks the title of a deed where the line ends: the number in words goes on in the next one (the full
+    /// test of the Expediente read «47800» for «CUARENTA Y SIETE MIL OCHOCIENTOS / VEINTE»).
+    #[test]
+    fn a_deed_number_split_across_lines_is_read_whole() {
+        let pages = vec!["ESCRITURA PÚBLICA NÚMERO CUARENTA Y SIETE MIL OCHOCIENTOS\nVEINTE\nPROTOCOLIZACIÓN DE REFORMAS A LOS ESTATUTOS".to_string()];
+        assert_eq!(deed_number(&pages).map(|(n, (p, _))| (n, p)), Some(("47820".to_string(), 1)));
+        let figures = vec!["ESCRITURA PÚBLICA NÚMERO 51,300\nLIBRO 980".to_string()];
+        assert_eq!(deed_number(&figures).map(|(n, _)| n), Some("51300".to_string()));
     }
 
     /// The fixture names no person (only «la Directora General»): no representative is guessed. A deed that names
