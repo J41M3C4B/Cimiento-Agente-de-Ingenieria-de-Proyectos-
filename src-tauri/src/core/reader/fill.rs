@@ -185,14 +185,21 @@ pub fn context(name: &str, fields: &[&FieldSpec], passages: &[Passage]) -> Vec<S
     ]
 }
 
-/// Whether a number is in a text, written with figures or in words («cuarenta y ocho», «dos mil quince»).
+/// Whether a number is in a text, written with figures or in words («cuarenta y ocho», «dos mil quince»). «Un»,
+/// «una» and «primer» alone are not a count: «voluntarios de una parroquia» does not say 1 (C4); «uno» and «treinta
+/// y una» do.
 pub(crate) fn says_number(text: &str, n: i64) -> bool {
-    if crate::ai::figures::source_numbers(text).contains(&n.to_string()) {
+    if crate::ai::figures::digit_numbers(text).contains(&n.to_string()) {
         return true;
     }
     let folded = crate::storage::fts::fold(text);
     let words: Vec<&str> = folded.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
-    (0..words.len()).any(|i| super::dates::leading_number_in_words(&words[i..].join(" ")) == Some(n as u32))
+    if n == 0 {
+        return words.contains(&"cero");
+    }
+    (0..words.len())
+        .filter(|&i| !matches!(words[i], "un" | "una" | "primer" | "primero"))
+        .any(|i| super::dates::leading_number_in_words(&words[i..].join(" ")) == Some(n as u32))
 }
 
 /// Keeps the suggestions the code accepts: a field asked for, a passage shown, words that are in that passage, a

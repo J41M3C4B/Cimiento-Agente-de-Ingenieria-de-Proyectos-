@@ -163,6 +163,14 @@ fn a_number_is_in_words_or_in_figures() {
     assert!(says_number("a los diez días del mes de marzo de dos mil quince", 2015));
     assert!(says_number("treinta y una personas contratadas", 31));
     assert!(!says_number("Atendimos a 48 personas y a 22 más", 70), "a sum is not in the words");
+    // an article is not a count (the Capturist took «voluntarios de una parroquia» as 1 volunteer)
+    assert!(!says_number("vienen voluntarios de una parroquia", 1));
+    assert!(!says_number("un grupo de voluntarios", 1));
+    assert!(says_number("solo nos ayuda uno", 1));
+    assert!(says_number("Tenemos 1 voluntario", 1));
+    assert!(says_number("cuarenta y un lugares", 41));
+    assert!(!says_number("el primer piso", 1));
+    assert!(says_number("cero voluntarios", 0));
 }
 
 /// How a suggestion (or its absence) compares with what `lector.json` expects of its field.
@@ -199,20 +207,38 @@ fn grade(expected: &Value, got: Option<&proposals::Proposal>) -> (&'static str, 
 /// Expediente, with the provider and key saved in the app (4 calls with the cheapest model) and, with Gemini, the
 /// vectors of the fictitious fragments (a couple of requests). For every field of `lector.json`: the value, whether
 /// it is right, and whether its page is one expected; then calls, tokens, cost and time per window. Only fictitious
-/// text goes out. Its whole output goes to a file:
+/// text goes out. With `CIMIENTO_ROUNDS` (1 to 5) it fills everything that many times, each round over a new
+/// Expediente, to see how steady the cheapest model is. Its whole output goes to a file:
 ///   cargo test reader_live -- --ignored --nocapture > reader_live.txt
 #[tokio::test]
 #[ignore]
 async fn reader_live() {
+    let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
+    let (mut right, mut wrong, mut missed, mut invented, mut pages_ok, mut graded) = (0, 0, 0, 0, 0, 0);
+    let mut spent = (0, 0, 0, 0.0);
+    for round in 1..=rounds {
+        println!("\n######## Ronda {round} de {rounds}");
+        let (r, s) = reader_round().await;
+        (right, wrong, missed, invented, pages_ok, graded) = (right + r.0, wrong + r.1, missed + r.2, invented + r.3, pages_ok + r.4, graded + r.5);
+        spent = (spent.0 + s.0, spent.1 + s.1, spent.2 + s.2, spent.3 + s.3);
+    }
+    println!("\nTOTAL ({rounds} rondas): bien {right}  mal {wrong}  faltó {missed}  inventó {invented}  páginas bien {pages_ok} de {graded}");
+    println!("Llamadas {}  entrada {}  salida {}  costo ${:.4} MXN", spent.0, spent.1, spent.2, spent.3);
+}
+
+/// One round of `reader_live` over a new Expediente: the verdicts (right, wrong, missed, invented, pages right, pages
+/// graded) and what it spent (calls, tokens in and out, cost).
+async fn reader_round() -> ((usize, usize, usize, usize, usize, usize), (i64, i64, i64, f64)) {
     let (_d, db) = db(true);
     let provider = {
         let c = db.lock().unwrap();
         let cfg = crate::ai::settings::load(&c).unwrap();
         let key = crate::storage::get_api_key(cfg.provider.as_str()).unwrap().expect("save the key in the app first");
         println!("Proveedor: {}  modelo ligero: {}", cfg.provider.as_str(), cfg.model_for(ModelTier::Light));
-        crate::ai::build_provider(&cfg, key)
+        // at most 14 calls a minute to each model, over all the rounds (the free plan allows 15)
+        crate::ai::paced::provider(crate::ai::build_provider(&cfg, key))
     };
-    let embedder = vectors::embedder(&db, false);
+    let embedder = vectors::embedder(&db, false).map(crate::ai::paced::embedder);
     if let Some(e) = &embedder {
         let made = vectors::index_pending(&db, e.as_ref()).await.unwrap();
         println!("Vectores de los fragmentos: {made}");
@@ -264,6 +290,7 @@ async fn reader_live() {
         }
     }
     let total = usage(&db);
-    println!("\nTOTAL: bien {right}  mal {wrong}  faltó {missed}  inventó {invented}  páginas bien {pages_ok} de {graded}");
+    println!("\nRonda: bien {right}  mal {wrong}  faltó {missed}  inventó {invented}  páginas bien {pages_ok} de {graded}");
     println!("Llamadas {}  entrada {}  salida {}  costo ${:.4} MXN", total.0, total.1, total.2, total.3);
+    ((right, wrong, missed, invented, pages_ok, graded), total)
 }

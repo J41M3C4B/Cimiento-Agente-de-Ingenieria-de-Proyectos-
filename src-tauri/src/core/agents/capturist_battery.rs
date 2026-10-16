@@ -192,7 +192,8 @@ async fn capturist_battery_live() {
         println!("Proveedor: {}  modelo ligero: {}", cfg.provider.as_str(), cfg.model_for(ModelTier::Light));
         (cfg, key)
     };
-    let provider = crate::ai::build_provider(&cfg, key);
+    // at most 14 calls a minute, over all the cases (the free plan allows 15)
+    let provider = crate::ai::paced::provider(crate::ai::build_provider(&cfg, key));
     let recording = Recording { inner: provider.as_ref(), log: Mutex::new(Vec::new()) };
     let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
     let all = cases();

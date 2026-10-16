@@ -12,6 +12,8 @@ pub mod gemini_native;
 pub mod metrics;
 #[cfg(test)]
 pub mod mock;
+#[cfg(test)]
+pub(crate) mod paced;
 pub mod pipeline;
 pub mod prompts;
 pub mod settings;

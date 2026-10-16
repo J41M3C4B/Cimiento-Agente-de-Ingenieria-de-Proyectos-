@@ -110,7 +110,8 @@
       },
       "trampas": [
         { "field": "institution.capacity_total", "value": 35, "quote": "20 camas en el piso de arriba y 15 en el de abajo" },
-        { "field": "institution.staff_volunteer_estimate", "value": 4, "quote": "vienen voluntarios de una parroquia" }
+        { "field": "institution.staff_volunteer_estimate", "value": 4, "quote": "vienen voluntarios de una parroquia" },
+        { "field": "institution.staff_volunteer_estimate", "value": 1, "quote": "vienen voluntarios de una parroquia" }
       ]
     },
     {

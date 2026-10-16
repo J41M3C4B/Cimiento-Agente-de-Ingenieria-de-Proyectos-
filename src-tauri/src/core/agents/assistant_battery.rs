@@ -243,9 +243,10 @@ async fn assistant_battery_live() {
         let cfg = crate::ai::settings::load(&c).unwrap();
         let key = crate::storage::get_api_key(cfg.provider.as_str()).unwrap().expect("save the key in the app first");
         println!("Proveedor: {}  modelo ligero: {}", cfg.provider.as_str(), cfg.model_for(ModelTier::Light));
-        crate::ai::build_provider(&cfg, key)
+        // at most 14 calls a minute to each model, over all the questions (the free plan allows 15)
+        crate::ai::paced::provider(crate::ai::build_provider(&cfg, key))
     };
-    let embedder = crate::core::archive::vectors::embedder(&db, false);
+    let embedder = crate::core::archive::vectors::embedder(&db, false).map(crate::ai::paced::embedder);
     if let Some(e) = &embedder {
         let made = crate::core::archive::vectors::index_pending(&db, e.as_ref()).await.unwrap();
         println!("Vectores de los fragmentos: {made}");
