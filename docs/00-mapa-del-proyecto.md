@@ -21,7 +21,9 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - cerrar la ventana que «Llenarlo por mí» estaba llenando apaga el modo solo;
 > - «Llenarlo por mí» ahora sugiere también el domicilio, el teléfono, el correo, el RFC y los folios que le cuentas, copiados letra por letra de tus palabras (tu decisión, [ADR-041](adr/ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion.md)). Un dígito cambiado se tira. Si al escribir un teléfono o un RFC el programa pregunta si es dato personal, contesta «No es dato personal».
 >
-> **Siguiente:** medir la batería del Capturista con el oficio v4 (la llave gratuita se quedó sin cuota del día); después, la fase 3 de C4: la corrida final de las tres baterías y la tabla de aprobación.
+> Medido con la llave nueva: Capturista v4, 29 de 30 casos bien, nada inventado, $0.56 MXN las dos rondas. El domicilio completo, el teléfono y el RFC se sugieren copiados.
+>
+> **Siguiente:** que lo pruebes (pasos abajo); después, la fase 3 de C4: la corrida final de las tres baterías y la tabla de aprobación.
 >
 > **Antes (2026-10-15, mañana): C4 empezó. Fase 1 hecha: el Capturista tiene su batería** ([ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
 > - 12 casos de lo que una persona cuenta en el chat, con trampas: sumas, edades supuestas, cifras con palabras, datos protegidos;
@@ -171,7 +173,7 @@ Lo que no debe pasar: que diga el nombre de un archivo como si lo hubiera leído
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
-| 2026-10-15 | **Tras probar la fase 2:** cerrar la ventana apaga «Llenarlo por mí»; el Capturista sugiere los datos propios de la institución copiados letra por letra (ADR-041); lo que la persona aclara ante el escáner ya no se vuelve a tapar en ese encargo. Falta la corrida real (sin cuota) | [ADR-041](adr/ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion.md) |
+| 2026-10-15 | **Tras probar la fase 2:** cerrar la ventana apaga «Llenarlo por mí»; el Capturista sugiere los datos propios de la institución copiados letra por letra (ADR-041); lo que la persona aclara ante el escáner ya no se vuelve a tapar en ese encargo. Capturista v4: 29 de 30, nada inventado | [ADR-041](adr/ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion.md) |
 | 2026-10-15 | **C4, fase 2 · el Asistente y la prueba de la fase 1:** una sola revisión de citas que perdona un desliz de copia y nunca una cifra; «ese mismo» va al Lector por el código; la lista de documentos la escribe el programa; el bucle corre la herramienta antes que una respuesta prematura; Asistente v9 y Capturista v3. 32 de 32, 28 de 28 y 18 de 18, nada inventado. ADR-040: los nombres de la institución en su Expediente sí llegan a la IA | [ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md), [ADR-040](adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md) |
 | 2026-10-15 | **C4, fase 1 · batería del Capturista:** 12 casos con trampas en las cuatro ventanas; el código revisa que cada cifra esté en las palabras de la persona; la IA ya no escribe la nota, el programa dice qué dejó, qué no tomó y qué falta contar. 68 de 69 casos bien, nada inventado | [ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-14 | **El mapa de lugares y «ese mismo»:** los botones «Ir a…» salen de un mapa armado con el manual y los formularios (sin listas a mano); el código elige el botón y nunca ofrece la pantalla donde ya estás; el respaldo lleva a Seguridad; la pregunta que sigue a un documento va al Lector con la clave de ese documento; el mapa del Expediente trae sus cifras para que la IA no cuente. Batería de 14: 25 de 28 en dos rondas, nada inventado | [ADR-039](adr/ADR-039-mapa-de-lugares-desde-el-manual.md) |

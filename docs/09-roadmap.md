@@ -331,7 +331,7 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
       - «Ese mismo»: el código le pregunta al Lector antes que la IA. La lista de documentos la escribe el programa.
       - El bucle de agentes corre la herramienta antes que una respuesta prematura. Oficios: Asistente v9, Capturista v3.
       - Con el modelo más barato: Asistente 32 de 32, Capturista 28 de 28, «Llenar con mis documentos» 18 de 18; nada inventado.
-      - Tras la prueba de la institución: cerrar la ventana apaga «Llenarlo por mí»; ADR-041, el Capturista copia los datos propios de la institución (oficio v4) y el escáner no vuelve a tapar lo que la persona aclaró. **Falta la corrida real del v4** (sin cuota el 2026-10-15).
+      - Tras la prueba de la institución: cerrar la ventana apaga «Llenarlo por mí»; ADR-041, el Capturista copia los datos propios de la institución (oficio v4) y el escáner no vuelve a tapar lo que la persona aclaró. Capturista v4 con el modelo más barato (15 casos, dos rondas): 29 de 30, nada inventado, $0.56 MXN.
     - [ ] Fase 3 · corrida final de las tres baterías y tabla de aprobación.
     - [ ] Fase 4 · guion de pruebas por pantalla para la institución.
     - [ ] Fase 5 · metodología de agentes para los módulos.
