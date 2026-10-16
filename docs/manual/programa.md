@@ -42,9 +42,9 @@ Las facturas y los recibos no se suben aquí: se registrarán en Finanzas.
 
 # Seguridad {#screen.security}
 
-Aquí cuida sus datos. Puede poner un PIN para que la pantalla se cierre cuando alguien más usa su computadora.
-También crea un respaldo con contraseña de todo lo que hay en el programa, para cambiar de computadora o por si algo falla, y restaura uno que ya tenga.
+Aquí cuida sus datos. Crea un respaldo con contraseña de todo lo que hay en el programa, para cambiar de computadora o por si algo falla. La persona administradora también puede restaurar uno que ya tenga.
 «Revisar ahora» busca datos de personas, como CURP, cuentas o tarjetas, en todo lo que guarda el programa. Solo cuenta lo que encuentra; no muestra los datos.
+Si deja sola la computadora, toque su nombre y elija «Bloquear». El programa también se bloquea solo después de 15 minutos sin usarse.
 
 # Ayuda automática {#screen.ai}
 
@@ -89,7 +89,8 @@ La conversación se borra al cerrar el programa. No escriba nombres ni datos de 
 
 En las ventanas de «Mi institución», «Llenarlo por mí» abre el asistente para que usted le cuente con sus palabras lo que sabe: a quién atienden, cómo, desde cuándo. El asistente también se lo ofrece cuando, platicando, usted le cuenta datos de su institución.
 El asistente deja sugerencias debajo de cada dato, con las palabras suyas de donde las tomó. «Usar» pone la sugerencia en su lugar, donde puede corregirla; «Descartar» la quita. Nada se guarda hasta que pulse «Guardar».
-Las sugerencias que no revise se quedan para después, y «Mi institución» le avisa cuántas hay. El teléfono, el correo, el domicilio, el RFC, los folios, las claves, el representante legal, el patronato y las cuentas los escribe usted: el asistente nunca los ve.
+Las sugerencias que no revise se quedan para después, y «Mi institución» le avisa cuántas hay.
+El teléfono, el correo, el domicilio, el RFC, los folios y el representante legal que le cuente los copia tal cual de sus palabras. Si el programa le pregunta si son datos personales, conteste «Esto no son datos personales de nadie». Lo que ya tiene guardado de esos datos no lo ve. El patronato y las cuentas los escribe usted.
 
 # Llenar con mis documentos {#howto.fill_documents @screen.profile}
 

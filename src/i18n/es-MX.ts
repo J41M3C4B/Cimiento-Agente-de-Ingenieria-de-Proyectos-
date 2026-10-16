@@ -2279,7 +2279,7 @@ export const es = {
     capLabel: "Pesos al mes",
     capSave: "Guardar tope",
     privacy:
-      "Antes de enviar cualquier texto lo revisamos y tapamos datos de personas. Nunca se envían los datos de contacto de la institución.",
+      "Antes de enviar cualquier texto lo revisamos y tapamos datos de personas. Los datos de contacto que ya tiene guardados nunca se envían; solo los que usted le cuente al asistente para llenarlos.",
   },
   // What the person sees when the automatic help could not be used.
   aiNotice: {
@@ -2789,7 +2789,7 @@ export const es = {
     problems: [
       ["La ayuda automática no responde", "Lo que escribió queda guardado. Revise su internet y su clave en «Ayuda automática» y toque el botón para intentar otra vez."],
       ["Un PDF no se puede leer", "Si está escaneado, el programa lee las imágenes; si la copia no se ve clara, puede leer mal o no leer nada. Escanéelo otra vez con más luz o pida el archivo original."],
-      ["Olvidé mi PIN", "Cierre y vuelva a abrir el programa; después de cinco intentos hay que esperar medio minuto. Si ya no lo recuerda, restaure un respaldo."],
+      ["Olvidé mi contraseña", "En la entrada toque «Olvidé mi contraseña». Si es la persona administradora, ponga una nueva con su código de recuperación; si no, pídale a la persona administradora una contraseña temporal."],
       ["Quiero cambiar de computadora", "En «Seguridad» cree un respaldo, llévelo a la otra computadora y restáurelo ahí."],
     ] as [string, string][],
     dataTitle: "Sus datos",
