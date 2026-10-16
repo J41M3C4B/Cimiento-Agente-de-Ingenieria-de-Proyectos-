@@ -17,6 +17,8 @@ pub mod storage;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod full_tests;
 
 use crate::common::dates::days_between;
 use crate::common::forms::{is_filled, FormSpec, Values};

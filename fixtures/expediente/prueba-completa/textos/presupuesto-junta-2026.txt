@@ -1,0 +1,22 @@
+=== PAGINA 1 ===
+PRESUPUESTO DE INGRESOS Y EGRESOS 2026
+Casa de Reposo Ficticia San Ejemplo, I.A.P.
+Presentado a la Junta de Asistencia Privada el 28 de noviembre de 2025
+
+Ingresos presupuestados
+Donativos de personas físicas | 1,300,000
+Donativos de empresas y fundaciones | 2,500,000
+Donativos en especie | 420,000
+Cuotas de recuperación | 1,050,000
+Eventos de procuración de fondos | 330,000
+Total de ingresos | 5,600,000
+
+Egresos presupuestados
+Sueldos y prestaciones del personal | 3,050,000
+Alimentos | 720,000
+Medicamentos y material de curación | 430,000
+Mantenimiento del inmueble | 350,000
+Remodelación de los baños de la planta baja | 450,000
+Servicios (agua, luz, gas, teléfono) | 300,000
+Gastos de administración | 180,000
+Total de egresos | 5,480,000
