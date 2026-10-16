@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* the notes in docs/ are not screens: scanning them put their words in the CSS and reloaded the app on each save */
+@source not "../docs";
 
 /*
   Sistema visual de Cimiento (docs/13-sistema-visual.md, ADR-025). Este archivo es la ÚNICA fuente de los valores:
