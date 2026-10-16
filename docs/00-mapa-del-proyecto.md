@@ -8,7 +8,16 @@ actualizado: 2026-10-15
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
 > [!info] Hoy (2026-10-15, noche)
-> **C4, fase 3 hecha: los tres agentes del núcleo están aprobados** ([ADR-036, aprobación](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)). Corrida final con el modelo más barato, dos rondas, nunca más de 14 llamadas por minuto:
+> **C4, fase 4: el guion de pruebas del núcleo está listo** ([15 · Guion de pruebas del núcleo](15-guion-pruebas-nucleo.md)). Es la lista de lo que tienes que probar, pantalla por pantalla, con lo que debe pasar en cada paso y una casilla para marcarlo: primer inicio y cuentas, Inicio, Mi institución, el Expediente y Documentos, «Llenar con mis documentos», el Asistente, «Llenarlo por mí», y Ayuda automática, Seguridad y Ayuda. Junta en un solo lugar las pruebas que estaban sueltas en este mapa.
+>
+> Al revisar las pantallas para escribirlo encontré cuatro textos viejos y los corregí:
+> - el manual de Seguridad hablaba de un PIN que ya no existe (desde las cuentas, se bloquea con «Bloquear» o solo a los 15 minutos);
+> - la Ayuda decía «Olvidé mi PIN»; ahora es «Olvidé mi contraseña»;
+> - el manual de «Llenarlo por mí» y la pantalla de Ayuda automática decían que el asistente nunca ve el teléfono ni el domicilio: desde el ADR-041 los copia si tú se los cuentas.
+>
+> **Siguiente:** que pruebes el núcleo con el guion y dejes tus hallazgos en `notas/`; después, la fase 5, la metodología de agentes para los módulos.
+>
+> **Antes (2026-10-15, noche): C4, fase 3 hecha: los tres agentes del núcleo están aprobados** ([ADR-036, aprobación](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)). Corrida final con el modelo más barato, dos rondas, nunca más de 14 llamadas por minuto:
 >
 > | Agente | Resultado | Inventado | Costo |
 > |---|---|---|---|
@@ -17,8 +26,6 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > | «Llenar con mis documentos» | 35 de 36 campos, páginas 35 de 35 | 0 | $0.29 MXN |
 >
 > Lo que falló fue algo que no tomaron (el año dicho con palabras, la comida entre los apoyos, una edad), nunca un dato distinto. La primera corrida encontró que «vienen voluntarios de **una** parroquia» pasaba como 1 voluntario; ya se corrigió para los tres agentes.
->
-> **Siguiente:** la fase 4 de C4, el guion de pruebas por pantalla para que pruebes cada pantalla del núcleo; después, la fase 5, la metodología de agentes para los módulos.
 >
 > **Antes (2026-10-15, tarde): C4, fase 2 hecha: el Asistente y lo que encontraste al probar la fase 1** ([ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md), [ADR-040](adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md)):
 > - «Tenemos 35 espacios» después de hablar del poder ya no se va al poder: la causa era una frase mía de C3, que se quitó. Ahora ofrece «Llenarlo por mí»;
@@ -74,7 +81,7 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | —   | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
 | 2   | **C2**                | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos»                                                                                                                   | **Hecho, por probar** |
 | 3   | **C3**                | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?»)                                                                                                                                                   | **Hecho y probado**   |
-| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 (Capturista), 2 (Asistente) y 3 (corrida final: los tres agentes aprobados) hechas; siguen el guion por pantalla y la metodología de agentes                                               | **En curso**          |
+| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 (Capturista), 2 (Asistente), 3 (corrida final: los tres agentes aprobados) y 4 (guion de pruebas) hechas; sigue tu prueba con el guion y la metodología de agentes                                               | **En curso**          |
 | 5   | **N5**                | El expediente hacia Proyectos, la IA e Inicio                                                                                                                                                                                                                                  | Pendiente             |
 | —   | Módulos               | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md)                                                     | Esperan al núcleo     |
 
@@ -82,102 +89,20 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
+- **Probar el núcleo con el [guion](15-guion-pruebas-nucleo.md)**, sección por sección, y dejar cada hallazgo en una nota de `notas/`.
 - **Llave de pago antes de documentos reales** (ADR-040): con la llave gratuita, Google puede usar lo que se le manda.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
 
-## Cómo probar C3 · el Asistente le pregunta al Lector
+## Cómo probar
 
-1. Sube al Expediente varios documentos con texto: acta, constancia, poder, reglamento… y al menos una foto o un escaneo.
-2. En **Mi institución**, abre el Asistente y pregunta **«Según mi registro, ¿qué nombre legal pongo?»**.
-   - Responde con el nombre legal y abajo dice «Lo tomé de sus documentos: ‹archivo›, página N».
-   - Ofrece «Ir a Datos legales y fiscales» y, si sirve, **«Llenar con mis documentos»**.
-3. Pregunta **«¿Qué documentos tengo?»**: dice por su nombre cuáles tienes y cuáles faltan, y ofrece ir al Expediente.
-4. **Nombra un archivo:** «¿Qué dice ‹tu archivo›.pdf?», y también con el nombre de la foto o del escaneo.
-   - Contesta con lo que dice ese documento.
-   - Nunca dice que no puede ver imágenes.
-5. Pregunta algo que **ningún documento dice**: debe decir que no lo encontró, sin inventar.
-6. Pide **«Llena los datos legales con mis documentos»** y pulsa el botón «Llenar con mis documentos».
-   - El panel dice cuántas sugerencias dejó, con «Revisarlas».
-   - Nada se guarda sin «Usar» y «Guardar».
-7. Pregunta **«¿Cómo hago un respaldo?»**: responde con el manual y muestra su fuente.
-
-Lo que no debe pasar: que diga el nombre de un archivo como si lo hubiera leído la IA (el nombre solo aparece en la línea «Lo tomé de sus documentos», y lo pone el programa) o que cite un documento que no habla del tema.
-
-**Pruebas:**
-- `cargo test core::agents::assistant` y `cargo test core::reader::ask`;
-- la corrida real `cargo test assistant_battery_live -- --ignored --nocapture > assistant_battery_live.txt` (unos $0.50 MXN por ronda).
-
-## Cómo probar C2 · «Llenar con mis documentos»
-
-1. Sube al Expediente varios documentos con texto: acta, constancia, informe anual, reglamento…
-2. **Mi institución → Expediente → «Llenar todo con mis documentos».**
-   - Mientras trabaja dice «Buscando en sus documentos…».
-   - Al terminar, un aviso dice cuántas sugerencias dejó y en cuántas ventanas.
-3. Abre cada ventana.
-   - Cada sugerencia dice «Lo leímos en «documento», página N».
-   - «Usar» la pone en su campo; nada se guarda hasta «Guardar».
-4. **Revisa que no invente.**
-   - Ningún campo que ya tenías escrito recibe sugerencia.
-   - Una cifra sugerida está escrita tal cual en el documento.
-   - Lo que ningún documento dice queda vacío.
-5. **El botón de una ventana:** «Llenar con mis documentos».
-   - Con todo escrito, avisa «Todos los campos que puedo llenar en esta ventana ya están escritos» y no gasta nada.
-   - Sin documentos, avisa que primero hay que subirlos.
-6. Descarta una sugerencia y vuelve a pulsar el botón: no vuelve a salir.
-7. El teléfono, el correo, el domicilio, el RFC, los folios y el representante nunca salen de este botón: los leen las reglas al subir el archivo.
-
-**Pruebas:**
-- `cargo test core::reader::fill`;
-- la corrida real `cargo test reader_live -- --ignored --nocapture > reader_live.txt` (4 llamadas, unos $0.14 MXN).
-
-## Cómo probar la lectura y el llenado (ADR-035, 037 y 038)
-
-**Antes:** corre una vez `powershell -ExecutionPolicy Bypass -File scripts/fetch-ocr.ps1`, que ahora también baja el modelo que endereza las hojas giradas.
-
-**La ventana del propio documento se llena sola**
-1. **Mi institución → Expediente → Poder del representante legal → Subir archivo**, con tu poder (o el acta, la constancia, el oficio de donataria, la 32-D).
-   - La ventana dice «Leyendo… Puede cerrar esta ventana»: ciérrala.
-   - La fila dice «Leyendo: N de M páginas».
-   - Al terminar, un aviso dice cómo fue.
-2. Vuelve a abrir el poder.
-   - Las fechas de emisión y de vigencia y el número de escritura están llenos.
-   - Debajo de cada uno dice «Leído del archivo, página N».
-   - En una 32-D, la vigencia dice «Calculado con la fecha de emisión del archivo».
-3. Corrige a mano la vigencia, guarda y sube otra vez el archivo: la vigencia que escribiste no cambia; la fecha de emisión y el número sí se leen del archivo nuevo.
-
-**«Mi institución» solo recibe sugerencias en campos vacíos**
-4. En «Datos legales y fiscales», escribe a mano el nombre legal y guarda: su sugerencia desaparece.
-   - Sube otro documento que traiga el nombre: no vuelve a sugerirlo.
-5. Descarta una sugerencia y vuelve a subir el mismo archivo: no vuelve.
-
-**Archivos que no van o no se pueden abrir**
-6. Sube la constancia en el lugar del acta.
-   - Debe guardarse y avisar «Este archivo parece «Constancia de situación fiscal», no este documento».
-   - No llena nada.
-7. Un PDF con contraseña (`D:\Agente Proyectos\pdf_pruebas\protected.pdf`) avisa «tiene contraseña», también en **Mis proyectos → nueva convocatoria**.
-
-**Escaneos y fotos**
-8. Un acta escaneada larga: la computadora no se congela mientras se lee.
-9. Una hoja escaneada de lado se lee bien, y una página con encabezado impreso y cuerpo escaneado también.
-10. Un Word con una hoja escaneada pegada: su texto aparece en Documentos.
-
-**Pruebas:** `cargo test core::reader documents:: core::records scanner` y `pnpm test`.
-
-## Cómo probar C1
-
-1. Empieza con una base vacía o vuelve a subir tus documentos: los de antes de C1 no tienen cajón y no aparecen.
-2. **Documentos → «Subir documento»:** debe preguntar «¿A qué cajón va?» (solo Expediente) y «¿Qué documento es?» (los del Expediente y «Otro documento»). Al seguir, se abre la misma ventana del Expediente de «Mi institución»; ahí pones el archivo.
-3. El documento aparece en Documentos con el nombre de su documento del Expediente, agrupado por clase. El lápiz vuelve a abrir su ventana.
-4. Sube el mismo documento desde «Mi institución» → Expediente: debe verse igual en Documentos.
-5. Reemplaza el archivo de un documento: en Documentos debe quedar solo el nuevo.
-6. «Buscar en el expediente» encuentra por nombre y por dentro.
-7. Acepta una sugerencia que venga de un documento y luego bórralo con el bote de basura: debe borrarse sin error y el dato aceptado se queda.
+Todo lo que hay que probar del núcleo está en el [15 · Guion de pruebas del núcleo](15-guion-pruebas-nucleo.md): una sección por pantalla, con una casilla por paso. Las pruebas que antes estaban aquí (C1, la lectura y el llenado, C2 y C3) quedaron dentro.
 
 ## Lo último que se hizo
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-15 | **C4, fase 4 · guion de pruebas del núcleo:** una sección por pantalla con lo que debe pasar en cada paso; junta las pruebas sueltas del mapa. Se corrigieron cuatro textos viejos (el PIN de Seguridad y de la Ayuda, y lo que el asistente ve según el ADR-041) | [15 · Guion](15-guion-pruebas-nucleo.md) |
 | 2026-10-15 | **C4, fase 3 · corrida final:** Asistente 32 de 32, Capturista 28 de 30, «Llenar con mis documentos» 35 de 36, nada inventado; los tres aprobados. «Una parroquia» ya no pasa como la cifra 1. Las baterías nunca pasan de 14 llamadas por minuto | [ADR-036, aprobación](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-15 | **Tras probar la fase 2:** cerrar la ventana apaga «Llenarlo por mí»; el Capturista sugiere los datos propios de la institución copiados letra por letra (ADR-041); lo que la persona aclara ante el escáner ya no se vuelve a tapar en ese encargo. Capturista v4: 29 de 30, nada inventado | [ADR-041](adr/ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion.md) |
 | 2026-10-15 | **C4, fase 2 · el Asistente y la prueba de la fase 1:** una sola revisión de citas que perdona un desliz de copia y nunca una cifra; «ese mismo» va al Lector por el código; la lista de documentos la escribe el programa; el bucle corre la herramienta antes que una respuesta prematura; Asistente v9 y Capturista v3. 32 de 32, 28 de 28 y 18 de 18, nada inventado. ADR-040: los nombres de la institución en su Expediente sí llegan a la IA | [ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md), [ADR-040](adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md) |
@@ -228,6 +153,7 @@ Capas (ADR-032): base → módulos → núcleo → proyectos → pantallas; cada
 | Qué se ha hecho y qué falta, bloque por bloque | [Roadmap](09-roadmap.md) |
 | Cómo se ve el programa | [Sistema visual](13-sistema-visual.md) |
 | Qué dice la ayuda del programa | [Manual](manual/programa.md) · [Mi institución](manual/mi-institucion.md) |
+| Qué probar del núcleo, pantalla por pantalla | [Guion de pruebas del núcleo](15-guion-pruebas-nucleo.md) |
 | Las reglas para trabajar en el código | [Principios](agents/principios-de-ingenieria.md) · [Flujo de trabajo](agents/flujo-de-trabajo.md) · [Comandos y pruebas](agents/comandos-y-pruebas.md) |
 | Cómo un cajón lee sus archivos y llena sus formularios (para cada módulo) | [Metodología de los Lectores](agents/metodologia-lectores.md) · [ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md) |
 | Por qué se decidió cada cosa | Los ADR, abajo · [Índice de ADR](adr/README.md) |
