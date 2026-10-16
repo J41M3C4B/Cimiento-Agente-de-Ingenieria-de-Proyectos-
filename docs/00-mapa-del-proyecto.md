@@ -8,14 +8,20 @@ actualizado: 2026-10-15
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
 > [!info] Hoy (2026-10-15, noche)
-> **C4, fase 4: el guion de pruebas del núcleo está listo** ([15 · Guion de pruebas del núcleo](15-guion-pruebas-nucleo.md)). Es la lista de lo que tienes que probar, pantalla por pantalla, con lo que debe pasar en cada paso y una casilla para marcarlo: primer inicio y cuentas, Inicio, Mi institución, el Expediente y Documentos, «Llenar con mis documentos», el Asistente, «Llenarlo por mí», y Ayuda automática, Seguridad y Ayuda. Junta en un solo lugar las pruebas que estaban sueltas en este mapa.
+> **La prueba completa del núcleo, con una institución de prueba** ([16 · La institución de prueba](16-institucion-de-prueba.md)): «Casa San Ejemplo», inventada, con **24 archivos** de su Expediente como los subiría una institución. Hay PDF con texto, escaneos (uno con la hoja de lado y otro desteñido), fotos de celular, una captura con letra chica, Word con y sin hoja escaneada, una página mixta, y archivos con fallas: con contraseña, dañado, Excel y .odt que no se usan, uno en el lugar equivocado y una foto sin texto. La guía dice qué es la institución, la ruta de la prueba, qué debe pasar con cada archivo, qué debe quedar en «Mi institución», 13 preguntas al Asistente con su respuesta y una tabla para calificar (98 puntos).
+>
+> Probada en seco, sin IA: los 24 archivos hacen lo que deben. Al armarla salieron dos problemas:
+> - **corregido:** el número de una escritura escrito con palabras y partido en dos renglones se leía incompleto («47800» por «47820»);
+> - **pendiente conocido:** una copia desteñida se lee con errores (el folio de la Junta pierde su «/») y no se marca «con dudas».
+>
+> **Siguiente:** que hagas la prueba completa siguiendo la guía; después, la fase 5.
+>
+> **Antes (2026-10-15, noche): C4, fase 4: el guion de pruebas del núcleo está listo** ([15 · Guion de pruebas del núcleo](15-guion-pruebas-nucleo.md)). Es la lista de lo que tienes que probar, pantalla por pantalla, con lo que debe pasar en cada paso y una casilla para marcarlo: primer inicio y cuentas, Inicio, Mi institución, el Expediente y Documentos, «Llenar con mis documentos», el Asistente, «Llenarlo por mí», y Ayuda automática, Seguridad y Ayuda. Junta en un solo lugar las pruebas que estaban sueltas en este mapa.
 >
 > Al revisar las pantallas para escribirlo encontré cuatro textos viejos y los corregí:
 > - el manual de Seguridad hablaba de un PIN que ya no existe (desde las cuentas, se bloquea con «Bloquear» o solo a los 15 minutos);
 > - la Ayuda decía «Olvidé mi PIN»; ahora es «Olvidé mi contraseña»;
 > - el manual de «Llenarlo por mí» y la pantalla de Ayuda automática decían que el asistente nunca ve el teléfono ni el domicilio: desde el ADR-041 los copia si tú se los cuentas.
->
-> **Siguiente:** que pruebes el núcleo con el guion y dejes tus hallazgos en `notas/`; después, la fase 5, la metodología de agentes para los módulos.
 >
 > **Antes (2026-10-15, noche): C4, fase 3 hecha: los tres agentes del núcleo están aprobados** ([ADR-036, aprobación](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)). Corrida final con el modelo más barato, dos rondas, nunca más de 14 llamadas por minuto:
 >
@@ -89,7 +95,10 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar el núcleo con el [guion](15-guion-pruebas-nucleo.md)**, sección por sección, y dejar cada hallazgo en una nota de `notas/`.
+- **La prueba completa con [la institución de prueba](16-institucion-de-prueba.md)** y el [guion](15-guion-pruebas-nucleo.md): cada hallazgo en una nota de `notas/`.
+- **Dos decisiones que salieron de la prueba completa** (sección 7 de la guía):
+  - cómo detectar una copia desteñida que el lector de imágenes da por buena;
+  - si la constancia del SAT debe sugerir también el domicilio de «Contacto y ubicación» (hoy solo el código postal fiscal).
 - **Llave de pago antes de documentos reales** (ADR-040): con la llave gratuita, Google puede usar lo que se le manda.
 - Borrar el archivo suelto `E:\Git\search_live3.txt` (lo dejó un error mío; el sistema no me deja borrarlo).
 - Confirmar el precio de `gemini-embedding-2` en la página oficial de Google (anotado 0.20 USD por millón de tokens, tomado de sitios que comparan precios).
@@ -102,6 +111,7 @@ Todo lo que hay que probar del núcleo está en el [15 · Guion de pruebas del n
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-15 | **La prueba completa del núcleo:** la institución de prueba «Casa San Ejemplo», 24 archivos del Expediente (escaneos, fotos, Word y fallas a propósito), lo que debe quedar y cómo calificar; la prueba en seco `full_expediente`. Corregido: el número de escritura partido en dos renglones | [16 · La institución de prueba](16-institucion-de-prueba.md) |
 | 2026-10-15 | **C4, fase 4 · guion de pruebas del núcleo:** una sección por pantalla con lo que debe pasar en cada paso; junta las pruebas sueltas del mapa. Se corrigieron cuatro textos viejos (el PIN de Seguridad y de la Ayuda, y lo que el asistente ve según el ADR-041) | [15 · Guion](15-guion-pruebas-nucleo.md) |
 | 2026-10-15 | **C4, fase 3 · corrida final:** Asistente 32 de 32, Capturista 28 de 30, «Llenar con mis documentos» 35 de 36, nada inventado; los tres aprobados. «Una parroquia» ya no pasa como la cifra 1. Las baterías nunca pasan de 14 llamadas por minuto | [ADR-036, aprobación](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-15 | **Tras probar la fase 2:** cerrar la ventana apaga «Llenarlo por mí»; el Capturista sugiere los datos propios de la institución copiados letra por letra (ADR-041); lo que la persona aclara ante el escáner ya no se vuelve a tapar en ese encargo. Capturista v4: 29 de 30, nada inventado | [ADR-041](adr/ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion.md) |
@@ -154,6 +164,7 @@ Capas (ADR-032): base → módulos → núcleo → proyectos → pantallas; cada
 | Cómo se ve el programa | [Sistema visual](13-sistema-visual.md) |
 | Qué dice la ayuda del programa | [Manual](manual/programa.md) · [Mi institución](manual/mi-institucion.md) |
 | Qué probar del núcleo, pantalla por pantalla | [Guion de pruebas del núcleo](15-guion-pruebas-nucleo.md) |
+| La prueba completa: la institución de prueba, sus 24 archivos y lo que debe quedar | [16 · La institución de prueba](16-institucion-de-prueba.md) |
 | Las reglas para trabajar en el código | [Principios](agents/principios-de-ingenieria.md) · [Flujo de trabajo](agents/flujo-de-trabajo.md) · [Comandos y pruebas](agents/comandos-y-pruebas.md) |
 | Cómo un cajón lee sus archivos y llena sus formularios (para cada módulo) | [Metodología de los Lectores](agents/metodologia-lectores.md) · [ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md) |
 | Por qué se decidió cada cosa | Los ADR, abajo · [Índice de ADR](adr/README.md) |

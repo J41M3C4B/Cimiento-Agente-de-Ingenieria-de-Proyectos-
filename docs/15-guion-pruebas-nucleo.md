@@ -156,7 +156,7 @@ El botón con la estrella, arriba a la derecha, en cualquier pantalla.
 - [ ] Luego «Con base en ese mismo, ¿a quién atendemos?»: vuelve a citar el **mismo** documento.
 - [ ] «¿Qué documentos tengo?»: la lista con sus nombres (los que tiene, los que faltan, en trámite, por vencer).
 - [ ] «¿Qué dice ‹nombre de tu archivo›.pdf?», también con el nombre de la foto: contesta con lo que dice. Nunca dice que no puede ver imágenes.
-- [ ] «¿Cuántos extintores tenemos?» o algo que **ningún documento dice**: dice que no lo encontró, sin inventar.
+- [ ] «¿Cuántos kilos de comida nos donó el banco de alimentos en 2024?» o algo que **ningún documento dice**: dice que no lo encontró, sin inventar.
 - [ ] «Llena los datos legales con lo que dicen mis documentos»: ofrece el botón «Llenar con mis documentos»; al pulsarlo dice cuántas sugerencias dejó, con «Revisarlas».
 - [ ] La conversación se borra al cerrar la app.
 
@@ -198,6 +198,10 @@ En una ventana de Mi institución, «Llenarlo por mí» abre el Asistente en mod
 - [ ] Ninguna pantalla se queda en «Cargando…» ni pierde lo que escribiste al cambiar de pantalla.
 - [ ] El modo oscuro (la luna, arriba a la derecha) se lee bien en todas las pantallas del núcleo.
 - [ ] Ventana pequeña (la mitad de la pantalla): nada se corta ni se encima.
+
+## La prueba completa con la institución de prueba
+
+Para probar todo el camino de una vez, con 24 archivos ficticios (escaneos, fotos, Word, archivos con fallas) y lo que debe quedar al final, sigue [16 · La institución de prueba](16-institucion-de-prueba.md). Ahí está también la tabla para calificar el núcleo.
 
 ## Lo que ya se probó con las baterías
 

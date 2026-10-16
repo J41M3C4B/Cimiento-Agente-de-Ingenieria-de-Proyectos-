@@ -102,6 +102,7 @@ Personal y Beneficiarios no tienen esta capa: nada de sus fichas llega a la IA (
 4. **Su tabla de autoridad por campo:** qué documento manda cuando dos dicen cosas distintas.
 5. **Fixtures ficticios** en `fixtures/`: uno por tipo, en texto, y al menos un PDF escaneado o una foto. Nunca datos reales.
 6. **La batería por tabla:** una línea por fixture con el tipo, los datos propios esperados y las sugerencias esperadas. Plantilla: `what_each_document_says_of_itself` en `core/reader/rules.rs`.
+6b. **La prueba completa del cajón:** sus archivos como los sube una institución (escaneos, fotos, Word, una hoja girada, una copia desteñida y archivos con fallas), uno por documento, con lo que debe pasar en un `esperado.json` y una prueba en seco que los sube por el mismo camino que la pantalla. Lo que todavía no sale bien va en «conocidos»: se reporta aparte y la prueba pide quitarlo cuando se corrige. Plantilla: `fixtures/expediente/prueba-completa` y `core/records/full_tests.rs`; la guía para la persona, `docs/16-institucion-de-prueba.md`.
 7. **Las pruebas de ciclo de vida**. Plantilla en `core/reader/tests.rs`:
    - un campo lleno no recibe sugerencia y guardar descarta las que esperaban;
    - lo rechazado no vuelve, ni al volver a subir el mismo archivo;
