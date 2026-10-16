@@ -332,7 +332,10 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
       - El bucle de agentes corre la herramienta antes que una respuesta prematura. Oficios: Asistente v9, Capturista v3.
       - Con el modelo más barato: Asistente 32 de 32, Capturista 28 de 28, «Llenar con mis documentos» 18 de 18; nada inventado.
       - Tras la prueba de la institución: cerrar la ventana apaga «Llenarlo por mí»; ADR-041, el Capturista copia los datos propios de la institución (oficio v4) y el escáner no vuelve a tapar lo que la persona aclaró. Capturista v4 con el modelo más barato (15 casos, dos rondas): 29 de 30, nada inventado, $0.56 MXN.
-    - [ ] Fase 3 · corrida final de las tres baterías y tabla de aprobación.
+    - [x] **Fase 3 · corrida final y tabla de aprobación** (2026-10-15, ADR-036 «Aprobación de los agentes del núcleo»):
+      - Con el modelo más barato, dos rondas: Asistente 32 de 32, Capturista 28 de 30, «Llenar con mis documentos» 35 de 36; nada inventado. Los tres aprobados.
+      - La primera corrida encontró que la revisión de cifras leía «una parroquia» como 1; se corrigió para los tres agentes.
+      - Las baterías nunca pasan de 14 solicitudes por minuto (`ai::paced`). Toda la corrida: 107 llamadas, $2.01 MXN.
     - [ ] Fase 4 · guion de pruebas por pantalla para la institución.
     - [ ] Fase 5 · metodología de agentes para los módulos.
 - [ ] **N5** El expediente hacia Proyectos, la IA e Inicio.

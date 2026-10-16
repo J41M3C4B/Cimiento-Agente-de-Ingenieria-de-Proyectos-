@@ -60,7 +60,7 @@ Las reglas leen los formatos fijos al subir un archivo y no cuestan nada. Lo que
    - el campo pedido;
    - el pasaje mostrado;
    - la cita dentro de ese pasaje (`core::reader::quote::find`, la misma para todo agente que cita; ver abajo);
-   - la cifra dentro de la cita (la IA no calcula);
+   - la cifra dentro de la cita (la IA no calcula). «Un», «una» y «primer» solos no son cifra: «voluntarios de una parroquia» no dice 1 (`fill::says_number`);
    - el valor que cabe.
 
    Lo que pasa es sugerencia con documento y página, bajo la misma política (sección 2). Sin documentos, sin campos vacíos o sin pasajes, no se llama.

@@ -67,7 +67,7 @@ cargo test pdf_grid                                    # tablas con bordes por l
 cargo test documents::pdf                              # el texto de un PDF con Pdfium (ADR-037): párrafos por la distancia entre renglones, guion de corte, contraseña, tablas con bordes en un formulario anidado
 cargo test core::records::background                   # una lectura en segundo plano por documento a la vez (ADR-038)
 cargo test core::reader::fill                          # «Llenar con mis documentos» en seco (C2): palabras por campo, la página esperada entre los pasajes (21 de 21), lo que el código descarta, sin documentos o sin IA
-cargo test reader_live -- --ignored --nocapture > reader_live.txt   # las 4 ventanas con el modelo más barato sobre el expediente ficticio (4 llamadas y los vectores de los fragmentos); valor, página, inventados y costo por campo
+cargo test reader_live -- --ignored --nocapture > reader_live.txt   # las 4 ventanas con el modelo más barato sobre el expediente ficticio (4 llamadas y los vectores de los fragmentos); valor, página, inventados y costo por campo. Con $env:CIMIENTO_ROUNDS="2" la repite, cada ronda con un expediente nuevo
 cargo test pdf_rows                                    # tablas sin bordes por la posición de las letras (sin gasto)
 # qué saca Pdfium de cada PDF de una carpeta (ADR-037): letras, palabras partidas, signos raros, páginas como imagen, párrafos y filas de tabla; sin imprimir el texto salvo que se pida una página (solo con PDF públicos):
 #   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test pdf_report -- --ignored --nocapture > salida.txt   (opcional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3")
@@ -92,3 +92,5 @@ pnpm tauri build      # instalador
 ## Pruebas con IA real
 
 Todas son opt-in (`#[ignore]`) y llevan tope de llamadas. Antes de gastar cuota se prueba en seco contra el servicio simulado; después se hace una sola corrida real y se registran sus métricas (tiempos, llamadas, costo equivalente) en `docs/09-roadmap.md`.
+
+Las baterías del Asistente, del Capturista y de «Llenar con mis documentos» nunca mandan más de **14 solicitudes por minuto** a cada modelo (`ai::paced`; el plan gratuito permite 15). Cuentan dentro de la corrida, porque cada caso usa una base nueva y el ritmo de la app (que cuenta en `ai_usage`) no ve los casos anteriores. Entre dos baterías seguidas, espera un minuto. El plan gratuito permite además 500 llamadas al día por modelo, y las baterías no las cuentan: una corrida de las tres, en dos rondas, usa unas 110.

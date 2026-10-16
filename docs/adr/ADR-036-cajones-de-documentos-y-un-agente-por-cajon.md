@@ -292,6 +292,23 @@ La fase 2 atendió las tres preguntas que salían 1 de 2 y dos hallazgos de la p
 - La regla del Asistente sobre nombres sigue el ADR-040: no pide nombres de personas, pero sí dice el de alguien de la institución que el Lector encontró en un documento.
 - Una fecha sola («2027-01-18») se mostraba un día antes en México (`formatDate` la leía como medianoche en Londres); se corrigió para toda la app.
 
+### Aprobación de los agentes del núcleo (C4, fase 3, 2026-10-15)
+
+Corrida final de las tres baterías con el modelo más barato (`gemini-3.5-flash-lite`), dos rondas cada una, con el código y los oficios con los que se queda el núcleo. Criterio: **nada inventado y al menos 90 % bien en dos rondas**.
+
+| Agente | Batería | Resultado (2 rondas) | Inventado | Llamadas | Costo | ¿Aprobado? |
+|---|---|---|---|---|---|---|
+| Asistente (oficio v9) con el Lector como herramienta | `fixtures/expediente/asistente.json`, 16 preguntas desde varias pantallas | 32 de 32 (100 %); herramienta bien 32; citas 18 de 18 | 0 | 50 del Asistente, 18 del Lector, 19 de vectores | $1.17 MXN | **Sí** |
+| Capturista (oficio v4) | `fixtures/capturista.json`, 15 casos en las cuatro ventanas | 28 de 30 casos (93 %); 186 de 188 campos | 0 | 30 | $0.55 MXN | **Sí** |
+| Lector del Expediente, «Llenar con mis documentos» | `fixtures/expediente/lector.json`, las 4 ventanas | 35 de 36 campos (97 %); páginas 35 de 35 | 0 | 9 y los vectores de los fragmentos | $0.29 MXN | **Sí** |
+
+- **Lo que faltó** (nunca un dato distinto):
+  - el Capturista no tomó «desde dos mil diez» como año de fundación (1 de 2, igual que en la corrida anterior);
+  - de «comida, tareas dirigidas y apoyo psicológico» dejó los apoyos sin la comida (1 de 2);
+  - el Lector no sugirió la edad mínima en una ronda.
+- **Un hueco del código encontrado en la primera corrida:** con «vienen voluntarios de una parroquia», el modelo propuso 1 voluntario y la revisión de cifras lo dejó pasar, porque leía «una» como 1. Ahora «un», «una» y «primer» solos no son una cifra (`reader::fill::says_number`, la misma para C2, C3 y el Capturista); «uno», «treinta y una» y «1» sí. La trampa quedó en la batería en seco. La corrida de la tabla es posterior al arreglo.
+- **Ritmo:** las tres baterías nunca mandan más de 14 solicitudes por minuto a cada modelo (`ai::paced`; el plan gratuito permite 15). Toda la corrida: 107 llamadas al modelo de texto, unos 12 minutos y **$2.01 MXN**.
+
 ## Consecuencias
 
 - **Documentos cambia de función:** de cajón propio a bandeja; su pantalla se rediseña alrededor de «¿a qué cajón va?».
