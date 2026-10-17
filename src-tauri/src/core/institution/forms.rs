@@ -35,17 +35,17 @@ pub const IDENTITY: FormSpec = FormSpec {
             id: "who",
             columns: 1,
             fields: &[
-                FieldSpec::new("institution.name", FieldKind::Text).required().used_by(&["documents", "projects", "ai"]),
-                FieldSpec::new("institution.mission", FieldKind::LongText).required().used_by(&["projects", "documents", "ai"]),
+                FieldSpec::new("institution.name", FieldKind::Text).essential().used_by(&["documents", "projects", "ai"]),
+                FieldSpec::new("institution.mission", FieldKind::LongText).essential().used_by(&["projects", "documents", "ai"]),
             ],
         },
         SectionSpec {
             id: "attention",
             columns: 1,
             fields: &[
-                FieldSpec::new("institution.populations", FieldKind::MultiSelect).options(POPULATIONS).required().used_by(&["care", "hr", "facilities", "projects", "ai"]),
+                FieldSpec::new("institution.populations", FieldKind::MultiSelect).options(POPULATIONS).essential().used_by(&["care", "hr", "facilities", "projects", "ai"]),
                 FieldSpec::new("institution.sex_served", FieldKind::Select).options(SEXES_SERVED).when(SERVES).used_by(&["care", "projects", "ai"]),
-                FieldSpec::new("institution.modalities", FieldKind::MultiSelect).options(MODALITIES).required().used_by(&["care", "facilities", "projects", "ai"]),
+                FieldSpec::new("institution.modalities", FieldKind::MultiSelect).options(MODALITIES).essential().used_by(&["care", "facilities", "projects", "ai"]),
                 FieldSpec::new("institution.care_areas", FieldKind::MultiSelect).options(CARE_AREAS).used_by(&["care", "hr", "projects", "ai"]),
                 FieldSpec::new("institution.services", FieldKind::LongText).used_by(&["projects", "care", "ai"]),
             ],
@@ -88,8 +88,8 @@ pub const CONTACT: FormSpec = FormSpec {
                 private(FieldSpec::new("institution.int_number", FieldKind::Text)).used_by(&["documents", "finance"]),
                 private(FieldSpec::new("institution.neighborhood", FieldKind::Text)).used_by(&["documents", "finance"]),
                 private(FieldSpec::new("institution.postal_code", FieldKind::Text)).rule(Rule::PostalCode).required().used_by(&["documents", "finance"]),
-                FieldSpec::new("institution.municipality", FieldKind::Text).required().used_by(&["hr", "finance", "projects", "ai"]),
-                FieldSpec::new("institution.state", FieldKind::Select).options(STATE_CODES).required().used_by(&["hr", "finance", "projects", "ai"]),
+                FieldSpec::new("institution.municipality", FieldKind::Text).rule(Rule::PlaceName).essential().used_by(&["hr", "finance", "projects", "ai"]),
+                FieldSpec::new("institution.state", FieldKind::Select).options(STATE_CODES).essential().used_by(&["hr", "finance", "projects", "ai"]),
             ],
         },
     ],
@@ -111,8 +111,8 @@ pub const LEGAL: FormSpec = FormSpec {
             id: "constitution",
             columns: 2,
             fields: &[
-                FieldSpec::new("institution.legal_form", FieldKind::Select).options(LEGAL_FORMS).required().used_by(&["finance", "projects", "ai"]),
-                FieldSpec::new("institution.founded_year", FieldKind::Year).range(OLDEST_YEAR, LATEST_YEAR).required().used_by(&["projects", "ai"]),
+                FieldSpec::new("institution.legal_form", FieldKind::Select).options(LEGAL_FORMS).essential().used_by(&["finance", "projects", "ai"]),
+                FieldSpec::new("institution.founded_year", FieldKind::Year).range(OLDEST_YEAR, LATEST_YEAR).essential().used_by(&["projects", "ai"]),
                 private(FieldSpec::new("institution.junta_folio", FieldKind::Text))
                     .required()
                     .when(Condition::AnyOf { field: "institution.legal_form", values: UNDER_A_JUNTA })
@@ -132,8 +132,8 @@ pub const LEGAL: FormSpec = FormSpec {
             id: "registries",
             columns: 2,
             fields: &[
-                FieldSpec::new("institution.authorized_donee", FieldKind::Select).options(REGISTRY).required().used_by(&["finance", "projects", "ai"]),
-                FieldSpec::new("institution.cluni", FieldKind::Select).options(REGISTRY).required().used_by(&["projects", "ai"]),
+                FieldSpec::new("institution.authorized_donee", FieldKind::Select).options(REGISTRY).essential().used_by(&["finance", "projects", "ai"]),
+                FieldSpec::new("institution.cluni", FieldKind::Select).options(REGISTRY).essential().used_by(&["projects", "ai"]),
                 FieldSpec::new("institution.donee_category", FieldKind::Select).options(DONEE_CATEGORIES).when(DONEE).used_by(&["finance", "projects", "ai"]),
                 private(FieldSpec::new("institution.donee_letter_number", FieldKind::Text)).when(DONEE).used_by(&["finance", "documents"]),
                 private(FieldSpec::new("institution.donee_letter_date", FieldKind::Date)).when(DONEE).used_by(&["finance", "documents"]),
@@ -162,16 +162,16 @@ pub const CAPACITY: FormSpec = FormSpec {
             id: "capacity_people",
             columns: 2,
             fields: &[
-                internal(FieldSpec::new("institution.capacity_total", FieldKind::Number)).range(0, MAX_ESTIMATE).used_by(&["care", "facilities", "projects", "ai"]),
-                internal(FieldSpec::new("institution.served_estimate", FieldKind::Number)).range(0, MAX_ESTIMATE).used_by(&["care", "projects", "ai"]),
+                internal(FieldSpec::new("institution.capacity_total", FieldKind::Number)).range(0, MAX_ESTIMATE).essential().used_by(&["care", "facilities", "projects", "ai"]),
+                internal(FieldSpec::new("institution.served_estimate", FieldKind::Number)).range(0, MAX_ESTIMATE).essential().used_by(&["care", "projects", "ai"]),
             ],
         },
         SectionSpec {
             id: "capacity_staff",
             columns: 2,
             fields: &[
-                internal(FieldSpec::new("institution.staff_paid_estimate", FieldKind::Number)).range(0, MAX_ESTIMATE).used_by(&["hr", "projects", "ai"]),
-                internal(FieldSpec::new("institution.staff_volunteer_estimate", FieldKind::Number)).range(0, MAX_ESTIMATE).used_by(&["hr", "projects", "ai"]),
+                internal(FieldSpec::new("institution.staff_paid_estimate", FieldKind::Number)).range(0, MAX_ESTIMATE).essential().used_by(&["hr", "projects", "ai"]),
+                internal(FieldSpec::new("institution.staff_volunteer_estimate", FieldKind::Number)).range(0, MAX_ESTIMATE).essential().used_by(&["hr", "projects", "ai"]),
             ],
         },
         SectionSpec {

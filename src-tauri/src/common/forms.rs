@@ -69,6 +69,9 @@ pub enum Rule {
     RfcMoral,
     /// A CLABE: eighteen digits and its check digit (`common::ids`).
     Clabe,
+    /// The name of a place (a municipality): letters, spaces and the signs of a name, up to 80. Nothing else fits, so
+    /// no phone, mail or key can hide in it, and it needs no scanner: «Benito Juárez» is a place there.
+    PlaceName,
 }
 
 /// When a field applies. A field that does not apply is not shown, not asked and not kept.
@@ -91,6 +94,9 @@ pub struct FieldSpec {
     pub options: &'static [&'static str],
     /// Needed for the data to count as complete. It never stops a save: what is missing is listed, not refused.
     pub required: bool,
+    /// Indispensable (ADR-042): the program cannot work well without it, so the first start asks it. It is required
+    /// too.
+    pub essential: bool,
     pub applies_when: Condition,
     pub sensitivity: Sensitivity,
     pub ai: AiUse,
@@ -105,13 +111,19 @@ pub struct FieldSpec {
 impl FieldSpec {
     /// A field that applies always, is public, may reach the AI as it is and is not required.
     pub const fn new(id: &'static str, kind: FieldKind) -> Self {
-        FieldSpec { id, kind, options: &[], required: false, applies_when: Condition::Always, sensitivity: Sensitivity::Public, ai: AiUse::AsIs, used_by: &[], min: None, max: None, rule: None }
+        FieldSpec { id, kind, options: &[], required: false, essential: false, applies_when: Condition::Always, sensitivity: Sensitivity::Public, ai: AiUse::AsIs, used_by: &[], min: None, max: None, rule: None }
     }
     pub const fn options(mut self, options: &'static [&'static str]) -> Self {
         self.options = options;
         self
     }
     pub const fn required(mut self) -> Self {
+        self.required = true;
+        self
+    }
+    /// Indispensable, and so required (ADR-042).
+    pub const fn essential(mut self) -> Self {
+        self.essential = true;
         self.required = true;
         self
     }
@@ -270,6 +282,7 @@ pub fn problem(f: &FieldSpec, v: &Value) -> Option<&'static str> {
             (Some(s), Some(Rule::PostalCode)) if !is_postal_code(s.trim()) => Some("postal_code_invalid"),
             (Some(s), Some(Rule::RfcMoral)) if !is_rfc_moral(s.trim()) => Some("rfc_moral_invalid"),
             (Some(s), Some(Rule::Clabe)) if !crate::common::ids::clabe_is_valid(s) => Some("clabe_invalid"),
+            (Some(s), Some(Rule::PlaceName)) if !is_place_name(s) => Some("place_name_invalid"),
             _ => None,
         },
     }
@@ -292,6 +305,12 @@ pub fn is_date(s: &str) -> bool {
         _ => return false,
     };
     y >= 1800 && (1..=days).contains(&d)
+}
+
+/// The name of a place: letters (accents and Ñ too), spaces, periods, hyphens and apostrophes, up to 80.
+pub fn is_place_name(s: &str) -> bool {
+    let s = s.trim();
+    !s.is_empty() && s.chars().count() <= 80 && s.chars().all(|c| c.is_alphabetic() || matches!(c, ' ' | '.' | '-' | '\'' | '’'))
 }
 
 pub fn is_postal_code(s: &str) -> bool {
@@ -386,6 +405,12 @@ mod tests {
             assert!(!is_date(bad), "{bad}");
         }
         assert!(is_postal_code("01000") && !is_postal_code("1000") && !is_postal_code("0100A") && !is_postal_code("010000"));
+        for place in ["Benito Juárez", "San Pedro Tlaquepaque", "Dolores Hidalgo Cuna de la Independencia Nacional", "Peñón Blanco", "Gral. Escobedo", "Bahía de Banderas"] {
+            assert!(is_place_name(place), "{place}");
+        }
+        for not_a_place in ["", "   ", "Zapopan 45010", "contacto@casa.org", "Llamar al 55 1234 5678", &"a".repeat(81)] {
+            assert!(!is_place_name(not_a_place), "{not_a_place}");
+        }
         for good in ["ABC010203XY9", "AÑ&991231AB1", "abc010203xy9"] {
             assert!(is_rfc_moral(good), "{good}");
         }

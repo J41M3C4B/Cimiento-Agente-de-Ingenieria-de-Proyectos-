@@ -1,117 +1,70 @@
-//! The onboarding of the institution (ADR-031): the steps of the first start and what each one requires. The data
-//! belong to the institution, not to a person: while one required datum is missing, whoever enters with access
-//! sees the steps instead of the app (the administrator may leave them to the direction). The rules live here; the
-//! screen only shows what is missing.
+//! The onboarding of the institution (ADR-031, ADR-042): the first start asks only what is indispensable, the fields
+//! the catalog of forms marks `essential`, in short steps. Every one of them lives in a window of «Mi institución»,
+//! so finishing the first start and filling those windows are the same thing. The data belong to the institution, not
+//! to a person: while one indispensable datum is missing, whoever enters with access sees the steps instead of the app
+//! (the administrator may leave them to the direction). The rules live here; the screen only shows what is missing.
 
-use crate::core::profile::domain::ProfileInput;
-use crate::modules::finance::domain::lines::FinanceInput;
-use crate::modules::facilities::domain::site::SiteData;
+use crate::common::forms::{is_filled, FieldSpec, Values};
 use serde::Serialize;
 
-/// The steps, in order. The last screen (review and confirm) is not a step: it needs all of them complete.
-pub const STEPS: &[&str] = &["institution", "location", "people", "team", "money", "building"];
+/// A step of the first start: a few indispensable fields of one window, asked together.
+pub struct Step {
+    pub key: &'static str,
+    /// The window of «Mi institución» its fields belong to.
+    pub form: &'static str,
+    /// How many columns the screen uses for them.
+    pub columns: u8,
+    pub fields: &'static [&'static str],
+}
 
-/// The catalogs of the institution live with it (audit D3); the steps use them from there.
-pub use crate::core::institution::catalog::{state_name, STATES};
+/// The steps, in order (ADR-042 §3). The last screen (review and confirm) is not a step: it needs all of them complete.
+pub const STEPS: &[Step] = &[
+    Step { key: "who", form: "institution.identity", columns: 1, fields: &["institution.name", "institution.mission"] },
+    Step { key: "attention", form: "institution.identity", columns: 1, fields: &["institution.populations", "institution.modalities"] },
+    Step { key: "place", form: "institution.contact", columns: 2, fields: &["institution.state", "institution.municipality"] },
+    Step {
+        key: "constitution",
+        form: "institution.legal",
+        columns: 2,
+        fields: &["institution.legal_form", "institution.founded_year", "institution.authorized_donee", "institution.cluni"],
+    },
+    Step {
+        key: "figures",
+        form: "institution.capacity",
+        columns: 2,
+        fields: &["institution.capacity_total", "institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"],
+    },
+];
 
-/// What the steps look at, besides the profile: the records of the modules and the main site.
-pub struct Facts<'a> {
-    pub input: &'a ProfileInput,
-    /// What the finance module has (ADR-032).
-    pub money: &'a FinanceInput,
-    /// People served with a record in their module.
-    pub served_in_module: i64,
-    /// People of the staff with a record in their module.
-    pub staff_in_module: i64,
-    /// People who pay a stay fee, from the records (that is income too).
-    pub fee_payers: i64,
-    pub site: Option<&'a SiteData>,
+/// The quick figures the records of a module answer: with people registered in «Beneficiarios» the people served are
+/// known, and with people in «Personal», the team (ADR-031 §3: the records win).
+pub fn answered_by_records(served_in_module: i64, staff_in_module: i64) -> Vec<&'static str> {
+    let mut out = Vec::new();
+    if served_in_module > 0 {
+        out.push("institution.served_estimate");
+    }
+    if staff_in_module > 0 {
+        out.extend(["institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);
+    }
+    out
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct StepStatus {
     pub key: &'static str,
-    /// The required data still missing (codes the screen names).
+    /// The indispensable data still missing, by field id.
     pub missing: Vec<&'static str>,
     pub complete: bool,
 }
 
-fn filled(o: &Option<String>) -> bool {
-    o.as_deref().is_some_and(|s| !s.trim().is_empty())
-}
-
-/// What each step still needs.
-pub fn steps(f: &Facts) -> Vec<StepStatus> {
-    let i = f.input;
-    let inst = &i.institution;
+/// What each step still needs, from the values of the windows of «Mi institución» (by field id) and what the records
+/// already answer.
+pub fn steps(values: &Values, answered: &[&str]) -> Vec<StepStatus> {
     STEPS
         .iter()
-        .map(|&key| {
-            let mut m: Vec<&'static str> = Vec::new();
-            match key {
-                "institution" => {
-                    if inst.name.trim().is_empty() {
-                        m.push("name");
-                    }
-                    if !filled(&inst.mission) {
-                        m.push("mission");
-                    }
-                }
-                "location" => {
-                    if !filled(&inst.state) {
-                        m.push("state");
-                    }
-                    if !filled(&inst.municipality) {
-                        m.push("municipality");
-                    }
-                    if !filled(&inst.contact_phone) && !filled(&inst.contact_email) {
-                        m.push("contact");
-                    }
-                    if !filled(&inst.legal_form) {
-                        m.push("legal_form");
-                    }
-                    if inst.founded_year.is_none() {
-                        m.push("founded_year");
-                    }
-                    if !filled(&inst.authorized_donee) {
-                        m.push("authorized_donee");
-                    }
-                    if !filled(&inst.cluni) {
-                        m.push("cluni");
-                    }
-                }
-                "people" => {
-                    if i.capacity_total.is_none() {
-                        m.push("capacity_total");
-                    }
-                    if f.served_in_module == 0 && i.served_estimate.is_none() {
-                        m.push("served");
-                    }
-                }
-                "team" => {
-                    if f.staff_in_module == 0 && (i.staff_paid_estimate.is_none() || i.staff_volunteer_estimate.is_none()) {
-                        m.push("staff");
-                    }
-                }
-                "money" => {
-                    if f.money.annual_budget_mxn.is_none() && !f.money.expenses.iter().any(|e| e.amount_mxn.is_some()) {
-                        m.push("expenses");
-                    }
-                    if f.fee_payers == 0 && !f.money.income.iter().any(|x| x.amount_mxn.is_some()) {
-                        m.push("income");
-                    }
-                }
-                _ => {
-                    let site = f.site;
-                    if site.and_then(|s| s.floors).is_none() {
-                        m.push("floors");
-                    }
-                    if !site.is_some_and(|s| filled(&s.tenure)) {
-                        m.push("tenure");
-                    }
-                }
-            }
-            StepStatus { key, complete: m.is_empty(), missing: m }
+        .map(|s| {
+            let missing: Vec<&'static str> = s.fields.iter().copied().filter(|f| !answered.contains(f) && !is_filled(values.get(*f))).collect();
+            StepStatus { key: s.key, complete: missing.is_empty(), missing }
         })
         .collect()
 }
@@ -121,94 +74,111 @@ pub fn complete(steps: &[StepStatus]) -> bool {
     steps.iter().all(|s| s.complete)
 }
 
+/// The field of the catalog behind an id of a step.
+pub fn field(id: &str) -> &'static FieldSpec {
+    crate::core::institution::forms::field(id).unwrap_or_else(|| panic!("{id} is not in the catalog"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::profile::domain::InstitutionInput;
-    use crate::modules::finance::domain::lines::IncomeSourceInput;
-    use crate::modules::finance::domain::money::{IncomeKind, Period};
+    use crate::common::forms::Condition;
+    use crate::core::institution::catalog::{state_name, RECORD_TYPES, STATES};
+    use crate::core::institution::forms::{form, FORMS, LIST_FORMS};
+    use serde_json::json;
 
-    fn full() -> ProfileInput {
-        ProfileInput {
-            institution: InstitutionInput {
-                name: "Asilo Ficticio".into(),
-                mission: Some("Un hogar digno.".into()),
-                state: Some("jal".into()),
-                municipality: Some("Zapopan".into()),
-                contact_email: Some("contacto@asilo-ficticio.org".into()),
-                legal_form: Some("ac".into()),
-                founded_year: Some(1987),
-                authorized_donee: Some("yes".into()),
-                cluni: Some("in_progress".into()),
-                ..Default::default()
-            },
-            capacity_total: Some(25),
-            served_estimate: Some(22),
-            staff_paid_estimate: Some(6),
-            staff_volunteer_estimate: Some(0),
-            ..Default::default()
-        }
+    fn values(v: serde_json::Value) -> Values {
+        serde_json::from_value(v).unwrap()
     }
 
-    fn money() -> FinanceInput {
-        FinanceInput {
-            annual_budget_mxn: Some(1_800_000),
-            income: vec![IncomeSourceInput { label: "Donativos".into(), kind: IncomeKind::OccasionalDonation, amount_mxn: Some(500_000), period: Period::Annual }],
-            ..Default::default()
-        }
+    fn missing(values: &Values, answered: &[&str]) -> Vec<(&'static str, Vec<&'static str>)> {
+        steps(values, answered).into_iter().filter(|s| !s.complete).map(|s| (s.key, s.missing)).collect()
     }
 
-    fn site() -> SiteData {
-        SiteData { name: "Casa".into(), floors: Some(2), tenure: Some("own".into()), ..Default::default() }
-    }
-
-    fn missing(f: &Facts) -> Vec<(&'static str, Vec<&'static str>)> {
-        steps(f).into_iter().filter(|s| !s.complete).map(|s| (s.key, s.missing)).collect()
-    }
-
+    /// ADR-042 §1: the steps ask exactly the fields the catalog marks indispensable, each one once, each step inside
+    /// one window, and every one of them always asked (none hides behind another answer).
     #[test]
-    fn a_full_institution_is_complete() {
-        let (p, m, s) = (full(), money(), site());
-        let f = Facts { input: &p, money: &m, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: Some(&s) };
-        assert!(complete(&steps(&f)), "{:?}", missing(&f));
+    fn the_steps_are_the_indispensable_fields_of_the_catalog() {
+        let essential: Vec<&str> = FORMS.iter().flat_map(|f| f.fields()).filter(|f| f.essential).map(|f| f.id).collect();
+        let asked: Vec<&str> = STEPS.iter().flat_map(|s| s.fields.iter().copied()).collect();
+        let mut a = essential.clone();
+        let mut b = asked.clone();
+        a.sort_unstable();
+        b.sort_unstable();
+        assert_eq!(a, b, "the first start and the catalog disagree");
+        assert!((1..asked.len()).all(|i| !asked[..i].contains(&asked[i])), "a field is asked twice: {asked:?}");
+        for s in STEPS {
+            let window = form(s.form).unwrap_or_else(|| panic!("{} is not a window", s.form));
+            for f in s.fields {
+                let spec = window.field(f).unwrap_or_else(|| panic!("{f} is not in {}", s.form));
+                assert!(spec.required && spec.applies_when == Condition::Always, "{f}: an indispensable field is required and always asked");
+            }
+        }
+        assert!(LIST_FORMS.iter().flat_map(|f| f.fields()).all(|f| !f.essential), "the lists are filled after the first start");
+        assert_eq!(asked.len(), 14);
+    }
+
+    /// ADR-042 §1, criterion A: a datum that changes what the program asks or shows is indispensable. Without it the
+    /// windows would hide or show the wrong fields and the Expediente would ask for the wrong documents.
+    #[test]
+    fn what_changes_what_the_program_asks_is_indispensable() {
+        let profile = |id: &str| FORMS.iter().any(|f| f.field(id).is_some());
+        let mut deciders: Vec<&str> = FORMS
+            .iter()
+            .chain(LIST_FORMS)
+            .flat_map(|f| f.fields())
+            .filter_map(|f| match f.applies_when {
+                Condition::Always => None,
+                Condition::Filled { field } | Condition::AnyOf { field, .. } => Some(field),
+            })
+            .filter(|id| profile(id))
+            .collect();
+        deciders.extend(RECORD_TYPES.iter().filter_map(|(_, a)| a.field()));
+        // the kind the modules go by comes out of whom it serves
+        deciders.push("institution.populations");
+        for id in deciders {
+            assert!(field(id).essential, "{id} decides what the program asks, so it must be indispensable");
+        }
     }
 
     #[test]
     fn an_empty_start_names_everything_it_needs() {
-        let (p, m) = (ProfileInput::default(), FinanceInput::default());
-        let f = Facts { input: &p, money: &m, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: None };
-        assert_eq!(missing(&f), vec![
-            ("institution", vec!["name", "mission"]),
-            ("location", vec!["state", "municipality", "contact", "legal_form", "founded_year", "authorized_donee", "cluni"]),
-            ("people", vec!["capacity_total", "served"]),
-            ("team", vec!["staff"]),
-            ("money", vec!["expenses", "income"]),
-            ("building", vec!["floors", "tenure"]),
-        ]);
+        assert_eq!(
+            missing(&Values::new(), &[]),
+            vec![
+                ("who", vec!["institution.name", "institution.mission"]),
+                ("attention", vec!["institution.populations", "institution.modalities"]),
+                ("place", vec!["institution.state", "institution.municipality"]),
+                ("constitution", vec!["institution.legal_form", "institution.founded_year", "institution.authorized_donee", "institution.cluni"]),
+                ("figures", vec!["institution.capacity_total", "institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_full_institution_is_complete_and_zero_volunteers_is_an_answer() {
+        let v = values(json!({
+            "institution.name": "Asilo Ficticio", "institution.mission": "Un hogar digno.",
+            "institution.populations": ["older_adults"], "institution.modalities": ["residential"],
+            "institution.state": "jal", "institution.municipality": "Zapopan",
+            "institution.legal_form": "ac", "institution.founded_year": 1987, "institution.authorized_donee": "yes", "institution.cluni": "in_progress",
+            "institution.capacity_total": 25, "institution.served_estimate": 22, "institution.staff_paid_estimate": 6, "institution.staff_volunteer_estimate": 0,
+        }));
+        assert!(complete(&steps(&v, &[])), "{:?}", missing(&v, &[]));
+        let mut blank = v.clone();
+        blank.insert("institution.municipality".into(), json!("   "));
+        blank.insert("institution.populations".into(), json!([]));
+        assert_eq!(missing(&blank, &[]), vec![("attention", vec!["institution.populations"]), ("place", vec!["institution.municipality"])]);
+        assert_eq!(state_name("qroo"), Some("Quintana Roo"));
+        assert_eq!(STATES.len(), 32);
     }
 
     #[test]
     fn the_records_of_the_modules_count_instead_of_the_quick_figures() {
-        let mut p = full();
-        p.served_estimate = None;
-        p.staff_paid_estimate = None;
-        let mut m = money();
-        m.income.clear();
-        let s = site();
-        let f = Facts { input: &p, money: &m, served_in_module: 18, staff_in_module: 7, fee_payers: 5, site: Some(&s) };
-        assert!(complete(&steps(&f)), "{:?}", missing(&f));
-        let f = Facts { input: &p, money: &m, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: Some(&s) };
-        assert_eq!(missing(&f), vec![("people", vec!["served"]), ("team", vec!["staff"]), ("money", vec!["income"])]);
-    }
-
-    #[test]
-    fn zero_volunteers_is_an_answer_but_blank_text_is_not() {
-        let mut p = full();
-        p.institution.municipality = Some("   ".into());
-        let (m, s) = (money(), site());
-        let f = Facts { input: &p, money: &m, served_in_module: 0, staff_in_module: 0, fee_payers: 0, site: Some(&s) };
-        assert_eq!(missing(&f), vec![("location", vec!["municipality"])]);
-        assert_eq!(state_name("qroo"), Some("Quintana Roo"));
-        assert_eq!(STATES.len(), 32);
+        let v = values(json!({ "institution.capacity_total": 25 }));
+        let figures = |answered: &[&str]| steps(&v, answered).into_iter().find(|s| s.key == "figures").unwrap().missing;
+        assert_eq!(figures(&answered_by_records(0, 0)), vec!["institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);
+        assert_eq!(figures(&answered_by_records(18, 0)), vec!["institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);
+        assert!(figures(&answered_by_records(18, 7)).is_empty());
     }
 }

@@ -3,12 +3,11 @@
 //! records), how full the house is, the balance of the year, and what is still missing with where to fill it in.
 
 use crate::core::error::ServiceError;
-use crate::core::onboarding::domain::StepStatus;
-use crate::core::onboarding::service::Records;
 use rusqlite::Connection;
 use serde::Serialize;
 
-/// Where a missing datum is filled in: a window of «Mi institución» or the page of a module.
+/// Where a missing datum is filled in: a window of «Mi institución». What the modules still lack is asked from
+/// Inicio, in «Siguientes pasos» (ADR-042).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Place {
@@ -18,10 +17,6 @@ pub enum Place {
     /// The board and the bank accounts of «Mi institución» (ADR-033 §3).
     Board,
     Capacity,
-    Finance,
-    Facilities,
-    Staff,
-    People,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -31,10 +26,11 @@ pub struct Gap {
     pub place: Place,
 }
 
-/// How far the data of the institution are filled in.
+/// How far the data of the institution are filled in: only its own data (its windows and its board), never the
+/// records of the modules (ADR-042).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Completion {
-    /// In the order of the first start, then what nobody registered yet.
+    /// The indispensable data first, in the order of the first start; then the rest, in the order of the page.
     pub gaps: Vec<Gap>,
     /// 0 to 100; it reads 100 only with nothing missing.
     pub percent: u32,
@@ -97,101 +93,74 @@ fn place_of(code: &str) -> Place {
         }
         "board" => Place::Board,
         "capacity_total" | "served" | "staff" => Place::Capacity,
-        "expenses" | "income" => Place::Finance,
-        "floors" | "tenure" => Place::Facilities,
-        "staff_records" => Place::Staff,
-        "served_records" => Place::People,
-        "spaces" => Place::Facilities,
         _ => Place::Institution,
     }
 }
 
-/// The windows of «Mi institución» go first, in the order the page shows them; the rest keep their order.
-fn rank(p: Place) -> u8 {
-    match p {
-        Place::Institution => 0,
-        Place::Contact => 1,
-        Place::Legal => 2,
-        Place::Board => 3,
-        Place::Capacity => 4,
-        _ => 5,
-    }
-}
-
-/// What a required field of a form stands for in the list of what is missing: its id without `institution.`, and
-/// the street and the postal code as one, the address.
+/// What a required field of a form stands for in the list of what is missing: its id without `institution.`; the
+/// street and the postal code as one, the address; and the quick figures as the people served and the team.
 pub fn code_of(id: &'static str) -> &'static str {
     match id {
         "institution.street" | "institution.postal_code" => "address",
+        "institution.served_estimate" => "served",
+        "institution.staff_paid_estimate" | "institution.staff_volunteer_estimate" => "staff",
         _ => id.strip_prefix("institution.").unwrap_or(id),
     }
 }
 
-/// The checks of the first start, of «Su institución» and of the records: always there.
-const CHECKS: usize = 21;
-/// The codes those checks already count; the required fields of the forms beyond them add to the checks.
-const COUNTED: &[&str] = &[
-    "name", "mission", "populations", "modalities", "state", "municipality", "contact", "legal_form", "founded_year", "authorized_donee", "cluni",
-    "capacity_total", "served", "staff", "expenses", "income", "floors", "tenure",
-];
+/// Where a field stands in the list: the indispensable ones first, in the order of the first start; the rest keep
+/// the order of the page.
+fn order(id: &str) -> (u8, usize) {
+    match crate::core::onboarding::domain::STEPS.iter().flat_map(|s| s.fields.iter()).position(|f| *f == id) {
+        Some(at) => (0, at),
+        None => (1, 0),
+    }
+}
 
-/// What is missing and how far the data are, from the steps of the first start, the required fields of the forms of
-/// «Mi institución» still empty (their ids), how many required fields those forms ask beyond the first start
-/// (`extra_checks`), the records of the modules and how many spaces are registered. A record that is missing is
-/// listed only when its quick figure is there: the person fills one thing at a time.
-pub fn completion(steps: &[StepStatus], forms_missing: &[&'static str], extra_checks: usize, records: &Records, spaces: i64) -> Completion {
-    let mut codes: Vec<&'static str> = steps.iter().flat_map(|s| s.missing.iter().copied()).collect();
-    for id in forms_missing {
+/// What is missing and how far the data are, from the required fields still empty (their ids, in the order of the
+/// page) and how many things the data must have (`checks`, each code once).
+pub fn completion(missing: &[&'static str], checks: usize) -> Completion {
+    let mut ids = missing.to_vec();
+    // stable: what is not indispensable keeps the order of the page
+    ids.sort_by_key(|id| order(id));
+    let mut codes: Vec<&'static str> = Vec::new();
+    for id in ids {
         let code = code_of(id);
         if !codes.contains(&code) {
             codes.push(code);
         }
     }
-    // stable: the first start keeps its order inside each window
-    codes.sort_by_key(|c| rank(place_of(c)));
-    let mut failed = codes.len();
-    let has = |c: &[&str], code: &str| c.contains(&code);
-    for (record_missing, code, covered_by) in [
-        (records.staff == 0, "staff_records", &["staff"][..]),
-        (records.served == 0, "served_records", &["served"][..]),
-        (spaces == 0, "spaces", &["floors", "tenure"][..]),
-    ] {
-        if record_missing {
-            failed += 1;
-            if !covered_by.iter().any(|x| has(&codes, x)) {
-                codes.push(code);
-            }
-        }
-    }
-    let checks = CHECKS + extra_checks;
-    let percent = if codes.is_empty() { 100 } else { ((checks - failed.min(checks)) * 100 / checks).min(99) as u32 };
+    let failed = codes.len();
+    let checks = checks.max(failed).max(1);
+    let percent = if codes.is_empty() { 100 } else { ((checks - failed) * 100 / checks).min(99) as u32 };
     Completion { gaps: codes.into_iter().map(|code| Gap { code, place: place_of(code) }).collect(), percent }
 }
 
 /// What stands for the board in the list of what is missing: someone active in it.
 const BOARD: &str = "institution.board";
 
-/// The required fields of the forms of «Mi institución» that apply and are still empty, in the order of the page,
-/// and how many required fields they ask beyond what the first start counts.
+/// The required fields of the windows of «Mi institución» that apply and are still empty, in the order of the page,
+/// and how many things the data must have (each code once, the board included). What the records answer is not
+/// missing (`profile::forms::get` leaves it out).
 fn forms_missing(conn: &Connection) -> Result<(Vec<&'static str>, usize), ServiceError> {
     let mut missing = Vec::new();
-    let mut extra: Vec<&'static str> = Vec::new();
+    let mut checks: Vec<&'static str> = Vec::new();
     for spec in crate::core::institution::forms::FORMS {
         let view = crate::core::profile::forms::get(conn, spec.id)?;
         missing.extend(view.missing);
         for f in spec.fields().filter(|f| f.required && spec.applies(f, &view.values)) {
             let code = code_of(f.id);
-            if !COUNTED.contains(&code) && !extra.contains(&code) {
-                extra.push(code);
+            if !checks.contains(&code) {
+                checks.push(code);
             }
         }
     }
     // the board is asked of every institution: someone governs it (ADR-033 §3); the accounts are optional
-    extra.push(code_of(BOARD));
+    checks.push(code_of(BOARD));
     if !crate::core::protected::has_board(conn)? {
         missing.push(BOARD);
     }
-    Ok((missing, extra.len()))
+    Ok((missing, checks.len()))
 }
 
 /// The records win; while there are none, the quick figure of the first start stands in, and says so.
@@ -208,8 +177,8 @@ pub fn occupied_percent(people: i64, capacity: Option<i64>) -> Option<u32> {
 
 pub fn institution_overview(conn: &Connection) -> Result<InstitutionOverview, ServiceError> {
     let input = crate::core::profile::storage::load_current(conn)?.map(|p| p.input).unwrap_or_default();
-    let (steps, records) = crate::core::onboarding::service::steps_now(conn)?;
-    let (missing, extra_checks) = forms_missing(conn)?;
+    let records = crate::core::onboarding::service::records(conn)?;
+    let (missing, checks) = forms_missing(conn)?;
     let spaces = crate::modules::facilities::api::indicators(conn)?.spaces;
     let staff_estimate = match (input.staff_paid_estimate, input.staff_volunteer_estimate) {
         (None, None) => None,
@@ -224,7 +193,7 @@ pub fn institution_overview(conn: &Connection) -> Result<InstitutionOverview, Se
         staff: figure(records.staff, staff_estimate),
         spaces,
         balance_annual_mxn: crate::core::bridge::finance::finances(conn)?.balance_annual_mxn,
-        completion: completion(&steps, &missing, extra_checks, &records, spaces),
+        completion: completion(&missing, checks),
         suggestions: suggestions(conn)?,
     })
 }
@@ -233,71 +202,42 @@ pub fn institution_overview(conn: &Connection) -> Result<InstitutionOverview, Se
 mod tests {
     use super::*;
 
-    fn steps(missing: &[(&'static str, &[&'static str])]) -> Vec<StepStatus> {
-        ["institution", "location", "people", "team", "money", "building"]
-            .iter()
-            .map(|&key| {
-                let m: Vec<&'static str> = missing.iter().find(|(k, _)| *k == key).map(|(_, m)| m.to_vec()).unwrap_or_default();
-                StepStatus { key, complete: m.is_empty(), missing: m }
-            })
-            .collect()
-    }
-
-    const FULL: Records = Records { served: 3, staff: 2, fee_payers: 0 };
-
     #[test]
     fn complete_data_read_one_hundred() {
-        let c = completion(&steps(&[]), &[], 0, &FULL, 4);
-        assert_eq!(c, Completion { gaps: vec![], percent: 100 });
+        assert_eq!(completion(&[], 22), Completion { gaps: vec![], percent: 100 });
     }
 
+    /// ADR-042: the indispensable data go first, in the order of the first start, whatever window they are in; the
+    /// rest keep the order of the page, and each code counts once.
     #[test]
-    fn what_is_missing_says_where_and_the_attention_profile_goes_after_the_institution() {
-        let c = completion(&steps(&[("institution", &["mission"]), ("location", &["state", "cluni"]), ("money", &["income"])]), &["institution.mission", "institution.populations"], 0, &FULL, 4);
-        let got: Vec<_> = c.gaps.iter().map(|g| (g.code, g.place)).collect();
-        assert_eq!(got, vec![("mission", Place::Institution), ("populations", Place::Institution), ("state", Place::Contact), ("cluni", Place::Legal), ("income", Place::Finance)]);
-        assert!(c.percent < 100);
-    }
-
-    #[test]
-    fn a_missing_record_is_listed_only_once_its_quick_figure_is_there() {
-        let nobody = Records { served: 0, staff: 0, fee_payers: 0 };
-        // the quick figures are missing too: only they are listed, but the records still count as not done
-        let c = completion(&steps(&[("people", &["served"]), ("team", &["staff"]), ("building", &["floors"])]), &[], 0, &nobody, 0);
-        assert_eq!(c.gaps.iter().map(|g| g.code).collect::<Vec<_>>(), vec!["served", "staff", "floors"]);
-        assert_eq!(c.percent, ((21 - 6) * 100 / 21) as u32);
-        // with the quick figures, the records are what is left
-        let c = completion(&steps(&[]), &[], 0, &nobody, 0);
-        assert_eq!(c.gaps.iter().map(|g| (g.code, g.place)).collect::<Vec<_>>(), vec![("staff_records", Place::Staff), ("served_records", Place::People), ("spaces", Place::Facilities)]);
-        assert_eq!(c.percent, 85);
-    }
-
-    #[test]
-    fn with_one_thing_missing_it_never_reads_one_hundred() {
-        let c = completion(&steps(&[]), &["institution.modalities"], 0, &FULL, 4);
-        assert_eq!(c.percent, 95);
-        assert_eq!(c.gaps, vec![Gap { code: "modalities", place: Place::Institution }]);
-    }
-
-    #[test]
-    fn the_new_data_go_to_their_window_and_count_once() {
-        let missing = ["institution.legal_name", "institution.street", "institution.postal_code", "institution.mission", "institution.legal_rfc"];
-        let c = completion(&steps(&[("location", &["state", "cluni"])]), &missing, 4, &FULL, 4);
+    fn the_indispensable_go_first_and_each_one_says_where() {
+        let missing = [
+            "institution.mission", "institution.services", "institution.street", "institution.postal_code", "institution.state",
+            "institution.legal_name", "institution.cluni", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate", "institution.board",
+        ];
+        let c = completion(&missing, 26);
         let got: Vec<_> = c.gaps.iter().map(|g| (g.code, g.place)).collect();
         assert_eq!(
             got,
             vec![
                 ("mission", Place::Institution),
                 ("state", Place::Contact),
-                ("address", Place::Contact),
                 ("cluni", Place::Legal),
+                ("staff", Place::Capacity),
+                ("services", Place::Institution),
+                ("address", Place::Contact),
                 ("legal_name", Place::Legal),
-                ("legal_rfc", Place::Legal),
+                ("board", Place::Board),
             ]
         );
-        assert_eq!(c.percent, ((25 - 6) * 100 / 25) as u32);
-        // with nothing missing it reads 100, however many checks there are
-        assert_eq!(completion(&steps(&[]), &[], 6, &FULL, 4).percent, 100);
+        assert_eq!(c.percent, ((26 - 8) * 100 / 26) as u32);
+    }
+
+    #[test]
+    fn with_one_thing_missing_it_never_reads_one_hundred() {
+        let c = completion(&["institution.modalities"], 200);
+        assert_eq!(c.percent, 99);
+        assert_eq!(c.gaps, vec![Gap { code: "modalities", place: Place::Institution }]);
     }
 
     #[test]
@@ -333,7 +273,10 @@ mod tests {
         assert_eq!((o.people, o.occupied_percent, o.vacant, o.staff), (Figure { value: 15, approx: true }, Some(75), Some(5), Figure { value: 6, approx: true }));
         assert_eq!(o.balance_annual_mxn, None);
         let codes: Vec<_> = o.completion.gaps.iter().map(|g| g.code).collect();
-        assert!(codes.starts_with(&["mission"]) && !codes.contains(&"populations"), "the kind gave the populations: {codes:?}");
-        assert!(codes.contains(&"staff_records") && codes.contains(&"served_records") && codes.contains(&"floors"), "{codes:?}");
+        assert!(codes.starts_with(&["mission", "state", "municipality", "legal_form"]) && !codes.contains(&"populations"), "the kind gave the populations: {codes:?}");
+        // ADR-042: the records of the modules and their data (money, building) are asked from Inicio, not here
+        for module in ["staff_records", "served_records", "spaces", "floors", "expenses", "income", "served", "staff", "capacity_total"] {
+            assert!(!codes.contains(&module), "{module}: {codes:?}");
+        }
     }
 }

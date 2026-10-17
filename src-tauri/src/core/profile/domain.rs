@@ -99,14 +99,14 @@ pub struct InstitutionInput {
     pub contact_phone: Option<String>,
     pub contact_email: Option<String>,
     pub legal_rep_name: Option<String>,
-    /// Where it is (ADR-031): a code of `onboarding::STATES` and the municipality. Not personal: it reaches the AI.
+    /// Where it is (ADR-031): a code of `institution::catalog::STATES` and the municipality (a place name, `Rule::PlaceName`). Not personal: it reaches the AI.
     #[serde(default)]
     pub state: Option<String>,
     #[serde(default)]
     pub municipality: Option<String>,
     #[serde(default)]
     pub founded_year: Option<i64>,
-    /// A code of `onboarding::LEGAL_FORMS`.
+    /// A code of `institution::catalog::LEGAL_FORMS`.
     #[serde(default)]
     pub legal_form: Option<String>,
     /// Donataria autorizada (SAT) and CLUNI: `yes`, `in_progress` or `no`.
@@ -397,6 +397,9 @@ impl ProfileInput {
         if !known(&inst.state, &crate::core::institution::catalog::STATES.iter().map(|(c, _)| *c).collect::<Vec<_>>()) {
             add("code_unknown", "institution.state".into(), true);
         }
+        if inst.municipality.as_deref().is_some_and(|m| !m.trim().is_empty() && !crate::common::forms::is_place_name(m)) {
+            add("place_name_invalid", "institution.municipality".into(), true);
+        }
         for (field, value, list) in [
             ("institution.legal_form", &inst.legal_form, crate::core::institution::catalog::LEGAL_FORMS),
             ("institution.authorized_donee", &inst.authorized_donee, crate::core::institution::catalog::REGISTRY),
@@ -510,7 +513,8 @@ impl ProfileInput {
             }
         }
         opt("institution.mission", &mut self.institution.mission, f);
-        opt("institution.municipality", &mut self.institution.municipality, f);
+        // the municipality is not scanned: it is the name of a place (`Rule::PlaceName`), and many are named after a
+        // person («Benito Juárez», «Miguel Hidalgo»)
         // the long texts of the catalog that may reach the AI (objeto social, services, admission); the address, the
         // folios and the keys are the institution's own and are not scanned, like its contact
         if let Some(d) = &mut self.institution.details {

@@ -210,7 +210,6 @@ fn gap_words(code: &str) -> &'static str {
         "modalities" => "Cómo los atienden",
         "state" => "El estado",
         "municipality" => "El municipio",
-        "contact" => "Un teléfono o un correo",
         "address" => "El domicilio",
         "legal_name" => "El nombre legal",
         "purpose" => "El objeto social",
@@ -224,13 +223,6 @@ fn gap_words(code: &str) -> &'static str {
         "capacity_total" => "La capacidad",
         "served" => "Cuántas personas atienden",
         "staff" => "Cuántas personas trabajan y cuántas son voluntarias",
-        "expenses" => "Cuánto gasta al año",
-        "income" => "Al menos una fuente de ingreso con monto",
-        "floors" => "Cuántos pisos tiene",
-        "tenure" => "De quién es el inmueble",
-        "staff_records" => "Registrar al personal",
-        "served_records" => "Registrar a las personas que atienden",
-        "spaces" => "Registrar los espacios del inmueble",
         "board" => "Registrar a quienes forman el patronato u órgano de gobierno",
         _ => "Otro dato",
     }
@@ -243,10 +235,6 @@ fn place_words(p: Place) -> &'static str {
         Place::Legal => "Mi institución, ventana «Datos legales y fiscales»",
         Place::Board => "Mi institución, apartado «Patronato y cuentas»",
         Place::Capacity => "Mi institución, ventana «Capacidad y cifras rápidas»",
-        Place::Finance => "el módulo de Finanzas",
-        Place::Facilities => "el módulo de Instalaciones",
-        Place::Staff => "el módulo de Personal",
-        Place::People => "el módulo de Beneficiarios",
     }
 }
 

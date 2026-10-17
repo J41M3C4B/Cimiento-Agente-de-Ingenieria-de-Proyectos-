@@ -40,7 +40,7 @@ describe("what the institution still has to fill in", () => {
 
   it("names each missing piece in the words of the person and keeps where Rust says it is filled in", async () => {
     vi.mocked(institutionOverview).mockResolvedValue(
-      overview([["mission", "institution"], ["populations", "institution"], ["state", "contact"], ["staff_records", "staff"], ["spaces", "facilities"]], 80),
+      overview([["mission", "institution"], ["populations", "institution"], ["state", "contact"], ["staff", "capacity"], ["board", "board"]], 80),
     );
     const { result } = run();
     await waitFor(() => expect(result.current.ready).toBe(true));
@@ -48,8 +48,8 @@ describe("what the institution still has to fill in", () => {
       ["A qué se dedica", "institution"],
       ["A quién atienden", "institution"],
       ["El estado", "contact"],
-      ["Todavía no registra a su personal", "staff"],
-      ["Todavía no registra sus instalaciones", "facilities"],
+      ["Cuántas personas trabajan y cuántas son voluntarias", "capacity"],
+      ["Quiénes forman el patronato", "board"],
     ]);
     expect(result.current.percent).toBe(80);
   });

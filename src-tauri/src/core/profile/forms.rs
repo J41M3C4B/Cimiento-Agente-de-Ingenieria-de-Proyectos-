@@ -158,7 +158,10 @@ pub fn get(conn: &Connection, id: &str) -> Result<FormView, ServiceError> {
             crate::core::agents::proposals::Origin::AiAssumption => values.get(&p.field_id) != Some(&p.value),
         })
         .collect();
-    Ok(FormView { spec, missing: spec.missing(&values), origins, values, proposals, fill: crate::core::agents::capturist::fill_of_form(id) })
+    // a quick figure the records of a module already answer is not missing (ADR-031 §3: the records win)
+    let answered = crate::core::onboarding::service::answered(conn)?;
+    let missing = spec.missing(&values).into_iter().filter(|f| !answered.contains(f)).collect();
+    Ok(FormView { spec, missing, origins, values, proposals, fill: crate::core::agents::capturist::fill_of_form(id) })
 }
 
 /// The values of a form as saved now, by field id: what the Capturist must not propose again.

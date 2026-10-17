@@ -13,6 +13,7 @@ import { facilitiesOverview } from "../../modules/facilities/api";
 import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { ONBOARDING_KEY, onboardingStatus } from "../onboarding/api";
 import { resumeOnboarding } from "../onboarding/OnboardingGate";
+import { useOverview } from "../profile/gaps";
 import { GlobalFigures } from "./GlobalFigures";
 import { InstitutionCard } from "./InstitutionCard";
 import { Ongoing } from "./Ongoing";
@@ -82,14 +83,15 @@ export function HomePage({
 }
 
 /**
- * For the administrator who left the data of the institution to the direction: Inicio says they are still missing,
- * and a button takes them up again. Once the institution finishes them, it disappears.
+ * For the administrator who left the data of the institution to the direction: Inicio says how many indispensable data
+ * are still missing (ADR-042: the same ones «Mi institución» lists first), and a button takes them up again. Once the
+ * institution finishes them, it disappears.
  */
 function PendingData() {
   const status = useQuery({ queryKey: ONBOARDING_KEY, queryFn: onboardingStatus });
   const s = status.data;
   if (!s || s.done || !s.can_postpone) return null;
-  const n = s.steps.filter((x) => !x.complete).length;
+  const n = s.steps.reduce((sum, x) => sum + x.missing.length, 0);
   return (
     <Alert tone="warn">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
@@ -106,13 +108,15 @@ function PendingData() {
 }
 
 /**
- * After the first start: what to do next so the assistant knows the institution better (ADR-031). Each step goes to
- * where it is done and goes away when it is done; with all of them done the card is not drawn.
+ * After the first start: what to do next so the assistant knows the institution better (ADR-031). The data of the
+ * modules are asked here, never in the first start (ADR-042). Each step goes to where it is done and goes away when it
+ * is done; with all of them done the card is not drawn.
  */
 function NextSteps({ onGo, onGoAi }: { onGo: (page: Page) => void; onGoAi: () => void }) {
   const access = useSession();
   const status = useQuery({ queryKey: ONBOARDING_KEY, queryFn: onboardingStatus });
   const facilities = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
+  const overview = useOverview();
   const s = status.data;
   if (!s || !s.done) return null;
   type Step = { key: string; icon: IconName; tone: Tone; todo: boolean; go: () => void };
@@ -121,6 +125,7 @@ function NextSteps({ onGo, onGoAi }: { onGo: (page: Page) => void; onGoAi: () =>
     of("staff", s.records.staff === 0),
     of("people", s.records.served === 0),
     ...(facilities.isSuccess ? [of("facilities", facilities.data.indicators.spaces === 0)] : []),
+    ...(overview.isSuccess ? [of("finance", overview.data.balance_annual_mxn === null)] : []),
     ...(s.setup && access?.can("settings") ? [{ key: "ai", icon: "sparkles" as IconName, tone: "ink" as const, todo: !s.setup.ai_ready, go: onGoAi }] : []),
   ];
   const pending = all.filter((x) => x.todo);

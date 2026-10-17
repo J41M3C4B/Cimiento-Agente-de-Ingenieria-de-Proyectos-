@@ -9,23 +9,20 @@ export const OVERVIEW_KEY = ["institution", "overview"];
 export const useOverview = () => useQuery({ queryKey: OVERVIEW_KEY, queryFn: institutionOverview });
 
 /**
- * Where a piece that is still missing gets filled in: a window of «Mi institución» or the page of a module; or the
- * record (`records`), a part of «Mi institución» the Assistant may send the person to.
+ * Where a piece that is still missing gets filled in: a window of «Mi institución»; or the record (`records`), a part
+ * of «Mi institución» the Assistant may send the person to.
  */
 export type Where = Place | "records";
 
 export type Gap = { code: string; text: string; where: Where };
 
-const t = es.profile.todo;
-const RECORDS: Record<string, string> = { staff_records: t.staff, served_records: t.population, spaces: t.facilities };
-
 /** What a missing piece is called, in the words of the person. */
-export const gapText = (code: string) => es.onboarding.missing[code] ?? RECORDS[code] ?? code;
+export const gapText = (code: string) => es.onboarding.missing[code] ?? code;
 
 /**
- * What the institution has not filled in yet, as Rust lists it (`core/overview.rs`): in the order of the first start,
- * then the people and the spaces nobody registered. This only puts it in words. «Mi institución» and Inicio remind
- * the person of it.
+ * What the institution has not filled in yet, as Rust lists it (`core/overview.rs`): the indispensable data first, in
+ * the order of the first start, then the rest. This only puts it in words. «Mi institución» and Inicio remind the
+ * person of it.
  */
 export function useFillGaps(): { ready: boolean; gaps: Gap[]; percent: number } {
   const overview = useOverview();

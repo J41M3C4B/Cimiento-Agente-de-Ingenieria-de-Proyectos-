@@ -14,27 +14,34 @@ vi.mock("../../lib/tauri", () => ({ toAppError: (e: unknown) => ({ code: "x", me
 vi.mock("../access/session", () => ({ useSession: () => ({ can: () => false }) }));
 
 import * as api from "./api";
-import type { OnboardingStatus } from "./api";
+import type { OnboardingStatus, StepStatus } from "./api";
+import type { FieldSpec } from "../../lib/types";
 import { OnboardingGate, resumeOnboarding } from "./OnboardingGate";
 
-const KEYS = ["institution", "location", "people", "team", "money", "building"];
+// the steps as Rust sends them (ADR-042): each one drawn from the catalog of forms
+const field = (id: string, kind: FieldSpec["kind"] = "text"): FieldSpec => ({
+  id, kind, options: [], required: true, essential: true, applies_when: { when: "always" }, sensitivity: "public", ai: "as_is", used_by: [], min: null, max: null,
+});
+const FIELDS: Record<string, FieldSpec[]> = {
+  who: [field("institution.name"), field("institution.mission", "long_text")],
+  attention: [field("institution.populations", "multi_select"), field("institution.modalities", "multi_select")],
+  place: [field("institution.state"), field("institution.municipality")],
+  constitution: [field("institution.legal_form"), field("institution.founded_year", "year"), field("institution.authorized_donee"), field("institution.cluni")],
+  figures: [field("institution.capacity_total", "number"), field("institution.served_estimate", "number"), field("institution.staff_paid_estimate", "number"), field("institution.staff_volunteer_estimate", "number")],
+};
+const KEYS = Object.keys(FIELDS);
+
+/** Every step, with what is missing in each (all its fields, unless said). */
+function steps(missing: Record<string, string[]> = {}): StepStatus[] {
+  return KEYS.map((key) => {
+    const m = missing[key] ?? FIELDS[key]!.map((f) => f.id);
+    return { key, missing: m, complete: m.length === 0, form: { id: `onboarding.${key}`, sections: [{ id: key, columns: 1, fields: FIELDS[key]! }] } };
+  });
+}
+const done = Object.fromEntries(KEYS.map((k) => [k, []]));
 
 function status(patch: Partial<OnboardingStatus> = {}): OnboardingStatus {
-  return {
-    done: false,
-    ready: false,
-    welcomed: true,
-    can_postpone: false,
-    setup: null,
-    records: { served: 0, staff: 0, fee_payers: 0 },
-    steps: KEYS.map((key) => ({ key, missing: key === "institution" ? ["name", "mission"] : ["x"], complete: false })),
-    data: {
-      institution: { name: "", kind: "elderly_home", mission: null, legal_rfc: null, contact_phone: null, contact_email: null, legal_rep_name: null, state: null, municipality: null, founded_year: null, legal_form: null, authorized_donee: null, cluni: null },
-      capacity_total: null, served_estimate: null, staff_paid_estimate: null, staff_volunteer_estimate: null, annual_budget_mxn: null, income: [],
-      floors: null, built_m2: null, tenure: null, tenure_until: null, tenure_documented: null,
-    },
-    ...patch,
-  };
+  return { done: false, ready: false, welcomed: true, can_postpone: false, setup: null, records: { served: 0, staff: 0 }, steps: steps(), values: {}, ...patch };
 }
 
 function gate() {
@@ -65,15 +72,25 @@ describe("the first start", () => {
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
   });
 
-  it("the direction cannot skip the data and is told what is missing", async () => {
+  it("the direction cannot skip the data and is told what is missing, in the words of each field", async () => {
     vi.mocked(api.onboardingStatus).mockResolvedValue(status());
     vi.mocked(api.onboardingSave).mockResolvedValue({ status: "saved", onboarding: status() });
     gate();
     expect(await screen.findByRole("heading", { name: "Su institución" })).toBeInTheDocument();
     expect(screen.queryByText("Lo hará la dirección")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Guardar y seguir" }));
-    await waitFor(() => expect(screen.getByText(/Para seguir falta: El nombre, A qué se dedica\./)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Para seguir falta: Nombre de la institución, ¿A qué se dedica\?$/)).toBeInTheDocument());
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
+  });
+
+  it("a step saves only its own fields, and goes on once Rust says it is complete", async () => {
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ values: { "institution.state": "jal" } }));
+    vi.mocked(api.onboardingSave).mockResolvedValue({ status: "saved", onboarding: status({ steps: steps({ who: [] }) }) });
+    gate();
+    await userEvent.type(await screen.findByLabelText(/Nombre de la institución/), "Casa Ficticia");
+    await userEvent.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+    await waitFor(() => expect(api.onboardingSave).toHaveBeenCalledWith("who", { "institution.name": "Casa Ficticia" }, undefined));
+    expect(await screen.findByRole("heading", { name: "A quién atienden" })).toBeInTheDocument();
   });
 
   it("the administrator may leave the data to the direction and enter", async () => {
@@ -93,30 +110,23 @@ describe("the first start", () => {
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
   });
 
-  it("the screens regroup Rust's steps: «Dónde y quiénes son» is two screens and it opens on the one that is missing", async () => {
-    const steps = KEYS.map((key) => ({ key, missing: key === "location" ? ["state", "legal_form"] : [], complete: key !== "location" }));
-    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ steps }));
+  it("it opens on the first step that is missing, drawn from the catalog", async () => {
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ steps: steps({ who: [], attention: [] }) }));
     gate();
-    // the place is missing too, so it opens there; the legal data come after it
-    expect(await screen.findByRole("heading", { name: "Ubicación y contacto" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /datos legales/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dónde están" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Municipio o alcaldía/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Su institución, Listo" })).toBeInTheDocument();
   });
 
-  it("a screen is done when nothing is missing for it, even if Rust's step is not", async () => {
-    const steps = KEYS.map((key) => ({ key, missing: key === "location" ? ["legal_form"] : [], complete: key !== "location" }));
-    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ steps }));
+  it("the people served the records answer are not asked, and it says so", async () => {
+    const figures = steps({ ...done, figures: ["institution.capacity_total"] });
+    figures[4]!.form.sections[0]!.fields = FIELDS.figures!.filter((f) => f.id !== "institution.served_estimate");
+    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ steps: figures, records: { served: 12, staff: 0 } }));
     gate();
-    expect(await screen.findByRole("heading", { name: "Datos legales" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ubicación y contacto, Listo" })).toBeInTheDocument();
-  });
-
-  it("the people served and the team are one screen", async () => {
-    const steps = KEYS.map((key) => ({ key, missing: key === "team" ? ["staff"] : [], complete: key !== "team" }));
-    vi.mocked(api.onboardingStatus).mockResolvedValue(status({ steps }));
-    gate();
-    expect(await screen.findByRole("heading", { name: "Personas y equipo" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/¿Cuántas personas trabajan con sueldo?/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/¿Cuántas personas atienden hoy?/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Cuántas personas son" })).toBeInTheDocument();
+    expect(screen.getByText(/Ya hay 12 personas registradas en «Beneficiarios»/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/¿Cuántas personas atienden hoy\?/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/¿Cuántas personas trabajan con sueldo\?/)).toBeInTheDocument();
   });
 
   it("the setup tells what is ready from what is pending with words, not only with color", async () => {

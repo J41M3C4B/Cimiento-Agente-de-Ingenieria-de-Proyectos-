@@ -202,9 +202,7 @@ export function ProfilePage({
       ? setToRecords((n) => n + 1)
       : w === "board"
         ? setList({ kind: "board_member", row: null })
-        : w === "institution" || w === "contact" || w === "legal" || w === "capacity"
-          ? open({ kind: w })
-          : onGo(w);
+        : open({ kind: w });
 
   // the Assistant sent the person to the record: it is brought into view once it is drawn. In braces: a WebView2
   // returns a promise from scrollIntoView, and an effect must not return it

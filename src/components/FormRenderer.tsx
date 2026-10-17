@@ -36,10 +36,12 @@ type Props = {
   onDiscard?: (p: Proposal) => void;
   /** A line under a field that says where its value came from («Leído del archivo, pág. 2»), by field id. */
   notes?: Record<string, string>;
+  /** Without the titles of the sections: a step of the first start already says what it asks (ADR-042). */
+  bare?: boolean;
 };
 
 /** A value in the words of its field: the names of its options, or the value as it is. */
-function shownValue(f: FieldSpec, v: FormValue): string {
+export function shownValue(f: FieldSpec, v: FormValue): string {
   const w = words(f.id);
   const label = (code: string) => w.options?.[code] ?? code;
   if (Array.isArray(v)) return v.map(label).join(", ");
@@ -74,7 +76,7 @@ function Suggestion({ f, p, onUse, onDiscard }: { f: FieldSpec; p: Proposal; onU
  * per field the input its kind asks for. The words come from `es.forms` under the id of each field; the «?» next to
  * each label opens what the manual says of it (ADR-034), one at a time.
  */
-export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard, notes = {} }: Props) {
+export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard, notes = {}, bare = false }: Props) {
   const set = (id: string, v: FormValue) => onChange({ ...values, [id]: v });
   const [help, setHelp] = useState<string | null>(null);
   return (
@@ -82,9 +84,8 @@ export function FormRenderer({ spec, values, onChange, errors = {}, suggestions 
       {spec.sections.map((s) => {
         const shown = s.fields.filter((f) => applies(f, values));
         if (shown.length === 0) return null;
-        return (
-          <FormSection key={s.id} title={es.forms.sections[s.id] ?? s.id}>
-            <div className={`grid grid-cols-1 gap-4 ${s.columns > 1 ? "sm:grid-cols-2" : ""}`}>
+        const grid = (
+          <div className={`grid grid-cols-1 gap-4 ${s.columns > 1 ? "sm:grid-cols-2" : ""}`}>
               {shown.map((f) => {
                 const panelId = `manual-${f.id}`;
                 const aside = <HelpToggle open={help === f.id} onToggle={() => setHelp(help === f.id ? null : f.id)} controls={panelId} />;
@@ -101,7 +102,13 @@ export function FormRenderer({ spec, values, onChange, errors = {}, suggestions 
                   </div>
                 );
               })}
-            </div>
+          </div>
+        );
+        return bare ? (
+          <div key={s.id}>{grid}</div>
+        ) : (
+          <FormSection key={s.id} title={es.forms.sections[s.id] ?? s.id}>
+            {grid}
           </FormSection>
         );
       })}

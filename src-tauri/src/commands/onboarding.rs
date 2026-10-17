@@ -1,9 +1,10 @@
-//! Commands of the first start (ADR-031): thin, they call `core::onboarding`.
+//! Commands of the first start (ADR-031, ADR-042): thin, they call `core::onboarding`.
 
 use super::guard;
 use crate::core::access::service::Session;
 use crate::error::UiError;
-use crate::core::onboarding::service::{self as svc, OnboardingData, OnboardingOutcome, OnboardingStatus};
+use crate::common::forms::Values;
+use crate::core::onboarding::service::{self as svc, OnboardingOutcome, OnboardingStatus};
 use crate::scanner::guard::Decision;
 use crate::Db;
 use tauri::State;
@@ -20,11 +21,12 @@ pub fn onboarding_status(session: State<'_, Session>, db: State<'_, Db>) -> Resu
     Ok(svc::status(&conn, gate.user()?)?)
 }
 
+/// Saves one step: its fields, through their window of «Mi institución».
 #[tauri::command]
-pub fn onboarding_save(session: State<'_, Session>, db: State<'_, Db>, data: OnboardingData, decision: Option<Decision>) -> Result<OnboardingOutcome, UiError> {
+pub fn onboarding_save(session: State<'_, Session>, db: State<'_, Db>, step: String, values: Values, decision: Option<Decision>) -> Result<OnboardingOutcome, UiError> {
     let gate = guard(&session, "onboarding_save")?;
     let mut conn = lock(&db)?;
-    Ok(svc::save(&mut conn, gate.user()?, data, decision)?)
+    Ok(svc::save(&mut conn, gate.user()?, &step, values, decision)?)
 }
 
 #[tauri::command]

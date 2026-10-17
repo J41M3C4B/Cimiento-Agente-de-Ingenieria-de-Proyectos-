@@ -1,27 +1,15 @@
-// The first start (ADR-031): the welcome of each person, the setup of the administrator and the data of the institution.
+// The first start (ADR-031, ADR-042): the welcome of each person, the setup of the administrator and the indispensable
+// data of the institution, step by step.
 import { invoke } from "@tauri-apps/api/core";
-import type { Decision, IncomeSourceInput, InstitutionInput, QuarantineReport } from "../../lib/types";
-
-export interface OnboardingData {
-  institution: InstitutionInput;
-  capacity_total: number | null;
-  served_estimate: number | null;
-  staff_paid_estimate: number | null;
-  staff_volunteer_estimate: number | null;
-  annual_budget_mxn: number | null;
-  income: IncomeSourceInput[];
-  floors: number | null;
-  built_m2: number | null;
-  tenure: string | null;
-  tenure_until: number | null;
-  tenure_documented: boolean | null;
-}
+import type { Decision, FormSpec, FormValues, QuarantineReport } from "../../lib/types";
 
 export interface StepStatus {
   key: string;
-  /** The required data still missing (codes). */
+  /** The indispensable data still missing, by field id. */
   missing: string[];
   complete: boolean;
+  /** Its fields, from the catalog of forms: drawn as their window draws them. */
+  form: FormSpec;
 }
 
 export interface OnboardingStatus {
@@ -30,8 +18,9 @@ export interface OnboardingStatus {
   steps: StepStatus[];
   /** Every step complete: it can be closed. */
   ready: boolean;
-  data: OnboardingData;
-  records: { served: number; staff: number; fee_payers: number };
+  /** What is saved of the fields of the steps, by field id. */
+  values: FormValues;
+  records: { served: number; staff: number };
   welcomed: boolean;
   /** The administrator may leave the data to the direction. */
   can_postpone: boolean;
@@ -50,6 +39,7 @@ export type OnboardingOutcome =
 
 export const ONBOARDING_KEY = ["onboarding"] as const;
 export const onboardingStatus = () => invoke<OnboardingStatus>("onboarding_status");
-export const onboardingSave = (data: OnboardingData, decision?: Decision) => invoke<OnboardingOutcome>("onboarding_save", { data, decision: decision ?? null });
+/** Saves one step: its fields go through their window of «Mi institución». */
+export const onboardingSave = (step: string, values: FormValues, decision?: Decision) => invoke<OnboardingOutcome>("onboarding_save", { step, values, decision: decision ?? null });
 export const onboardingFinish = () => invoke<OnboardingStatus>("onboarding_finish");
 export const onboardingWelcomeDone = () => invoke<void>("onboarding_welcome_done");

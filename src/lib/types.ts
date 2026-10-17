@@ -39,6 +39,8 @@ export interface FieldSpec {
   kind: FieldKind;
   options: string[];
   required: boolean;
+  /** indispensable (ADR-042): the first start asks it */
+  essential: boolean;
   applies_when: Condition;
   sensitivity: "public" | "internal" | "institutional_private" | "personal";
   ai: "as_is" | "aggregate_only" | "never";
@@ -58,7 +60,8 @@ export interface FormSpec {
 export type FormValue = string | number | boolean | string[];
 export type FormValues = Record<string, FormValue>;
 // The institution at a glance (ADR-033, core/overview.rs): composed in Rust, the screen only draws it.
-export type Place = "institution" | "contact" | "legal" | "board" | "capacity" | "finance" | "facilities" | "staff" | "people";
+/** A window of «Mi institución» (ADR-042: what the modules lack is asked from Inicio). */
+export type Place = "institution" | "contact" | "legal" | "board" | "capacity";
 export interface Figure {
   value: number;
   /** the quick figure of the first start, while the module has no records */

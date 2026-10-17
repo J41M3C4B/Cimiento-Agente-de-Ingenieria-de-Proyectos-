@@ -8,6 +8,7 @@ const field = (id: string, kind: FieldSpec["kind"], options: string[] = []): Fie
   kind,
   options,
   required: false,
+  essential: false,
   applies_when: { when: "always" },
   sensitivity: "internal",
   ai: "as_is",

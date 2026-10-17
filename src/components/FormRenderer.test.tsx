@@ -10,7 +10,7 @@ import type { FieldSpec, FormSpec, FormValues } from "../lib/types";
 import { applies, FormRenderer } from "./FormRenderer";
 
 const field = (id: string, more: Partial<FieldSpec>): FieldSpec => ({
-  id, kind: "text", options: [], required: false, applies_when: { when: "always" }, sensitivity: "public", ai: "as_is", used_by: [], min: null, max: null, ...more,
+  id, kind: "text", options: [], required: false, essential: false, applies_when: { when: "always" }, sensitivity: "public", ai: "as_is", used_by: [], min: null, max: null, ...more,
 });
 
 // the form «Su institución» as Rust describes it (core/institution/forms.rs), shortened

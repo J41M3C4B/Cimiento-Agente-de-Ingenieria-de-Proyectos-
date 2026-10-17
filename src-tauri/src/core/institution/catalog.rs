@@ -88,6 +88,21 @@ pub enum Applies {
     Housing,
 }
 
+impl Applies {
+    /// The datum of the institution it depends on: that datum is indispensable (ADR-042), or the Expediente would ask
+    /// for the wrong documents.
+    pub const fn field(self) -> Option<&'static str> {
+        match self {
+            Applies::Always => None,
+            Applies::Donee => Some("institution.authorized_donee"),
+            Applies::Cluni => Some("institution.cluni"),
+            Applies::Junta => Some("institution.legal_form"),
+            Applies::Minors => Some("institution.populations"),
+            Applies::Housing => Some("institution.modalities"),
+        }
+    }
+}
+
 /// The documents of the record, in the order the screen lists them, and when each one applies (audit §4.1). A
 /// document the institution names itself is an `other`, which is not listed here.
 pub const RECORD_TYPES: &[(&str, Applies)] = &[
