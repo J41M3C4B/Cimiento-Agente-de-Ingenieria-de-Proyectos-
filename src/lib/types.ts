@@ -169,8 +169,7 @@ export interface RecordRead {
 export type AttachOutcome =
   /**
    * `covered`: data of people the scanner covered (it never refuses nor asks, 2026-10-13); `filled`: fields of its own
-   * window written from the file; `suggested`: suggestions left in «Mi institución»; `looks_like`: the kind the file
-   * looks like when it is not the one it was put on (then nothing was read into any form, ADR-038)
+   * window written from the file; `suggested`: suggestions left in «Mi institución»
    */
   | {
       status: "attached";
@@ -181,10 +180,18 @@ export type AttachOutcome =
       covered: number;
       filled: string[];
       suggested: number;
-      looks_like: string | null;
       expediente: Expediente;
     }
+  /**
+   * Not kept (ADR-042 §4): Rust is not sure the file is the document it was put on, and it waits for the person.
+   * `looks_like`: the document its words say, if any; `there_has_file`: that one already has a file, which it replaces.
+   */
+  | { status: "ask"; looks_like: string | null; file_name: string; there_has_file: boolean }
   | { status: "unreadable"; reason: string };
+/** What the person answers about a file that waits (ADR-042 §4). */
+export type PlaceAnswer = "here" | "there" | "cancel";
+/** How an answer started: kept in the background on the document of `key` (`record-read` says how it ended), or not at all. */
+export type PlaceStart = { status: "reading"; key: string; kind: string } | { status: "already_reading"; key: string } | { status: "cancelled" };
 export interface BoardMember {
   id: string;
   name: string;

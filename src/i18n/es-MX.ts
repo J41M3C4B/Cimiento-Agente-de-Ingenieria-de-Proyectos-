@@ -266,12 +266,27 @@ export const es = {
         `Se guardó el archivo, pero ${pages} se leyó con dudas: su texto puede traer errores. Si importa, súbalo otra vez con un escaneo más claro.`,
       covered: (n: number) =>
         `${n === 1 ? "Tapamos 1 dato personal" : `Tapamos ${n} datos personales`} en su texto, como CURP, RFC de personas o correos. El archivo original no cambia.`,
-      // ADR-038: what the file filled in its own window, what it left for «Mi institución», and a file in the wrong place
+      // ADR-038: what the file filled in its own window and what it left for «Mi institución»
       filled: (fields: string) => `Llenamos ${fields} con lo que dice el archivo. Revíselo y corríjalo si hace falta.`,
       suggested: (n: number) =>
         n === 1 ? "Dejamos 1 sugerencia en «Mi institución»: revísela allá." : `Dejamos ${n} sugerencias en «Mi institución»: revíselas allá.`,
-      looksLike: (kind: string) =>
-        `Este archivo parece «${kind}», no este documento. Lo guardamos, pero no llenamos nada con él. Si lo subió en el lugar equivocado, quítelo y súbalo en el suyo.`,
+      // ADR-042 §4: a file is kept on its document only when the program is sure it is that one; if not, it asks
+      place: {
+        otherTitle: (kind: string) => `Este archivo parece «${kind}»`,
+        otherBody: (here: string, kind: string) =>
+          `Por lo que dice, es «${kind}» y no «${here}». Para no dejarlo en el lugar equivocado, todavía no lo guardamos. ¿Dónde lo guardamos?`,
+        otherReplaces: (kind: string) => `«${kind}» ya tiene un archivo: este lo reemplaza.`,
+        unsureTitle: (here: string) => `No pudimos confirmar que sea «${here}»`,
+        unsureBody:
+          "No encontramos en el archivo las palabras de ese documento. Puede ser una foto poco clara o un documento distinto. Todavía no lo guardamos. ¿Es este documento?",
+        file: (name: string) => `Archivo: ${name}`,
+        saveThere: (kind: string) => `Guardarlo en «${kind}»`,
+        saveHere: (here: string) => `Sí es «${here}»`,
+        cancel: "No guardarlo",
+        cancelled: "No se guardó el archivo.",
+        movedTo: (kind: string) => `Lo estamos guardando en «${kind}». Le avisamos al terminar.`,
+        gone: "Ese archivo ya no está esperando. Súbalo otra vez.",
+      },
       readFrom: (page: number | null) => (page ? `Leído del archivo, página ${page}.` : "Leído del archivo."),
       // the file is read in the background (ADR-038): the window may be closed
       readingClose: "Puede cerrar esta ventana y seguir trabajando: le avisamos al terminar.",
@@ -2663,6 +2678,7 @@ export const es = {
         "hr.person_deleted": "Borró a una persona del personal",
         "hr.sensitive_viewed": "Consultó un dato tapado",
         "institution.sensitive_viewed": "Consultó la CLABE de una cuenta de la institución",
+        "institution.record_kind_confirmed": "Dijo que un archivo es el documento donde lo subió, aunque parecía otro",
         "hr.imported": "Se trasladó el personal al módulo nuevo",
         "emergency.delete": "Borró por completo",
         "profile.confirmed": "Confirmó los datos de la institución",

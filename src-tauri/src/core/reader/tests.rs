@@ -183,9 +183,8 @@ fn a_document_with_more_say_keeps_its_suggestion() {
 fn the_own_window_is_written_from_its_file_and_respects_what_the_person_wrote() {
     let (_d, mut c) = conn();
     let out = attach_pages(&mut c, "power_of_attorney", "poder.pdf", pages_of("poder-notarial.txt"));
-    let AttachOutcome::Attached { filled, looks_like, .. } = out else { panic!() };
+    let AttachOutcome::Attached { filled, .. } = out else { panic!() };
     assert_eq!(filled, vec!["institution.record.issued_on", "institution.record.valid_until", "institution.record.reference"]);
-    assert_eq!(looks_like, None);
     let form = crate::core::records::form(&c, "power_of_attorney", None).unwrap();
     assert_eq!(form.values["institution.record.issued_on"], json!("2024-01-18"));
     assert_eq!(form.values["institution.record.valid_until"], json!("2027-01-18"));
@@ -219,19 +218,62 @@ fn the_own_window_is_written_from_its_file_and_respects_what_the_person_wrote() 
     assert_eq!(crate::core::records::form(&c, "power_of_attorney", None).unwrap().values["institution.record.issued_on"], json!("2025-05-05"));
 }
 
-/// ADR-038: a file put on a document of another kind is kept, but nothing of it is read into any form, and the
-/// person is told what it looks like.
+/// ADR-042 §4: a file whose words say it is another document is not kept where it was put. Nothing is written
+/// until the person answers: on the document its words say, on this one after all (read with its rules, and written
+/// in the log), or nowhere. Each test waits on its own document: what waits is shared by the whole program.
 #[test]
-fn a_file_put_on_the_wrong_document_fills_nothing() {
+fn a_file_put_on_the_wrong_document_waits_for_the_person() {
+    use crate::core::records::placing::{keep_as, take, Answer};
     let (_d, mut c) = conn();
-    let out = attach_pages(&mut c, "articles_of_incorporation", "constancia.pdf", pages_of("constancia-situacion-fiscal.txt"));
-    let AttachOutcome::Attached { readable, filled, suggested, looks_like, .. } = out else { panic!() };
-    assert!(readable);
-    assert_eq!((filled.len(), suggested, looks_like.as_deref()), (0, 0, Some("tax_status_certificate")));
-    assert!(suggestions(&c, "institution.legal").is_empty() && suggestions(&c, "institution.identity").is_empty());
-    // a deed that names itself is taken as what it says, wherever the words of others are in it
-    let out = attach_pages(&mut c, "articles_of_incorporation", "acta.pdf", pages_of("acta-constitutiva.txt"));
-    assert!(matches!(out, AttachOutcome::Attached { looks_like: None, .. }));
+    let kept = |c: &Connection| docs::list_drawer(c, docs::Drawer::Record).unwrap().len();
+
+    // a constancia put on the poder: asked, nothing kept, nothing suggested
+    let out = attach_pages(&mut c, "power_of_attorney", "constancia.pdf", pages_of("constancia-situacion-fiscal.txt"));
+    let AttachOutcome::Ask { looks_like, file_name, there_has_file } = out else { panic!("{out:?}") };
+    assert_eq!((looks_like.as_deref(), file_name.as_str(), there_has_file), (Some("tax_status_certificate"), "constancia.pdf", false));
+    assert_eq!(kept(&c), 0);
+    assert!(crate::core::records::storage::by_type(&c, "power_of_attorney").unwrap().is_none(), "the poder is not marked as had");
+    assert!(suggestions(&c, "institution.legal").is_empty());
+
+    // «Cancelar»: nothing, and nothing waits any more
+    let w = take("power_of_attorney").expect("it waits");
+    assert!(keep_as(&mut c, w, Answer::Cancel).unwrap().is_none());
+    assert!(take("power_of_attorney").is_none());
+    assert_eq!(kept(&c), 0);
+
+    // «Guardarlo en Constancia…»: kept on the constancia, read with its rules
+    attach_pages(&mut c, "power_of_attorney", "constancia.pdf", pages_of("constancia-situacion-fiscal.txt"));
+    let out = keep_as(&mut c, take("power_of_attorney").unwrap(), Answer::There).unwrap().unwrap();
+    let AttachOutcome::Attached { suggested, .. } = out else { panic!() };
+    assert!(suggested > 0);
+    assert!(crate::core::records::storage::by_type(&c, "tax_status_certificate").unwrap().is_some_and(|r| r.document_id.is_some()));
+    assert!(crate::core::records::storage::by_type(&c, "power_of_attorney").unwrap().is_none());
+
+    // another constancia on the poder now says the constancia already has a file
+    let AttachOutcome::Ask { there_has_file, .. } = attach_pages(&mut c, "power_of_attorney", "otra.pdf", pages_of("constancia-situacion-fiscal.txt")) else { panic!() };
+    assert!(there_has_file);
+    // «Sí es este documento»: kept on the poder, and the log says the person said so (never the file)
+    let out = keep_as(&mut c, take("power_of_attorney").unwrap(), Answer::Here).unwrap().unwrap();
+    assert!(matches!(out, AttachOutcome::Attached { readable: true, .. }));
+    assert!(crate::core::records::storage::by_type(&c, "power_of_attorney").unwrap().is_some_and(|r| r.document_id.is_some()));
+    let details: String = c.query_row("SELECT details_json FROM audit_log WHERE event = 'institution.record_kind_confirmed'", [], |r| r.get(0)).unwrap();
+    assert!(details.contains("power_of_attorney") && details.contains("tax_status_certificate") && !details.contains("otra.pdf"), "{details}");
+
+    // a deed is kept on its own document without asking
+    assert!(matches!(attach_pages(&mut c, "articles_of_incorporation", "acta.pdf", pages_of("acta-constitutiva.txt")), AttachOutcome::Attached { .. }));
+}
+
+/// ADR-042 §4: a file nothing recognizes (a contract on the Junta's registry) is asked about, and kept there only
+/// when the person says so; its name raises the confidence when it says the document.
+#[test]
+fn a_file_nothing_recognizes_is_asked_about_unless_its_name_says_it() {
+    use crate::core::records::placing::{keep_as, take, Answer};
+    let (_d, mut c) = conn();
+    let out = attach_pages(&mut c, "junta_registration", "escaneo.pdf", pages_of("contrato-comodato.txt"));
+    assert!(matches!(out, AttachOutcome::Ask { looks_like: None, there_has_file: false, .. }), "{out:?}");
+    assert!(matches!(keep_as(&mut c, take("junta_registration").unwrap(), Answer::Here).unwrap(), Some(AttachOutcome::Attached { .. })));
+    // the same words, in a file whose name says the document
+    assert!(matches!(attach_pages(&mut c, "junta_registration", "Registro JAP 2015.pdf", pages_of("contrato-comodato.txt")), AttachOutcome::Attached { .. }));
 }
 
 /// ADR-036: no new document is left without a drawer, whatever way it came in.

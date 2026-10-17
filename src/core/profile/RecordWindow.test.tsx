@@ -46,6 +46,7 @@ vi.mock("../../lib/tauri", () => ({
   institutionRecordForm: vi.fn(async () => empty),
   institutionRecordSave: vi.fn(async () => ({ status: "saved", id: "rec_1", expediente })),
   institutionRecordAttach: vi.fn(),
+  institutionRecordPlace: vi.fn(),
   institutionRecordOpen: vi.fn(async () => false),
   institutionRecordDetach: vi.fn(),
   institutionRecords: vi.fn(async () => expediente),
@@ -55,7 +56,7 @@ vi.mock("../../lib/tauri", () => ({
 
 import { act } from "@testing-library/react";
 import { open as pickFile } from "@tauri-apps/plugin-dialog";
-import { institutionRecordAttach, institutionRecordForm, institutionRecordSave } from "../../lib/tauri";
+import { institutionRecordAttach, institutionRecordForm, institutionRecordPlace, institutionRecordSave } from "../../lib/tauri";
 import type { AttachOutcome } from "../../lib/types";
 import { endedText, markEnded, markReading, resetRecordReadings, useRecordReadings } from "./recordReading";
 import { RecordWindow, attachedNotice } from "./RecordWindow";
@@ -79,7 +80,6 @@ const attached = (more: Partial<Extract<AttachOutcome, { status: "attached" }>> 
   covered: 0,
   filled: [],
   suggested: 0,
-  looks_like: null,
   expediente,
   ...more,
 });
@@ -126,10 +126,39 @@ describe("RecordWindow", () => {
     expect(await screen.findByRole("radio", { name: "Lo tenemos" })).toBeChecked();
   });
 
-  it("a file that looks like another document fills nothing and says so", async () => {
+  // ADR-042 §4: Rust did not keep it; the window asks, and Rust keeps it where the person says
+  it("a file whose words say another document is not kept: it asks where it goes", async () => {
+    vi.mocked(institutionRecordPlace).mockResolvedValueOnce({ status: "reading", key: "tax_status_certificate", kind: "tax_status_certificate" });
     draw();
-    await upload(attached({ looks_like: "tax_status_certificate" }));
-    expect(await screen.findByText(/Este archivo parece «Constancia de situación fiscal», no este documento/)).toBeInTheDocument();
+    await upload({ status: "ask", looks_like: "tax_status_certificate", file_name: "aviso.docx", there_has_file: true });
+    expect(await screen.findByText("Este archivo parece «Constancia de situación fiscal»")).toBeInTheDocument();
+    expect(screen.getByText(/es «Constancia de situación fiscal» y no «Aviso de privacidad»/)).toBeInTheDocument();
+    expect(screen.getByText("«Constancia de situación fiscal» ya tiene un archivo: este lo reemplaza.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sí es «Aviso de privacidad»" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Guardarlo en «Constancia de situación fiscal»" }));
+    await waitFor(() => expect(institutionRecordPlace).toHaveBeenCalledWith("privacy_notice", "there"));
+    expect(await screen.findByText("Lo estamos guardando en «Constancia de situación fiscal». Le avisamos al terminar.")).toBeInTheDocument();
+    expect(screen.queryByText("Este archivo parece «Constancia de situación fiscal»")).not.toBeInTheDocument();
+  });
+
+  it("a file nothing recognizes is kept only if the person says it is this document; closing keeps nothing", async () => {
+    vi.mocked(institutionRecordPlace).mockResolvedValueOnce({ status: "cancelled" });
+    draw();
+    await upload({ status: "ask", looks_like: null, file_name: "foto.jpg", there_has_file: false });
+    expect(await screen.findByText("No pudimos confirmar que sea «Aviso de privacidad»")).toBeInTheDocument();
+    expect(screen.getByText("Archivo: foto.jpg")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Guardarlo en/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "No guardarlo" }));
+    await waitFor(() => expect(institutionRecordPlace).toHaveBeenCalledWith("privacy_notice", "cancel"));
+    expect(await screen.findByText("No se guardó el archivo.")).toBeInTheDocument();
+
+    // once more, and this time it is this document
+    vi.mocked(institutionRecordPlace).mockResolvedValueOnce({ status: "reading", key: "privacy_notice", kind: "privacy_notice" });
+    await upload({ status: "ask", looks_like: null, file_name: "foto.jpg", there_has_file: false });
+    fireEvent.click(await screen.findByRole("button", { name: "Sí es «Aviso de privacidad»" }));
+    await waitFor(() => expect(institutionRecordPlace).toHaveBeenCalledWith("privacy_notice", "here"));
+    // it is kept in the background, like a reading
+    expect(await screen.findByText(/Leyendo el archivo…/)).toBeInTheDocument();
   });
 
   it("a file it cannot take says why, and saving sends what the person marked", async () => {

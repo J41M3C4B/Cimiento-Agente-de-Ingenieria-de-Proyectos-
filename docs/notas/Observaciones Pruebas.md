@@ -86,3 +86,11 @@ Quedo un residuo de que los modulos estan apagados pero me sigue pidiendo regist
 Al probarlo encontré que «Benito Juárez» como alcaldía hacía saltar el escáner; ya no pasa.
 
 Esta nota sigue abierta: faltan las fases 2 a 5 (problemas 4, 6, 7 y 8) y el bloque de diseño (problemas 3 y 5).
+
+**2026-10-16, noche. Probaste el guion completo: todo bien. Fase 2 hecha (problema 4):**
+- un archivo ya no se guarda donde no va: si sus palabras dicen que es otro documento, o nada lo reconoce, el programa pregunta antes de guardar nada («Guardarlo en «…»», «Sí es «…»» o «No guardarlo»);
+- la confianza la cuenta el código, sin IA: las palabras del documento contra las de otro, y el nombre del archivo, que nunca le gana al texto;
+- medido en seco con los 37 archivos: ningún archivo quedó en un lugar equivocado y solo pregunta por la foto sin texto;
+- la medición encontró dos reglas que fallaban (la licencia «uso del suelo» y el registro desteñido «Juntal») y se corrigieron.
+
+Para probarlo: [guion, sección 5](../15-guion-pruebas-nucleo.md), las dos casillas sin marcar. Siguen las fases 3 a 5 (problemas 6, 7 y 8) y el bloque de diseño (problemas 3 y 5).

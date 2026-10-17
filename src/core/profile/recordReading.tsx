@@ -5,6 +5,7 @@ import { Toast } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { ReadingProgress } from "../../lib/files";
 import type { AttachOutcome, RecordRead } from "../../lib/types";
+import { type Asked, RecordPlaceDialog } from "./RecordPlaceDialog";
 
 /**
  * The documents of the Expediente being read in the background (ADR-038). Rust reads a file while the person goes on
@@ -78,28 +79,32 @@ export function resetRecordReadings() {
 }
 
 /** The name of a document in a notice: the one of its type, or «Otro documento». */
-const titleOf = (kind: string) => es.profile.records.types[kind] ?? es.profile.records.newOther;
+export const titleOf = (kind: string) => es.profile.records.types[kind] ?? es.profile.records.newOther;
 
 /** What a reading that ended says, in a notice. `attached` gives the words of a file put on its document. */
 export function endedText(r: RecordRead, attached: (out: Extract<AttachOutcome, { status: "attached" }>) => string): string {
   const t = es.profile.records;
+  const out = r.outcome;
+  // a file that was not kept is asked about, never told in a notice (ADR-042 §4)
   const what = r.error
     ? r.error.message
-    : r.outcome?.status === "unreadable"
-      ? (t.unreadable[r.outcome.reason] ?? t.unreadable.damaged!)
-      : r.outcome
-        ? attached(r.outcome)
+    : out?.status === "attached"
+      ? attached(out)
+      : out?.status === "unreadable"
+        ? (t.unreadable[out.reason] ?? t.unreadable.damaged!)
         : t.unreadable.damaged!;
   return t.readEnded(titleOf(r.kind), what);
 }
 
 /**
  * Hears the readings of the Expediente for the whole app, wherever the person is: how far each one is, and, when
- * one ends, what changed is fetched again and, if its window is not open, a notice says how it ended.
+ * one ends, what changed is fetched again and, if its window is not open, a notice says how it ended, or the question
+ * of a file that was not kept (ADR-042 §4) is asked here.
  */
 export function RecordReadingWatcher({ attachedText }: { attachedText: (out: Extract<AttachOutcome, { status: "attached" }>) => string }) {
   const qc = useQueryClient();
   const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [asked, setAsked] = useState<Asked | null>(null);
 
   useEffect(() => {
     let gone = false;
@@ -115,6 +120,10 @@ export function RecordReadingWatcher({ attachedText }: { attachedText: (out: Ext
       // what a file changes: the record, its window, the suggestions of «Mi institución», Documentos
       for (const key of [["institution"], ["form"], ["documents"], ["profile"]]) void qc.invalidateQueries({ queryKey: key });
       if (open.has(r.key)) return;
+      if (r.outcome?.status === "ask") {
+        setAsked({ key: r.key, kind: r.kind, outcome: r.outcome });
+        return;
+      }
       const failed = !!r.error || r.outcome?.status === "unreadable";
       setNotice({ tone: failed ? "error" : "ok", text: endedText(r, attachedText) });
     });
@@ -130,5 +139,19 @@ export function RecordReadingWatcher({ attachedText }: { attachedText: (out: Ext
     return () => window.clearTimeout(id);
   }, [notice]);
 
-  return notice ? <Toast tone={notice.tone}>{notice.text}</Toast> : null;
+  return (
+    <>
+      {notice && <Toast tone={notice.tone}>{notice.text}</Toast>}
+      {asked && (
+        <RecordPlaceDialog
+          asked={asked}
+          onAnswered={(said) => {
+            setAsked(null);
+            // what is kept says itself when it ends; only a failure needs a word here
+            if (said?.tone === "error") setNotice({ tone: "error", text: said.text });
+          }}
+        />
+      )}
+    </>
+  );
 }

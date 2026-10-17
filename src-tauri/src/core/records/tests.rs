@@ -140,6 +140,11 @@ fn the_institution_names_its_own_documents_and_their_texts_are_scanned() {
 /// pictures (OCR, ADR-035), and a picture with no text to read counts as had all the same.
 #[test]
 fn a_file_is_read_and_only_its_clean_text_and_where_it_is_are_kept() {
+    // the person says «Sí es este documento» when asked (ADR-042 §4): what is tested here is how a file is read
+    let attach = |c: &mut Connection, kind: &str, id: Option<&str>, path: &Path| match attach(c, kind, id, path) {
+        Ok(AttachOutcome::Ask { .. }) => Ok(placing::keep_as(c, placing::take(kind).unwrap(), placing::Answer::Here).unwrap().unwrap()),
+        other => other,
+    };
     let (dir, mut c) = conn();
     let pdf = fixture(dir.path(), "convocatoria-con-tablas.pdf");
     let AttachOutcome::Attached { id, readable, from_picture, expediente, .. } = attach(&mut c, "articles_of_incorporation", None, &pdf).unwrap() else { panic!() };

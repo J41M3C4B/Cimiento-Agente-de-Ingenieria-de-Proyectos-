@@ -135,7 +135,7 @@ En este orden. «Llena solo» son los datos del propio documento (emisión, vige
 
 | # | Archivo | Dónde se sube | Qué prueba | Debe pasar |
 |---|---|---|---|---|
-| 1 | `19-acta-constitutiva-version-final.pdf` | Acta constitutiva | En el lugar equivocado: es la constancia del SAT con nombre de acta | Se guarda y avisa «Este archivo parece «Constancia de situación fiscal», no este documento». No llena nada |
+| 1 | `19-acta-constitutiva-version-final.pdf` | Acta constitutiva | En el lugar equivocado: es la constancia del SAT con nombre de acta | **No se guarda:** pregunta «Este archivo parece «Constancia de situación fiscal»». Responde «No guardarlo»: el acta sigue sin archivo y no deja nada |
 | 2 | `01-acta-constitutiva.pdf` | Acta constitutiva (cambiar archivo) | PDF con texto; reemplaza al anterior | Llena solo: emisión 10/03/2015, número 42110. Deja sugerencias (año, objeto social) |
 | 3 | `02-reformas-estatutos-2019-escaneo.pdf` | Reformas a los estatutos | Escaneo de 2 páginas; trae la CURP de una persona | Leído de imagen. Avisa «Tapamos 1 dato personal». Llena solo: emisión 22/08/2019, número **47820** (el número se parte en dos renglones) |
 | 4 | `03-poder-notarial-hoja-girada.pdf` | Poder del representante legal | Escaneo con la hoja 2 de lado | Leído de imagen. Llena solo: emisión 18/01/2024, vigencia 18/01/2027, número 51300. Sugiere la vigencia del poder |
@@ -156,7 +156,7 @@ En este orden. «Llena solo» son los datos del propio documento (emisión, vige
 | 19 | `15-informe-anual-2025.pdf` | Informe anual | PDF con texto | Se guarda |
 | 20 | `16-presupuesto-junta-2026.xlsx` | Presupuesto ante la Junta | Excel: el Expediente no lo toma | No se guarda; pide un PDF, un Word o una foto |
 | 21 | `16b-presupuesto-junta-2026.pdf` | Presupuesto ante la Junta | PDF con tabla | Se guarda |
-| 22 | `20-foto-sin-texto.jpg` | Licencia de uso de suelo | Foto tan borrosa que no se lee | Se guarda «pero no pudimos leer su texto… Cuenta como que lo tienen» |
+| 22 | `20-foto-sin-texto.jpg` | Licencia de uso de suelo | Foto tan borrosa que no se lee | Pregunta «No pudimos confirmar que sea «Licencia de uso de suelo»». Responde «Sí es…»: se guarda «pero no pudimos leer su texto… Cuenta como que lo tienen» |
 | 23 | `17-licencia-uso-suelo-foto.jpg` | Licencia de uso de suelo (cambiar archivo) | Foto legible | Leído de imagen. Llena solo: emisión 15/05/2023 |
 | 24 | `18-contrato-comodato-pagina-mixta.pdf` | «Agregar otro documento»: Contrato de comodato | Página 1 con encabezado impreso y el cuerpo escaneado | Leído de imagen (página 1) |
 

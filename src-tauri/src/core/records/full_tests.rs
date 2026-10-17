@@ -61,16 +61,36 @@ fn full_expediente() {
                 other => panic!("{other:?}"),
             }
         });
-        let out = attach(&mut c, kind, id.as_deref(), &folder().join("archivos").join(file)).unwrap();
+        let mut out = attach(&mut c, kind, id.as_deref(), &folder().join("archivos").join(file)).unwrap();
+        // a file the code is not sure of waits for the person (ADR-042 §4): the test answers as `responde` says
+        let asked = match &out {
+            AttachOutcome::Ask { looks_like, .. } => json!({ "parece": looks_like }),
+            _ => Value::Null,
+        };
+        check(file, "pregunta", asked.clone(), Some(want.get("pregunta").unwrap_or(&Value::Null)));
+        if !asked.is_null() {
+            let answer = match step["responde"].as_str() {
+                Some("aqui") => placing::Answer::Here,
+                Some("alla") => placing::Answer::There,
+                _ => placing::Answer::Cancel,
+            };
+            println!("{file:<48} {kind:<26} PREGUNTA {asked}  responde {answer:?}");
+            let waiting = placing::take(&background::key(kind, id.as_deref())).expect("it waits");
+            match placing::keep_as(&mut c, waiting, answer).unwrap() {
+                Some(kept) => out = kept,
+                None => continue,
+            }
+        }
         let secs = started.elapsed().as_secs_f64();
         match out {
+            AttachOutcome::Ask { .. } => unreachable!("answered above"),
             AttachOutcome::Unreadable { reason: r } => {
                 println!("{file:<48} {kind:<26} NO SE PUDO: {}  ({secs:.1} s)", reason(r));
                 check(file, "no se pudo", json!(reason(r)), Some(want.get("no_se_pudo").unwrap_or(&Value::Null)));
             }
-            AttachOutcome::Attached { readable, from_picture, doubtful, covered, filled, suggested, looks_like, .. } => {
+            AttachOutcome::Attached { readable, from_picture, doubtful, covered, filled, suggested, .. } => {
                 println!(
-                    "{file:<48} {kind:<26} legible {readable}  de imagen {from_picture}  dudas {doubtful:?}  tapados {covered}  llenos {filled:?}  sugerencias {suggested}  parece {looks_like:?}  ({secs:.1} s)"
+                    "{file:<48} {kind:<26} legible {readable}  de imagen {from_picture}  dudas {doubtful:?}  tapados {covered}  llenos {filled:?}  sugerencias {suggested}  ({secs:.1} s)"
                 );
                 check(file, "no se pudo", Value::Null, Some(want.get("no_se_pudo").unwrap_or(&Value::Null)));
                 check(file, "legible", json!(readable), want.get("legible"));
@@ -81,7 +101,6 @@ fn full_expediente() {
                 filled.sort();
                 check(file, "llenos", json!(filled), want.get("llenos"));
                 check(file, "sugerencias", json!(suggested), want.get("sugerencias"));
-                check(file, "parece", json!(looks_like), Some(want.get("parece").unwrap_or(&Value::Null)));
             }
         }
     }

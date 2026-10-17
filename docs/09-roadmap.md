@@ -340,7 +340,7 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
     - [x] **Prueba de la institución** (2026-10-16, nota «Observaciones Pruebas»): 33 de 39 datos bien; los hallazgos son de camino y de diseño. De ahí el [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md).
     - [ ] **ADR-042 · un solo camino para llenar la institución:**
       - [x] Fase 1 · el primer inicio pide solo los 14 datos indispensables del catálogo, cada paso por su ventana, se cierra solo con el último dato y hay una sola cuenta del avance (2026-10-16). El municipio con regla de nombre de lugar, sin escáner.
-      - [ ] Fase 2 · un archivo solo se guarda en su lugar si el código confía en que es de ahí (medición del umbral en seco).
+      - [x] Fase 2 · un archivo solo se guarda en su lugar si el código confía en que es de ahí (2026-10-16). Medición en seco: 563 lugares equivocados, ninguno guardado; en su lugar solo pregunta por la foto sin texto. Se corrigieron dos reglas («uso del suelo», «Juntal» del OCR). Si no confía, pregunta antes de guardar nada.
       - [ ] Fase 3 · sugerencias al subir, de lo que ese documento dice.
       - [ ] Fase 4 · el chat: sin «Llenar con mis documentos», «Llenarlo por mí» reparte entre ventanas, lo igual no se sugiere.
       - [ ] Fase 5 · detalles de lectura (municipio, calle, servicios).

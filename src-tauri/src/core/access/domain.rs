@@ -100,6 +100,7 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("institution_record_form", Need::Permission(Permission::Use)),
     ("institution_record_save", Need::Permission(Permission::Use)),
     ("institution_record_attach", Need::Permission(Permission::Use)),
+    ("institution_record_place", Need::Permission(Permission::Use)),
     ("institution_record_detach", Need::Permission(Permission::Use)),
     ("institution_record_open", Need::Permission(Permission::Use)),
     ("institution_clabe_reveal", Need::Permission(Permission::Use)),

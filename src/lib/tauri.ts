@@ -13,6 +13,8 @@ import type {
   AppPlace,
   AssistantAsk,
   AttachStart,
+  PlaceAnswer,
+  PlaceStart,
   Expediente,
   RecordForm,
   RecordOutcome,
@@ -94,6 +96,7 @@ export const institutionRecordSave = (kind: string, id: string | null, values: F
   invoke<RecordOutcome>("institution_record_save", { kind, id, values, decision: decision ?? null });
 export const institutionRecordAttach = (kind: string, id: string | null, path: string) =>
   invoke<AttachStart>("institution_record_attach", { kind, id, path });
+export const institutionRecordPlace = (key: string, answer: PlaceAnswer) => invoke<PlaceStart>("institution_record_place", { key, answer });
 export const institutionRecordDetach = (id: string) => invoke<Expediente>("institution_record_detach", { id });
 export const institutionRecordOpen = (id: string) => invoke<boolean>("institution_record_open", { id });
 // The board and the bank accounts of the institution (ADR-033 §3)

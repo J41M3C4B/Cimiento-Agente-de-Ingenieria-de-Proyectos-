@@ -92,6 +92,56 @@ pub async fn institution_record_attach(
     Ok(AttachStart::Reading { key: started })
 }
 
+/// How an answer about a waiting file started (ADR-042 §4).
+#[derive(Debug, serde::Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum PlaceStart {
+    /// It is being kept on the document of `key` (where it was put, or the one its words say); `record-read` says how
+    /// it ended, with that key.
+    Reading { key: String, kind: String },
+    /// That document is being read; the file still waits.
+    AlreadyReading { key: String },
+    /// Nothing was kept.
+    Cancelled,
+}
+
+/// What the person answers about a file the code was not sure of (`key`: the document it was put on): keep it there,
+/// on the document its words say, or not at all. The file is not read again; keeping it (scanner, rules) runs in the
+/// background like a reading, and `record-read` says how it ended.
+#[tauri::command]
+pub async fn institution_record_place(
+    app: tauri::AppHandle,
+    session: State<'_, Session>,
+    db: State<'_, Db>,
+    key: String,
+    answer: svc::placing::Answer,
+) -> Result<PlaceStart, UiError> {
+    guard(&session, "institution_record_place")?;
+    let waiting = svc::placing::take(&key).ok_or(crate::core::error::ServiceError::NotFound)?;
+    let Some((kind, target)) = waiting.target(answer) else { return Ok(PlaceStart::Cancelled) };
+    let Some(reading) = svc::background::start(&target) else {
+        svc::placing::put_back(&key, waiting);
+        return Ok(PlaceStart::AlreadyReading { key: target });
+    };
+    let shared = db.0.clone();
+    let started = target.clone();
+    let ended_kind = kind.clone();
+    std::thread::spawn(move || {
+        let _reading = reading;
+        let ended: Result<Option<AttachOutcome>, UiError> = (|| {
+            let mut conn = shared.lock().map_err(|_| UiError::internal())?;
+            Ok(svc::placing::keep_as(&mut conn, waiting, answer)?)
+        })();
+        let said = match &ended {
+            Ok(outcome) => serde_json::json!({ "key": target, "kind": kind, "outcome": outcome }),
+            Err(error) => serde_json::json!({ "key": target, "kind": kind, "error": error }),
+        };
+        let _ = tauri::Emitter::emit(&app, "record-read", said);
+        super::index_documents(&shared);
+    });
+    Ok(PlaceStart::Reading { key: started, kind: ended_kind })
+}
+
 #[tauri::command]
 pub fn institution_record_detach(session: State<'_, Session>, db: State<'_, Db>, id: String) -> Result<Expediente, UiError> {
     guard(&session, "institution_record_detach")?;

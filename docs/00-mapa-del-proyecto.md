@@ -7,8 +7,19 @@ actualizado: 2026-10-16
 
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
-> [!info] Hoy (2026-10-16)
-> **Hiciste la prueba completa del núcleo** ([[Observaciones Pruebas]]): 33 de 39 datos quedaron bien; lo que falló fue el camino y el diseño. De ahí salió el [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md): un solo camino para llenar la institución, en cinco fases.
+> [!info] Hoy (2026-10-16, noche)
+> **Probaste el guion completo (sección 15): todo salió bien.** Siguió la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) (tu problema 4).
+>
+> **Fase 2 hecha: un archivo solo se guarda en su lugar si el código confía en que es de ahí.**
+> - El código cuenta qué tan seguro está: las palabras de ese documento en el archivo, contra las de cualquier otro, y el nombre del archivo.
+> - Si sus palabras dicen que es otro documento, **no lo guarda**: pregunta «Este archivo parece «…»», con «Guardarlo en «…»», «Sí es «…»» y «No guardarlo». Si nada lo reconoce (una foto que no se lee), pregunta si es ese documento. Mientras pregunta no se escribe nada, ni sugerencias.
+> - El umbral se midió en seco con los 24 archivos de la prueba completa y los 13 de la batería: de 563 lugares equivocados, **ninguno** se guardó; en su lugar, solo pregunta por la foto sin texto.
+> - La medición encontró dos reglas que fallaban y se corrigieron: la licencia dice «uso **del** suelo», y la copia desteñida se lee «Junta**l** de asistencia privada».
+> - «Sí es…» queda en la Bitácora.
+>
+> **Siguiente:** que pruebes la fase 2 ([guion, sección 5](15-guion-pruebas-nucleo.md), las dos casillas nuevas sin marcar); después, la fase 3 (sugerencias al subir).
+>
+> **Antes (2026-10-16): la prueba completa del núcleo** ([[Observaciones Pruebas]]): 33 de 39 datos quedaron bien; lo que falló fue el camino y el diseño. De ahí salió el [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md): un solo camino para llenar la institución, en cinco fases.
 >
 > **Fase 1 hecha: el primer inicio pide solo lo indispensable.**
 > - 14 datos en cinco pasos cortos (antes unos 19 en seis). Ya no pide dinero, inmueble ni contacto.
@@ -18,7 +29,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - Dinero, personal, beneficiarios y espacios se piden en «Siguientes pasos» de Inicio (ahora con Finanzas).
 > - Al probarlo en la app encontré otro problema: «Benito Juárez» como alcaldía hacía saltar el escáner, como si fuera el nombre de una persona. Ya no pasa: el municipio solo acepta un nombre de lugar.
 >
-> **Siguiente:** que pruebes el primer inicio con una carpeta vacía ([guion, sección 1](15-guion-pruebas-nucleo.md)); después, la fase 2 (un archivo solo se guarda en su lugar si el código confía en que es de ahí).
+> Lo probaste con el guion completo: todo bien.
 >
 > **Antes (2026-10-15, noche): la prueba completa del núcleo, con una institución de prueba** ([16 · La institución de prueba](16-institucion-de-prueba.md)): «Casa San Ejemplo», inventada, con **24 archivos** de su Expediente como los subiría una institución. Hay PDF con texto, escaneos (uno con la hoja de lado y otro desteñido), fotos de celular, una captura con letra chica, Word con y sin hoja escaneada, una página mixta, y archivos con fallas: con contraseña, dañado, Excel y .odt que no se usan, uno en el lugar equivocado y una foto sin texto. La guía dice qué es la institución, la ruta de la prueba, qué debe pasar con cada archivo, qué debe quedar en «Mi institución», 13 preguntas al Asistente con su respuesta y una tabla para calificar (98 puntos).
 >
@@ -99,7 +110,7 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | —   | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
 | 2   | **C2**                | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos»                                                                                                                   | **Hecho, por probar** |
 | 3   | **C3**                | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?»)                                                                                                                                                   | **Hecho y probado**   |
-| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 a 4 hechas y tu prueba completa hecha; de ella salió el ADR-042 (un solo camino para llenar la institución, fase 1 hecha); después, la metodología de agentes | **En curso**          |
+| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 a 4 hechas y tu prueba completa hecha; de ella salió el ADR-042 (un solo camino para llenar la institución, fases 1 y 2 hechas); después, la metodología de agentes | **En curso**          |
 | 5   | **N5**                | El expediente hacia Proyectos, la IA e Inicio                                                                                                                                                                                                                                  | Pendiente             |
 | —   | Módulos               | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md)                                                     | Esperan al núcleo     |
 
@@ -107,7 +118,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar el primer inicio nuevo** (ADR-042, fase 1) con una carpeta vacía: [guion, sección 1](15-guion-pruebas-nucleo.md).
+- **Probar el archivo en su lugar** (ADR-042, fase 2): [guion, sección 5](15-guion-pruebas-nucleo.md), las dos casillas sin marcar.
 - **Dos decisiones que salieron de la prueba completa** (sección 7 de la guía):
   - cómo detectar una copia desteñida que el lector de imágenes da por buena;
   - si la constancia del SAT debe sugerir también el domicilio de «Contacto y ubicación» (hoy solo el código postal fiscal).
@@ -123,6 +134,7 @@ Todo lo que hay que probar del núcleo está en el [15 · Guion de pruebas del n
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-16 | **ADR-042, fase 2 · un archivo solo se guarda en su lugar si el código confía en que es de ahí:** la confianza es una cuenta del código (palabras del documento contra las de otro, más el nombre del archivo); si no confía, pregunta antes de guardar nada. Umbral medido en seco: 563 lugares equivocados, ninguno guardado. Corregidas las reglas de la licencia de uso de suelo y del registro desteñido | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |
 | 2026-10-16 | **ADR-042, fase 1 · el primer inicio pide solo lo indispensable:** 14 datos del catálogo en cinco pasos, cada paso por su ventana, se cierra solo con el último dato, una sola cuenta del avance (sin fichas de módulos); el municipio con regla de nombre de lugar, sin escáner. Salió de tu prueba completa (33 de 39 datos bien) | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |
 | 2026-10-15 | **La prueba completa del núcleo:** la institución de prueba «Casa San Ejemplo», 24 archivos del Expediente (escaneos, fotos, Word y fallas a propósito), lo que debe quedar y cómo calificar; la prueba en seco `full_expediente`. Corregido: el número de escritura partido en dos renglones | [16 · La institución de prueba](16-institucion-de-prueba.md) |
 | 2026-10-15 | **C4, fase 4 · guion de pruebas del núcleo:** una sección por pantalla con lo que debe pasar en cada paso; junta las pruebas sueltas del mapa. Se corrigieron cuatro textos viejos (el PIN de Seguridad y de la Ayuda, y lo que el asistente ve según el ADR-041) | [15 · Guion](15-guion-pruebas-nucleo.md) |

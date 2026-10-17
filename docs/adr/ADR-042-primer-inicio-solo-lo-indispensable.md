@@ -9,7 +9,7 @@ tags: [adr]
 ---
 # ADR-042 · Un solo camino para llenar la institución: el primer inicio pide solo lo indispensable
 
-**Estado:** aceptada (2026-10-16, la institución revisó la tabla de §2). Fase 1 aplicada (2026-10-16). Sale de la prueba del núcleo de la institución ([[Observaciones Pruebas]], problemas 1, 2, 4, 6, 7 y 8).
+**Estado:** aceptada (2026-10-16, la institución revisó la tabla de §2). Fases 1 y 2 aplicadas (2026-10-16). Sale de la prueba del núcleo de la institución ([[Observaciones Pruebas]], problemas 1, 2, 4, 6, 7 y 8).
 
 ## Contexto
 
@@ -152,7 +152,7 @@ Se mide primero en seco con la prueba completa: por archivo, qué campos detecta
 ## Plan por fases (una a la vez; pruebas de la institución entre fases)
 
 1. **Indispensables y un solo avance** (hecha, 2026-10-16): la marca `essential`, la prueba de los campos de condición, los pasos desde el catálogo y `completion` como única cuenta. Ver «Fase 1, al aplicarla».
-2. **Archivo en su lugar:** primero la medición en seco y el umbral; después la pregunta.
+2. **Archivo en su lugar** (hecha, 2026-10-16): primero la medición en seco y el umbral; después la pregunta. Ver «Fase 2, al aplicarla».
 3. **Sugerencias al subir:** la detección en seco, la llamada por archivo y una corrida real.
 4. **Chat:** sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre ventanas; lo igual no se sugiere; el texto de lo dejado lo arma el código; las letras cambiadas.
 5. **Detalles de lectura de la prueba:** el municipio con su nombre del catálogo (con acentos, sin mayúsculas sostenidas), «Calle» fuera de la calle, y los servicios desde el informe y no desde el acta.
@@ -168,6 +168,29 @@ Después de este ADR va el bloque de diseño: formularios por secciones, sugeren
 - **Una sola cuenta.** `overview::completion` toma los campos obligatorios vacíos de las ventanas y el patronato; los indispensables van primero. Las fichas de Personal y Beneficiarios, los espacios y el dinero ya no cuentan ahí: Inicio los pide en «Siguientes pasos», que ahora incluye Finanzas. El aviso de Inicio cuenta datos, no pasos.
 - **Hallazgo al probar en la app:** al escribir «Benito Juárez» como alcaldía, el escáner lo tomó por el nombre de una persona. Muchos municipios se llaman como una persona. El municipio ya no pasa por el escáner: una regla del código (`Rule::PlaceName`) solo acepta letras y los signos de un nombre, hasta 80, así que no cabe un teléfono, un correo ni una clave.
 - **Pruebas:** `cargo test onboarding` (13), `overview`, `profile::forms` y `common::forms` (nombre de lugar); Vitest del primer inicio reescrito. Todas pasan.
+
+## Fase 2, al aplicarla (2026-10-16)
+
+- **La cuenta** (`core::reader::kinds::confidence`): las frases del tipo de ese lugar halladas en el archivo (3 si están en su encabezado, 1 más adelante), menos las del mejor de los otros tipos, más **1** si el nombre del archivo dice ese documento. Cada tipo tiene sus frases para el nombre del archivo («constancia» y «fiscal», «cluni», «registro» y «junta» o «jap»…).
+- **La decisión** (`kinds::placement`): con 1 o más, se guarda como hoy. Si no, y las palabras dicen otro tipo, pregunta «Este archivo parece «…»» con «Guardarlo en «…»», «Sí es «…»» y «No guardarlo». Si nada lo reconoce, pregunta «No pudimos confirmar que sea «…»» con «Sí es «…»» y «No guardarlo». Un «Otro documento» nunca pregunta: es lo que la persona dice.
+- **Mientras pregunta, nada se escribe:** ni el documento como «Lo tenemos», ni su texto, ni sugerencias. El archivo ya leído espera en memoria (`core::records::placing`), así que la respuesta no lo vuelve a leer con OCR. Cerrar la pregunta es «No guardarlo». Si la persona responde con la ventana cerrada, la pregunta sale donde esté.
+- **«Guardarlo en «…»»** lo pone en el documento que dicen sus palabras, leído con sus reglas; si ese ya tenía archivo, la pregunta avisa que lo reemplaza. **«Sí es «…»»** lo guarda donde se subió, leído con las reglas de ese lugar, y la bitácora anota «Dijo que un archivo es el documento donde lo subió, aunque parecía otro» con los dos tipos, nunca el archivo.
+
+**La medición** (`cargo test kind_confidence_measure -- --ignored --nocapture`, en seco): los 20 archivos de la prueba completa que se pueden abrir y los 13 de la batería, cada uno puesto en su lugar (31 tienen tipo) y en cada uno de los otros 17 (563 lugares equivocados).
+
+| Peso del nombre / umbral | En un lugar equivocado | Preguntas en su lugar |
+|---|---|---|
+| 0 / 1 | 0 | 1 |
+| 0 / 2 | 0 | 3 |
+| **1 / 1 (el elegido)** | **0** | **1** |
+| 1 / 2 | 0 | 1 |
+| 1 / 3 | 0 | 3 |
+| 2 o 3 / cualquiera | 0 | 1 |
+
+- La única pregunta en su lugar es la foto sin texto (`20-foto-sin-texto.jpg`): está bien que pregunte.
+- **Se eligió 1 / 1:** el umbral más bajo y el peso más chico que preguntan lo menos. Con peso 1 el nombre vale lo que una frase: decide solo cuando el texto no dice nada, y nunca le gana al texto de otro tipo (la constancia llamada «acta-constitutiva-version-final.pdf» se pregunta). Con 0 da igual en estos archivos, pero un escaneo ilegible llamado «Registro_JAP.png» preguntaría sin necesidad.
+- **La primera medición encontró dos causas**, y se corrigieron en las reglas, no en el umbral: la licencia dice «uso **del** suelo» y la regla buscaba «uso de suelo»; y el OCR de la copia desteñida lee «Junta**l** de asistencia privada», así que las frases de la Junta buscan «junta» y «asistencia privada» por separado. Antes de eso, 3 archivos legítimos preguntaban.
+- **Pruebas:** `cargo test core::reader::kinds` (cada documento de la batería solo se guarda en su lugar; el nombre nunca le gana al texto), `core::reader` (la pregunta y sus tres respuestas, sin escribir nada antes; lo que nada reconoce), `full_expediente` (el archivo 19 se pregunta y se cancela; la foto sin texto se pregunta y se guarda) y Vitest de la ventana del documento.
 
 ## Alternativas descartadas
 

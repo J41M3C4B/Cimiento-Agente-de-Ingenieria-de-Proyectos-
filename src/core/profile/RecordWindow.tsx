@@ -18,6 +18,7 @@ import {
   toAppError,
 } from "../../lib/tauri";
 import type { AttachOutcome, Decision, Expediente, FormValues, InstitutionRecord, ProfileIssue, QuarantineReport, RecordRead } from "../../lib/types";
+import { type Asked, RecordPlaceDialog } from "./RecordPlaceDialog";
 import { markReading, recordKey, useOpenWindow, useRecordReadings } from "./recordReading";
 
 const t = es.profile.records;
@@ -38,8 +39,7 @@ const EXTENSIONS = ["pdf", "docx", "jpg", "jpeg", "png"];
 
 /**
  * What the person is told once a file is on its document: whether its text was read, what it filled in its own
- * window, what it left as suggestions in «Mi institución», the data of people covered, and a file that looks like
- * another document (ADR-038).
+ * window, what it left as suggestions in «Mi institución» and the data of people covered (ADR-038).
  */
 export function attachedNotice(out: Extract<AttachOutcome, { status: "attached" }>): string {
   const label = (field: string) => es.forms.fields[field]?.label ?? field;
@@ -52,7 +52,6 @@ export function attachedNotice(out: Extract<AttachOutcome, { status: "attached" 
           ? t.attachedFromPicture
           : t.attached,
   ];
-  if (out.looks_like) parts.push(t.looksLike(t.types[out.looks_like] ?? out.looks_like));
   if (out.filled.length > 0) parts.push(t.filled(es.common.nameList(out.filled.map(label))));
   if (out.suggested > 0) parts.push(t.suggested(out.suggested));
   if (out.covered > 0) parts.push(t.covered(out.covered));
@@ -74,7 +73,9 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
   const [issues, setIssues] = useState<ProfileIssue[]>([]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: "ok" | "info"; text: string } | null>(null);
+  // a file that was not kept because it may not be this document (ADR-042 §4)
+  const [asked, setAsked] = useState<Asked | null>(null);
   const [held, setHeld] = useState<{ report: QuarantineReport; retry: (d: Decision) => void } | null>(null);
   // a file is read in the background (ADR-038): this window may be closed while it is read, and says how it ended
   // if it is still open
@@ -153,6 +154,10 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
         setFailure(t.unreadable[out.reason] ?? t.unreadable.damaged!);
         return;
       }
+      if (out.status === "ask") {
+        setAsked({ key: r.key, kind: r.kind, outcome: out });
+        return;
+      }
       kept(out.expediente);
       // a document with its file is had; what the file filled in its window shows; what the person typed stays
       const fresh = await institutionRecordForm(record.type, out.id);
@@ -160,7 +165,7 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
       setId(out.id);
       const filled = Object.fromEntries(out.filled.filter((f) => f in fresh.values).map((f) => [f, fresh.values[f]]));
       setValues((v) => ({ ...(v ?? {}), ...filled, "institution.record.status": "have" }));
-      setNotice(attachedNotice(out));
+      setNotice({ tone: "ok", text: attachedNotice(out) });
     });
   useEffect(() => {
     if (ended && ended.n > seen.current) {
@@ -179,7 +184,7 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
       if (!id) return;
       kept(await institutionRecordDetach(id));
       void form.refetch();
-      setNotice(t.detached);
+      setNotice({ tone: "ok", text: t.detached });
     });
 
   const errors = Object.fromEntries(issues.map((i) => [i.field, es.issues[i.code] ?? es.issues.code_unknown]));
@@ -246,10 +251,20 @@ export function RecordWindow({ record, onDone, onClose }: { record: RecordRef; o
             </div>
           </Inset>
         )}
-        {notice && <Alert tone="ok">{notice}</Alert>}
+        {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
         {form.data && values && <FormRenderer spec={form.data.spec} values={values} onChange={setValues} errors={errors} notes={readNotes} />}
         {(failure || unplaced.length > 0) && <Alert tone="error">{failure ?? unplaced.map((i) => es.issues[i.code] ?? es.issues.code_unknown).join(" ")}</Alert>}
       </Modal>
+      {asked && (
+        <RecordPlaceDialog
+          asked={asked}
+          onAnswered={(said) => {
+            setAsked(null);
+            if (said?.tone === "error") setFailure(said.text);
+            else if (said) setNotice({ tone: "info", text: said.text });
+          }}
+        />
+      )}
       {held && <QuarantineDialog report={held.report} busy={busy} onRedact={() => held.retry("redact")} onNotPersonal={() => held.retry("not_personal")} onCancel={() => setHeld(null)} />}
     </>
   );

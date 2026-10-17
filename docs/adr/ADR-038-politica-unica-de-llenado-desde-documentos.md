@@ -51,6 +51,8 @@ Ni sugerencia ni aviso.
 
 ### 3. Un archivo en el lugar equivocado no llena nada
 
+> Reemplazado por [ADR-042 §4](ADR-042-primer-inicio-solo-lo-indispensable.md) (2026-10-16): un archivo en el lugar equivocado ya no se guarda; se pregunta antes.
+
 Si no menciona su propio tipo y una regla reconoce otro, se guarda y se avisa: «Este archivo parece «Constancia de situación fiscal», no este documento».
 
 ### 4. Reglas de los datos propios por tipo

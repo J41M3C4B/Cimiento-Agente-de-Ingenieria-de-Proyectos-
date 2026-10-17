@@ -14,7 +14,7 @@ Decisiones de origen: [ADR-038](../adr/ADR-038-politica-unica-de-llenado-desde-d
    - **Word y Excel:** por sus partes; si tienen contraseña, lo dicen.
    - **Fotos:** con OCR.
 2. **Reconocer el tipo** (`reader::kinds`): por sus palabras, sin IA.
-   - Si el archivo se puso en el lugar de otro tipo y no menciona el suyo, se guarda, pero **no llena nada** y se avisa qué parece (`kinds::looks_like_other`).
+   - **Solo se guarda en su lugar si el código confía en que es de ahí** (ADR-042 §4, `kinds::placement`): las frases de ese tipo, menos las del mejor de los otros, más el nombre del archivo si dice el documento. Si sus palabras dicen otro tipo, o nada lo reconoce, **no se guarda nada** y se pregunta a la persona; el archivo leído espera en memoria (`records::placing`) y la respuesta no lo vuelve a leer.
 3. **Reglas por tipo** (`reader::rules`): cada tipo sabe dónde escribe cada dato.
    - Cada dato encontrado (`Found`) lleva su campo, su valor, la página, la línea de donde salió y si se calculó (origen `computed`).
    - Lo que la regla no encuentra, no lo adivina.
@@ -46,7 +46,8 @@ Lo que propone la IA (el Capturista) **no** sigue las reglas de «campo lleno» 
 | `proposals::discard_filled` | Descarta, al guardar, las sugerencias de los campos que quedaron llenos |
 | `core::records::write_own` y `core_record_field` | Escriben los datos propios y su origen por campo; nunca sobre lo de la persona |
 | `core::reader::authority` | La tabla de quién manda en cada campo |
-| `core::reader::kinds::looks_like_other` | El archivo en el lugar equivocado |
+| `core::reader::kinds::placement` | Si el archivo es del lugar donde se subió; si no, qué parece |
+| `core::records::placing` | El archivo que espera la respuesta de la persona: guardarlo en el que parece, aquí o en ninguno |
 | `core::records::background` | Una lectura por documento a la vez; el evento `record-read` dice cómo terminó |
 
 ## 3. La capa con IA: llenar con los documentos (cuando el cajón la usa)
@@ -108,7 +109,7 @@ Personal y Beneficiarios no tienen esta capa: nada de sus fichas llega a la IA (
    - lo rechazado no vuelve, ni al volver a subir el mismo archivo;
    - el documento con más autoridad conserva su sugerencia;
    - los datos propios se escriben solos y el reemplazo respeta lo escrito a mano;
-   - el archivo en el lugar equivocado no llena nada;
+   - el archivo en el lugar equivocado no se guarda hasta que la persona responde, y cada respuesta hace lo suyo;
    - quitar el archivo deja lo leído.
 8. **La lectura en segundo plano con aviso:** se reusa la del Expediente (clave por documento, avance con su clave, evento al terminar). Nada termina en silencio.
 9. **Qué tapa el escáner en su cajón.**
@@ -122,6 +123,7 @@ Un cambio de regla, de motor o de umbral se justifica con una medición, primero
 | Herramienta | Qué mide |
 |---|---|
 | `cargo test pdf_report -- --ignored --nocapture` | Qué saca Pdfium de cada PDF de una carpeta (letras, palabras partidas, signos raros, páginas como imagen, párrafos, filas de tabla), sin imprimir el texto |
+| `cargo test kind_confidence_measure -- --ignored --nocapture` | Qué tan seguro está el código del tipo de cada archivo de la prueba completa y de la batería, en su lugar y en todos los demás, con cada umbral |
 | `cargo test reader_on_a_file -- --ignored --nocapture` | Qué entiende el Lector de un archivo real, sin guardar ni imprimir su texto |
 | `cargo test core::reader` | La batería y las pruebas de ciclo de vida, y la capa con IA en seco |
 | `cargo test reader_live -- --ignored --nocapture` | La capa con IA con el modelo más barato sobre el expediente ficticio (4 llamadas) |

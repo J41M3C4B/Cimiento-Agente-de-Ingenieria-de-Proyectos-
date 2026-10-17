@@ -88,6 +88,7 @@ pub fn run() {
             commands::records::institution_record_form,
             commands::records::institution_record_save,
             commands::records::institution_record_attach,
+            commands::records::institution_record_place,
             commands::records::institution_record_detach,
             commands::records::institution_record_open,
             commands::institution::institution_clabe_reveal,

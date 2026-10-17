@@ -13,6 +13,7 @@
 //! - **Nothing of it reaches the AI yet** (N5); the folio and the notes never will.
 
 pub mod background;
+pub mod placing;
 pub mod storage;
 
 #[cfg(test)]
@@ -30,6 +31,7 @@ use crate::core::history::{self, Source};
 use crate::core::institution::catalog::{Applies, MINORS, RECORD_OTHER, RECORD_TYPES, UNDER_A_JUNTA};
 use crate::core::institution::forms::{RECORD, RECORD_KNOWN};
 use crate::core::profile::domain::ProfileIssue;
+use crate::core::reader::kinds::Placement;
 use crate::scanner::guard::{Decision, QuarantineReport};
 use rusqlite::Connection;
 use serde::Serialize;
@@ -161,8 +163,7 @@ pub enum AttachOutcome {
     /// The file is on the document. `readable = false`: a picture with no text that could be read;
     /// `from_picture`: its text was read from a picture, and `doubtful` are the pages read with doubts;
     /// `covered`: how many data of people the scanner covered in its text; `filled`: the fields of its own window
-    /// written from the file; `suggested`: how many suggestions it left in «Mi institución»; `looks_like`: the kind the
-    /// file looks like when it is not the one it was put on (then nothing was read into any form, ADR-038).
+    /// written from the file; `suggested`: how many suggestions it left in «Mi institución».
     Attached {
         id: String,
         readable: bool,
@@ -171,9 +172,12 @@ pub enum AttachOutcome {
         covered: i64,
         filled: Vec<String>,
         suggested: usize,
-        looks_like: Option<String>,
         expediente: Expediente,
     },
+    /// Not kept: the code is not sure the file is the document it was put on (ADR-042 §4), and it waits for the
+    /// person (`placing`). `looks_like`: the document its words say, if any, and whether that one already has a file
+    /// (`there_has_file`), which it would replace.
+    Ask { looks_like: Option<String>, file_name: String, there_has_file: bool },
     Unreadable { reason: Unreadable },
 }
 
@@ -410,6 +414,12 @@ impl FileText {
     pub(crate) fn of_pages(name: &str, pages: Vec<String>) -> FileText {
         FileText { name: name.to_string(), mime: "application/pdf", pages: Some(pages), marks: PageMarks::default() }
     }
+
+    /// Its text page by page: for the measurement of how sure the code is of a file's kind (ADR-042 §4).
+    #[cfg(test)]
+    pub(crate) fn pages_for_test(&self) -> Option<Vec<String>> {
+        self.pages.clone()
+    }
 }
 
 /// Reads a file from where it is on this computer. A scanned page or a photo is read as a picture, a few seconds a
@@ -460,7 +470,30 @@ pub fn attach(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path) 
 /// without refusing it nor asking (decision of the institution, 2026-10-13); only the clean text is kept,
 /// and of the original only where it is. A document of the catalog with nothing written is created as had; an
 /// `other` must exist.
+///
+/// The file is kept only if the code is sure it is the document it was put on (ADR-042 §4, `kinds::placement`);
+/// otherwise nothing is written, it waits in `placing`, and the person is asked.
 pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path, file: FileText) -> Result<AttachOutcome, ServiceError> {
+    if kind == RECORD_OTHER && row_of(conn, kind, id)?.is_none() {
+        return Err(ServiceError::NotFound);
+    }
+    let looks_like = match crate::core::reader::kinds::placement(file.pages.as_deref(), &file.name, kind) {
+        Placement::Sure => return keep(conn, kind, id, path, file),
+        Placement::Other(other) => Some(other),
+        Placement::Unsure => None,
+    };
+    let there_has_file = match looks_like {
+        Some(other) => store::by_type(conn, other)?.is_some_and(|r| r.original_path.is_some() || r.document_id.is_some()),
+        None => false,
+    };
+    let file_name = file.name.clone();
+    placing::wait(kind, id, path.to_path_buf(), file, looks_like);
+    Ok(AttachOutcome::Ask { looks_like: looks_like.map(str::to_string), file_name, there_has_file })
+}
+
+/// Keeps a file on its document: read by the rules of that document, its text through the scanner, its own window
+/// written and its suggestions left (ADR-038).
+fn keep(conn: &mut Connection, kind: &str, id: Option<&str>, path: &Path, file: FileText) -> Result<AttachOutcome, ServiceError> {
     let row = row_of(conn, kind, id)?;
     if kind == RECORD_OTHER && row.is_none() {
         return Err(ServiceError::NotFound);
@@ -482,18 +515,14 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
         Some(c) => Some(crate::core::archive::storage::add_paged_document(&tx, crate::core::archive::storage::Drawer::Record, &file.name, file.mime, &c.pages, c.covered, &file.marks)?),
         None => None,
     };
-    // a file that looks like another kind of document is kept, but nothing of it is read into any form (ADR-038)
-    let looks_like = file.pages.as_deref().and_then(|pages| crate::core::reader::kinds::looks_like_other(pages, kind));
     let (mut filled, mut suggested) = (vec![], 0);
     if let (Some(d), Some(reading)) = (&doc, &reading) {
         let class = reading.kind.and_then(crate::core::reader::kinds::kind).map(|k| k.class);
         // the kind is the document the person put it on; for an «Otro documento», what a rule recognized
         let said = crate::core::reader::kinds::kind(kind).is_some();
         crate::core::archive::storage::set_class(&tx, d, class, reading.kind, if said { "user" } else { "computed" })?;
-        if looks_like.is_none() {
-            filled = write_own(&tx, &id, d, &reading.found)?;
-            suggested = crate::core::reader::propose(&tx, d, reading.kind, &reading.found)?;
-        }
+        filled = write_own(&tx, &id, d, &reading.found)?;
+        suggested = crate::core::reader::propose(&tx, d, reading.kind, &reading.found)?;
     }
     store::set_file(&tx, &id, doc.as_deref(), &path.to_string_lossy(), &file.name)?;
     history::record_list_change(&tx, HISTORY_FIELD, &Source::user())?;
@@ -512,7 +541,6 @@ pub fn attach_read(conn: &mut Connection, kind: &str, id: Option<&str>, path: &P
         covered,
         filled,
         suggested,
-        looks_like: looks_like.map(str::to_string),
         expediente: expediente(conn)?,
     })
 }

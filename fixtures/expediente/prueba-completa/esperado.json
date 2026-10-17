@@ -23,13 +23,9 @@
       "archivo": "19-acta-constitutiva-version-final.pdf",
       "documento": "articles_of_incorporation",
       "espera": {
-        "legible": true,
-        "de_imagen": false,
-        "tapados": 1,
-        "llenos": [],
-        "sugerencias": 0,
-        "parece": "tax_status_certificate"
-      }
+        "pregunta": { "parece": "tax_status_certificate" }
+      },
+      "responde": "cancelar"
     },
     {
       "archivo": "01-acta-constitutiva.pdf",
@@ -268,8 +264,10 @@
       "archivo": "20-foto-sin-texto.jpg",
       "documento": "land_use_license",
       "espera": {
+        "pregunta": { "parece": null },
         "legible": false
-      }
+      },
+      "responde": "aqui"
     },
     {
       "archivo": "17-licencia-uso-suelo-foto.jpg",
