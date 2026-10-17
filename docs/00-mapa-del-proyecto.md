@@ -1,14 +1,26 @@
 ---
 tipo: mapa
-actualizado: 2026-10-15
+actualizado: 2026-10-16
 ---
 
 # Mapa del proyecto
 
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
-> [!info] Hoy (2026-10-15, noche)
-> **La prueba completa del núcleo, con una institución de prueba** ([16 · La institución de prueba](16-institucion-de-prueba.md)): «Casa San Ejemplo», inventada, con **24 archivos** de su Expediente como los subiría una institución. Hay PDF con texto, escaneos (uno con la hoja de lado y otro desteñido), fotos de celular, una captura con letra chica, Word con y sin hoja escaneada, una página mixta, y archivos con fallas: con contraseña, dañado, Excel y .odt que no se usan, uno en el lugar equivocado y una foto sin texto. La guía dice qué es la institución, la ruta de la prueba, qué debe pasar con cada archivo, qué debe quedar en «Mi institución», 13 preguntas al Asistente con su respuesta y una tabla para calificar (98 puntos).
+> [!info] Hoy (2026-10-16)
+> **Hiciste la prueba completa del núcleo** ([[Observaciones Pruebas]]): 33 de 39 datos quedaron bien; lo que falló fue el camino y el diseño. De ahí salió el [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md): un solo camino para llenar la institución, en cinco fases.
+>
+> **Fase 1 hecha: el primer inicio pide solo lo indispensable.**
+> - 14 datos en cinco pasos cortos (antes unos 19 en seis). Ya no pide dinero, inmueble ni contacto.
+> - Los decide el código: todo campo que cambia lo que el programa pide (a quién atienden, cómo, figura jurídica, donataria, CLUNI) es indispensable, y una prueba lo revisa.
+> - Cada paso se guarda por su ventana de «Mi institución», con las mismas palabras, reglas, escáner e historial.
+> - Se cierra solo con el último dato indispensable, venga del primer inicio o de una ventana. El aviso de Inicio y la tarjeta de «Mi institución» salen de la misma cuenta: ya no puede pasar lo del problema 1.
+> - Dinero, personal, beneficiarios y espacios se piden en «Siguientes pasos» de Inicio (ahora con Finanzas).
+> - Al probarlo en la app encontré otro problema: «Benito Juárez» como alcaldía hacía saltar el escáner, como si fuera el nombre de una persona. Ya no pasa: el municipio solo acepta un nombre de lugar.
+>
+> **Siguiente:** que pruebes el primer inicio con una carpeta vacía ([guion, sección 1](15-guion-pruebas-nucleo.md)); después, la fase 2 (un archivo solo se guarda en su lugar si el código confía en que es de ahí).
+>
+> **Antes (2026-10-15, noche): la prueba completa del núcleo, con una institución de prueba** ([16 · La institución de prueba](16-institucion-de-prueba.md)): «Casa San Ejemplo», inventada, con **24 archivos** de su Expediente como los subiría una institución. Hay PDF con texto, escaneos (uno con la hoja de lado y otro desteñido), fotos de celular, una captura con letra chica, Word con y sin hoja escaneada, una página mixta, y archivos con fallas: con contraseña, dañado, Excel y .odt que no se usan, uno en el lugar equivocado y una foto sin texto. La guía dice qué es la institución, la ruta de la prueba, qué debe pasar con cada archivo, qué debe quedar en «Mi institución», 13 preguntas al Asistente con su respuesta y una tabla para calificar (98 puntos).
 >
 > Probada en seco, sin IA: los 24 archivos hacen lo que deben. Al armarla salieron dos problemas:
 > - **corregido:** el número de una escritura escrito con palabras y partido en dos renglones se leía incompleto («47800» por «47820»);
@@ -87,7 +99,7 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | —   | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
 | 2   | **C2**                | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos»                                                                                                                   | **Hecho, por probar** |
 | 3   | **C3**                | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?»)                                                                                                                                                   | **Hecho y probado**   |
-| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 (Capturista), 2 (Asistente), 3 (corrida final: los tres agentes aprobados) y 4 (guion de pruebas) hechas; sigue tu prueba con el guion y la metodología de agentes                                               | **En curso**          |
+| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 a 4 hechas y tu prueba completa hecha; de ella salió el ADR-042 (un solo camino para llenar la institución, fase 1 hecha); después, la metodología de agentes | **En curso**          |
 | 5   | **N5**                | El expediente hacia Proyectos, la IA e Inicio                                                                                                                                                                                                                                  | Pendiente             |
 | —   | Módulos               | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md)                                                     | Esperan al núcleo     |
 
@@ -95,7 +107,7 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **La prueba completa con [la institución de prueba](16-institucion-de-prueba.md)** y el [guion](15-guion-pruebas-nucleo.md): cada hallazgo en una nota de `notas/`.
+- **Probar el primer inicio nuevo** (ADR-042, fase 1) con una carpeta vacía: [guion, sección 1](15-guion-pruebas-nucleo.md).
 - **Dos decisiones que salieron de la prueba completa** (sección 7 de la guía):
   - cómo detectar una copia desteñida que el lector de imágenes da por buena;
   - si la constancia del SAT debe sugerir también el domicilio de «Contacto y ubicación» (hoy solo el código postal fiscal).
@@ -111,6 +123,7 @@ Todo lo que hay que probar del núcleo está en el [15 · Guion de pruebas del n
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-16 | **ADR-042, fase 1 · el primer inicio pide solo lo indispensable:** 14 datos del catálogo en cinco pasos, cada paso por su ventana, se cierra solo con el último dato, una sola cuenta del avance (sin fichas de módulos); el municipio con regla de nombre de lugar, sin escáner. Salió de tu prueba completa (33 de 39 datos bien) | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |
 | 2026-10-15 | **La prueba completa del núcleo:** la institución de prueba «Casa San Ejemplo», 24 archivos del Expediente (escaneos, fotos, Word y fallas a propósito), lo que debe quedar y cómo calificar; la prueba en seco `full_expediente`. Corregido: el número de escritura partido en dos renglones | [16 · La institución de prueba](16-institucion-de-prueba.md) |
 | 2026-10-15 | **C4, fase 4 · guion de pruebas del núcleo:** una sección por pantalla con lo que debe pasar en cada paso; junta las pruebas sueltas del mapa. Se corrigieron cuatro textos viejos (el PIN de Seguridad y de la Ayuda, y lo que el asistente ve según el ADR-041) | [15 · Guion](15-guion-pruebas-nucleo.md) |
 | 2026-10-15 | **C4, fase 3 · corrida final:** Asistente 32 de 32, Capturista 28 de 30, «Llenar con mis documentos» 35 de 36, nada inventado; los tres aprobados. «Una parroquia» ya no pasa como la cifra 1. Las baterías nunca pasan de 14 llamadas por minuto | [ADR-036, aprobación](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |

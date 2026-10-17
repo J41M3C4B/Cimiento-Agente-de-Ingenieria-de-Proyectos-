@@ -3,11 +3,12 @@ adr: 31
 estado: aceptada
 fecha: 2026-10-08
 tema: [nucleo]
+reemplazado_en_parte_por: ["[[ADR-042-primer-inicio-solo-lo-indispensable]]"]
 tags: [adr]
 ---
 # ADR-031 · Primer inicio y datos obligatorios de la institución
 
-**Estado:** aceptada (2026-10-08).
+**Estado:** aceptada (2026-10-08). **El ADR-042 reemplaza los §2 y §5 y la lista de lo que falta:** el primer inicio pide solo los 14 datos indispensables que marca el catálogo de formularios, cada paso se guarda por su ventana de «Mi institución», dinero e inmueble salen de él, y se cierra solo con el último dato indispensable.
 
 ## Contexto
 

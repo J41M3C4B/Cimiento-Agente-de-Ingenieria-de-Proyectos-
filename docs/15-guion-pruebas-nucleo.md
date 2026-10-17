@@ -43,13 +43,17 @@ Para empezar desde cero sin tocar tus datos, abre la app con una carpeta aparte:
 
 **Puesta en marcha**
 - [ ] Muestra tres cosas: la ayuda automática («Falta poner la llave» en una carpeta nueva), las cuentas y los datos de la institución (cuántos pasos faltan).
-- [ ] «Lo hará la dirección» entra a la app sin llenar los datos. Inicio avisa «Faltan los datos de su institución», con «Llenarlos ahora».
+- [ ] «Lo hará la dirección» entra a la app sin llenar los datos. Inicio avisa «Faltan datos indispensables de su institución» y cuántos quedan, con «Llenarlos ahora».
 
-**Los datos de la institución** (siete pasos: Su institución, Ubicación y contacto, Datos legales, Personas y equipo, Dinero, Su casa, Revisar)
+**Los datos indispensables de la institución** (ADR-042: 14 datos en cinco pasos y la revisión: Su institución, A quién atienden, Dónde están, Cómo están constituidos, Cuántas personas son, Revisar)
+- [ ] No pide dinero, inmueble, contacto ni domicilio: eso se llena después.
+- [ ] Cada campo se ve y se revisa igual que en su ventana de **Mi institución** (las mismas palabras, opciones y «?»).
 - [ ] Cada paso guarda con «Guardar y seguir». Si sales a la mitad y vuelves, sigue donde te quedaste.
-- [ ] Lo que falta para seguir aparece bajo «Para seguir falta:» y no deja avanzar.
+- [ ] Lo que falta para seguir aparece bajo «Para seguir falta:», con el nombre de cada campo, y no deja avanzar. «0» voluntarias es una respuesta.
 - [ ] En «Revisar», lo que falta sale marcado. «Terminar y entrar» abre la app y dice «¡Listo! Los datos de su institución quedaron guardados.».
-- [ ] Lo que escribiste aquí aparece igual en **Mi institución**: nada se pide dos veces.
+- [ ] Lo que escribiste aquí aparece igual en **Mi institución**: nada se pide dos veces. Lo que sigue faltando ahí empieza por los indispensables.
+- [ ] Si llenas esos 14 datos desde las ventanas de **Mi institución**, el aviso de Inicio desaparece: es la misma cuenta.
+- [ ] En Inicio, «Siguientes pasos» pide registrar personal, personas que atienden, espacios e ingresos y egresos.
 
 ## 2. Entrar, bloquear y las cuentas
 

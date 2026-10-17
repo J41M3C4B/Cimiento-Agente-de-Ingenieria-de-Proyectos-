@@ -337,5 +337,12 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
       - La primera corrida encontró que la revisión de cifras leía «una parroquia» como 1; se corrigió para los tres agentes.
       - Las baterías nunca pasan de 14 solicitudes por minuto (`ai::paced`). Toda la corrida: 107 llamadas, $2.01 MXN.
     - [x] **Fase 4 · guion de pruebas por pantalla** (2026-10-15, `docs/15-guion-pruebas-nucleo.md`): primer inicio y cuentas, Inicio, Mi institución, el Expediente y Documentos, los tres agentes, y Ayuda automática, Seguridad y Ayuda. Al escribirlo se corrigieron cuatro textos viejos: el PIN en el manual de Seguridad y en la Ayuda, y lo que el asistente ve (ADR-041) en el manual y en Ayuda automática. Además, la prueba completa con una institución inventada (`docs/16-institucion-de-prueba.md`): 24 archivos del Expediente con fallas a propósito, lo que debe quedar y una tabla para calificar; en seco (`full_expediente`) los 24 hacen lo esperado, con un pendiente conocido (la copia desteñida no se marca «con dudas») y un arreglo (el número de escritura partido en dos renglones). **Falta la prueba de la institución.**
+    - [x] **Prueba de la institución** (2026-10-16, nota «Observaciones Pruebas»): 33 de 39 datos bien; los hallazgos son de camino y de diseño. De ahí el [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md).
+    - [ ] **ADR-042 · un solo camino para llenar la institución:**
+      - [x] Fase 1 · el primer inicio pide solo los 14 datos indispensables del catálogo, cada paso por su ventana, se cierra solo con el último dato y hay una sola cuenta del avance (2026-10-16). El municipio con regla de nombre de lugar, sin escáner.
+      - [ ] Fase 2 · un archivo solo se guarda en su lugar si el código confía en que es de ahí (medición del umbral en seco).
+      - [ ] Fase 3 · sugerencias al subir, de lo que ese documento dice.
+      - [ ] Fase 4 · el chat: sin «Llenar con mis documentos», «Llenarlo por mí» reparte entre ventanas, lo igual no se sugiere.
+      - [ ] Fase 5 · detalles de lectura (municipio, calle, servicios).
     - [ ] Fase 5 · metodología de agentes para los módulos.
 - [ ] **N5** El expediente hacia Proyectos, la IA e Inicio.

@@ -37,7 +37,7 @@ cargo test finance                                     # módulo de Finanzas (AD
 cargo test hr::                                        # módulo de Personal (ADR-027): modalidades, CURP/RFC/NSS/CLABE, avance, agregados y su frontera
 cargo test access                                      # perfiles de acceso (ADR-028): roles, permiso de cada comando, cuentas, bloqueo, recuperación y solicitudes de borrado
 cargo test care                                        # módulo de Beneficiarios (ADR-029): ficha, grupos, lista de espera, indicadores, tablero y lo que llega a la IA
-cargo test overview                                    # la institución de un vistazo (ADR-033): cifras de cada módulo, cifra rápida, ocupación, avance y lo que falta
+cargo test overview                                    # la institución de un vistazo (ADR-033, ADR-042): cifras de cada módulo, cifra rápida, ocupación, y una sola cuenta del avance (los indispensables primero, sin fichas de módulos)
 cargo test core::history                               # origen por dato e historial ligero (ADR-033 §4): solo lo que cambia, lo protegido sin valor, cómo estaba en una fecha, solo crece
 cargo test profile::forms                              # las cuatro ventanas de «Mi institución»: guardado, reglas, Junta, escáner e historial en la misma transacción
 cargo test core::snapshot                              # foto mensual (ADR-033 §4): solo cifras, el mes en curso se actualiza, un mes pasado queda fijo y nada se borra
@@ -54,7 +54,7 @@ cargo test core::records                               # expediente (ADR-033 §5
 cargo test core::examples                              # los dos ejemplos I.A.P. cargan completos al 100 % y sin nombres, folios ni CLABE hacia la IA
 cargo test core::protected                             # patronato y cuentas (ADR-033 §3): qué se pide, CLABE tapada y en bitácora, historial sin valor, lo que llega a la IA, escáner y lo que falta
 cargo test forms                                       # formularios descritos como datos (ADR-033): validador, perfil de atención, «Su institución» y las palabras de cada campo en es-MX.ts
-cargo test onboarding                                  # primer inicio (ADR-031): pasos, cifras rápidas, cierre, bienvenida y lo que llega a la IA
+cargo test onboarding                                  # primer inicio (ADR-031, ADR-042): solo los 14 datos indispensables del catálogo (todo campo que decide lo que el programa pide lo es), cada paso por su ventana (reglas, escáner, historial), se cierra solo con el último dato venga de donde venga, cifras rápidas, bienvenida y lo que llega a la IA
 cargo test facilit                                     # módulo de Instalaciones (ADR-030): inmueble, grupos con conteo por estado, traslado, tablero, escáner y lo que llega a la IA
 cargo test bridge::staff                               # el personal con la base real: lo que llega al perfil y a la IA, identificadores tapados, puestos con escáner
 cargo test projects::drafting                          # redacción, presupuesto y cronograma (ADR-018), con modelo simulado

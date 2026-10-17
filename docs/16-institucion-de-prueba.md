@@ -18,80 +18,82 @@ Todo es ficticio: los nombres, el RFC, la CLUNI, la CLABE y los folios son inven
 
 ### Su institución
 
-| Dato | Lo que debe quedar | De dónde sale |
-|---|---|---|
-| Nombre de la institución | Casa San Ejemplo | Lo dices tú (paso B) |
-| ¿A qué se dedica? | Dar un hogar, cuidado y compañía a personas mayores de 60 años en situación de abandono o de escasos recursos, con residencia permanente y estancia de día | «Llenar con mis documentos» (acta, informe) |
-| ¿A quién atienden? | Personas mayores (60 años o más) | Lo dices tú (paso B) |
-| ¿Atienden a mujeres, a hombres o a ambos? | Mujeres y hombres | «Llenar con mis documentos» (reglamento: «de cualquier sexo») |
-| ¿Cómo los atienden? | Viven en la institución; Estancia de día | Lo dices tú (paso B) |
-| ¿En qué los apoyan? | Cuidado, Salud, Alimentación | «Llenar con mis documentos» (acta, informe) |
-| ¿Qué servicios o programas ofrecen? | Residencia permanente, estancia de día, terapia física y ocupacional, talleres, atención médica y pláticas para las familias | «Llenar con mis documentos» (informe) |
-| Edad mínima | 60 | «Llenar con mis documentos» (reglamento, acta) |
-| Edad máxima | (vacía: no hay) | Ningún documento la dice: **no debe sugerirse nada** |
-| ¿Qué piden para que alguien ingrese? | Solicitud firmada, valoración médica y geriátrica, estudio socioeconómico y carta compromiso del familiar | «Llenar con mis documentos» (reglamento, art. 2) |
+| Dato                                      | Lo que debe quedar                                                                                                                                         | De dónde sale                                                 | Resultado                                                                                                                                                                                              |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Nombre de la institución                  | Casa San Ejemplo                                                                                                                                           | Lo dices tú (paso B)                                          | Si                                                                                                                                                                                                     |
+| ¿A qué se dedica?                         | Lo que digas en el paso B («una casa de reposo para personas mayores»). Si lo dejas vacío, «Llenar con mis documentos» sugiere: dar un hogar, cuidado y compañía a personas mayores de 60 años en situación de abandono o de escasos recursos, con residencia permanente y estancia de día | Lo dices tú (paso B); si no, «Llenar con mis documentos» (acta, informe). Un campo lleno no recibe sugerencias (ADR-038) | No, dio Casa de reposo para personas mayores                                                                                                                                                           |
+| ¿A quién atienden?                        | Personas mayores (60 años o más)                                                                                                                           | Lo dices tú (paso B)                                          | Si                                                                                                                                                                                                     |
+| ¿Atienden a mujeres, a hombres o a ambos? | Mujeres y hombres                                                                                                                                          | «Llenar con mis documentos» (reglamento: «de cualquier sexo») | Si                                                                                                                                                                                                     |
+| ¿Cómo los atienden?                       | Viven en la institución; Estancia de día                                                                                                                   | Lo dices tú (paso B)                                          | Si                                                                                                                                                                                                     |
+| ¿En qué los apoyan?                       | Cuidado, Salud, Alimentación                                                                                                                               | «Llenar con mis documentos» (acta, informe)                   | Si                                                                                                                                                                                                     |
+| ¿Qué servicios o programas ofrecen?       | Residencia permanente, estancia de día, terapia física y ocupacional, talleres, atención médica y pláticas para las familias                               | «Llenar con mis documentos» (informe)                         | brindar alojamiento, alimentación y cuidados                                                                                                                                                           |
+| Edad mínima                               | 60                                                                                                                                                         | «Llenar con mis documentos» (reglamento, acta)                | Si                                                                                                                                                                                                     |
+| Edad máxima                               | (vacía: no hay)                                                                                                                                            | Ningún documento la dice: **no debe sugerirse nada**          | Si                                                                                                                                                                                                     |
+| ¿Qué piden para que alguien ingrese?      | Solicitud firmada, valoración médica y geriátrica, estudio socioeconómico y carta compromiso del familiar                                                  | «Llenar con mis documentos» (reglamento, art. 2)              | solicitud firmada por la persona o por su familiar responsable; valoración médica y geriátrica realizada por el equipo de la Casa; estudio socioeconómico; y carta compromiso del familiar responsable |
 
 ### Contacto y ubicación
 
-| Dato | Lo que debe quedar | De dónde sale |
-|---|---|---|
-| Teléfono | 55 5123 4567 | «Llenarlo por mí» (paso F) |
-| Correo | contacto@casasanejemplo.org.mx | «Llenarlo por mí» (paso F) |
-| Calle | de los Ejemplos | «Llenarlo por mí» |
-| Número exterior | 128 | «Llenarlo por mí» |
-| Número interior | (vacío) | — |
-| Colonia | Del Valle Centro | «Llenarlo por mí» |
-| Código postal | 03100 | «Llenarlo por mí» |
-| Municipio o alcaldía | Benito Juárez | «Llenarlo por mí» o «Llenar con mis documentos» (constancia) |
-| Estado | Ciudad de México | «Llenarlo por mí» o «Llenar con mis documentos» |
+| Dato                 | Lo que debe quedar             | De dónde sale                                                | Resultado                      |
+| -------------------- | ------------------------------ | ------------------------------------------------------------ | ------------------------------ |
+| Teléfono             | 55 5123 4567                   | «Llenarlo por mí» (paso F)                                   | 55 5123 4567                   |
+| Correo               | contacto@casasanejemplo.org.mx | «Llenarlo por mí» (paso F)                                   | contacto@casasanejemplo.org.mx |
+| Calle                | de los Ejemplos                | «Llenarlo por mí»                                            | Calle de los Ejemplos          |
+| Número exterior      | 128                            | «Llenarlo por mí»                                            | 128                            |
+| Número interior      | (vacío)                        | —                                                            |                                |
+| Colonia              | Del Valle Centro               | «Llenarlo por mí»                                            | Del Valle Centro               |
+| Código postal        | 03100                          | «Llenarlo por mí»                                            | 03100                          |
+| Municipio o alcaldía | Benito Juárez                  | «Llenarlo por mí» o «Llenar con mis documentos» (constancia) | BENITO JUAREZ                  |
+| Estado               | Ciudad de México               | «Llenarlo por mí» o «Llenar con mis documentos»              | Si                             |
 
 > [!warning] Trampa a propósito
 > El registro ante la Junta (2015) trae un domicilio viejo: «Calle de los Robles número 45, colonia Centro». El domicilio de hoy es el de la constancia del SAT y el aviso de privacidad.
 
 ### Datos legales y fiscales
 
-| Dato | Lo que debe quedar | De dónde sale |
-|---|---|---|
-| Nombre legal | Casa de Reposo Ficticia San Ejemplo (la constancia lo sugiere en mayúsculas; puedes corregirlo) | Sugerencia al subir la constancia |
-| Objeto social | El artículo cuarto del acta (I a IV) | Sugerencia al subir el acta |
-| Figura jurídica | I.A.P. | Lo dices tú (paso B) |
-| Año de fundación | 2015 | Sugerencia al subir el acta |
-| Folio ante la Junta | JAP-1234/2015 | Sugerencia al subir el registro. **Pendiente conocido:** de la copia desteñida sale «JAP-12342015». Corrígelo a mano. |
-| RFC | CRF150310KX4 | Sugerencia al subir la constancia |
-| Régimen fiscal | Personas morales con fines no lucrativos | Sugerencia al subir la constancia |
-| Código postal fiscal | 03100 | Sugerencia al subir la constancia |
-| ¿Es donataria autorizada? | Sí | Lo dices tú (paso B) |
-| ¿Tiene CLUNI? | Sí | Lo dices tú (paso B) |
-| Rubro autorizado | Asistencial | Sugerencia al subir el oficio |
-| Número del oficio | 600-04-02-2017-11234 | Sugerencia al subir el oficio |
-| Fecha del oficio | 14 de marzo de 2017 | Sugerencia al subir el oficio |
-| Clave CLUNI | CRF15031009015 | Sugerencia al subir la captura de la CLUNI |
-| Representante legal | Rosa Ficticia del Ejemplo | «Llenarlo por mí» (paso F); el poder no dice su nombre, solo «la Directora General» |
-| ¿Hasta cuándo vale su poder? | 18 de enero de 2027 | Sugerencia al subir el poder |
+| Dato                         | Lo que debe quedar                                                                              | De dónde sale                                                                                                         | Resultado                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nombre legal                 | Casa de Reposo Ficticia San Ejemplo (la constancia lo sugiere en mayúsculas; puedes corregirlo) | Sugerencia al subir la constancia                                                                                     | CASA DE REPOSO FICTICIA SAN EJEMPLO                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Objeto social                | El artículo cuarto del acta (I a IV)                                                            | Sugerencia al subir el acta                                                                                           | I. Brindar alojamiento, alimentación, vestido y atención médica a personas adultas mayores de sesenta años en situación de abandono o de escasos recursos. II. Proporcionar terapia física, ocupacional y actividades recreativas que mejoren la calidad de vida de las personas residentes. III. Ofrecer orientación a las familias sobre el cuidado de la persona mayor. IV. Recibir donativos en dinero o en especie para el cumplimiento de su objeto. |
+| Figura jurídica              | I.A.P.                                                                                          | Lo dices tú (paso B)                                                                                                  | Si                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Año de fundación             | 2015                                                                                            | Sugerencia al subir el acta                                                                                           | 2015                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Folio ante la Junta          | JAP-1234/2015                                                                                   | Sugerencia al subir el registro. **Pendiente conocido:** de la copia desteñida sale «JAP-12342015». Corrígelo a mano. | JAP-12342015                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| RFC                          | CRF150310KX4                                                                                    | Sugerencia al subir la constancia                                                                                     | CRF150310KX4                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Régimen fiscal               | Personas morales con fines no lucrativos                                                        | Sugerencia al subir la constancia                                                                                     | si                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Código postal fiscal         | 03100                                                                                           | Sugerencia al subir la constancia                                                                                     | 03100                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ¿Es donataria autorizada?    | Sí                                                                                              | Lo dices tú (paso B)                                                                                                  | Si                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ¿Tiene CLUNI?                | Sí                                                                                              | Lo dices tú (paso B)                                                                                                  | Si                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Rubro autorizado             | Asistencial                                                                                     | Sugerencia al subir el oficio                                                                                         | Si                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Número del oficio            | 600-04-02-2017-11234                                                                            | Sugerencia al subir el oficio                                                                                         | 600-04-02-2017-11234                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Fecha del oficio             | 14 de marzo de 2017                                                                             | Sugerencia al subir el oficio                                                                                         | Si                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Clave CLUNI                  | CRF15031009015                                                                                  | Sugerencia al subir la captura de la CLUNI                                                                            | CRF15031009015                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Representante legal          | Rosa Ficticia del Ejemplo                                                                       | «Llenarlo por mí» (paso F); el poder no dice su nombre, solo «la Directora General»                                   | Tuvimos el problema 8, descrito en notas/Observaciones Pruebas                                                                                                                                                                                                                                                                                                                                                                                             |
+| ¿Hasta cuándo vale su poder? | 18 de enero de 2027                                                                             | Sugerencia al subir el poder                                                                                          | Si                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### Capacidad y cifras rápidas
 
-| Dato | Lo que debe quedar | De dónde sale |
-|---|---|---|
-| Capacidad total | 75 | «Llenarlo por mí» (paso F) |
-| ¿Cuántas atienden hoy? | 70 | «Llenarlo por mí» (paso F) |
-| ¿Cuántas trabajan con sueldo? | 31 | «Llenar con mis documentos» (informe 2025, p. 1) |
-| ¿Cuántas ayudan como voluntarias? | 18 | «Llenar con mis documentos» (informe 2025, p. 1) |
-| Notas generales | (libre) | — |
+| Dato                              | Lo que debe quedar | De dónde sale                                    | Resultados |
+| --------------------------------- | ------------------ | ------------------------------------------------ | ---------- |
+| Capacidad total                   | 75                 | «Llenarlo por mí» (paso F)                       | Si         |
+| ¿Cuántas atienden hoy?            | 70                 | «Llenarlo por mí» (paso F)                       | Si         |
+| ¿Cuántas trabajan con sueldo?     | 31                 | «Llenar con mis documentos» (informe 2025, p. 1) | Si         |
+| ¿Cuántas ayudan como voluntarias? | 18                 | «Llenar con mis documentos» (informe 2025, p. 1) | Si         |
+| Notas generales                   | (libre)            | —                                                | --         |
 
 ### Patronato y cuentas (a mano, paso G)
 
-| Persona | Cargo | Desde |
-|---|---|---|
+| Persona                  | Cargo       | Desde                   |
+| ------------------------ | ----------- | ----------------------- |
 | Ernesto Ficticio Ramírez | Presidencia | 12 de diciembre de 2023 |
-| Mónica Ficticia López | Secretaría | 5 de julio de 2019 |
-| Jorge Ejemplo Sánchez | Tesorería | 12 de diciembre de 2023 |
-| Laura Ficticia Méndez | Vocal | 12 de diciembre de 2023 |
-| Pedro Ejemplo Ruiz | Vocal | 12 de diciembre de 2023 |
+| Mónica Ficticia López    | Secretaría  | 5 de julio de 2019      |
+| Jorge Ejemplo Sánchez    | Tesorería   | 12 de diciembre de 2023 |
+| Laura Ficticia Méndez    | Vocal       | 12 de diciembre de 2023 |
+| Pedro Ejemplo Ruiz       | Vocal       | 12 de diciembre de 2023 |
 
 **Cuenta bancaria:** CLABE `012180000123456782` (ficticia, con su número de control bien), para donativos, «Sí» se pone en los documentos. El banco lo toma el programa de la CLABE.
 
-### Lo que pide el primer inicio al final (paso H)
+### Dinero e inmueble (en sus módulos, después del núcleo)
+
+El primer inicio ya no los pide (ADR-042): son de Finanzas e Instalaciones. Para cuando se prueben esos módulos:
 
 - **Dinero** (del estado de actividades 2025): gasto del año 4,755,000. Ingresos al año: donativos de personas 1,240,000 (Donativo ocasional), de empresas y fundaciones 2,310,000 (Donante fijo), en especie 415,000 (Otro ingreso), cuotas de recuperación 980,000 (Cuota aproximada), eventos 260,000 (Otro ingreso).
 - **Su casa:** 2 pisos, en comodato hasta 2036 (contrato desde el 1 de abril de 2016, por 20 años), con papeles.
@@ -123,7 +125,7 @@ Hazla en una carpeta vacía, para no mezclarla con tus datos:
 
 **G · A mano:** el patronato y la cuenta de la sección 1. La vigencia de la licencia de uso de suelo: 15 de mayo de 2024 (vale un año desde su expedición), y debe salir **«Vencido»**.
 
-**H · Terminar el primer inicio:** en Inicio, «Llenarlos ahora». Lo que ya llenaste aparece puesto; completa Dinero y Su casa con la sección 1 y «Terminar y entrar».
+**H · Terminar el primer inicio:** en Inicio, el aviso ya debe haber desaparecido: los 14 datos indispensables (ADR-042) los llenaste en las ventanas. Si sigue, «Llenarlos ahora» abre solo lo que falta de ellos; «Terminar y entrar».
 
 **I · El Asistente:** las preguntas de la sección 5.
 
@@ -204,15 +206,15 @@ Ninguna para el nombre, a quién atienden ni la figura: ya los habías dicho tú
 
 Marca cada renglón «Bien», «Mal» (dio otra cosa) o «Inventó» (dio algo que no está en ninguna parte). **El núcleo pasa con nada inventado y al menos 90 % bien.**
 
-| Parte | Cuántos | Bien | Mal | Inventó |
-|---|---|---|---|---|
-| Avisos de los 24 archivos (sección 3) | 24 | | | |
-| Datos propios de los documentos (emisión, vigencia, número) | 19 | | | |
-| Sugerencias de los documentos (sección 4) | 12 | | | |
-| «Llenar todo con mis documentos»: los 10 datos marcados así en la sección 1, más la edad máxima y la capacidad, que no deben sugerirse | 12 | | | |
-| «Llenarlo por mí»: 6 datos del paso B, 11 del paso F y que no sume | 18 | | | |
-| Preguntas al Asistente (sección 5) | 13 | | | |
-| **Total** | **98** | | | |
+| Parte                                                                                                                                  | Cuántos | Bien | Mal | Inventó |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- | --- | ------- |
+| Avisos de los 24 archivos (sección 3)                                                                                                  | 24      |      |     |         |
+| Datos propios de los documentos (emisión, vigencia, número)                                                                            | 19      |      |     |         |
+| Sugerencias de los documentos (sección 4)                                                                                              | 12      |      |     |         |
+| «Llenar todo con mis documentos»: los 10 datos marcados así en la sección 1, más la edad máxima y la capacidad, que no deben sugerirse | 12      |      |     |         |
+| «Llenarlo por mí»: 6 datos del paso B, 11 del paso F y que no sume                                                                     | 18      |      |     |         |
+| Preguntas al Asistente (sección 5)                                                                                                     | 13      |      |     |         |
+| **Total**                                                                                                                              | **98**  |      |     |         |
 
 Anota cada «Mal» o «Inventó» en una nota de `notas/` con el paso, el archivo o la pregunta, y lo que salió.
 
