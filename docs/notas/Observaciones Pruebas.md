@@ -107,3 +107,5 @@ Para probarlo: [guion, sección 5](../15-guion-pruebas-nucleo.md), las dos casil
 - «dej3» y «bot3n» los escribía el modelo. Ahora el código compone esas palabras.
 
 Con el modelo más barato, dos rondas: Capturista 33 de 34, Asistente 33 de 34, nada inventado. Para probarlo: [guion](../15-guion-pruebas-nucleo.md), las casillas sin marcar de las secciones 7 y 8. Sigue la fase 5 y el bloque de diseño (problemas 3 y 5).
+
+**2026-10-18. Fase 5 hecha y el ADR-042 completo:** el municipio sale con su nombre oficial («Benito Juárez»), del catálogo del INEGI que ahora trae el programa; la calle, sin «Calle»; y los servicios, del informe. Los problemas 1, 2, 4, 6, 7 y 8 quedaron atendidos. Para probarlo: [guion](../15-guion-pruebas-nucleo.md), las casillas sin marcar de las secciones 5, 7 y 8. **Esta nota sigue abierta** por los problemas 3 y 5, que van en el bloque de diseño.

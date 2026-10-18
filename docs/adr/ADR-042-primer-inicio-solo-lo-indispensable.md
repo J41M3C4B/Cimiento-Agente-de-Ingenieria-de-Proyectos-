@@ -9,7 +9,7 @@ tags: [adr]
 ---
 # ADR-042 · Un solo camino para llenar la institución: el primer inicio pide solo lo indispensable
 
-**Estado:** aceptada (2026-10-16, la institución revisó la tabla de §2). Fases 1 y 2 aplicadas (2026-10-16); fase 3, el 2026-10-17; fase 4, el 2026-10-18. Sale de la prueba del núcleo de la institución ([[Observaciones Pruebas]], problemas 1, 2, 4, 6, 7 y 8).
+**Estado:** aceptada (2026-10-16, la institución revisó la tabla de §2). Aplicado completo: fases 1 y 2 (2026-10-16), fase 3 (2026-10-17), fases 4 y 5 (2026-10-18). Sale de la prueba del núcleo de la institución ([[Observaciones Pruebas]], problemas 1, 2, 4, 6, 7 y 8).
 
 ## Contexto
 
@@ -155,7 +155,7 @@ Se mide primero en seco con la prueba completa: por archivo, qué campos detecta
 2. **Archivo en su lugar** (hecha, 2026-10-16): primero la medición en seco y el umbral; después la pregunta. Ver «Fase 2, al aplicarla».
 3. **Sugerencias al subir** (hecha, 2026-10-17): la detección en seco, la llamada por archivo y una corrida real. Ver «Fase 3, al aplicarla».
 4. **Chat** (hecha, 2026-10-18): sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre ventanas; lo igual no se sugiere; el texto de lo dejado lo arma el código; las letras cambiadas. Ver «Fase 4, al aplicarla».
-5. **Detalles de lectura de la prueba:** el municipio con su nombre del catálogo (con acentos, sin mayúsculas sostenidas), «Calle» fuera de la calle, y los servicios desde el informe y no desde el acta.
+5. **Detalles de lectura de la prueba** (hecha, 2026-10-18): el municipio con su nombre del catálogo (con acentos, sin mayúsculas sostenidas), «Calle» fuera de la calle, y los servicios desde el informe y no desde el acta. Ver «Fase 5, al aplicarla».
 
 Después de este ADR va el bloque de diseño: formularios por secciones, sugerencias distintas de un botón y avisos a la vista (problemas 3 y 5).
 
@@ -274,6 +274,22 @@ Después de este ADR va el bloque de diseño: formularios por secciones, sugeren
 - En el Asistente, «Llena los datos legales con mis documentos» lleva a «Datos legales» y explica que se busca en el Expediente, pero una de dos veces no nombra el botón.
 - En el Lector faltó una vez el sexo, que no es cifra: variación del modelo, que antes salió 18 de 18 con el mismo oficio.
 - **Pruebas:** `cargo test core::agents` (todas las ventanas en el contexto; cada dato a su ventana; lo igual; la frase del programa con «Llenarlo por mí»; la palabra con una cifra), `core::reader::quote` y `core::reader::fill` (la cifra y su campo; una cifra, un campo), y Vitest del chat (sin «Llenar con mis documentos»; lo que quedó en otras ventanas y lo que ya estaba).
+
+## Fase 5, al aplicarla (2026-10-18)
+
+Los tres detalles de la prueba de la institución, corregidos en el único punto por donde pasa toda sugerencia (`proposals::propose`, `as_written`). Valen para lo que sugieran las reglas, el Lector o el Capturista:
+
+- **El municipio con su nombre oficial.**
+  - El programa no tenía catálogo de municipios, solo de estados. Ahora trae el del INEGI (Catálogo Único de Claves de Áreas Geoestadísticas, servicio web `wscatgeo`, consultado el 2026-10-18): 2,478 municipios y alcaldías con su nombre oficial, en `core/institution/municipios.tsv` (47 KB, datos públicos sin personas).
+  - Una sugerencia de municipio se cambia por el nombre del catálogo que se lee igual, sin mayúsculas, acentos, signos ni «municipio de», «alcaldía» o «delegación», en su estado si está guardado o espera sugerencia: «BENITO JUAREZ» de la constancia es «Benito Juárez».
+  - Si el catálogo no lo tiene, o el nombre es de varios estados y no se sabe cuál, se queda como vino.
+  - Lo que escribe la persona no se cambia.
+- **La calle sin «Calle».** La etiqueta del campo ya dice «Calle»: «Calle de los Ejemplos» se guarda como «de los Ejemplos». «Avenida», «Privada» y las demás se quedan: son parte del nombre.
+- **Los servicios desde el informe.** Ya lo resolvió la fase 3: el informe anual tiene más autoridad que el reglamento y el acta (`reader::authority`). Al subirlo, su sugerencia reemplaza la del acta. Con el registro de lo que contesta el modelo en `upload_live` se vio que, al final, quedan los del informe, página 2 («Terapia física y ocupacional, talleres y servicios de salud»). Lo que el código tiró del informe era la suma «48 + 22 = 70» personas atendidas, como debe ser.
+- **Corrida real** (`upload_live`, 8 llamadas, $0.15 MXN): 18 de 18 bien, nada inventado; el municipio, «Benito Juárez», de la constancia, página 1.
+- **Pruebas:** `cargo test core::agents::proposals` (el nombre oficial, la alcaldía, un nombre de tres estados, uno que no es del estado y uno que no existe; la calle) y `full_expediente` en seco, sin nada distinto de lo esperado.
+
+Con esta fase, el ADR-042 queda aplicado completo. Siguen los problemas 3 y 5 de la prueba en el bloque de diseño.
 
 ## Alternativas descartadas
 

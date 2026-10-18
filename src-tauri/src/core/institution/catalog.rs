@@ -129,6 +129,45 @@ pub const RECORD_TYPES: &[(&str, Applies)] = &[
 /// A document the institution names itself.
 pub const RECORD_OTHER: &str = "other";
 
+/// The municipalities and alcaldías of Mexico by state, with their official names: `code\tname`, one per line, from
+/// the Catálogo Único de Claves de Áreas Geoestadísticas of INEGI (public, 2,478 names, `municipios.tsv`).
+const MUNICIPALITIES: &str = include_str!("municipios.tsv");
+
+/// A name read as a person reads it: without capitals, accents nor punctuation, and without the word that says what
+/// it is («municipio de», «alcaldía», «delegación»).
+fn place_key(s: &str) -> String {
+    let folded = crate::scanner::normalize::fold_str(s);
+    let words: Vec<&str> = folded.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
+    let skip = match words.as_slice() {
+        ["MUNICIPIO", "DE", ..] => 2,
+        ["MUNICIPIO" | "ALCALDIA" | "DELEGACION", ..] => 1,
+        _ => 0,
+    };
+    words[skip..].join(" ")
+}
+
+/// The official name of a municipality written another way («BENITO JUAREZ», «Alcaldía Benito Juárez»), from the
+/// catalog of INEGI: the one name that reads the same, in its state when it is known. `None` when none does (a name
+/// the catalog does not have stays as it was written).
+pub fn municipality_name(state: Option<&str>, said: &str) -> Option<&'static str> {
+    let key = place_key(said);
+    if key.is_empty() {
+        return None;
+    }
+    let mut names: Vec<&'static str> = MUNICIPALITIES
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+        .filter_map(|l| l.split_once('\t'))
+        .filter(|(code, name)| state.is_none_or(|s| s == *code) && place_key(name) == key)
+        .map(|(_, name)| name)
+        .collect();
+    names.dedup();
+    match names[..] {
+        [one] => Some(one),
+        _ => None,
+    }
+}
+
 pub fn state_name(code: &str) -> Option<&'static str> {
     STATES.iter().find(|(c, _)| *c == code).map(|(_, n)| *n)
 }

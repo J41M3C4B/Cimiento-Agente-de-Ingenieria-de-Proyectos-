@@ -1,13 +1,13 @@
 ---
 tipo: mapa
-actualizado: 2026-10-17
+actualizado: 2026-10-18
 ---
 
 # Mapa del proyecto
 
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
-> [!info] Hoy (2026-10-17)
+> [!info] Hoy (2026-10-18)
 > **Probaste la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md): funciona.** El acta y los estatutos con nombres de números se reconocieron por sus palabras; un archivo que no es de ningún documento no se guarda y lo dice.
 >
 > **Fase 3 hecha: las sugerencias llegan al subir un archivo** (tus problemas 6 y 7).
@@ -25,7 +25,12 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - Al repartir entre ventanas apareció un riesgo nuevo, «Atendemos a 30 abuelitos» como capacidad. Se cerró con una regla del código: una cifra va al campo del que hablan sus palabras, y una cifra dicha una vez llena un solo campo.
 > - Corridas reales, dos rondas: Capturista **33 de 34**, Asistente **33 de 34**, citas 18 de 18, **nada inventado**.
 >
-> **Siguiente:** la fase 5 (detalles de lectura). Para probar las fases 3 y 4: [guion](15-guion-pruebas-nucleo.md), las casillas sin marcar de las secciones 5, 7 y 8.
+> **Fase 5 hecha: los detalles de lectura.** Con ella, el [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) queda aplicado completo.
+> - El municipio se sugiere con su nombre oficial («Benito Juárez», no «BENITO JUAREZ»). El programa ahora trae el catálogo del INEGI: 2,478 municipios y alcaldías.
+> - La calle se sugiere sin «Calle» delante, porque la etiqueta ya lo dice.
+> - Los servicios ya salen del informe anual, que tiene más autoridad que el acta.
+>
+> **Siguiente:** que pruebes las fases 3, 4 y 5 ([guion](15-guion-pruebas-nucleo.md), las casillas sin marcar de las secciones 5, 7 y 8). Después, el **bloque de diseño** (tus problemas 3 y 5).
 >
 > **Antes (2026-10-16, noche)**
 > **Probaste el guion completo (sección 15): todo salió bien.** Siguió la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) (tu problema 4).
@@ -130,7 +135,7 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | —   | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
 | 2   | **C2**                | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos»                                                                                                                   | **Hecho, por probar** |
 | 3   | **C3**                | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?»)                                                                                                                                                   | **Hecho y probado**   |
-| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 a 4 hechas y tu prueba completa hecha; de ella salió el ADR-042 (un solo camino para llenar la institución, fases 1 a 4 hechas); después, la metodología de agentes | **En curso**          |
+| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 a 4 hechas y tu prueba completa hecha; de ella salió el ADR-042 (un solo camino para llenar la institución, aplicado completo); después, la metodología de agentes | **En curso**          |
 | 5   | **N5**                | El expediente hacia Proyectos, la IA e Inicio                                                                                                                                                                                                                                  | Pendiente             |
 | —   | Módulos               | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md)                                                     | Esperan al núcleo     |
 
@@ -153,6 +158,7 @@ Todo lo que hay que probar del núcleo está en el [15 · Guion de pruebas del n
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-18 | **ADR-042, fase 5 · detalles de lectura:** el municipio con su nombre del catálogo del INEGI (2,478, con acentos), la calle sin «Calle», los servicios desde el informe. El ADR-042 queda aplicado completo | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
 | 2026-10-18 | **ADR-042, fase 4 · el chat:** sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre las cuatro ventanas; lo igual no se sugiere y el programa lo dice; la frase del botón la escribe el programa; las palabras con una cifra por letra se componen; una cifra va al campo del que hablan sus palabras. Capturista 33 de 34, Asistente 33 de 34, nada inventado | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
 | 2026-10-17 | **ADR-042, fase 3 · las sugerencias llegan al subir un archivo:** el código halla sin IA los campos vacíos de los que habla el archivo (2 palabras del campo o el nombre de una opción) y hace una llamada barata. Real: 18 de 18, nada inventado, $0.17 MXN por 13 documentos. «Notas generales» ya no se llena desde un archivo; un archivo con más autoridad reemplaza la sugerencia de otro; el oficio del Lector pasa a v2 («Llenar con mis documentos» sigue 18 de 18) | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
 | 2026-10-16 | **ADR-042, fase 2 · un archivo solo se guarda en su lugar si el código confía en que es de ahí:** la confianza es una cuenta del código (palabras del documento contra las de otro, más el nombre del archivo); si no confía, pregunta antes de guardar nada. Umbral medido en seco: 563 lugares equivocados, ninguno guardado. Corregidas las reglas de la licencia de uso de suelo y del registro desteñido | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |

@@ -203,6 +203,30 @@ async fn nothing_is_called_without_ai_or_without_a_field_to_ask() {
     assert!(provider.requests().is_empty(), "no call");
 }
 
+/// The provider as it is, keeping what the model answered (before the code checks it).
+struct Recording<'a> {
+    inner: &'a dyn crate::ai::AiProvider,
+    log: Mutex<Vec<Value>>,
+}
+
+#[async_trait::async_trait]
+impl crate::ai::AiProvider for Recording<'_> {
+    async fn complete(&self, req: &crate::ai::AiRequest) -> Result<crate::ai::AiResponse, crate::ai::AiError> {
+        let out = self.inner.complete(req).await;
+        self.log.lock().unwrap().push(match &out {
+            Ok(r) => r.value["answer"].clone(),
+            Err(e) => json!({ "error": e.kind() }),
+        });
+        out
+    }
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+    fn model_name(&self, tier: crate::ai::ModelTier) -> String {
+        self.inner.model_name(tier)
+    }
+}
+
 /// The real run of ADR-042 §5, opt-in and capped: the 13 documents of the fictitious Expediente kept one after the
 /// other, as a person uploads them, with only the name written: the rules of each file leave their suggestions and
 /// then `after_upload` asks about the empty fields that file speaks of (at most 13 calls with the cheapest model, never
@@ -228,6 +252,7 @@ async fn upload_live() {
         println!("Proveedor: {}  modelo ligero: {}", cfg.provider.as_str(), cfg.model_for(ModelTier::Light));
         crate::ai::paced::provider(crate::ai::build_provider(&cfg, key))
     };
+    let recording = Recording { inner: provider.as_ref(), log: Mutex::new(Vec::new()) };
     let usage = |db: &SharedDb| -> (i64, i64, i64, i64, f64) {
         db.lock()
             .unwrap()
@@ -256,7 +281,8 @@ async fn upload_live() {
         };
         let before = usage(&db);
         let started = std::time::Instant::now();
-        let out = after_upload(&db, Some(provider.as_ref()), &doc).await.unwrap();
+        recording.log.lock().unwrap().clear();
+        let out = after_upload(&db, Some(&recording), &doc).await.unwrap();
         let after = usage(&db);
         println!(
             "\n== {name}: {:.1} s  llamadas {}  entrada {} (del caché {})  salida {}  costo ${:.4} MXN\n   {out:?}",
@@ -267,6 +293,9 @@ async fn upload_live() {
             after.3 - before.3,
             after.4 - before.4
         );
+        for answer in recording.log.lock().unwrap().iter() {
+            println!("   · el modelo contestó {answer}");
+        }
     }
     let reference = reference();
     let (mut right, mut wrong, mut missed, mut invented, mut pages_ok, mut graded) = (0, 0, 0, 0, 0, 0);

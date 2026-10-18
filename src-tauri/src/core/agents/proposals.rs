@@ -107,6 +107,7 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
         }
         other => other.clone(),
     };
+    let value = as_written(conn, &p.field_id, value)?;
     conn.execute(
         "DELETE FROM ai_proposal WHERE form_id = ?1 AND record_id IS ?2 AND field_id = ?3 AND status = 'pending'",
         params![p.form_id, p.record_id, p.field_id],
@@ -118,6 +119,44 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
         params![id, p.form_id, p.record_id, p.field_id, value.to_string(), p.origin.as_str(), p.source_ref, p.agent],
     )?;
     Ok(ProposeOutcome::Kept { id })
+}
+
+/// A suggestion written as the program writes that field (ADR-042, phase 5), whoever made it: a municipality with its
+/// official name, in its state when it is saved or waits («BENITO JUAREZ» is «Benito Juárez»); a street without
+/// «Calle» before it, which its label already says («Calle de los Ejemplos» is «de los Ejemplos»). The policy above
+/// still reads the value as it came (its fingerprint), so what was rejected stays rejected.
+fn as_written(conn: &Connection, field: &str, value: Value) -> Result<Value, ServiceError> {
+    let Value::String(s) = &value else { return Ok(value) };
+    Ok(match field {
+        "institution.municipality" => {
+            let saved = saved_value(conn, "institution.contact", "institution.state")?;
+            let waiting = || -> Result<Option<Value>, ServiceError> {
+                let v: Option<String> = conn
+                    .query_row(
+                        "SELECT value_json FROM ai_proposal WHERE form_id = 'institution.contact' AND field_id = 'institution.state' AND status = 'pending' ORDER BY created_at DESC LIMIT 1",
+                        [],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                Ok(v.and_then(|v| serde_json::from_str(&v).ok()))
+            };
+            let state = match saved.filter(|v| is_filled(Some(v))) {
+                Some(v) => Some(v),
+                None => waiting()?,
+            };
+            let state = state.as_ref().and_then(Value::as_str);
+            crate::core::institution::catalog::municipality_name(state, s).map_or(value.clone(), |name| Value::String(name.to_string()))
+        }
+        "institution.street" => {
+            let t = s.trim();
+            let rest = ["calle ", "c. "].iter().find_map(|w| t.get(..w.len()).filter(|h| h.eq_ignore_ascii_case(w)).map(|_| t[w.len()..].trim()));
+            match rest {
+                Some(r) if !r.is_empty() => Value::String(r.to_string()),
+                _ => value,
+            }
+        }
+        _ => value,
+    })
 }
 
 /// The one policy for what a document suggests (ADR-038), the same for every drawer:
@@ -316,6 +355,38 @@ mod tests {
             origin: Origin::AiAssumption,
             source_ref: Some("chat".into()),
             agent: "capturist",
+        }
+    }
+
+    #[test]
+    fn a_municipality_takes_its_official_name_and_its_state_decides() {
+        use crate::core::institution::catalog::municipality_name;
+        assert_eq!(municipality_name(Some("cdmx"), "BENITO JUAREZ"), Some("Benito Juárez"));
+        assert_eq!(municipality_name(Some("cdmx"), "Alcaldía benito juárez"), Some("Benito Juárez"));
+        assert_eq!(municipality_name(Some("jal"), "zapopan"), Some("Zapopan"));
+        assert_eq!(municipality_name(Some("cdmx"), "GUSTAVO A MADERO"), Some("Gustavo A. Madero"));
+        assert_eq!(municipality_name(None, "BENITO JUAREZ"), Some("Benito Juárez"), "the same name in three states");
+        assert_eq!(municipality_name(Some("jal"), "Benito Juárez"), None, "not a municipality of that state");
+        assert_eq!(municipality_name(None, "Ciudad Inventada"), None);
+    }
+
+    /// ADR-042, phase 5: whoever suggests them, the municipality is kept with its official name and the street without
+    /// the «Calle» its label already says; what was rejected is still read by the value as it came.
+    #[test]
+    fn a_suggestion_is_kept_as_the_program_writes_its_field() {
+        let (_d, c) = conn();
+        let contact = |field: &str, value: Value| NewProposal { form_id: "institution.contact".into(), origin: Origin::Document, ..new(field, value) };
+        assert!(matches!(propose(&c, contact("institution.state", json!("cdmx"))).unwrap(), ProposeOutcome::Kept { .. }));
+        for (field, said, kept) in [
+            ("institution.municipality", "BENITO JUAREZ", "Benito Juárez"),
+            ("institution.street", "Calle de los Ejemplos", "de los Ejemplos"),
+            ("institution.street", "CALLE Hidalgo", "Hidalgo"),
+            ("institution.street", "Avenida Insurgentes", "Avenida Insurgentes"),
+            ("institution.municipality", "Ciudad Inventada", "Ciudad Inventada"),
+        ] {
+            propose(&c, contact(field, json!(said))).unwrap();
+            let v: String = c.query_row("SELECT value_json FROM ai_proposal WHERE field_id = ?1 AND status = 'pending'", [field], |r| r.get(0)).unwrap();
+            assert_eq!(v, json!(kept).to_string(), "{said}");
         }
     }
 

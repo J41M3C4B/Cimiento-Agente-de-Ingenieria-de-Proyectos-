@@ -133,6 +133,7 @@ Para empezar desde cero sin tocar tus datos, abre la app con una carpeta aparte:
 - [ ] **Sugerencias al subir** (ADR-042, fase 3; necesita la ayuda automática con su llave): con «Capacidad y cifras rápidas» sin el personal, sube el informe anual. Unos segundos después de «Lo tenemos», un aviso dice «encontramos N datos más para «Mi institución»» y en qué ventanas esperan. Ahí están el personal con sueldo (31) y el voluntario (18), con «Lo leímos en «…», página 1», sin pulsar «Llenar con mis documentos».
   - Un archivo que no habla de ningún campo vacío (la CLUNI, con la CLUNI ya escrita) no dice nada más.
   - «Notas generales» nunca se llena sola.
+- [ ] **Cómo se escriben** (ADR-042, fase 5): con el municipio vacío, sube la constancia del SAT y pulsa «Llenar con mis documentos» en «Contacto y ubicación». La sugerencia del municipio dice «Benito Juárez», con acento, aunque la constancia lo escriba «BENITO JUAREZ». En «Llenarlo por mí», «Calle de los Ejemplos 128» deja la calle «de los Ejemplos».
 - [x] **Con contraseña:** el PDF protegido avisa que tiene contraseña. No dice «dañado».
 - [x] «Quitar archivo»: se quita, y lo que ya se llenó con él se queda.
 
