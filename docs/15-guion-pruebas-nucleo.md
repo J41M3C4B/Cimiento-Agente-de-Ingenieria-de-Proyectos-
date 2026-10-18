@@ -124,12 +124,12 @@ Para empezar desde cero sin tocar tus datos, abre la app con una carpeta aparte:
 - [x] «Descartar» una sugerencia y volver a subir el mismo archivo: no vuelve.
 - [x] **Una foto o un escaneo** se lee; si una página sale borrosa, avisa «con dudas en la página N».
 - [x] Un acta escaneada larga no congela la computadora mientras se lee. Una hoja escaneada de lado y un Word con una hoja escaneada pegada también se leen.
-- [ ] **El lugar equivocado** (ADR-042, fase 2): sube la constancia en el lugar del acta. **No se guarda:** pregunta «Este archivo parece «Constancia de situación fiscal»», con «Guardarlo en «Constancia de situación fiscal»», «Sí es «Acta constitutiva»» y «No guardarlo».
+- [x] **El lugar equivocado** (ADR-042, fase 2): sube la constancia en el lugar del acta. **No se guarda:** pregunta «Este archivo parece «Constancia de situación fiscal»», con «Guardarlo en «Constancia de situación fiscal»», «Sí es «Acta constitutiva»» y «No guardarlo».
   - «No guardarlo» (o la X): el acta sigue sin archivo y no aparece ninguna sugerencia.
   - «Guardarlo en «Constancia…»»: queda en la constancia y deja sus sugerencias. Si la constancia ya tenía archivo, la pregunta avisa que lo reemplaza.
   - «Sí es «Acta constitutiva»»: queda en el acta, y la Bitácora dice «Dijo que un archivo es el documento donde lo subió, aunque parecía otro».
   - Cierra la ventana mientras se lee: la pregunta sale igual, donde estés.
-- [ ] **Una foto que no se lee**, en cualquier documento: pregunta «No pudimos confirmar que sea «…»». Con «Sí es…» se guarda. Si el nombre del archivo dice el documento («licencia uso de suelo.jpg»), no pregunta.
+- [x] **Una foto que no se lee**, en cualquier documento: pregunta «No pudimos confirmar que sea «…»». Con «Sí es…» se guarda. Si el nombre del archivo dice el documento («licencia uso de suelo.jpg»), no pregunta.
 - [x] **Con contraseña:** el PDF protegido avisa que tiene contraseña. No dice «dañado».
 - [x] «Quitar archivo»: se quita, y lo que ya se llenó con él se queda.
 

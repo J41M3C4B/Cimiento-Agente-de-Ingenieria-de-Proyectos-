@@ -94,3 +94,5 @@ Esta nota sigue abierta: faltan las fases 2 a 5 (problemas 4, 6, 7 y 8) y el blo
 - la medición encontró dos reglas que fallaban (la licencia «uso del suelo» y el registro desteñido «Juntal») y se corrigieron.
 
 Para probarlo: [guion, sección 5](../15-guion-pruebas-nucleo.md), las dos casillas sin marcar. Siguen las fases 3 a 5 (problemas 6, 7 y 8) y el bloque de diseño (problemas 3 y 5).
+
+**2026-10-17. Probaste la fase 2: funciona.** Le cambiaste el nombre al acta y a los estatutos por números y los reconoció por sus palabras; un archivo que no tiene que ver con ningún documento no se guarda y avisa que no es de ningún lugar. Problema 4 atendido. Siguen las fases 3 a 5 (problemas 6, 7 y 8) y el bloque de diseño (problemas 3 y 5).

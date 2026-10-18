@@ -1,13 +1,18 @@
 ---
 tipo: mapa
-actualizado: 2026-10-16
+actualizado: 2026-10-17
 ---
 
 # Mapa del proyecto
 
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
-> [!info] Hoy (2026-10-16, noche)
+> [!info] Hoy (2026-10-17)
+> **Probaste la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md): funciona.** El acta y los estatutos con nombres de números se reconocieron por sus palabras; un archivo que no es de ningún documento no se guarda y lo dice.
+>
+> **Siguiente:** la fase 3 (las sugerencias llegan al subir un archivo).
+>
+> **Antes (2026-10-16, noche)**
 > **Probaste el guion completo (sección 15): todo salió bien.** Siguió la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) (tu problema 4).
 >
 > **Fase 2 hecha: un archivo solo se guarda en su lugar si el código confía en que es de ahí.**
@@ -118,7 +123,6 @@ Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
 
 ## Lo que espera tu respuesta
 
-- **Probar el archivo en su lugar** (ADR-042, fase 2): [guion, sección 5](15-guion-pruebas-nucleo.md), las dos casillas sin marcar.
 - **Dos decisiones que salieron de la prueba completa** (sección 7 de la guía):
   - cómo detectar una copia desteñida que el lector de imágenes da por buena;
   - si la constancia del SAT debe sugerir también el domicilio de «Contacto y ubicación» (hoy solo el código postal fiscal).
