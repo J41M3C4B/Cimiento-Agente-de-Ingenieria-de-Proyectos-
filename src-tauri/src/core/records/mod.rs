@@ -591,6 +591,11 @@ fn write_own(tx: &Connection, id: &str, document_id: &str, found: &[crate::core:
     Ok(written)
 }
 
+/// The document in the drawer that holds the text of a document's file, if it has one.
+pub fn document_of(conn: &Connection, id: &str) -> Result<Option<String>, ServiceError> {
+    Ok(store::by_id(conn, id)?.and_then(|r| r.document_id))
+}
+
 /// Takes the file off a document, and its clean text out of the drawer (ADR-036): there is no document without a
 /// drawer, nor a text of the Expediente without its document. What the person already accepted from it stays.
 pub fn detach(conn: &mut Connection, id: &str) -> Result<Expediente, ServiceError> {

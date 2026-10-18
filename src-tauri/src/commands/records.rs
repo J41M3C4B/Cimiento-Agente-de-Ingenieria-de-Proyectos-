@@ -87,6 +87,9 @@ pub async fn institution_record_attach(
             Err(error) => serde_json::json!({ "key": key, "kind": kind, "error": error }),
         };
         let _ = tauri::Emitter::emit(&app, "record-read", said);
+        if let Ok(outcome) = &ended {
+            suggest_from(&app, &shared, &key, &kind, outcome);
+        }
         super::index_documents(&shared);
     });
     Ok(AttachStart::Reading { key: started })
@@ -137,9 +140,32 @@ pub async fn institution_record_place(
             Err(error) => serde_json::json!({ "key": target, "kind": kind, "error": error }),
         };
         let _ = tauri::Emitter::emit(&app, "record-read", said);
+        if let Ok(Some(outcome)) = &ended {
+            suggest_from(&app, &shared, &target, &kind, outcome);
+        }
         super::index_documents(&shared);
     });
     Ok(PlaceStart::Reading { key: started, kind: ended_kind })
+}
+
+/// After a file is kept with its text, what it says of the empty fields of «Mi institución» (ADR-042 §5): in the
+/// background, one call at most, and the event `record-suggested` says what it left, with the key of the document.
+fn suggest_from(app: &tauri::AppHandle, db: &crate::storage::SharedDb, key: &str, kind: &str, outcome: &AttachOutcome) {
+    let AttachOutcome::Attached { id, readable: true, .. } = outcome else { return };
+    let document = match db.lock() {
+        Ok(conn) => svc::document_of(&conn, id).ok().flatten(),
+        Err(_) => None,
+    };
+    let Some(document) = document else { return };
+    let (app, db, key, kind) = (app.clone(), db.clone(), key.to_string(), kind.to_string());
+    tauri::async_runtime::spawn(async move {
+        let provider = super::diagnosis::make_provider(&db);
+        let said = match crate::core::reader::upload::after_upload(&db, provider.as_deref(), &document).await {
+            Ok(outcome) => serde_json::json!({ "key": key, "kind": kind, "outcome": outcome }),
+            Err(error) => serde_json::json!({ "key": key, "kind": kind, "error": UiError::from(error) }),
+        };
+        let _ = tauri::Emitter::emit(&app, "record-suggested", said);
+    });
 }
 
 #[tauri::command]

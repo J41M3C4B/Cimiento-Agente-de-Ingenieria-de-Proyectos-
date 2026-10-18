@@ -130,6 +130,9 @@ Para empezar desde cero sin tocar tus datos, abre la app con una carpeta aparte:
   - «Sí es «Acta constitutiva»»: queda en el acta, y la Bitácora dice «Dijo que un archivo es el documento donde lo subió, aunque parecía otro».
   - Cierra la ventana mientras se lee: la pregunta sale igual, donde estés.
 - [x] **Una foto que no se lee**, en cualquier documento: pregunta «No pudimos confirmar que sea «…»». Con «Sí es…» se guarda. Si el nombre del archivo dice el documento («licencia uso de suelo.jpg»), no pregunta.
+- [ ] **Sugerencias al subir** (ADR-042, fase 3; necesita la ayuda automática con su llave): con «Capacidad y cifras rápidas» sin el personal, sube el informe anual. Unos segundos después de «Lo tenemos», un aviso dice «encontramos N datos más para «Mi institución»» y en qué ventanas esperan. Ahí están el personal con sueldo (31) y el voluntario (18), con «Lo leímos en «…», página 1», sin pulsar «Llenar con mis documentos».
+  - Un archivo que no habla de ningún campo vacío (la CLUNI, con la CLUNI ya escrita) no dice nada más.
+  - «Notas generales» nunca se llena sola.
 - [x] **Con contraseña:** el PDF protegido avisa que tiene contraseña. No dice «dañado».
 - [x] «Quitar archivo»: se quita, y lo que ya se llenó con él se queda.
 

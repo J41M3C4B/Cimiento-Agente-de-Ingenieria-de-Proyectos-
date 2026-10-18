@@ -294,6 +294,11 @@ export const es = {
         done !== null && total !== null && total > 1 ? `Leyendo: ${done} de ${total} páginas` : "Leyendo el archivo…",
       alreadyReading: "Ya estamos leyendo un archivo de este documento. Espere a que termine.",
       readEnded: (title: string, what: string) => `«${title}»: ${what}`,
+      // what a file just kept says of «Mi institución», read with the cheapest model (ADR-042 §5)
+      suggestedFromFile: (title: string, n: number, windows: string) =>
+        `«${title}»: encontramos ${n === 1 ? "1 dato más" : `${n} datos más`} para «Mi institución». ${n === 1 ? "Espera" : "Esperan"} como sugerencia en ${windows}.`,
+      suggestFailed: (title: string) =>
+        `«${title}»: no pudimos buscar más datos con la ayuda automática. Puede intentarlo después con «Llenar con mis documentos» en cada ventana de «Mi institución».`,
       computedFrom: "Calculado con la fecha de emisión del archivo.",
       pickTitle: "Elija el archivo del documento",
       pickFilter: "PDF, Word o foto",

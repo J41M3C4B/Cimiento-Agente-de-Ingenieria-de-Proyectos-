@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Toast } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import type { ReadingProgress } from "../../lib/files";
-import type { AttachOutcome, RecordRead } from "../../lib/types";
+import type { AttachOutcome, RecordRead, RecordSuggested } from "../../lib/types";
 import { type Asked, RecordPlaceDialog } from "./RecordPlaceDialog";
 
 /**
@@ -96,10 +96,31 @@ export function endedText(r: RecordRead, attached: (out: Extract<AttachOutcome, 
   return t.readEnded(titleOf(r.kind), what);
 }
 
+/** The windows of «Mi institución» by their form, as the person knows them. */
+const windowName = (form: string) => {
+  const c = es.profile.cards;
+  return ({ "institution.identity": c.institution, "institution.contact": c.contact, "institution.legal": c.legal, "institution.capacity": c.capacity } as Record<string, string>)[form] ?? form;
+};
+
+/**
+ * What a file just kept left in «Mi institución» (ADR-042 §5), in a notice: the suggestions and their windows, or
+ * that the help could not look. Nothing to say when it found nothing or there is no help configured.
+ */
+export function suggestedText(r: RecordSuggested): string | null {
+  const t = es.profile.records;
+  const out = r.outcome;
+  if (r.error || (out?.status === "unavailable" && out.reason !== "not_configured")) return t.suggestFailed(titleOf(r.kind));
+  if (out?.status !== "proposed" || out.fields.length === 0) return null;
+  const windows = [...new Set(out.fields.map(([form]) => windowName(form)))].map((w) => `«${w}»`);
+  const listed = windows.length > 1 ? `${windows.slice(0, -1).join(", ")} y ${windows[windows.length - 1]}` : windows[0]!;
+  return t.suggestedFromFile(titleOf(r.kind), out.fields.length, listed);
+}
+
 /**
  * Hears the readings of the Expediente for the whole app, wherever the person is: how far each one is, and, when
  * one ends, what changed is fetched again and, if its window is not open, a notice says how it ended, or the question
- * of a file that was not kept (ADR-042 §4) is asked here.
+ * of a file that was not kept (ADR-042 §4) is asked here. What a file kept left in «Mi institución» comes after, in
+ * its own notice (ADR-042 §5).
  */
 export function RecordReadingWatcher({ attachedText }: { attachedText: (out: Extract<AttachOutcome, { status: "attached" }>) => string }) {
   const qc = useQueryClient();
@@ -126,6 +147,11 @@ export function RecordReadingWatcher({ attachedText }: { attachedText: (out: Ext
       }
       const failed = !!r.error || r.outcome?.status === "unreadable";
       setNotice({ tone: failed ? "error" : "ok", text: endedText(r, attachedText) });
+    });
+    void hear<RecordSuggested>("record-suggested", (r) => {
+      for (const key of [["form"], ["profile"], ["institution"]]) void qc.invalidateQueries({ queryKey: key });
+      const text = suggestedText(r);
+      if (text) setNotice({ tone: r.outcome?.status === "proposed" ? "ok" : "error", text });
     });
     return () => {
       gone = true;

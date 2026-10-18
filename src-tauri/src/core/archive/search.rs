@@ -111,6 +111,15 @@ pub fn document_start(conn: &Connection, drawer: Drawer, document: &str, limit: 
     passages(conn, &chunks, "", chars)
 }
 
+/// Every fragment of a document of a drawer, in its order: its id, page and text.
+pub fn document_chunks(conn: &Connection, drawer: Drawer, document: &str) -> Result<Vec<(i64, Option<i64>, String)>, StorageError> {
+    let rows = conn
+        .prepare("SELECT c.rowid, c.page, c.text FROM document_chunk c JOIN document d ON d.id = c.document_id WHERE d.id = ?1 AND d.drawer = ?2 AND d.hidden = 0 ORDER BY c.ordinal")?
+        .query_map(params![document, drawer.as_str()], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<Result<_, _>>()?;
+    Ok(rows)
+}
+
 /// The two rankings fused, the meaning weighing `MEANING_WEIGHT`. What only the meaning found comes only from its first
 /// `MEANING_ONLY` places: a vector always has a nearest fragment, even when nothing is about the question.
 pub fn fuse_words_and_meaning<K: Clone + Eq + Hash>(words: &[K], meaning: &[K], limit: usize) -> Vec<K> {

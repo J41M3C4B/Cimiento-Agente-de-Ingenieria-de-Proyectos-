@@ -52,7 +52,12 @@ Lo que propone la IA (el Capturista) **no** sigue las reglas de «campo lleno» 
 
 ## 3. La capa con IA: llenar con los documentos (cuando el cajón la usa)
 
-Las reglas leen los formatos fijos al subir un archivo y no cuestan nada. Lo que está escrito de mil maneras (la misión, a quién atiende, el personal…) lo lee la capa con IA, solo cuando la persona la pide («Llenar con mis documentos»). Referencia: `core/reader/fill.rs` (C2, ADR-036).
+Las reglas leen los formatos fijos al subir un archivo y no cuestan nada. Lo que está escrito de mil maneras (la misión, a quién atiende, el personal…) lo lee la capa con IA de dos maneras (ADR-042 §5):
+
+- **al subir un archivo**, de lo que ese archivo dice: el código halla sin IA los campos vacíos de los que habla (2 palabras del campo o el nombre de una de sus opciones; `upload::SPEAKS_OF`) y hace a lo más una llamada con esos campos y los pasajes de ese archivo. Un campo que ya espera una sugerencia con tanta autoridad o más no se pregunta, y «Notas generales» nunca. Referencia: `core/reader/upload.rs`;
+- **cuando la persona lo pide** («Llenar con mis documentos»), en todo el cajón. Referencia: `core/reader/fill.rs` (C2, ADR-036).
+
+Las dos usan el mismo Lector, el mismo oficio y la misma revisión. Lo que sigue describe la segunda; la primera cambia solo en qué campos pregunta y de dónde salen los pasajes.
 
 1. **Qué se pide:** solo los campos **vacíos** que la IA puede ver. Lo lleno no (ADR-038) y lo protegido tampoco: solo lo leen las reglas.
 2. **Qué se le da:** por campo, los 3 pasajes del cajón que mejor hablan de él. Se buscan por palabras (las del campo en una tabla, como `SEARCH`, más su título del manual) y por significado si hay vectores. Nunca documentos completos.

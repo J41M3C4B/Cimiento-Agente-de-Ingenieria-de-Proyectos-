@@ -29,28 +29,28 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 /// Its trade, versioned like a prompt: changing it is a new file.
-const TRADE: &str = include_str!("../agents/reader.v1.md");
+const TRADE: &str = include_str!("../agents/reader.v2.md");
 
 /// The passages kept for each field.
-const PER_FIELD: usize = 3;
+pub(crate) const PER_FIELD: usize = 3;
 /// How much of a fragment a passage shows, around the words of its field.
-const PASSAGE_CHARS: usize = 900;
+pub(crate) const PASSAGE_CHARS: usize = 900;
 
 /// The words each field is looked for with in the documents, besides its title in the manual: how documents write it.
 /// Every field the AI may see in the windows of «Mi institución» has its line (a test says so).
 pub const SEARCH: &[(&str, &str)] = &[
     ("institution.name", "nombre comercial denominación institución casa"),
-    ("institution.mission", "misión objeto brindar atención finalidad"),
+    ("institution.mission", "misión objeto brindar atención finalidad giro dedica atend"),
     ("institution.populations", "personas adultas mayores niñas niños adolescentes jóvenes atendemos residentes edad"),
     ("institution.sex_served", "cualquier sexo mujeres hombres varones"),
     ("institution.modalities", "estancia permanente residentes estancia de día albergue internado domicilio"),
     ("institution.care_areas", "alimentación atención médica salud terapia cuidado discapacidad educación"),
     ("institution.services", "servicios terapia física talleres alimentación enfermería atención"),
-    ("institution.age_min", "años o más edad mínima mayores de"),
+    ("institution.age_min", "años o más edad mínima mayores de ingresar cumplidos"),
     ("institution.age_max", "edad máxima hasta años"),
     ("institution.admission_criteria", "ingreso requisitos podrán ingresar se admitirán solicitud valoración"),
-    ("institution.municipality", "municipio alcaldía demarcación territorial"),
-    ("institution.state", "entidad federativa estado"),
+    ("institution.municipality", "municipio alcaldía demarcación territorial domicilio"),
+    ("institution.state", "entidad federativa estado domicilio"),
     ("institution.legal_name", "denominación razón social se denominará"),
     ("institution.purpose", "objeto social tendrá por objeto fines"),
     ("institution.legal_form", "institución de asistencia privada asociación civil régimen capital"),
@@ -202,10 +202,10 @@ pub(crate) fn says_number(text: &str, n: i64) -> bool {
         .any(|i| super::dates::leading_number_in_words(&words[i..].join(" ")) == Some(n as u32))
 }
 
-/// Keeps the suggestions the code accepts: a field asked for, a passage shown, words that are in that passage, a
+/// Keeps the suggestions the code accepts, each in the window of its field: a field asked for, a passage shown, words that are in that passage, a
 /// figure that is in those words, and a value that fits its field (`proposals::propose`, with the policy of ADR-038).
 /// Returns the fields kept and how many were dropped.
-pub fn keep(conn: &rusqlite::Connection, spec: &FormSpec, asked: &[&FieldSpec], passages: &[Passage], answer: &Value) -> Result<(Vec<String>, usize), ServiceError> {
+pub fn keep(conn: &rusqlite::Connection, asked: &[&FieldSpec], passages: &[Passage], answer: &Value) -> Result<(Vec<String>, usize), ServiceError> {
     let mut kept: Vec<String> = Vec::new();
     let mut dropped = 0;
     for p in answer["proposals"].as_array().into_iter().flatten() {
@@ -236,8 +236,12 @@ pub fn keep(conn: &rusqlite::Connection, spec: &FormSpec, asked: &[&FieldSpec], 
             "rank": super::authority(field, passage.kind.as_deref()),
             "sha": proposals::fingerprint(&value),
         });
+        let Some(form_id) = super::form_of(field) else {
+            dropped += 1;
+            continue;
+        };
         let new = NewProposal {
-            form_id: spec.id.to_string(),
+            form_id: form_id.to_string(),
             record_id: None,
             field_id: field.to_string(),
             value,
@@ -308,7 +312,7 @@ pub async fn fill_window(db: &SharedDb, provider: Option<&dyn AiProvider>, embed
         Ok(run) => run,
         Err(e) => return Ok(FillOutcome::Unavailable { form, place, reason: reason(&e) }),
     };
-    let (fields, dropped) = keep(&*lock(db)?, spec, &asked, &passages, &run.answer)?;
+    let (fields, dropped) = keep(&*lock(db)?, &asked, &passages, &run.answer)?;
     let note = run.answer["note"].as_str().unwrap_or_default().trim().to_string();
     Ok(FillOutcome::Proposed { form, place, fields, dropped, note })
 }
@@ -324,4 +328,4 @@ pub async fn fill_all(db: &SharedDb, provider: Option<&dyn AiProvider>, embedder
 
 #[cfg(test)]
 #[path = "fill_tests.rs"]
-mod tests;
+pub(crate) mod tests;

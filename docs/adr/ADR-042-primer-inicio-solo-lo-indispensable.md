@@ -9,7 +9,7 @@ tags: [adr]
 ---
 # ADR-042 · Un solo camino para llenar la institución: el primer inicio pide solo lo indispensable
 
-**Estado:** aceptada (2026-10-16, la institución revisó la tabla de §2). Fases 1 y 2 aplicadas (2026-10-16). Sale de la prueba del núcleo de la institución ([[Observaciones Pruebas]], problemas 1, 2, 4, 6, 7 y 8).
+**Estado:** aceptada (2026-10-16, la institución revisó la tabla de §2). Fases 1 y 2 aplicadas (2026-10-16); fase 3, el 2026-10-17. Sale de la prueba del núcleo de la institución ([[Observaciones Pruebas]], problemas 1, 2, 4, 6, 7 y 8).
 
 ## Contexto
 
@@ -153,7 +153,7 @@ Se mide primero en seco con la prueba completa: por archivo, qué campos detecta
 
 1. **Indispensables y un solo avance** (hecha, 2026-10-16): la marca `essential`, la prueba de los campos de condición, los pasos desde el catálogo y `completion` como única cuenta. Ver «Fase 1, al aplicarla».
 2. **Archivo en su lugar** (hecha, 2026-10-16): primero la medición en seco y el umbral; después la pregunta. Ver «Fase 2, al aplicarla».
-3. **Sugerencias al subir:** la detección en seco, la llamada por archivo y una corrida real.
+3. **Sugerencias al subir** (hecha, 2026-10-17): la detección en seco, la llamada por archivo y una corrida real. Ver «Fase 3, al aplicarla».
 4. **Chat:** sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre ventanas; lo igual no se sugiere; el texto de lo dejado lo arma el código; las letras cambiadas.
 5. **Detalles de lectura de la prueba:** el municipio con su nombre del catálogo (con acentos, sin mayúsculas sostenidas), «Calle» fuera de la calle, y los servicios desde el informe y no desde el acta.
 
@@ -191,6 +191,51 @@ Después de este ADR va el bloque de diseño: formularios por secciones, sugeren
 - **Se eligió 1 / 1:** el umbral más bajo y el peso más chico que preguntan lo menos. Con peso 1 el nombre vale lo que una frase: decide solo cuando el texto no dice nada, y nunca le gana al texto de otro tipo (la constancia llamada «acta-constitutiva-version-final.pdf» se pregunta). Con 0 da igual en estos archivos, pero un escaneo ilegible llamado «Registro_JAP.png» preguntaría sin necesidad.
 - **La primera medición encontró dos causas**, y se corrigieron en las reglas, no en el umbral: la licencia dice «uso **del** suelo» y la regla buscaba «uso de suelo»; y el OCR de la copia desteñida lee «Junta**l** de asistencia privada», así que las frases de la Junta buscan «junta» y «asistencia privada» por separado. Antes de eso, 3 archivos legítimos preguntaban.
 - **Pruebas:** `cargo test core::reader::kinds` (cada documento de la batería solo se guarda en su lugar; el nombre nunca le gana al texto), `core::reader` (la pregunta y sus tres respuestas, sin escribir nada antes; lo que nada reconoce), `full_expediente` (el archivo 19 se pregunta y se cancela; la foto sin texto se pregunta y se guarda) y Vitest de la ventana del documento.
+
+## Fase 3, al aplicarla (2026-10-17)
+
+- **Qué se pregunta** (`core::reader::upload::asked`): en las cuatro ventanas, los campos vacíos que la IA puede ver, menos dos:
+  - «Notas generales», que es «lo que quiera que se sepa de la institución»: lo dice la persona, no un archivo;
+  - un campo que ya espera una sugerencia con tanta autoridad como este archivo, o más. Las reglas del mismo archivo pueden acabar de dejar una. Un archivo con más autoridad sí se pregunta, y su sugerencia toma el lugar de la otra (ADR-038).
+- **De qué campos habla el archivo** (`upload::detect`, sin IA): un pedazo del archivo habla de un campo si trae **2 palabras distintas** del campo o más (las de `fill::SEARCH` y su título del manual), o si nombra una de sus opciones con palabras propias («Ciudad de México», «estancia permanente»; un nombre corto como «Sí» o «No» no cuenta).
+  - Por campo van los 3 pedazos que más hablan de él. Cada pedazo va una sola vez.
+- **Solo por palabras:** al guardar el archivo, sus vectores todavía no existen (se hacen después, en segundo plano). «Llenar con mis documentos» sigue buscando en todo el Expediente, por palabras y por significado.
+- **Una llamada por archivo**, con el Lector y el modelo más barato. Su oficio pasó a `reader.v2.md`, que sirve para una ventana o para varias. La revisión es la misma de C2 (`fill::keep`): la cita, la cifra y el valor, y cada campo va a su ventana.
+- **La pantalla:** al terminar, el evento `record-suggested` dice qué quedó. Si quedó algo, un aviso dice cuántos datos y en qué ventanas esperan. Si la ayuda automática falló, el aviso lo dice y ofrece «Llenar con mis documentos». Si no encontró nada, no dice nada.
+
+**La medición en seco** (`cargo test upload_detection_measure -- --ignored --nocapture`): los 13 documentos ficticios contra los 39 pares archivo-campo que `lector.json` dice que cada uno escribe.
+
+| Umbral | Pares hallados | Preguntados de más | Campos por archivo |
+|---|---|---|---|
+| 1 | 39 de 39 | 160 | 15.3 |
+| **2 (el elegido)** | **35 de 39** | **56** | **7.0** |
+| 3 | 27 de 39 | 19 | 3.5 |
+| 4 | 16 de 39 | 6 | 1.7 |
+
+- **Los 4 que faltan con 2 son el nombre y «a qué se dedica»**: los pide el primer inicio, así que nunca están vacíos cuando se sube un archivo. Con 2 se hallan todos los campos que pueden faltar. Una prueba lo exige.
+- Un campo de más solo alarga la llamada: el código tira lo que no cita bien.
+- **La primera medición encontró tres causas,** y se corrigieron en las palabras, no en el umbral:
+  - el estado nunca se hallaba: los documentos dicen «Ciudad de México», no «estado». Ahora cuenta el nombre de una opción;
+  - la edad mínima se dice «podrán ingresar… de sesenta años»: su búsqueda lleva «ingresar»;
+  - a qué se dedica se dice como «giro» o «atendemos»: su búsqueda lleva «giro», «dedica» y «atend».
+- **En la prueba completa** (`full_expediente`, en seco, los archivos por el camino de la pantalla): cada archivo guardado preguntaría de 0 a 10 campos. Lo demás sigue igual: nada distinto de lo esperado.
+
+**La corrida real** (`cargo test upload_live -- --ignored --nocapture`, Gemini `gemini-3.5-flash-lite`). Los 13 documentos ficticios se subieron uno tras otro, con solo el nombre escrito y las reglas de cada archivo antes:
+
+| Corrida | Bien | Inventado | Páginas | Llamadas | Costo |
+|---|---|---|---|---|---|
+| Primera | 18 de 18 | 0 | 17 de 18 | 10 | $0.17 MXN |
+| Después de los arreglos | 18 de 18 | 0 | 17 de 18 | 9 | $0.17 MXN |
+
+- Cada llamada tarda de 0.6 a 1.8 s. Cuatro archivos no llamaron: no hablan de ningún campo vacío.
+- **Lo que encontró la primera corrida:**
+  - «Notas generales» recibió el título del poder: ya no se pregunta al subir;
+  - «Servicios» se quedó con «Casa de reposo», de la opinión del SAT, porque una sugerencia en espera bloqueaba el campo aunque llegara un archivo con más autoridad. Ahora no lo bloquea, y en los servicios mandan el informe anual, el reglamento y el acta (`reader::authority`).
+- **«Llenar con mis documentos» con el oficio nuevo** (`reader_live`): 18 de 18, páginas 18 de 18, nada inventado, $0.14 MXN. No empeoró.
+- **El caché del proveedor:** en las 19 llamadas, 0 tokens salieron del caché. El oficio va primero y no cambia, pero es corto: no alcanza el mínimo que Gemini pide para guardar en caché. Hacer más larga la parte fija (por ejemplo, con el catálogo completo de campos) haría cada llamada más cara a cambio de un descuento que no está medido. Se mide antes de cambiarlo.
+- **Pendiente para la fase 5:** el informe no dio los servicios (el código tiró sus tres sugerencias).
+- La nota que la IA escribe al llenar («Dejé sugeridas las cifras de personas atendidas…») puede nombrar un dato que el código tiró, pero la pantalla nunca la muestra: el aviso lo arma el programa con lo que quedó.
+- **Pruebas:** `cargo test core::reader::upload` (cada documento se pregunta por los campos que escribe; el nombre de una opción; una llamada por archivo, solo con sus pasajes y sin el nombre del archivo; un campo que espera no se vuelve a preguntar, salvo a un archivo con más autoridad; sin IA o sin campos, no se llama) y Vitest del aviso.
 
 ## Alternativas descartadas
 

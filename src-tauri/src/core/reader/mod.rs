@@ -16,6 +16,7 @@ pub mod fill;
 pub mod kinds;
 pub mod quote;
 pub mod rules;
+pub mod upload;
 
 use crate::common::forms::Sensitivity;
 use crate::core::agents::proposals::{self, NewProposal, Origin, ProposeOutcome};
@@ -59,6 +60,8 @@ const AUTHORITY: &[(&str, &[&str])] = &[
     ("institution.founded_year", &["articles_of_incorporation", "junta_registration"]),
     ("institution.legal_rep_name", &["power_of_attorney"]),
     ("institution.legal_rep_valid_until", &["power_of_attorney"]),
+    // what it does today: the report of its year and its rules, before how it was born
+    ("institution.services", &["annual_report", "internal_rules", "articles_of_incorporation"]),
 ];
 
 /// How much say a document of this kind has on a field: more is more; 1 for a kind not listed for it.
@@ -67,7 +70,8 @@ pub fn authority(field: &str, kind: Option<&str>) -> i64 {
     kind.and_then(|k| order.iter().position(|c| *c == k)).map_or(1, |i| (order.len() - i + 1) as i64)
 }
 
-fn form_of(field: &str) -> Option<&'static str> {
+/// The window of «Mi institución» a field is in.
+pub(crate) fn form_of(field: &str) -> Option<&'static str> {
     use crate::core::institution::forms::FORMS;
     FORMS.iter().find(|f| f.field(field).is_some()).map(|f| f.id)
 }

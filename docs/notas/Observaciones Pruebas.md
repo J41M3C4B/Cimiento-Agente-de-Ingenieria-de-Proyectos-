@@ -96,3 +96,5 @@ Esta nota sigue abierta: faltan las fases 2 a 5 (problemas 4, 6, 7 y 8) y el blo
 Para probarlo: [guion, sección 5](../15-guion-pruebas-nucleo.md), las dos casillas sin marcar. Siguen las fases 3 a 5 (problemas 6, 7 y 8) y el bloque de diseño (problemas 3 y 5).
 
 **2026-10-17. Probaste la fase 2: funciona.** Le cambiaste el nombre al acta y a los estatutos por números y los reconoció por sus palabras; un archivo que no tiene que ver con ningún documento no se guarda y avisa que no es de ningún lugar. Problema 4 atendido. Siguen las fases 3 a 5 (problemas 6, 7 y 8) y el bloque de diseño (problemas 3 y 5).
+
+**2026-10-17. Fase 3 hecha (problemas 6 y 7, la parte de los documentos):** al subir un archivo, el programa busca de qué campos vacíos habla y te deja sus sugerencias sin que pulses «Llenar con mis documentos». Un aviso dice cuántas y en qué ventanas. Con el modelo más barato: 18 de 18 bien, nada inventado, $0.17 MXN por 13 documentos. Para probarlo: [guion, sección 5](../15-guion-pruebas-nucleo.md), la casilla nueva. Siguen las fases 4 y 5 (problemas 7 y 8) y el bloque de diseño (problemas 3 y 5).

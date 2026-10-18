@@ -10,7 +10,14 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > [!info] Hoy (2026-10-17)
 > **Probaste la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md): funciona.** El acta y los estatutos con nombres de números se reconocieron por sus palabras; un archivo que no es de ningún documento no se guarda y lo dice.
 >
-> **Siguiente:** la fase 3 (las sugerencias llegan al subir un archivo).
+> **Fase 3 hecha: las sugerencias llegan al subir un archivo** (tus problemas 6 y 7).
+> - Al guardar un archivo, el código busca sin IA de qué campos vacíos de «Mi institución» habla ese archivo. Si encuentra alguno, hace **una** llamada barata con esos campos y lo que dice el archivo. Un aviso dice cuántos datos encontró y en qué ventanas esperan. Ya no hace falta pulsar «Llenar con mis documentos» en cada ventana.
+> - Medido en seco con los 13 documentos ficticios: encuentra todos los campos que pueden faltar.
+> - Corrida real con el modelo más barato: **18 de 18 bien, nada inventado**, 9 llamadas para 13 documentos, $0.17 MXN.
+> - La corrida encontró dos cosas y se corrigieron: «Notas generales» ya no se llena desde un archivo (es lo que tú quieras contar), y un archivo con más autoridad (el informe, el reglamento) ya puede reemplazar una sugerencia de otro con menos.
+> - **El caché que propusiste:** ya se usa la forma que lo permite (el oficio fijo va primero), pero en las 19 llamadas no se cacheó nada: la parte fija es más corta que el mínimo que Gemini guarda. Alargarla con los formularios completos encarecería cada llamada; se mide antes de hacerlo.
+>
+> **Siguiente:** la fase 4 (el chat). Para probar la fase 3: [guion, sección 5](15-guion-pruebas-nucleo.md), la casilla nueva.
 >
 > **Antes (2026-10-16, noche)**
 > **Probaste el guion completo (sección 15): todo salió bien.** Siguió la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) (tu problema 4).
@@ -115,7 +122,7 @@ Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen
 | —   | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
 | 2   | **C2**                | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos»                                                                                                                   | **Hecho, por probar** |
 | 3   | **C3**                | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?»)                                                                                                                                                   | **Hecho y probado**   |
-| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 a 4 hechas y tu prueba completa hecha; de ella salió el ADR-042 (un solo camino para llenar la institución, fases 1 y 2 hechas); después, la metodología de agentes | **En curso**          |
+| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 a 4 hechas y tu prueba completa hecha; de ella salió el ADR-042 (un solo camino para llenar la institución, fases 1 a 3 hechas); después, la metodología de agentes | **En curso**          |
 | 5   | **N5**                | El expediente hacia Proyectos, la IA e Inicio                                                                                                                                                                                                                                  | Pendiente             |
 | —   | Módulos               | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md)                                                     | Esperan al núcleo     |
 
@@ -138,6 +145,7 @@ Todo lo que hay que probar del núcleo está en el [15 · Guion de pruebas del n
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-17 | **ADR-042, fase 3 · las sugerencias llegan al subir un archivo:** el código halla sin IA los campos vacíos de los que habla el archivo (2 palabras del campo o el nombre de una opción) y hace una llamada barata. Real: 18 de 18, nada inventado, $0.17 MXN por 13 documentos. «Notas generales» ya no se llena desde un archivo; un archivo con más autoridad reemplaza la sugerencia de otro; el oficio del Lector pasa a v2 («Llenar con mis documentos» sigue 18 de 18) | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
 | 2026-10-16 | **ADR-042, fase 2 · un archivo solo se guarda en su lugar si el código confía en que es de ahí:** la confianza es una cuenta del código (palabras del documento contra las de otro, más el nombre del archivo); si no confía, pregunta antes de guardar nada. Umbral medido en seco: 563 lugares equivocados, ninguno guardado. Corregidas las reglas de la licencia de uso de suelo y del registro desteñido | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |
 | 2026-10-16 | **ADR-042, fase 1 · el primer inicio pide solo lo indispensable:** 14 datos del catálogo en cinco pasos, cada paso por su ventana, se cierra solo con el último dato, una sola cuenta del avance (sin fichas de módulos); el municipio con regla de nombre de lugar, sin escáner. Salió de tu prueba completa (33 de 39 datos bien) | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |
 | 2026-10-15 | **La prueba completa del núcleo:** la institución de prueba «Casa San Ejemplo», 24 archivos del Expediente (escaneos, fotos, Word y fallas a propósito), lo que debe quedar y cómo calificar; la prueba en seco `full_expediente`. Corregido: el número de escritura partido en dos renglones | [16 · La institución de prueba](16-institucion-de-prueba.md) |

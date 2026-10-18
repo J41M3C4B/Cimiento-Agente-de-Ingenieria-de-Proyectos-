@@ -174,7 +174,7 @@ fn a_number_is_in_words_or_in_figures() {
 }
 
 /// How a suggestion (or its absence) compares with what `lector.json` expects of its field.
-fn grade(expected: &Value, got: Option<&proposals::Proposal>) -> (&'static str, bool) {
+pub(crate) fn grade(expected: &Value, got: Option<&proposals::Proposal>) -> (&'static str, bool) {
     let plain_of = |v: &Value| plain(&v.as_str().map_or_else(|| v.to_string(), str::to_string));
     let page_ok = |p: &proposals::Proposal| {
         expected["paginas"].as_array().is_none_or(|pages| pages.iter().any(|e| Some(e[0].as_str().unwrap_or_default()) == p.document.as_deref() && e[1].as_i64() == p.page))

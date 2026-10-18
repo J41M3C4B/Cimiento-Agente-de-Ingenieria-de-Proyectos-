@@ -188,6 +188,19 @@ export type AttachOutcome =
    */
   | { status: "ask"; looks_like: string | null; file_name: string; there_has_file: boolean }
   | { status: "unreadable"; reason: string };
+/**
+ * What a file just kept says of the empty fields of «Mi institución» (ADR-042 §5), with the key of its document:
+ * `fields` are the suggestions left, each `[form, field]`.
+ */
+export interface RecordSuggested {
+  key: string;
+  kind: string;
+  outcome?:
+    | { status: "proposed"; fields: [string, string][]; dropped: number }
+    | { status: "nothing"; reason: string }
+    | { status: "unavailable"; reason: string };
+  error?: { code: string; message: string };
+}
 /** What the person answers about a file that waits (ADR-042 §4). */
 export type PlaceAnswer = "here" | "there" | "cancel";
 /** How an answer started: kept in the background on the document of `key` (`record-read` says how it ended), or not at all. */

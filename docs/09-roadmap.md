@@ -341,7 +341,7 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
     - [ ] **ADR-042 · un solo camino para llenar la institución:**
       - [x] Fase 1 · el primer inicio pide solo los 14 datos indispensables del catálogo, cada paso por su ventana, se cierra solo con el último dato y hay una sola cuenta del avance (2026-10-16). El municipio con regla de nombre de lugar, sin escáner.
       - [x] Fase 2 · un archivo solo se guarda en su lugar si el código confía en que es de ahí (2026-10-16). Medición en seco: 563 lugares equivocados, ninguno guardado; en su lugar solo pregunta por la foto sin texto. Se corrigieron dos reglas («uso del suelo», «Juntal» del OCR). Si no confía, pregunta antes de guardar nada.
-      - [ ] Fase 3 · sugerencias al subir, de lo que ese documento dice.
+      - [x] Fase 3 · sugerencias al subir, de lo que ese documento dice (2026-10-17). El código halla sin IA los campos vacíos de los que habla el archivo (2 palabras del campo o el nombre de una opción; en seco, todos los campos que pueden faltar) y hace una llamada barata por archivo. Real: 18 de 18 bien, nada inventado, 9 llamadas por 13 documentos, $0.17 MXN.
       - [ ] Fase 4 · el chat: sin «Llenar con mis documentos», «Llenarlo por mí» reparte entre ventanas, lo igual no se sugiere.
       - [ ] Fase 5 · detalles de lectura (municipio, calle, servicios).
     - [ ] Fase 5 · metodología de agentes para los módulos.
