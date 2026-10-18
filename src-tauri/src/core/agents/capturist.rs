@@ -1,13 +1,16 @@
 //! The Capturist (ADR-034 §1 and §4, block IA4): turns what the person tells of their institution into suggestions
-//! for the fields of a window of «Mi institución». It never saves: each suggestion waits in `ai_proposal` until the
-//! person puts it in its field (and saves) or discards it.
+//! for the fields of «Mi institución», each in the window it belongs to, whatever window the person is in (ADR-042
+//! §6). It never saves: each suggestion waits in `ai_proposal` until the person puts it in its field (and saves) or
+//! discards it.
 //!
-//! - **The code decides what may be suggested:** the fields of that window the AI may see and, since ADR-041, the
+//! - **The code decides what may be suggested:** the fields of the four windows the AI may see and, since ADR-041, the
 //!   institution's own data the person tells (contact, address, RFC, folios, keys, legal representative), each value
 //!   fitting its field, and only what the person said: every suggestion carries the words it came from and the code
 //!   finds them in what the person wrote, with a figure that is in those words (it never counts), or drops it.
 //! - **The institution's own data are copied, never made:** their letters and digits are the person's, one by one,
 //!   and a date is one the person wrote. What is saved of them is never shown to the AI.
+//! - **What is saved already the same is not suggested** (ADR-042 §6): compared as a person reads it, and the
+//!   program says it was there.
 //! - **What the person writes goes through the scanner first,** as every text (quarantine).
 //! - The person asks for it from the Assistant («Llenarlo por mí») or from the window; the code runs it, never
 //!   another model (one level of delegation).
@@ -25,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// Its trade, versioned like a prompt: changing it is a new file.
-const TRADE: &str = include_str!("capturist.v4.md");
+const TRADE: &str = include_str!("capturist.v5.md");
 
 /// The windows it may fill: (form, the place of the window, its name).
 pub const FILLABLE: &[(&str, &str, &str)] = &[
@@ -102,13 +105,32 @@ pub struct Capture {
     pub history: Vec<Turn>,
 }
 
+/// What was left in a window other than the one the person is in: its place and the titles of its fields.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LeftIn {
+    pub place: &'static str,
+    pub left: Vec<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum CaptureOutcome {
-    /// The suggestions were left in the window (`fields`, by id, in order, and `left`, by their titles in the manual);
-    /// `dropped` did not pass the code; `still` are the titles of the fields of the window the person may still tell.
-    /// The words for the person are the program's, never the AI's: they say what the code kept.
-    Proposed { asked: String, form: &'static str, place: &'static str, fields: Vec<String>, left: Vec<String>, still: Vec<String>, dropped: usize },
+    /// The suggestions were left (`fields`, by id, in order, in any window): `left` are the titles of those of the
+    /// window the person is in, `others` those of the other windows; `same` are the titles of what the person told and
+    /// was saved already the same; `dropped` did not pass the code; `still` are the titles of the fields of the window
+    /// the person may still tell. The words for the person are the program's, never the AI's: they say what the code
+    /// kept.
+    Proposed {
+        asked: String,
+        form: &'static str,
+        place: &'static str,
+        fields: Vec<String>,
+        left: Vec<String>,
+        others: Vec<LeftIn>,
+        same: Vec<String>,
+        still: Vec<String>,
+        dropped: usize,
+    },
     /// The AI could not do it (`reason`, as in the Assistant): nothing was suggested.
     Unavailable { asked: String, reason: &'static str },
     /// What the person wrote has data of a person: nothing was asked.
@@ -202,14 +224,39 @@ pub(crate) fn describe(f: &FieldSpec, saved: Option<&Value>) -> String {
     format!("- `{}` «{}»: {shape}.{when} Guardado: {saved}.", f.id, title(f.id))
 }
 
-/// What the Capturist is told besides what the person says now: the window, the fields it may suggest with what
-/// is saved, the fields only the person writes, and the last turns of the conversation.
-pub fn context(spec: &FormSpec, name: &str, saved: &Values, history: &[Turn]) -> Vec<String> {
-    let mut out = vec![format!("La persona quiere llenar la ventana «{name}» de «Mi institución».")];
-    // the «Qué poner» of the manual with each field was measured (C4): worse, 24 of 28 against 27 of 28 with the titles
-    let fields: Vec<String> = told_fields(spec).map(|f| describe(f, saved.get(f.id))).collect();
-    out.push(format!("Campos que puede sugerir:\n{}", fields.join("\n")));
-    let by_hand: Vec<String> = spec.fields().filter(|f| !told_fields(spec).any(|t| t.id == f.id)).map(|f| format!("«{}»", title(f.id))).collect();
+/// What is saved in each window it may fill, by form.
+pub type Saved = Vec<(&'static str, Values)>;
+
+/// The windows it may fill, the one the person is in first.
+fn windows_from(here: &str) -> Vec<&'static (&'static str, &'static str, &'static str)> {
+    let mut all: Vec<_> = FILLABLE.iter().collect();
+    all.sort_by_key(|w| w.0 != here);
+    all
+}
+
+fn saved_in<'a>(saved: &'a Saved, form: &str) -> Option<&'a Values> {
+    saved.iter().find(|(f, _)| *f == form).map(|(_, v)| v)
+}
+
+/// What the Capturist is told besides what the person says now: the window the person is in and the other ones, each
+/// with the fields it may suggest and what is saved in them, the fields only the person writes, and the last turns of
+/// the conversation (ADR-042 §6: each datum goes to its window).
+pub fn context(here: &str, saved: &Saved, history: &[Turn]) -> Vec<String> {
+    let windows = windows_from(here);
+    let mut out = vec![format!(
+        "La persona está en la ventana «{}» de «Mi institución». Cada dato que cuente va a la ventana a la que pertenece, sea esta u otra.",
+        windows[0].2
+    )];
+    let empty = Values::new();
+    let mut by_hand: Vec<String> = Vec::new();
+    for (form, _, name) in windows {
+        let Some(spec) = crate::core::institution::forms::form(form) else { continue };
+        let saved = saved_in(saved, form).unwrap_or(&empty);
+        // the «Qué poner» of the manual with each field was measured (C4): worse, 24 of 28 against 27 of 28 with the titles
+        let fields: Vec<String> = told_fields(spec).map(|f| describe(f, saved.get(f.id))).collect();
+        out.push(format!("Ventana «{name}». Campos que puede sugerir:\n{}", fields.join("\n")));
+        by_hand.extend(spec.fields().filter(|f| !told_fields(spec).any(|t| t.id == f.id)).map(|f| format!("«{}»", title(f.id))));
+    }
     if !by_hand.is_empty() {
         out.push(format!("Campos que la persona escribe a mano (no los sugiera): {}.", by_hand.join(", ")));
     }
@@ -224,8 +271,7 @@ pub fn context(spec: &FormSpec, name: &str, saved: &Values, history: &[Turn]) ->
     out
 }
 
-/// Words compared without capitals, accents nor punctuation (the batteries grade with it).
-#[cfg(test)]
+/// Words compared without capitals, accents nor punctuation.
 pub(crate) fn plain(s: &str) -> String {
     let folded = crate::scanner::normalize::fold_str(s);
     folded.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ")
@@ -245,63 +291,107 @@ pub(crate) fn fit(f: &FieldSpec, v: &Value) -> Value {
     }
 }
 
-/// Keeps the suggestions the code accepts: a field of this window the AI may see, a value that fits it and is not
-/// the one saved, and words the person said. Returns the fields kept and how many were dropped.
-pub fn keep(conn: &rusqlite::Connection, spec: &FormSpec, saved: &Values, told: &str, answer: &Value) -> Result<(Vec<String>, usize), ServiceError> {
-    let mut kept: Vec<String> = Vec::new();
-    let mut dropped = 0;
+/// Whether what the person tells is what is saved already, read as a person reads it (ADR-042 §6): without capitals,
+/// accents nor extra spaces; an own datum by its letters and digits («33 1234 5678» is «3312345678»); options in any
+/// order.
+pub(crate) fn same(f: &FieldSpec, saved: Option<&Value>, told: &Value) -> bool {
+    let Some(saved) = saved.filter(|v| is_filled(Some(v))) else { return false };
+    match (saved, told) {
+        (Value::String(a), Value::String(b)) if own(f) => letters(a) == letters(b),
+        (Value::String(a), Value::String(b)) => plain(a) == plain(b),
+        (Value::Array(a), Value::Array(b)) => a.len() == b.len() && a.iter().all(|x| b.contains(x)),
+        (a, b) => a == b,
+    }
+}
+
+/// What the code kept of an answer: the fields left, each with its window (in order); the ones the person told that
+/// were saved already the same; and how many were dropped.
+#[derive(Debug, Default, PartialEq)]
+pub struct Kept {
+    pub fields: Vec<(&'static str, String)>,
+    pub same: Vec<String>,
+    pub dropped: usize,
+}
+
+/// Keeps the suggestions the code accepts: a field of a window it fills, a value that fits it and is not what is
+/// saved, and words the person said. Each goes to the window of its field.
+pub fn keep(conn: &rusqlite::Connection, saved: &Saved, told: &str, answer: &Value) -> Result<Kept, ServiceError> {
+    let mut out = Kept::default();
+    let empty = Values::new();
+    let mut checked: Vec<(&'static str, &str, Value, String, bool)> = Vec::new();
     for p in answer["proposals"].as_array().into_iter().flatten() {
         let (Some(field), Some(quote)) = (p["field"].as_str(), p["quote"].as_str()) else {
-            dropped += 1;
+            out.dropped += 1;
             continue;
         };
-        let Some(f) = told_fields(spec).find(|f| f.id == field) else {
-            dropped += 1;
+        let found = FILLABLE
+            .iter()
+            .find_map(|(form, _, _)| crate::core::institution::forms::form(form).and_then(|s| told_fields(s).find(|f| f.id == field)).map(|f| (*form, f)));
+        let Some((form, f)) = found else {
+            out.dropped += 1;
             continue;
         };
         let value = fit(f, &p["value"]);
-        if saved.get(field) == Some(&value) {
-            continue; // already so: nothing to suggest
+        if same(f, saved_in(saved, form).unwrap_or(&empty).get(field), &value) {
+            // already so: nothing to suggest, and the person is told it was there
+            if !out.same.iter().any(|s| s == field) {
+                out.same.push(field.to_string());
+            }
+            continue;
         }
         // the words the person said (now or in their earlier turns), never the AI's copy of them
         let Some(quote) = crate::core::reader::quote::find(quote, told) else {
-            dropped += 1;
+            out.dropped += 1;
             continue;
         };
         let quote = quote.as_str();
         // the AI does not count: a number is in the words it copied (principle 2)
-        if matches!(f.kind, FieldKind::Number | FieldKind::Money | FieldKind::Year) && !value.as_i64().is_some_and(|n| crate::core::reader::fill::says_number(quote, n)) {
-            dropped += 1;
+        // and its words speak of that field: «30 abuelitos» are people served, never the beds nor a street number
+        let counted = f.kind == FieldKind::Year || crate::core::reader::fill::speaks_of_its_field(f.id, quote, told);
+        if matches!(f.kind, FieldKind::Number | FieldKind::Money | FieldKind::Year) && !(counted && value.as_i64().is_some_and(|n| crate::core::reader::fill::says_number(quote, n))) {
+            out.dropped += 1;
             continue;
         }
         // an own datum (an RFC, a phone, a folio, a date) is copied, never completed nor corrected (ADR-041)
         if (own(f) || f.kind == FieldKind::Date) && !copied(f, &value, quote) {
-            dropped += 1;
+            out.dropped += 1;
+            continue;
+        }
+        let figure = matches!(f.kind, FieldKind::Number | FieldKind::Money);
+        checked.push((form, f.id, value, quote.trim().to_string(), figure));
+    }
+    // a figure said once fills one field: the code does not guess between two
+    let figures: Vec<Option<(i64, String)>> = checked.iter().map(|(_, _, v, q, figure)| v.as_i64().filter(|_| *figure).map(|n| (n, q.clone()))).collect();
+    let guessed = crate::core::reader::fill::guessed(&figures);
+    for ((form, field, value, quote, _), guessed) in checked.into_iter().zip(guessed) {
+        if guessed {
+            out.dropped += 1;
             continue;
         }
         let new = NewProposal {
-            form_id: spec.id.to_string(),
+            form_id: form.to_string(),
             record_id: None,
             field_id: field.to_string(),
             value,
             origin: Origin::AiAssumption,
-            source_ref: Some(json!({ "from": "chat", "quote": quote.trim() }).to_string()),
+            source_ref: Some(json!({ "from": "chat", "quote": quote }).to_string()),
             agent: AGENT,
         };
         match proposals::propose(conn, new)? {
             ProposeOutcome::Kept { .. } => {
-                kept.retain(|k| k != field);
-                kept.push(field.to_string());
+                out.fields.retain(|(_, k)| k != field);
+                out.fields.push((form, field.to_string()));
             }
-            ProposeOutcome::Refused { .. } => dropped += 1,
+            ProposeOutcome::Refused { .. } => out.dropped += 1,
         }
     }
-    Ok((kept, dropped))
+    Ok(out)
 }
 
-/// Turns what the person tells into suggestions for a window. Nothing of the institution changes.
+/// Turns what the person tells into suggestions for «Mi institución», from the window the person is in. Nothing of the
+/// institution changes.
 pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Capture, decision: Option<Decision>) -> Result<CaptureOutcome, ServiceError> {
-    let Some(&(form, place, name)) = FILLABLE.iter().find(|f| f.0 == c.form) else { return Err(ServiceError::NotFound) };
+    let Some(&(form, place, _)) = FILLABLE.iter().find(|f| f.0 == c.form) else { return Err(ServiceError::NotFound) };
     let spec = crate::core::institution::forms::form(form).ok_or(ServiceError::NotFound)?;
     let said = c.said.trim();
     if said.is_empty() {
@@ -315,14 +405,20 @@ pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Captur
         let fields = vec![("said".to_string(), said.to_string())];
         match crate::core::screen::guard_texts(&conn, "capturist_said", &fields, decision)? {
             // «No es dato personal» (the institution's own phone or RFC): what the person cleared reaches the AI
-            Ok(mut t) => (t.remove(0), crate::core::screen::scanner_clearing(&conn, &[said], decision)?, crate::core::profile::forms::saved_values(&conn, form)?),
+            Ok(mut t) => {
+                let mut saved: Saved = Vec::new();
+                for (f, _, _) in FILLABLE {
+                    saved.push((*f, crate::core::profile::forms::saved_values(&conn, f)?));
+                }
+                (t.remove(0), crate::core::screen::scanner_clearing(&conn, &[said], decision)?, saved)
+            }
             Err(report) => return Ok(CaptureOutcome::Quarantine { report }),
         }
     };
     let Some(provider) = provider else { return Ok(CaptureOutcome::Unavailable { asked, reason: "not_configured" }) };
 
     let ledger = SqliteLedger(db.clone());
-    let errand = agent::Errand { context: context(spec, name, &saved, &c.history), request: asked.clone() };
+    let errand = agent::Errand { context: context(form, &saved, &c.history), request: asked.clone() };
     let run = match agent::run(provider, &scanner, &ledger, &agent(), &[], errand).await {
         Ok(run) => run,
         Err(e) => return Ok(CaptureOutcome::Unavailable { asked, reason: reason(&e) }),
@@ -330,10 +426,18 @@ pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Captur
     // what the person said: now and in their earlier turns
     let told = c.history.iter().filter(|t| t.from != "assistant").map(|t| t.text.as_str()).chain([asked.as_str()]).collect::<Vec<_>>().join("\n");
     let conn = lock(db)?;
-    let (fields, dropped) = keep(&conn, spec, &saved, &told, &run.answer)?;
-    let left = fields.iter().map(|f| title(f)).collect();
-    let still = still_to_tell(&conn, spec, &saved)?;
-    Ok(CaptureOutcome::Proposed { asked, form, place, fields, left, still, dropped })
+    let kept = keep(&conn, &saved, &told, &run.answer)?;
+    let left = kept.fields.iter().filter(|(f, _)| *f == form).map(|(_, id)| title(id)).collect();
+    let others = FILLABLE
+        .iter()
+        .filter(|(f, _, _)| *f != form)
+        .map(|(f, place, _)| LeftIn { place, left: kept.fields.iter().filter(|(w, _)| w == f).map(|(_, id)| title(id)).collect() })
+        .filter(|l| !l.left.is_empty())
+        .collect();
+    let same = kept.same.iter().map(|id| title(id)).collect();
+    let still = still_to_tell(&conn, spec, saved_in(&saved, form).unwrap_or(&Values::new()))?;
+    let fields = kept.fields.into_iter().map(|(_, id)| id).collect();
+    Ok(CaptureOutcome::Proposed { asked, form, place, fields, left, others, same, still, dropped: kept.dropped })
 }
 
 /// The titles of the fields of a window the person may still tell: the AI may suggest them, they apply (with what is

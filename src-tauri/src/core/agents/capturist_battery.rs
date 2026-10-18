@@ -30,6 +30,17 @@ struct Case {
     /// goes as it is. Otherwise, covered.
     #[serde(default)]
     no_es_personal: bool,
+    /// What the institution has saved already, by window.
+    #[serde(default)]
+    guardado: serde_json::Map<String, Value>,
+    /// Fields the person told that are saved already the same: the program must say they were there.
+    #[serde(default)]
+    igual: Vec<String>,
+}
+
+/// The window of a field among those the Capturist fills.
+fn window_of(field: &str) -> Option<&'static str> {
+    FILLABLE.iter().map(|w| w.0).find(|form| crate::core::institution::forms::form(form).is_some_and(|s| told_fields(s).any(|f| f.id == field)))
 }
 
 /// A turn before what the person tells now: who said it (`persona` or `asistente`) and what.
@@ -47,10 +58,19 @@ fn cases() -> Vec<Case> {
 
 /// An institution with only its name written.
 fn db() -> (tempfile::TempDir, SharedDb) {
+    db_of(&serde_json::Map::new())
+}
+
+/// An institution with its name and what a case says it has saved.
+fn db_of(saved: &serde_json::Map<String, Value>) -> (tempfile::TempDir, SharedDb) {
     let dir = tempfile::tempdir().unwrap();
     let mut c = crate::storage::open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
     let identity: Values = serde_json::from_value(json!({ "institution.name": "Casa Ficticia" })).unwrap();
     assert!(matches!(save(&mut c, "institution.identity", identity, None).unwrap(), SaveProfileOutcome::Saved { .. }));
+    for (form, values) in saved {
+        let v: Values = serde_json::from_value(values.clone()).unwrap();
+        assert!(matches!(save(&mut c, form, v, None).unwrap(), SaveProfileOutcome::Saved { .. }), "{form}");
+    }
     (dir, Arc::new(Mutex::new(c)))
 }
 
@@ -84,10 +104,9 @@ fn the_battery_speaks_of_fields_the_capturist_may_suggest() {
     let all = cases();
     assert!(all.len() >= 10, "{}", all.len());
     for c in &all {
-        let spec = crate::core::institution::forms::form(&c.ventana).unwrap_or_else(|| panic!("{}: no window {}", c.id, c.ventana));
         assert!(fill_of_form(&c.ventana).is_some(), "{}: the Capturist does not fill {}", c.id, c.ventana);
         for (field, expected) in &c.campos {
-            assert!(told_fields(spec).any(|f| f.id == field), "{}: {field} is not a field it may suggest", c.id);
+            assert!(window_of(field).is_some(), "{}: {field} is not a field it may suggest", c.id);
             for n in expected["valores"].as_array().into_iter().flatten().filter_map(Value::as_i64) {
                 assert!(crate::core::reader::fill::says_number(&told(c), n), "{}: {n} is not in the person's words", c.id);
             }
@@ -99,6 +118,8 @@ fn the_battery_speaks_of_fields_the_capturist_may_suggest() {
     }
     assert!(all.iter().any(|c| !c.historial.is_empty()), "one case with a conversation before");
     assert!(all.iter().any(|c| c.campos.values().all(|e| e["nada"].as_bool() == Some(true))), "one case with nothing to suggest");
+    assert!(all.iter().any(|c| c.campos.keys().any(|f| window_of(f) != Some(c.ventana.as_str()))), "one datum of another window");
+    assert!(all.iter().any(|c| !c.igual.is_empty()), "one datum saved already the same");
 }
 
 fn reply(answer: Value) -> Result<AiResponse, AiError> {
@@ -205,7 +226,7 @@ async fn capturist_battery_live() {
         for (i, c) in all.iter().enumerate() {
             // one case every few seconds: the cheapest model has a quota per minute, and a refusal for it is no verdict
             tokio::time::sleep(std::time::Duration::from_secs(PACE_SECS)).await;
-            let (_d, db) = db();
+            let (_d, db) = db_of(&c.guardado);
             recording.log.lock().unwrap().clear();
             let started = std::time::Instant::now();
             let out = capture(&db, Some(&recording), capture_of(c), Some(decision_of(c))).await.unwrap();
@@ -217,7 +238,8 @@ async fn capturist_battery_live() {
                 })
                 .unwrap();
             (calls, input, output, cost) = (calls + used.0, input + used.1, output + used.2, cost + used.3);
-            let waiting = proposals::pending(&conn, &c.ventana, None).unwrap();
+            // every window: a datum goes to the one it belongs to (ADR-042 §6)
+            let waiting: Vec<_> = FILLABLE.iter().flat_map(|w| proposals::pending(&conn, w.0, None).unwrap()).collect();
             let mut bad: Vec<String> = Vec::new();
             let mut lines: Vec<String> = Vec::new();
             for (field, expected) in &c.campos {
@@ -240,7 +262,14 @@ async fn capturist_battery_live() {
                 lines.push(format!("  {:<40} {:<12} {}  «{}»", p.field_id, "DE MÁS", p.value, p.said.as_deref().unwrap_or_default()));
             }
             let (dropped, said) = match &out {
-                CaptureOutcome::Proposed { dropped, left, still, .. } => (*dropped, format!("dejó {left:?}; puede contar {still:?}")),
+                CaptureOutcome::Proposed { dropped, left, others, same, still, .. } => {
+                    for f in &c.igual {
+                        if !same.contains(&title(f)) {
+                            bad.push(format!("{f} no dijo que ya estaba"));
+                        }
+                    }
+                    (*dropped, format!("dejó {left:?}; en otras ventanas {others:?}; ya estaba {same:?}; puede contar {still:?}"))
+                }
                 other => {
                     bad.push(format!("{other:?}"));
                     (0, String::new())

@@ -279,6 +279,11 @@ pub const LIST_FORMS: &[&FormSpec] = &[&BOARD_MEMBER, &BANK_ACCOUNT, &RECORD];
 /// shown each code of a field with its name, so it can tell that «ASISTENCIAL» in a document is `assistance`.
 const SCREEN_WORDS: &str = include_str!("../../../../src/i18n/es-MX.ts");
 
+/// The words of the screens (`es-MX.ts`), as they are.
+pub(crate) fn screen_words() -> &'static str {
+    SCREEN_WORDS
+}
+
 /// The name of a type of document of the Expediente on the screen (`articles_of_incorporation` → «Acta constitutiva»),
 /// from `records.types` of the words of the screen.
 pub fn record_type_label(code: &str) -> Option<&'static str> {

@@ -285,9 +285,8 @@ export type AssistantOutcome =
       go_to: string | null;
       sources: ManualSource[];
       documents: DocumentSource[];
+      /** «Llenarlo por mí»: then `text` is empty and the screen says the program's sentence (ADR-042 §6). */
       fill: Fill | null;
-      /** «Llenar con mis documentos» (C3) for a window, or all of them (`form: "all"`), run on the click. */
-      from_documents: Fill | null;
       /** The documents of the Expediente by how they are, written by the program under the answer (C4). */
       records?: RecordsList | null;
     }
@@ -305,7 +304,22 @@ export type FillOutcome =
   | { status: "nothing"; form: string; place: string; reason: string }
   | { status: "unavailable"; form: string; place: string; reason: string };
 export type CaptureOutcome =
-  | { status: "proposed"; asked: string; form: string; place: string; fields: string[]; left: string[]; still: string[]; dropped: number }
+  /**
+   * `left`: titles of what was left in the window the person is in; `others`: in other windows, each by its place
+   * (ADR-042 §6); `same`: what was saved already the same.
+   */
+  | {
+      status: "proposed";
+      asked: string;
+      form: string;
+      place: string;
+      fields: string[];
+      left: string[];
+      others: { place: string; left: string[] }[];
+      same: string[];
+      still: string[];
+      dropped: number;
+    }
   | { status: "unavailable"; asked: string; reason: string }
   | { status: "quarantine"; report: QuarantineReport };
 // The manual of the program (ADR-034, core/manual): in the program, with no AI and no internet.

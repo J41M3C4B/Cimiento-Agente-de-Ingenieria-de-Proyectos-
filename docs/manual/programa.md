@@ -88,6 +88,7 @@ La conversación se borra al cerrar el programa. No escriba nombres ni datos de 
 # Llenar una ventana con el asistente {#howto.fill @screen.profile}
 
 En las ventanas de «Mi institución», «Llenarlo por mí» abre el asistente para que usted le cuente con sus palabras lo que sabe: a quién atienden, cómo, desde cuándo. El asistente también se lo ofrece cuando, platicando, usted le cuenta datos de su institución.
+Cada dato va a la ventana a la que pertenece, aunque usted esté en otra: si en «Contacto y ubicación» le dice quién representa a la institución, la sugerencia queda en «Datos legales y fiscales». Lo que ya tenía guardado igual no se le vuelve a sugerir: el asistente le dice que ya estaba.
 El asistente deja sugerencias debajo de cada dato, con las palabras suyas de donde las tomó. «Usar» pone la sugerencia en su lugar, donde puede corregirla; «Descartar» la quita. Nada se guarda hasta que pulse «Guardar».
 Las sugerencias que no revise se quedan para después, y «Mi institución» le avisa cuántas hay.
 El teléfono, el correo, el domicilio, el RFC, los folios y el representante legal que le cuente los copia tal cual de sus palabras. Si el programa le pregunta si son datos personales, conteste «Esto no son datos personales de nadie». Lo que ya tiene guardado de esos datos no lo ve. El patronato y las cuentas los escribe usted.

@@ -1280,6 +1280,11 @@ export const es = {
     leftWhich: (n: number, place: string, titles: string[]) =>
       `${n === 1 ? "Dejé 1 sugerencia" : `Dejé ${n} sugerencias`} en «${place}»: ${es.assistant.list(titles)}.`,
     leftNone: (place: string) => `En lo que me contó no encontré datos para «${place}».`,
+    // what the person told and was saved already the same (ADR-042 §6): nothing to suggest
+    same: (titles: string[]) => `Ya estaba guardado igual: ${es.assistant.list(titles)}.`,
+    // «Llenarlo por mí» offered under an answer: the program's words, never the AI's (ADR-042 §6)
+    fillOffer: (place: string) =>
+      `Esos datos van en «Mi institución». Con el botón de abajo los dejo como sugerencias en la ventana de cada uno, empezando por «${place}», y usted decide cuáles guardar.`,
     notTaken: "Lo que habría tenido que calcular o suponer no lo dejé: escríbalo usted en la ventana.",
     still: (titles: string[]) => `Todavía puede contarme: ${es.assistant.list(titles)}.`,
     list: (items: string[]) => {

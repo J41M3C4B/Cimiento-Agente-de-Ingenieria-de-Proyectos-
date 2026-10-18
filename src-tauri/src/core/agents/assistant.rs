@@ -22,9 +22,13 @@
 //!   the Reader with that document before the AI answers (C4): the cheapest model answered from memory 1 time in 2.
 //! - **The list of the documents is written by the program** (C4): «¿qué documentos tengo?» gets `records`, the names
 //!   by how they are, from the map; the AI only says a sentence before it, and never counts.
-//! - **It fills nothing:** when the person tells data of the institution it offers «Llenarlo por mí» for a window
-//!   (`fill`), and the Capturist leaves suggestions there (IA4); when the person wants a window filled from the
-//!   documents, it offers «Llenar con mis documentos» (`from_documents`): the Reader of C2 runs on the click.
+//! - **It fills nothing, and the program says what it offers:** when the person tells data of the institution it
+//!   offers «Llenarlo por mí» (`fill`), and the Capturist leaves suggestions in the windows they belong to (IA4);
+//!   the sentence with that button is the program's, so it never says it did what only another can do (ADR-042 §6).
+//!   «Llenar con mis documentos» is not in the chat: its place is each window, and a file uploaded already suggests
+//!   what it says (ADR-042 §5).
+//! - **A word with a digit for a letter** («dej3», «bot3n»), as the cheapest model writes now and then, is mended
+//!   with the words of the program (`quote::mend_digits`).
 
 use crate::ai::agent::{self, Agent, AgentError, Errand, Tool};
 use crate::ai::pipeline::SqliteLedger;
@@ -43,20 +47,16 @@ use std::sync::{Arc, LazyLock};
 
 /// Its trade, versioned like a prompt: changing it is a new file. The places it may send the person to come from the
 /// map of the program (`core::places`), so a new page or window reaches it without touching it.
-static TRADE: LazyLock<String> = LazyLock::new(|| include_str!("assistant.v9.md").replace("{places}", &places::listed()));
+static TRADE: LazyLock<String> = LazyLock::new(|| include_str!("assistant.v10.md").replace("{places}", &places::listed()));
 
-/// What the Assistant may offer to fill from the documents: a window of «Mi institución», or all of them.
-pub const FROM_DOCUMENTS: &[&str] = &["profile.institution", "profile.contact", "profile.legal", "profile.capacity", ALL_WINDOWS];
-/// «Llenar todo con mis documentos».
-pub const ALL_WINDOWS: &str = "all";
-
-/// The window (or all of them) a place of `FROM_DOCUMENTS` means; `form` is `all` for all of them.
-pub fn from_documents_of(place: &str) -> Option<crate::core::agents::capturist::Fill> {
-    if place == ALL_WINDOWS {
-        return Some(crate::core::agents::capturist::Fill { form: ALL_WINDOWS, place: "profile" });
-    }
-    crate::core::agents::capturist::fill_of_place(place)
-}
+/// The words the program knows, folded to lowercase: its manual, the words of its screens and the trade. A word of an
+/// answer written with a digit for a letter is mended only into one of them.
+static KNOWN_WORDS: LazyLock<std::collections::HashSet<String>> = LazyLock::new(|| {
+    let mut all: Vec<&str> = crate::core::manual::texts().collect();
+    all.push(crate::core::institution::forms::screen_words());
+    all.push(TRADE.as_str());
+    all.iter().flat_map(|t| t.split(|c: char| !c.is_alphabetic())).filter(|w| !w.is_empty()).map(str::to_lowercase).collect()
+});
 
 /// The turns of the conversation that come with a question, at most.
 pub const HISTORY_TURNS: usize = 6;
@@ -82,10 +82,9 @@ pub fn agent() -> Agent {
                 "go_to": { "anyOf": [{ "type": "string", "enum": places::PLACES.iter().map(|p| p.id.as_str()).collect::<Vec<_>>() }, { "type": "null" }] },
                 "sources": { "type": "array", "items": { "type": "string" } },
                 "fill": { "anyOf": [{ "type": "string", "enum": crate::core::agents::capturist::FILLABLE.iter().map(|f| f.1).collect::<Vec<_>>() }, { "type": "null" }] },
-                "from_documents": { "anyOf": [{ "type": "string", "enum": FROM_DOCUMENTS.to_vec() }, { "type": "null" }] },
                 "records": { "type": "boolean" }
             },
-            "required": ["text", "go_to", "sources", "fill", "from_documents", "records"],
+            "required": ["text", "go_to", "sources", "fill", "records"],
             "additionalProperties": false
         }),
         knows_institution: true,
@@ -142,9 +141,8 @@ pub enum AssistantOutcome {
         go_to: Option<String>,
         sources: Vec<Source>,
         documents: Vec<DocumentSource>,
+        /// «Llenarlo por mí»: then `text` is empty and the screen says the program's sentence with the button.
         fill: Option<crate::core::agents::capturist::Fill>,
-        /// «Llenar con mis documentos» for a window (or `all`), run when the person clicks.
-        from_documents: Option<crate::core::agents::capturist::Fill>,
         /// The documents of the Expediente by how they are, written by the program under the answer.
         records: Option<RecordsList>,
     },
@@ -407,12 +405,24 @@ pub async fn ask(
     }
 }
 
+/// Whether an answer says the Assistant did what only another does («dejé sugerencias», «ya lo guardé»): it fills,
+/// saves and changes nothing (ADR-042 §6).
+fn claims_done(text: &str) -> bool {
+    const DONE: &[&str] = &["deje", "guarde", "llene", "anote", "registre", "agregue", "actualice", "cambie", "puse", "capture", "sugeri"];
+    crate::storage::fts::fold(text).split(|c: char| !c.is_alphanumeric()).any(|w| DONE.contains(&w))
+}
+
 /// The answer as the screen gets it: the sources only if they are entries of the manual (with their titles, from the
 /// code) or passages the Reader handed in this errand (`cited`, with their document and page); a place to go chosen
 /// by the code from the entries it used and the place the AI said (`places::choose`, for the person on the page
-/// `here` with `role`); a window to fill only if the Capturist or the Reader may fill it.
+/// `here` with `role`); a window to fill only if the Capturist may fill it, and then the program says what the button
+/// does, and words of the AI that say it did it go.
 fn answered(a: &Value, asked: String, cited: &[Passage], here: &str, role: Option<Role>, docs: &[MapDocument]) -> AssistantOutcome {
-    let text = crate::core::reader::quote::unescape(a["text"].as_str().unwrap_or_default().trim());
+    let fill = a["fill"].as_str().and_then(crate::core::agents::capturist::fill_of_place);
+    let written = crate::core::reader::quote::unescape(a["text"].as_str().unwrap_or_default().trim());
+    let text = crate::core::reader::quote::mend_digits(&written, |w| KNOWN_WORDS.contains(w));
+    // with «Llenarlo por mí» the program says what the button does; words of the AI that say it did it go
+    let text = if fill.is_some() && claims_done(&text) { String::new() } else { text };
     let mut sources: Vec<Source> = Vec::new();
     let mut documents: Vec<DocumentSource> = Vec::new();
     for id in a["sources"].as_array().into_iter().flatten().filter_map(Value::as_str) {
@@ -427,10 +437,8 @@ fn answered(a: &Value, asked: String, cited: &[Passage], here: &str, role: Optio
     }
     let used: Vec<&str> = sources.iter().map(|s| s.id.as_str()).collect();
     let go_to = places::choose(a["go_to"].as_str(), &used, here, role).map(str::to_string);
-    let fill = a["fill"].as_str().and_then(crate::core::agents::capturist::fill_of_place);
-    let from_documents = a["from_documents"].as_str().and_then(from_documents_of);
     let records = (a["records"] == json!(true)).then(|| records_list(docs));
-    AssistantOutcome::Answered { asked, text, go_to, sources, documents, fill, from_documents, records }
+    AssistantOutcome::Answered { asked, text, go_to, sources, documents, fill, records }
 }
 
 #[cfg(test)]
@@ -463,7 +471,7 @@ mod tests {
         reply(json!({ "tool": name, "args": args, "answer": null }))
     }
     fn answer(text: &str, go_to: Option<&str>, sources: &[&str]) -> Result<AiResponse, AiError> {
-        reply(json!({ "tool": null, "args": null, "answer": { "text": text, "go_to": go_to, "sources": sources, "fill": null, "from_documents": null, "records": false } }))
+        reply(json!({ "tool": null, "args": null, "answer": { "text": text, "go_to": go_to, "sources": sources, "fill": null, "records": false } }))
     }
 
     fn question(screen: &str, field: Option<&str>, q: &str) -> Ask {
@@ -755,7 +763,10 @@ mod tests {
         let AssistantOutcome::Answered { text, go_to, sources, fill, .. } = answered(&a, "q".into(), &[], "home", Some(Role::Manager), &[]) else { panic!() };
         // a place it does not know is dropped; the button follows the entry the answer used
         assert_eq!((text.as_str(), go_to.as_deref(), fill), ("Hola", Some("profile.institution"), None), "the board is never filled by the AI");
-        let AssistantOutcome::Answered { fill, .. } = answered(&json!({ "text": "x", "fill": "profile.capacity" }), "q".into(), &[], "home", None, &[]) else { panic!() };
+        let AssistantOutcome::Answered { fill, text: offer, .. } = answered(&json!({ "text": "Ya le dejé sugerencias.", "fill": "profile.capacity" }), "q".into(), &[], "home", None, &[]) else { panic!() };
+        assert_eq!(offer, "", "with «Llenarlo por mí» the program says what it does; the AI never says it did it");
+        let AssistantOutcome::Answered { text: answer, .. } = answered(&json!({ "text": "Atienden a personas adultas mayores.", "fill": "profile.institution" }), "q".into(), &[], "home", None, &[]) else { panic!() };
+        assert_eq!(answer, "Atienden a personas adultas mayores.", "what it answered stays");
         // a passage is cited only if the search handed it; its name and page come from the code
         let cited = vec![Passage { chunk: 7, document_id: "doc_1".into(), document: "Contrato de comodato".into(), page: Some(2), snippet: "…".into() }];
         let AssistantOutcome::Answered { documents, sources: manual_sources, .. } = answered(&json!({ "text": "x", "sources": ["doc:7", "doc:8", "doc:7", "howto.backup"] }), "q".into(), &cited, "home", None, &[]) else { panic!() };
@@ -763,21 +774,18 @@ mod tests {
         assert_eq!(manual_sources.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec!["howto.backup"]);
         assert_eq!(fill.map(|f| f.form), Some("institution.capacity"));
         assert_eq!(sources, vec![Source { id: "institution.name".into(), title: "Nombre de la institución".into() }]);
-        // «Llenar con mis documentos»: a window the Reader fills, or all of them; never one it does not
-        let from = |w: &str| match answered(&json!({ "text": "x", "from_documents": w }), "q".into(), &[], "home", None, &[]) {
-            AssistantOutcome::Answered { from_documents, .. } => from_documents.map(|f| (f.form, f.place)),
-            _ => panic!(),
-        };
-        assert_eq!(from("profile.legal"), Some(("institution.legal", "profile.legal")));
-        assert_eq!(from("all"), Some(("all", "profile")));
-        assert_eq!(from("profile.board"), None);
+        // a word with a digit for a letter is mended with the words of the program
+        let AssistantOutcome::Answered { text, .. } = answered(&json!({ "text": "Puede revisarlas con el bot3n de abajo." }), "q".into(), &[], "home", None, &[]) else { panic!() };
+        assert_eq!(text, "Puede revisarlas con el botón de abajo.");
+        // «Llenar con mis documentos» is not offered in the chat (ADR-042 §6): its place is the window
+        assert!(agent().answer["properties"].get("from_documents").is_none());
     }
 
     /// Every place of the map is in the trade and in the schema of its answer, written by the code; so are the
     /// windows to fill.
     #[test]
     fn the_trade_names_every_place() {
-        assert_eq!(include_str!("assistant.v9.md").matches("{places}").count(), 1, "the list of places is written by the code");
+        assert_eq!(include_str!("assistant.v10.md").matches("{places}").count(), 1, "the list of places is written by the code");
         let schema = agent().answer["properties"]["go_to"]["anyOf"][0]["enum"].clone();
         for p in places::PLACES.iter() {
             assert!(TRADE.contains(&format!("`{}`:", p.id)), "{} is not in the trade", p.id);
@@ -786,10 +794,6 @@ mod tests {
         assert!(TRADE.contains("`security`: Seguridad."), "a page born from its entry in the manual reaches the trade");
         for (_, place, _) in crate::core::agents::capturist::FILLABLE {
             assert!(places::place(place).is_some() && TRADE.contains(&format!("`{place}`")), "{place}");
-        }
-        for place in FROM_DOCUMENTS {
-            assert!(TRADE.contains(&format!("`{place}`")), "{place}");
-            assert!(from_documents_of(place).is_some(), "{place}");
         }
         // every tool of its list exists: the ones of the core and the Reader of the Expediente
         let db = Arc::new(Mutex::new(rusqlite::Connection::open_in_memory().unwrap()));
@@ -854,6 +858,57 @@ mod tests {
         let runs: Vec<String> =
             db.lock().unwrap().prepare("SELECT details_json FROM audit_log WHERE event='ai.run'").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
         println!("\nBitácora: {runs:#?}");
+    }
+
+    /// The words of a text with a digit among letters («dej3», «bot3n», «Reg1menes»): what the institution saw.
+    pub(crate) fn letters_as_digits(text: &str) -> Vec<String> {
+        text.split(|c: char| !c.is_alphanumeric())
+            .filter(|w| {
+                let lower = w.chars().filter(|c| c.is_lowercase()).count();
+                let digits = w.chars().filter(char::is_ascii_digit).count();
+                digits == 1 && lower >= 2 && w.chars().all(|c| c.is_lowercase() || c.is_ascii_digit() || c.is_uppercase())
+            })
+            .map(str::to_string)
+            .collect()
+    }
+
+    /// ADR-042 §6, the letters written as digits: what the person told in the test of the institution («Nos representa
+    /// la directora…», from «Contacto y ubicación»), asked `CIMIENTO_ROUNDS` times (8 by default, at most 5 steps each,
+    /// never more than 14 calls a minute) with the provider and key saved in the app. It prints every answer as the
+    /// model wrote it and the words with a digit among letters. Only fictitious text goes out:
+    ///   cargo test letters_live -- --ignored --nocapture > letters_live.txt
+    #[tokio::test]
+    #[ignore]
+    async fn letters_live() {
+        let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(8).clamp(1, 20);
+        let (_d, db) = rich_db();
+        let provider = {
+            let c = db.lock().unwrap();
+            let cfg = crate::ai::settings::load(&c).unwrap();
+            let key = crate::storage::get_api_key(cfg.provider.as_str()).unwrap().expect("save the key in the app first");
+            println!("Proveedor: {}  modelo ligero: {}", cfg.provider.as_str(), cfg.model_for(ModelTier::Light));
+            crate::ai::paced::provider(crate::ai::build_provider(&cfg, key))
+        };
+        let q = Ask {
+            screen: "profile".into(),
+            field: None,
+            question: "Nos representa la directora, Rosa Ficticia del Ejemplo".into(),
+            history: vec![Turn { from: "person".into(), text: "Quiero llenar contacto y ubicación".into(), documents: vec![] }],
+        };
+        let mut bad = 0;
+        for round in 1..=rounds {
+            let out = ask(&db, Some(provider.as_ref()), None, Some(Role::Manager), q.clone(), Some(Decision::NotPersonal)).await.unwrap();
+            let text = match &out {
+                AssistantOutcome::Answered { text, .. } => text.clone(),
+                other => format!("{other:?}"),
+            };
+            let odd = letters_as_digits(&text);
+            bad += usize::from(!odd.is_empty());
+            println!("\n[{round}] {text}\n    letras como cifras: {odd:?}");
+        }
+        let spent: (i64, f64) =
+            db.lock().unwrap().query_row("SELECT count(*), coalesce(sum(estimated_cost_mxn),0) FROM ai_usage", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        println!("\nRespuestas con letras como cifras: {bad} de {rounds}. Llamadas {}  costo ${:.4} MXN", spent.0, spent.1);
     }
 }
 

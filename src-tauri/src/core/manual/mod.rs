@@ -15,6 +15,11 @@ const FILES: &[(&str, &str)] = &[
     ("programa.md", include_str!("../../../../docs/manual/programa.md")),
 ];
 
+/// The whole text of the manual, file by file.
+pub(crate) fn texts() -> impl Iterator<Item = &'static str> {
+    FILES.iter().map(|(_, text)| *text)
+}
+
 /// One entry: a screen (`screen.home`), a form (`institution.identity`), a field (`institution.name`) or a doubt
 /// of use (`howto.saving`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

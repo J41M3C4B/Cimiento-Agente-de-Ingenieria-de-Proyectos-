@@ -41,8 +41,6 @@ pub struct Case {
     pub no_contiene: Vec<String>,
     #[serde(default)]
     pub ir_a: Option<String>,
-    #[serde(default)]
-    pub llenar_con_documentos: Option<String>,
     /// The program must write the list of the documents under the answer.
     #[serde(default)]
     pub lista: bool,
@@ -104,7 +102,7 @@ pub fn ask_of(c: &Case, db: &SharedDb) -> Ask {
 /// What is wrong with an answer, against what its case expects; empty when it passes. `tools`: the tools the
 /// Assistant asked for that ran, by name.
 pub fn grade(c: &Case, out: &AssistantOutcome, tools: &BTreeMap<String, u64>) -> Vec<String> {
-    let AssistantOutcome::Answered { text, go_to, sources, documents, fill, from_documents, records, .. } = out else {
+    let AssistantOutcome::Answered { text, go_to, sources, documents, fill, records, .. } = out else {
         return vec![format!("no respondió: {out:?}")];
     };
     let mut bad = Vec::new();
@@ -152,13 +150,15 @@ pub fn grade(c: &Case, out: &AssistantOutcome, tools: &BTreeMap<String, u64>) ->
             bad.push(format!("ir a {go_to:?}, se esperaba {g}"));
         }
     }
-    if let Some(w) = &c.llenar_con_documentos {
-        if from_documents.as_ref().map(|f| f.place) != from_documents_of(w).map(|f| f.place) {
-            bad.push(format!("ofreció llenar {from_documents:?}, se esperaba {w}"));
-        }
+    // the cheapest model now and then writes a digit for an accented letter («dej3»): what is left after the mend
+    let odd = super::tests::letters_as_digits(text);
+    if !odd.is_empty() {
+        bad.push(format!("letras como cifras: {odd:?}"));
     }
     if let Some(w) = &c.llenar {
-        if fill.as_ref().map(|f| f.place) != Some(w.as_str()) {
+        // «cualquiera»: the Capturist takes each datum to its window, whichever it starts from (ADR-042 §6)
+        let offered = fill.as_ref().map(|f| f.place);
+        if (w == "cualquiera" && offered.is_none()) || (w != "cualquiera" && offered != Some(w.as_str())) {
             bad.push(format!("ofreció llenarlo por la persona {fill:?}, se esperaba {w}"));
         }
     }
@@ -214,7 +214,7 @@ async fn the_battery_grades_what_it_should() {
     let m = MockProvider::new(vec![
         reply(json!({ "tool": "record_reader", "args": { "question": predial.q, "document": null }, "answer": null })),
         reply(json!({ "tool": null, "args": null, "answer": { "found": true, "text": "La comodataria paga el predial.", "citations": [{ "passage": p.id, "quote": "del impuesto predial" }] } })),
-        reply(json!({ "tool": null, "args": null, "answer": { "text": "Lo paga la institución, como comodataria.", "go_to": null, "sources": [source], "fill": null, "from_documents": null, "records": false } })),
+        reply(json!({ "tool": null, "args": null, "answer": { "text": "Lo paga la institución, como comodataria.", "go_to": null, "sources": [source], "fill": null, "records": false } })),
     ]);
     let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(predial, &db), None).await.unwrap();
     let tools = last_tools(&db);
@@ -222,7 +222,7 @@ async fn the_battery_grades_what_it_should() {
 
     let nothing = all.iter().find(|c| c.nada).unwrap();
     assert!(grade(nothing, &out, &tools).iter().any(|b| b.starts_with("INVENTÓ")));
-    let legal = all.iter().find(|c| c.llenar_con_documentos.is_some()).unwrap();
+    let legal = all.iter().find(|c| c.q.starts_with("Llena los datos legales")).unwrap();
     assert!(!grade(legal, &out, &tools).is_empty());
     let docs = all.iter().find(|c| c.q == "¿Qué documentos tengo?").unwrap();
     assert!(grade(docs, &out, &tools).iter().any(|b| b == "pidió `record_reader`"));

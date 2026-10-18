@@ -160,9 +160,79 @@ pub fn unescape(s: &str) -> String {
     out
 }
 
+/// The vowel a digit looks like when a model writes it for a letter.
+fn looks_like(d: char) -> Option<(char, char)> {
+    match d {
+        '3' => Some(('é', 'e')),
+        '1' => Some(('í', 'i')),
+        '0' => Some(('ó', 'o')),
+        '4' => Some(('á', 'a')),
+        _ => None,
+    }
+}
+
+/// Mends the words a model sometimes writes with a digit for an accented letter («dej3», «bot3n», «Reg1menes»; the
+/// cheapest model, now and then). A word of lowercase letters (the first may be a capital) with one digit inside is
+/// mended only into a word `known` says exists: first with the accented vowel the digit looks like, then with the one
+/// accented vowel that makes a known word, then with the plain vowel it looks like. Otherwise it stays as it was.
+pub fn mend_digits(text: &str, known: impl Fn(&str) -> bool) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut word = String::new();
+    let flush = |word: &mut String, out: &mut String| {
+        out.push_str(&mended(word, &known).unwrap_or_else(|| word.clone()));
+        word.clear();
+    };
+    for c in text.chars() {
+        if c.is_alphanumeric() {
+            word.push(c);
+        } else {
+            flush(&mut word, &mut out);
+            out.push(c);
+        }
+    }
+    flush(&mut word, &mut out);
+    out
+}
+
+fn mended(word: &str, known: &impl Fn(&str) -> bool) -> Option<String> {
+    let chars: Vec<char> = word.chars().collect();
+    let digits: Vec<usize> = (0..chars.len()).filter(|&i| chars[i].is_ascii_digit()).collect();
+    let [at] = digits[..] else { return None };
+    let letters = chars.len() - 1;
+    let shaped = chars.iter().enumerate().all(|(i, c)| i == at || c.is_lowercase() || (i == 0 && c.is_uppercase()));
+    if at == 0 || letters < 2 || !shaped {
+        return None;
+    }
+    let with = |v: char| {
+        let mut w = chars.clone();
+        w[at] = v;
+        w.into_iter().collect::<String>()
+    };
+    let is_known = |w: &String| known(&w.to_lowercase());
+    let (accented, plain) = looks_like(chars[at]).unzip();
+    if let Some(w) = accented.map(with).filter(is_known) {
+        return Some(w);
+    }
+    let options: Vec<String> = ['á', 'é', 'í', 'ó', 'ú'].into_iter().map(with).filter(is_known).collect();
+    if let [one] = &options[..] {
+        return Some(one.clone());
+    }
+    plain.map(with).filter(is_known)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_word_with_a_digit_for_a_letter_is_mended_only_into_a_known_word() {
+        let known = |w: &str| ["dejé", "dejó", "deja", "botón", "regímenes", "número"].contains(&w);
+        assert_eq!(mend_digits("Con los datos, dej3 sugerencias. Use el bot3n de abajo.", known), "Con los datos, dejé sugerencias. Use el botón de abajo.");
+        assert_eq!(mend_digits("Reg1menes fiscales", known), "Regímenes fiscales", "a capital stays");
+        // figures, codes and words nobody knows stay as they are
+        assert_eq!(mend_digits("Tiene 12 camas, el folio JAP-1234/2015, el formato 32-D y un mp3.", known), "Tiene 12 camas, el folio JAP-1234/2015, el formato 32-D y un mp3.");
+        assert_eq!(mend_digits("n1mero 3er piso", known), "número 3er piso", "the one accented vowel that makes a known word; a digit first is a figure");
+    }
 
     const PAGE: &str = "Regímenes\nPersonas Morales con Fines no Lucrativos. Fecha inicio 10/03/2015.\nTenemos 35 camas.";
 

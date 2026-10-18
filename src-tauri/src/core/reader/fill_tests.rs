@@ -173,6 +173,29 @@ fn a_number_is_in_words_or_in_figures() {
     assert!(says_number("cero voluntarios", 0));
 }
 
+#[test]
+fn a_figure_said_once_fills_one_field() {
+    let f = |n: i64, q: &str| Some((n, q.to_string()));
+    assert_eq!(guessed(&[f(30, "30 abuelitos"), None, f(30, "30 Abuelitos.")]), vec![true, false, true]);
+    assert_eq!(guessed(&[f(40, "40 camas"), f(36, "viven 36 personas")]), vec![false, false]);
+    assert_eq!(guessed(&[f(12, "12 personas con sueldo"), f(12, "12 voluntarios")]), vec![false, false], "the same number said twice");
+}
+
+#[test]
+fn a_figure_goes_to_the_field_its_words_speak_of() {
+    let told = "Atendemos a niñas de 6 a 17 años. Tenemos 25 camas y viven 22 señoras. Estamos en la calle Hidalgo 45.";
+    assert_eq!(clause_of(told, "22"), "viven 22 señoras");
+    // the figure alone: the words around it say what it counts
+    assert!(speaks_of_its_field("institution.age_min", "6", told) && speaks_of_its_field("institution.age_max", "17", told));
+    assert!(speaks_of_its_field("institution.capacity_total", "25", told));
+    assert!(!speaks_of_its_field("institution.capacity_total", "22", told), "22 are the people, not the beds");
+    assert!(speaks_of_its_field("institution.served_estimate", "22", told));
+    assert!(!speaks_of_its_field("institution.capacity_total", "calle Hidalgo 45", told), "a street number counts nothing");
+    let abuelitos = "Atendemos a 30 abuelitos.";
+    assert!(speaks_of_its_field("institution.served_estimate", "30 abuelitos", abuelitos));
+    assert!(!speaks_of_its_field("institution.capacity_total", "30 abuelitos", abuelitos));
+}
+
 /// How a suggestion (or its absence) compares with what `lector.json` expects of its field.
 pub(crate) fn grade(expected: &Value, got: Option<&proposals::Proposal>) -> (&'static str, bool) {
     let plain_of = |v: &Value| plain(&v.as_str().map_or_else(|| v.to_string(), str::to_string));

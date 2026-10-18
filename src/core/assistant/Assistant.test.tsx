@@ -5,8 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../../lib/tauri", () => ({
   assistantAsk: vi.fn(),
   captureAsk: vi.fn(),
-  institutionFillFromDocuments: vi.fn(),
-  institutionFillAllFromDocuments: vi.fn(),
   appPlaces: vi.fn(async () => [
     { id: "profile.legal", label: "Datos legales y fiscales" },
     { id: "profile.institution", label: "Su institución" },
@@ -21,7 +19,7 @@ Element.prototype.scrollIntoView = function () {
   return Promise.resolve() as unknown as void;
 };
 
-import { assistantAsk, captureAsk, institutionFillAllFromDocuments, institutionFillFromDocuments } from "../../lib/tauri";
+import { assistantAsk, captureAsk } from "../../lib/tauri";
 import { ManualPanel } from "../../components/ManualHelp";
 import { AssistantProvider, useAssistant } from "./Assistant";
 
@@ -75,7 +73,6 @@ describe("Assistant", () => {
       sources: [{ id: "institution.junta_folio", title: "Folio ante la Junta" }],
       documents: [{ document_id: "doc_1", document: "Acta constitutiva", page: 3 }],
       fill: null,
-      from_documents: null,
     });
     const onGo = draw();
     fireEvent.click(screen.getByText("abrir"));
@@ -87,7 +84,7 @@ describe("Assistant", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Ir a Datos legales y fiscales/ }));
     expect(onGo).toHaveBeenCalledWith("profile.legal");
     // the next question carries the documents that answer was based on: «ese mismo» has a document
-    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y ese mismo?", text: "Sí.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y ese mismo?", text: "Sí.", go_to: null, sources: [], documents: [], fill: null });
     ask("¿Y ese mismo?");
     await screen.findByText("Sí.");
     expect(lastCall()[0].history[1]).toEqual({ from: "assistant", text: "En Datos legales y fiscales.", documents: ["doc_1"] });
@@ -102,7 +99,6 @@ describe("Assistant", () => {
       sources: [],
       documents: [],
       fill: null,
-      from_documents: null,
       records: { have: ["Acta constitutiva", "Poder notarial"], missing: ["CLUNI"], in_progress: [], expiring: [{ name: "Poder notarial", date: "2027-01-18" }], expired: [] },
     });
     draw();
@@ -111,7 +107,7 @@ describe("Assistant", () => {
     expect(await screen.findByText("Tiene 2: Acta constitutiva, Poder notarial.")).toBeInTheDocument();
     expect(screen.getByText("Le falta 1: CLUNI.")).toBeInTheDocument();
     expect(screen.getByText("Por vencer: Poder notarial (18 de enero de 2027).")).toBeInTheDocument();
-    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y la CLUNI?", text: "Súbala en el Expediente.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y la CLUNI?", text: "Súbala en el Expediente.", go_to: null, sources: [], documents: [], fill: null });
     ask("¿Y la CLUNI?");
     await screen.findByText("Súbala en el Expediente.");
     expect(lastCall()[0].history[1].text).toContain("Le falta 1: CLUNI.");
@@ -133,7 +129,7 @@ describe("Assistant", () => {
   it("says why the AI did not answer and what to do: try again when it is busy, ask the administrator for a key", async () => {
     vi.mocked(assistantAsk)
       .mockResolvedValueOnce({ status: "manual", asked: "¿Qué me falta?", reason: "busy", hits: [] })
-      .mockResolvedValueOnce({ status: "answered", asked: "¿Qué me falta?", text: "Le falta el patronato.", go_to: null, sources: [], documents: [], fill: null, from_documents: null })
+      .mockResolvedValueOnce({ status: "answered", asked: "¿Qué me falta?", text: "Le falta el patronato.", go_to: null, sources: [], documents: [], fill: null })
       .mockResolvedValueOnce({ status: "manual", asked: "¿Y ahora?", reason: "not_configured", hits: [] });
     draw();
     fireEvent.click(screen.getByText("abrir"));
@@ -155,7 +151,7 @@ describe("Assistant", () => {
   it("a question with data of a person waits for the person's decision", async () => {
     vi.mocked(assistantAsk)
       .mockResolvedValueOnce({ status: "quarantine", report: { fields: [{ path: "question", counts: { curp: 1 }, blocking: true, redacted_preview: "¿Dónde pongo [CURP]?" }], counts: { curp: 1 }, has_blocking: true } })
-      .mockResolvedValueOnce({ status: "answered", asked: "¿Dónde pongo [CURP]?", text: "En la ficha de la persona.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
+      .mockResolvedValueOnce({ status: "answered", asked: "¿Dónde pongo [CURP]?", text: "En la ficha de la persona.", go_to: null, sources: [], documents: [], fill: null });
     draw();
     fireEvent.click(screen.getByText("abrir"));
     ask("¿Dónde pongo LOPM800101MDFRZN09?");
@@ -168,9 +164,9 @@ describe("Assistant", () => {
   it("«Llenarlo por mí» under an answer: the Capturist reads what was asked and leaves suggestions in the window", async () => {
     const asked = "Atendemos a 38 señoras, ¿dónde lo pongo?";
     const fill = { form: "institution.identity", place: "profile.institution" };
-    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "En «Su institución».", go_to: "profile.institution", sources: [], documents: [], fill, from_documents: null });
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "En «Su institución».", go_to: "profile.institution", sources: [], documents: [], fill });
     vi.mocked(captureAsk)
-      .mockResolvedValueOnce({ status: "proposed", asked, form: fill.form, place: fill.place, fields: ["institution.populations", "institution.sex_served"], left: ["¿A quién atienden?", "¿Atienden a mujeres, a hombres o a ambos?"], still: ["¿A qué se dedica?"], dropped: 1 })
+      .mockResolvedValueOnce({ status: "proposed", asked, form: fill.form, place: fill.place, fields: ["institution.populations", "institution.sex_served"], left: ["¿A quién atienden?", "¿Atienden a mujeres, a hombres o a ambos?"], others: [], same: [], still: ["¿A qué se dedica?"], dropped: 1 })
       .mockResolvedValueOnce({ status: "unavailable", asked: "Somos I.A.P.", reason: "offline" });
     const onGo = draw();
     fireEvent.click(screen.getByText("abrir"));
@@ -192,11 +188,11 @@ describe("Assistant", () => {
     expect(screen.queryByText("Mientras tanto, le respondo con el manual:")).toBeNull();
     const last = vi.mocked(captureAsk).mock.calls[1]![0];
     expect(last.said).toBe("Somos I.A.P.");
-    expect(last.history.map((h) => h.text)).toEqual([asked, "En «Su institución».", expect.stringMatching(/^Dejé 2 sugerencias en «Su institución»: .*Todavía puede contarme: «¿A qué se dedica\?»\.$/)]);
+    expect(last.history.map((h) => h.text)).toEqual([asked, expect.stringMatching(/^En «Su institución»\.\n\nEsos datos van en «Mi institución»/),expect.stringMatching(/^Dejé 2 sugerencias en «Su institución»: .*Todavía puede contarme: «¿A qué se dedica\?»\.$/)]);
 
     // back to questions
     fireEvent.click(screen.getByRole("button", { name: "Dejar de llenar" }));
-    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y luego?", text: "Guarde la ventana.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Y luego?", text: "Guarde la ventana.", go_to: null, sources: [], documents: [], fill: null });
     ask("¿Y luego?");
     expect(await screen.findByText("Guarde la ventana.")).toBeInTheDocument();
     expect(captureAsk).toHaveBeenCalledTimes(2);
@@ -205,8 +201,8 @@ describe("Assistant", () => {
   it("closing the window it fills ends «Llenarlo por mí»: the next question goes to the Assistant", async () => {
     const asked = "Somos una I.A.P.";
     const fill = { form: "institution.identity", place: "profile.institution" };
-    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "Va en «Su institución».", go_to: null, sources: [], documents: [], fill, from_documents: null });
-    vi.mocked(captureAsk).mockResolvedValueOnce({ status: "proposed", asked, form: fill.form, place: fill.place, fields: ["institution.populations"], left: ["¿A quién atienden?"], still: [], dropped: 0 });
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "Va en «Su institución».", go_to: null, sources: [], documents: [], fill });
+    vi.mocked(captureAsk).mockResolvedValueOnce({ status: "proposed", asked, form: fill.form, place: fill.place, fields: ["institution.populations"], left: ["¿A quién atienden?"], others: [], same: [], still: [], dropped: 0 });
     draw();
     fireEvent.click(screen.getByText("abrir"));
     ask(asked);
@@ -218,30 +214,39 @@ describe("Assistant", () => {
     // the person saved or closed the window it was filling: filling ends with no click on «Dejar de llenar»
     fireEvent.click(screen.getByText("cerrar Su institución"));
     expect(screen.queryByText("Llenando «Su institución»")).toBeNull();
-    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Cómo hago un respaldo?", text: "En Seguridad.", go_to: null, sources: [], documents: [], fill: null, from_documents: null });
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked: "¿Cómo hago un respaldo?", text: "En Seguridad.", go_to: null, sources: [], documents: [], fill: null });
     ask("¿Cómo hago un respaldo?");
     expect(await screen.findByText("En Seguridad.")).toBeInTheDocument();
     expect(captureAsk).toHaveBeenCalledTimes(1);
   });
 
-  it("«Llenar con mis documentos» under an answer: the Reader fills that window, and the program says how many it left", async () => {
-    const legal = { form: "institution.legal", place: "profile.legal" };
-    vi.mocked(assistantAsk)
-      .mockResolvedValueOnce({ status: "answered", asked: "Llénalo con mi acta", text: "Use el botón.", go_to: null, sources: [], documents: [], fill: null, from_documents: legal })
-      .mockResolvedValueOnce({ status: "answered", asked: "Y lo demás", text: "Puede llenar todo.", go_to: null, sources: [], documents: [], fill: null, from_documents: { form: "all", place: "profile" } });
-    vi.mocked(institutionFillFromDocuments).mockResolvedValueOnce({ status: "proposed", form: legal.form, place: legal.place, fields: ["institution.legal_name", "institution.purpose"], dropped: 0, note: "" });
-    vi.mocked(institutionFillAllFromDocuments).mockResolvedValueOnce([{ status: "nothing", form: legal.form, place: legal.place, reason: "no_documents" }]);
+  it("«Llenarlo por mí» says the program's sentence, and each datum goes to its window (ADR-042 §6)", async () => {
+    const asked = "Nos representa la directora, Rosa Ficticia del Ejemplo";
+    const fill = { form: "institution.contact", place: "profile.contact" };
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "", go_to: null, sources: [], documents: [], fill });
+    vi.mocked(captureAsk).mockResolvedValueOnce({
+      status: "proposed",
+      asked,
+      form: fill.form,
+      place: fill.place,
+      fields: ["institution.legal_rep_name"],
+      left: [],
+      others: [{ place: "profile.legal", left: ["Nombre de quien la representa legalmente"] }],
+      same: ["Nombre de la institución"],
+      still: [],
+      dropped: 0,
+    });
     const onGo = draw();
     fireEvent.click(screen.getByText("abrir"));
-    ask("Llénalo con mi acta");
-    fireEvent.click(await screen.findByRole("button", { name: "Llenar con mis documentos" }));
-    await waitFor(() => expect(institutionFillFromDocuments).toHaveBeenCalledWith("institution.legal"));
-    fireEvent.click(await screen.findByRole("button", { name: "Revisarlas" }));
+    ask(asked);
+    // the AI said nothing: the program says what the button does
+    expect(await screen.findByText(/Con el botón de abajo los dejo como sugerencias en la ventana de cada uno/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Llenar con mis documentos" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Llenarlo por mí" }));
+    expect(await screen.findByText(/Dejé 1 sugerencia en «Datos legales y fiscales»: «Nombre de quien la representa legalmente»\./)).toBeInTheDocument();
+    expect(screen.getByText("Ya estaba guardado igual: «Nombre de la institución».")).toBeInTheDocument();
+    expect(screen.queryByText(/no encontré datos/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Datos legales y fiscales/ }));
     expect(onGo).toHaveBeenCalledWith("profile.legal");
-    ask("Y lo demás");
-    fireEvent.click(await screen.findByRole("button", { name: "Llenar todo con mis documentos" }));
-    await waitFor(() => expect(institutionFillAllFromDocuments).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText(/no tiene documentos|Expediente/)).toBeInTheDocument();
-    expect(captureAsk).not.toHaveBeenCalled();
   });
 });

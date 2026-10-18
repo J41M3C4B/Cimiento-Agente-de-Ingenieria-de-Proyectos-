@@ -59,10 +59,10 @@ pub const SEARCH: &[(&str, &str)] = &[
     ("institution.authorized_donee", "donataria autorizada donativos deducibles autoriza"),
     ("institution.cluni", "CLUNI clave única de inscripción registro federal organizaciones sociedad civil"),
     ("institution.donee_category", "rubro asistencial autorización donativos actividad"),
-    ("institution.capacity_total", "capacidad camas lugares plazas residentes atendimos"),
-    ("institution.served_estimate", "atendimos personas residentes estancia de día beneficiarias"),
+    ("institution.capacity_total", "capacidad camas lugares plazas espacios cupo"),
+    ("institution.served_estimate", "atend viven personas residentes estancia de día beneficiarias"),
     ("institution.staff_paid_estimate", "personas contratadas personal equipo nómina empleados"),
-    ("institution.staff_volunteer_estimate", "personas voluntarias voluntariado"),
+    ("institution.staff_volunteer_estimate", "personas voluntarias voluntario voluntariado"),
     ("institution.notes", "retos necesidades lista de espera"),
 ];
 
@@ -202,12 +202,39 @@ pub(crate) fn says_number(text: &str, n: i64) -> bool {
         .any(|i| super::dates::leading_number_in_words(&words[i..].join(" ")) == Some(n as u32))
 }
 
+/// The piece of a text a quote is in: the words between commas, periods and «y» around it («viven 22 señoras» in
+/// «Tenemos 25 camas y viven 22 señoras.»). A model may copy only the figure; the code reads what is around it.
+pub(crate) fn clause_of(text: &str, quote: &str) -> String {
+    let plain = |s: &str| crate::core::agents::capturist::plain(s);
+    let wanted = plain(quote);
+    text.split(['.', ';', ':', ',', '!', '?', '\n'])
+        .flat_map(|piece| piece.split(" y "))
+        .find(|piece| format!(" {} ", plain(piece)).contains(&format!(" {wanted} ")))
+        .map_or_else(|| quote.to_string(), |piece| piece.trim().to_string())
+}
+
+/// Whether the words a figure was taken from speak of its field: a word of the field (its title and its words in
+/// `SEARCH`) in the quote or in the piece of the text around it. «30 abuelitos» are people served, never the
+/// capacity; «calle Hidalgo 45» is no count at all. A figure alone could go to any field.
+pub(crate) fn speaks_of_its_field(field: &str, quote: &str, text: &str) -> bool {
+    super::upload::words_of(field, &format!("{quote} {}", clause_of(text, quote))) > 0
+}
+
+/// A figure said once fills one field: the same number from the same words in two fields of figures («30 abuelitos»
+/// as the capacity and as the people served) is a guess between them, and both go. `figures`: for each suggestion,
+/// its number and its words when it is a figure. Says which to drop.
+pub(crate) fn guessed(figures: &[Option<(i64, String)>]) -> Vec<bool> {
+    let key = |f: &(i64, String)| (f.0, crate::core::agents::capturist::plain(&f.1));
+    figures.iter().map(|f| f.as_ref().is_some_and(|f| figures.iter().flatten().filter(|o| key(o) == key(f)).count() > 1)).collect()
+}
+
 /// Keeps the suggestions the code accepts, each in the window of its field: a field asked for, a passage shown, words that are in that passage, a
 /// figure that is in those words, and a value that fits its field (`proposals::propose`, with the policy of ADR-038).
 /// Returns the fields kept and how many were dropped.
 pub fn keep(conn: &rusqlite::Connection, asked: &[&FieldSpec], passages: &[Passage], answer: &Value) -> Result<(Vec<String>, usize), ServiceError> {
     let mut kept: Vec<String> = Vec::new();
     let mut dropped = 0;
+    let mut checked: Vec<(&str, &'static str, Value, Value, bool, String)> = Vec::new();
     for p in answer["proposals"].as_array().into_iter().flatten() {
         let (Some(field), Some(cited), Some(quote)) = (p["field"].as_str(), p["passage"].as_str(), p["quote"].as_str()) else {
             dropped += 1;
@@ -225,7 +252,8 @@ pub fn keep(conn: &rusqlite::Connection, asked: &[&FieldSpec], passages: &[Passa
         let quote = quote.as_str();
         let value = fit(f, &p["value"]);
         // the AI does not count: a number is in the words it copied
-        if matches!(f.kind, FieldKind::Number | FieldKind::Money | FieldKind::Year) && !value.as_i64().is_some_and(|n| says_number(quote, n)) {
+        let counted = f.kind == FieldKind::Year || speaks_of_its_field(f.id, quote, &passage.text);
+        if matches!(f.kind, FieldKind::Number | FieldKind::Money | FieldKind::Year) && !(counted && value.as_i64().is_some_and(|n| says_number(quote, n))) {
             dropped += 1;
             continue;
         }
@@ -240,6 +268,16 @@ pub fn keep(conn: &rusqlite::Connection, asked: &[&FieldSpec], passages: &[Passa
             dropped += 1;
             continue;
         };
+        let figure = matches!(f.kind, FieldKind::Number | FieldKind::Money);
+        checked.push((field, form_id, value, source, figure, quote.trim().to_string()));
+    }
+    // a figure said once fills one field: the code does not guess between two
+    let figures: Vec<Option<(i64, String)>> = checked.iter().map(|(_, _, v, _, figure, q)| v.as_i64().filter(|_| *figure).map(|n| (n, q.clone()))).collect();
+    for ((field, form_id, value, source, _, _), guessed) in checked.into_iter().zip(guessed(&figures)) {
+        if guessed {
+            dropped += 1;
+            continue;
+        }
         let new = NewProposal {
             form_id: form_id.to_string(),
             record_id: None,

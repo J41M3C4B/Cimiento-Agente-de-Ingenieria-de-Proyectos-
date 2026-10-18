@@ -98,3 +98,12 @@ Para probarlo: [guion, sección 5](../15-guion-pruebas-nucleo.md), las dos casil
 **2026-10-17. Probaste la fase 2: funciona.** Le cambiaste el nombre al acta y a los estatutos por números y los reconoció por sus palabras; un archivo que no tiene que ver con ningún documento no se guarda y avisa que no es de ningún lugar. Problema 4 atendido. Siguen las fases 3 a 5 (problemas 6, 7 y 8) y el bloque de diseño (problemas 3 y 5).
 
 **2026-10-17. Fase 3 hecha (problemas 6 y 7, la parte de los documentos):** al subir un archivo, el programa busca de qué campos vacíos habla y te deja sus sugerencias sin que pulses «Llenar con mis documentos». Un aviso dice cuántas y en qué ventanas. Con el modelo más barato: 18 de 18 bien, nada inventado, $0.17 MXN por 13 documentos. Para probarlo: [guion, sección 5](../15-guion-pruebas-nucleo.md), la casilla nueva. Siguen las fases 4 y 5 (problemas 7 y 8) y el bloque de diseño (problemas 3 y 5).
+
+**2026-10-18. Fase 4 hecha (problemas 7 y 8):**
+- «Llenar con mis documentos» ya no aparece en el chat. Su lugar es la ventana, y al subir los archivos ya llegan sus sugerencias.
+- «Llenarlo por mí» lleva cada dato a la ventana a la que pertenece: el nombre de la directora, dicho desde «Contacto», queda en «Datos legales».
+- Lo que ya tenías guardado igual no se repite, y te dice «Ya estaba guardado igual».
+- El Asistente ya no dice «dejé sugerencias» (no puede hacerlo): esa frase la escribe el programa.
+- «dej3» y «bot3n» los escribía el modelo. Ahora el código compone esas palabras.
+
+Con el modelo más barato, dos rondas: Capturista 33 de 34, Asistente 33 de 34, nada inventado. Para probarlo: [guion](../15-guion-pruebas-nucleo.md), las casillas sin marcar de las secciones 7 y 8. Sigue la fase 5 y el bloque de diseño (problemas 3 y 5).

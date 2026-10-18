@@ -1,5 +1,5 @@
 {
-  "_nota": "Batería del Asistente como orquestador del núcleo (C3, ADR-036 §8): preguntas desde distintas pantallas sobre el expediente ficticio de esta carpeta. «usa»: herramientas que debe pedir; «no_usa»: herramientas que no debe pedir; «paginas»: el documento y la página que la respuesta debe citar (al menos uno; página 0 = cualquiera); «con_cita»: debe citar al menos un documento; «nada»: ningún documento lo dice, no debe citar ninguno; «contiene» (todas) y «alguno» (al menos una): palabras de la respuesta, sin acentos ni mayúsculas; «no_contiene»: palabras que no debe decir; «ir_a», «llenar_con_documentos» y «fuentes»: lo que debe ofrecer; «lista»: el programa escribe abajo la lista de los documentos (cuenta como parte de la respuesta); «llenar»: la ventana que debe ofrecer llenar con lo que cuenta la persona («Llenarlo por mí»); «historial»: la conversación antes de la pregunta, con los archivos en que se basó cada respuesta. Todo es ficticio.",
+  "_nota": "Batería del Asistente como orquestador del núcleo (C3, ADR-036 §8): preguntas desde distintas pantallas sobre el expediente ficticio de esta carpeta. «usa»: herramientas que debe pedir; «no_usa»: herramientas que no debe pedir; «paginas»: el documento y la página que la respuesta debe citar (al menos uno; página 0 = cualquiera); «con_cita»: debe citar al menos un documento; «nada»: ningún documento lo dice, no debe citar ninguno; «contiene» (todas) y «alguno» (al menos una): palabras de la respuesta, sin acentos ni mayúsculas; «no_contiene»: palabras que no debe decir; «ir_a» y «fuentes»: lo que debe ofrecer; «lista»: el programa escribe abajo la lista de los documentos (cuenta como parte de la respuesta); «llenar»: la ventana que debe ofrecer llenar con lo que cuenta la persona («Llenarlo por mí»), o «cualquiera» cuando los datos son de varias ventanas (el Capturista lleva cada uno a la suya); «historial»: la conversación antes de la pregunta, con los archivos en que se basó cada respuesta. Todo es ficticio.",
   "preguntas": [
     { "q": "Según mi registro, ¿qué nombre legal pongo?", "pantalla": "profile", "campo": "institution.legal_name", "usa": ["record_reader"], "con_cita": true, "contiene": ["ficticia san ejemplo"] },
     { "q": "¿Qué documentos tengo?", "pantalla": "home", "no_usa": ["record_reader"], "ir_a": "profile.records", "lista": true, "contiene": ["acta"] },
@@ -11,7 +11,7 @@
     { "q": "¿Cuál es el plazo del comodato?", "pantalla": "profile", "usa": ["record_reader"], "paginas": [["contrato-comodato.txt", 1]], "alguno": ["veinte", "20"] },
     { "q": "¿Qué dice el reglamento sobre los medicamentos?", "pantalla": "documents", "usa": ["record_reader"], "paginas": [["reglamento-interno.txt", 3]], "alguno": ["enfermeria", "enfermera"] },
     { "q": "¿Cuántos kilos de comida nos donó el banco de alimentos en 2024?", "pantalla": "home", "nada": true },
-    { "q": "Llena los datos legales con lo que dicen mis documentos", "pantalla": "profile", "llenar_con_documentos": "profile.legal" },
+    { "q": "Llena los datos legales con lo que dicen mis documentos", "pantalla": "profile", "ir_a": "profile.legal", "contiene": ["llenar con mis documentos"], "no_contiene": ["deje", "llene"] },
     { "q": "¿Qué me falta por llenar?", "pantalla": "home", "no_usa": ["record_reader"] },
     { "q": "¿Cómo hago un respaldo?", "pantalla": "profile", "no_usa": ["record_reader"], "fuentes": ["howto.backup"], "ir_a": "security" },
     { "q": "Va, y con base en ese mismo, ¿qué pongo en a quién atienden y cómo?", "pantalla": "profile", "historial": [
@@ -22,6 +22,7 @@
         { "de": "persona", "texto": "¿En qué documento viene el representante legal?" },
         { "de": "asistente", "texto": "Viene en el poder notarial: ahí dice quién representa a la institución y hasta cuándo.", "documentos": ["poder-notarial.txt"] }
       ], "no_usa": ["record_reader"], "llenar": "profile.capacity" },
-    { "q": "Tenemos 30 espacios disponibles para atender y viven 12 niñas", "pantalla": "profile", "no_usa": ["record_reader"], "llenar": "profile.capacity" }
+    { "q": "Tenemos 30 espacios disponibles para atender y viven 12 niñas", "pantalla": "profile", "no_usa": ["record_reader"], "llenar": "profile.capacity" },
+    { "q": "Nos representa la directora, Rosa Ficticia del Ejemplo", "pantalla": "profile", "historial": [{ "de": "persona", "texto": "Quiero llenar contacto y ubicación" }], "no_usa": ["record_reader"], "llenar": "cualquiera" }
   ]
 }

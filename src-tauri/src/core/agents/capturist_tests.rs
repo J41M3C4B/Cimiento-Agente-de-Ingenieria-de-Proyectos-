@@ -82,7 +82,8 @@ async fn a_suggestion_is_never_saved_without_a_click() {
     assert_eq!(r.user.matches(TOLD).count(), 1);
 }
 
-/// The code keeps only what the person said, in a field of the window the AI may see, with a value that fits it.
+/// The code keeps only what the person said, in a field of a window it fills that the AI may see, with a value that
+/// fits it.
 #[tokio::test]
 async fn the_code_drops_what_the_person_did_not_say_what_is_protected_and_what_does_not_fit() {
     let (_d, db) = db();
@@ -90,10 +91,10 @@ async fn the_code_drops_what_the_person_did_not_say_what_is_protected_and_what_d
         "proposals": [
             // invented: the person never said it
             { "field": "institution.mission", "value": "Dar amor a las personas mayores.", "quote": "damos amor y cariño" },
-            // a field the AI never sees, though the person said it
-            { "field": "institution.legal_rfc", "value": "AFI200101AB1", "quote": "atendemos a 38 señoras" },
-            // a field of another window
-            { "field": "institution.capacity_total", "value": 38, "quote": "atendemos a 38 señoras" },
+            // an own datum that is not in the person's words (the saved one would be «already so», ADR-042 §6)
+            { "field": "institution.legal_rfc", "value": "XYZ200101AB1", "quote": "atendemos a 38 señoras" },
+            // a field of a window it never fills (the board), though the person said it
+            { "field": "institution.board.role", "value": "president", "quote": "atendemos a 38 señoras" },
             // a code out of its list
             { "field": "institution.populations", "value": ["ancianas"], "quote": "38 señoras" },
             // what is saved already: nothing to suggest, nothing dropped
@@ -186,22 +187,72 @@ async fn without_the_ai_nothing_is_suggested_and_the_reason_is_said() {
     assert!(proposals::pending_counts(&db.lock().unwrap()).unwrap().is_empty());
 }
 
-/// The window, its fields with what is saved and the last turns; never a protected value, even if it is saved: of
-/// the institution's own data the AI only learns whether they are filled (ADR-041).
+/// What is saved in the four windows.
+fn saved_all(c: &rusqlite::Connection) -> Saved {
+    FILLABLE.iter().map(|(f, _, _)| (*f, crate::core::profile::forms::saved_values(c, f).unwrap())).collect()
+}
+
+/// The window where the person is first, then the others, each with its fields and what is saved, and the last turns;
+/// never a protected value, even if it is saved: of the institution's own data the AI only learns whether they are
+/// filled (ADR-041).
 #[test]
-fn the_context_names_the_fields_and_never_a_protected_value() {
+fn the_context_names_the_fields_of_every_window_and_never_a_protected_value() {
     let (_d, db) = db();
     let c = db.lock().unwrap();
-    let spec = crate::core::institution::forms::form("institution.legal").unwrap();
-    let saved = crate::core::profile::forms::saved_values(&c, "institution.legal").unwrap();
-    assert!(saved.contains_key("institution.legal_rfc"));
+    let saved = saved_all(&c);
+    assert!(saved.iter().any(|(_, v)| v.contains_key("institution.legal_rfc")));
     let history = vec![Turn { from: "person".into(), text: "Somos I.A.P. desde 1950".into(), documents: vec![] }];
-    let ctx = context(spec, "Datos legales y fiscales", &saved, &history).join("\n");
+    let ctx = context("institution.legal", &saved, &history).join("\n");
+    assert!(ctx.starts_with("La persona está en la ventana «Datos legales y fiscales»"), "{ctx}");
     assert!(ctx.contains("`institution.legal_form`") && ctx.contains("iap") && ctx.contains("Solo aplica si `institution.authorized_donee` es yes"), "{ctx}");
     assert!(ctx.contains("Persona: Somos I.A.P. desde 1950"), "{ctx}");
     assert!(ctx.contains("`institution.legal_rfc`") && ctx.contains("Guardado: lleno") && !ctx.contains("AFI200101AB1"), "{ctx}");
-    let state = context(crate::core::institution::forms::form("institution.contact").unwrap(), "x", &Values::new(), &[]).join("\n");
-    assert!(state.contains("cdmx (Ciudad de México)"), "{state}");
+    // the other windows come after, each with its fields
+    let legal_at = ctx.find("Ventana «Datos legales y fiscales»").unwrap();
+    for name in ["Su institución", "Contacto y ubicación", "Capacidad y cifras rápidas"] {
+        assert!(ctx.find(&format!("Ventana «{name}»")).is_some_and(|at| at > legal_at), "{name}: {ctx}");
+    }
+    assert!(ctx.contains("cdmx (Ciudad de México)"), "{ctx}");
+}
+
+/// ADR-042 §6: what the person tells goes to the window of its field, whatever window the person is in; what is saved
+/// already the same (read as a person reads it) is not suggested and the outcome says it was there.
+#[tokio::test]
+async fn each_datum_goes_to_its_window_and_the_same_is_not_suggested() {
+    let (_d, db) = db();
+    let said = "Nos representa la directora, Rosa Ficticia del Ejemplo, y tenemos 50 camas.";
+    let answer = json!({ "proposals": [
+        { "field": "institution.legal_rep_name", "value": "Rosa Ficticia del Ejemplo", "quote": "la directora, Rosa Ficticia del Ejemplo" },
+        { "field": "institution.capacity_total", "value": 50, "quote": "tenemos 50 camas" }
+    ] });
+    let saved_capacity = {
+        let c = db.lock().unwrap();
+        crate::core::profile::forms::saved_values(&c, "institution.capacity").unwrap().get("institution.capacity_total").cloned()
+    };
+    let p = MockProvider::new(vec![reply(answer)]);
+    let out = capture(&db, Some(&p), told("institution.contact", said), Some(Decision::NotPersonal)).await.unwrap();
+    let CaptureOutcome::Proposed { fields, left, others, same, .. } = out else { panic!("{out:?}") };
+    let c = db.lock().unwrap();
+    let rep = proposals::pending(&c, "institution.legal", None).unwrap();
+    assert!(rep.iter().any(|p| p.field_id == "institution.legal_rep_name"), "in «Datos legales», not in «Contacto»");
+    assert!(left.is_empty(), "nothing for the window the person is in: {left:?}");
+    assert!(others.iter().any(|o| o.place == "profile.legal" && o.left == vec![title("institution.legal_rep_name")]), "{others:?}");
+    if saved_capacity == Some(json!(50)) {
+        assert_eq!(same, vec![title("institution.capacity_total")]);
+        assert!(!fields.contains(&"institution.capacity_total".to_string()));
+    } else {
+        assert!(fields.contains(&"institution.capacity_total".to_string()), "{fields:?}");
+    }
+}
+
+#[test]
+fn the_same_is_read_as_a_person_reads_it() {
+    let f = |id: &str| crate::core::institution::forms::field(id).unwrap();
+    assert!(same(f("institution.mission"), Some(&json!("Cuidar a personas mayores")), &json!("cuidar a  personas  mayores.")));
+    assert!(same(f("institution.contact_phone"), Some(&json!("33 1234 5678")), &json!("3312345678")), "an own datum by its digits");
+    assert!(same(f("institution.modalities"), Some(&json!(["residential", "day_care"])), &json!(["day_care", "residential"])));
+    assert!(!same(f("institution.capacity_total"), Some(&json!(40)), &json!(41)));
+    assert!(!same(f("institution.mission"), None, &json!("algo")), "nothing saved is never the same");
 }
 
 /// The windows it fills are windows of «Mi institución» with fields the AI may see; the board and the accounts are
@@ -223,10 +274,9 @@ fn it_fills_only_the_windows_of_the_catalog() {
 fn the_institutions_own_data_are_copied_never_made() {
     let (_d, db) = db();
     let c = db.lock().unwrap();
-    let keep_one = |form: &str, told: &str, field: &str, value: Value, quote: &str| {
-        let spec = crate::core::institution::forms::form(form).unwrap();
+    let keep_one = |_form: &str, told: &str, field: &str, value: Value, quote: &str| {
         let answer = json!({ "proposals": [{ "field": field, "value": value, "quote": quote }] });
-        keep(&c, spec, &Values::new(), told, &answer).unwrap().0
+        keep(&c, &Saved::new(), told, &answer).unwrap().fields.into_iter().map(|(_, f)| f).collect::<Vec<_>>()
     };
     let contact = "Estamos en Calle Volcanes #412, C.P. 55060. Nuestro teléfono es 33 1234 5678.";
     assert_eq!(keep_one("institution.contact", contact, "institution.contact_phone", json!("3312345678"), "Nuestro teléfono es 33 1234 5678"), vec!["institution.contact_phone"]);

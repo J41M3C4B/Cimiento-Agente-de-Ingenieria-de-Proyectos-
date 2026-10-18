@@ -6,13 +6,11 @@ import { ManualText } from "../../components/ManualHelp";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { Alert, Bubble, Button, Composer, Disclosure, IconButton, TextButton } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import { assistantAsk, captureAsk, institutionFillAllFromDocuments, institutionFillFromDocuments, manualEntry, toAppError } from "../../lib/tauri";
+import { assistantAsk, captureAsk, manualEntry, toAppError } from "../../lib/tauri";
 import { useSession } from "../access/session";
 import { formatDate } from "../../lib/format";
 import { usePlaceName } from "../places";
 import { OVERVIEW_KEY } from "../profile/gaps";
-import { fillAllNotice, fillNotice } from "../profile/fromDocuments";
-import type { FillNotice } from "../profile/fromDocuments";
 import type { AssistantOutcome, AssistantTurn, CaptureOutcome, Decision, DocumentSource, Fill, ManualSource, QuarantineReport, RecordsList } from "../../lib/types";
 
 const t = es.assistant;
@@ -39,19 +37,17 @@ type Message =
   | { from: "person"; text: string }
   | { from: "assistant"; outcome: Exclude<AssistantOutcome, { status: "quarantine" }> }
   | { from: "capture"; target: Fill; outcome: Exclude<CaptureOutcome, { status: "quarantine" }> }
-  | { from: "documents"; target: Fill; notice: FillNotice }
   | { from: "error"; text: string };
 
 /** The turns that go with a question: what the person asked and what was answered, in words. */
 function turns(messages: Message[], name: (place: string) => string): AssistantTurn[] {
   return messages.flatMap((m): AssistantTurn[] => {
     if (m.from === "person") return [{ from: "person", text: m.text }];
-    if (m.from === "capture") return m.outcome.status === "proposed" ? [{ from: "assistant", text: captured(m.outcome, name(m.outcome.place)).join(" ") }] : [];
-    if (m.from === "documents") return [{ from: "assistant", text: m.notice.text }];
+    if (m.from === "capture") return m.outcome.status === "proposed" ? [{ from: "assistant", text: captured(m.outcome, name).join(" ") }] : [];
     if (m.from !== "assistant") return [];
     const o = m.outcome;
     if (o.status === "answered")
-      return [{ from: "assistant", text: [o.text, ...(o.records ? listed(o.records) : [])].join(" "), documents: [...new Set(o.documents.map((d) => d.document_id))] }];
+      return [{ from: "assistant", text: [said(o, name), ...(o.records ? listed(o.records) : [])].join(" "), documents: [...new Set(o.documents.map((d) => d.document_id))] }];
     return [{ from: "assistant", text: `(${t.manualIntro} ${o.hits.map((h) => h.title).join("; ")})` }];
   });
 }
@@ -68,14 +64,19 @@ function listed(r: RecordsList): string[] {
   ];
 }
 
+/** What an answer says: the AI's words and, when it offers «Llenarlo por mí», the program's sentence (ADR-042 §6). */
+function said(o: Extract<AssistantOutcome, { status: "answered" }>, name: (place: string) => string): string {
+  return [o.text, ...(o.fill ? [t.fillOffer(name(o.fill.place))] : [])].filter(Boolean).join("\n\n");
+}
+
 /** One entry of the manual, opened in place. */
 function ManualHit({ hit }: { hit: ManualSource }) {
   const entry = useQuery({ queryKey: ["manual", hit.id], queryFn: () => manualEntry(hit.id), staleTime: Infinity });
   return <Disclosure title={hit.title}>{entry.data ? <ManualText entry={entry.data} /> : null}</Disclosure>;
 }
 
-/** An answer of the AI: its text, the entries of the manual and the documents it used and, maybe, the place to go, a
- * window to fill with what the person tells, and one to fill with the documents. */
+/** An answer of the AI: its text, the entries of the manual and the documents it used and, maybe, the place to go and
+ * a window to fill with what the person tells. «Llenar con mis documentos» is not here: its place is each window. */
 function Answer({
   text,
   sources,
@@ -83,11 +84,8 @@ function Answer({
   records,
   place,
   fill,
-  fromDocuments,
-  busy,
   onGo,
   onFill,
-  onFromDocuments,
 }: {
   text: string;
   sources: ManualSource[];
@@ -95,11 +93,8 @@ function Answer({
   records: RecordsList | null;
   place: string | null;
   fill: Fill | null;
-  fromDocuments: Fill | null;
-  busy: boolean;
   onGo: (place: string) => void;
   onFill: (target: Fill) => void;
-  onFromDocuments: (target: Fill) => void;
 }) {
   const name = usePlaceName();
   return (
@@ -121,7 +116,7 @@ function Answer({
           {t.documentSources} {documents.map((d) => t.documentPage(d.document, d.page)).join("; ")}
         </p>
       )}
-      {(place || fill || fromDocuments) && (
+      {(place || fill) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {place && (
             <Button size="sm" variant="secondary" onClick={() => onGo(place)}>
@@ -135,60 +130,55 @@ function Answer({
               {t.fillMe}
             </Button>
           )}
-          {fromDocuments && (
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => onFromDocuments(fromDocuments)}>
-              <Icon name="sparkles" size={14} />
-              {fromDocuments.form === "all" ? es.suggestions.fillAllFromDocuments : es.suggestions.fillFromDocuments}
-            </Button>
-          )}
         </div>
       )}
     </Bubble>
   );
 }
 
-/** What the Capturist left, in the program's words: what the code kept, what it did not take and what is still to
- * tell. Never the AI's words, which may promise what the code dropped. */
-function captured(outcome: Extract<CaptureOutcome, { status: "proposed" }>, place: string): string[] {
-  const n = outcome.fields.length;
+/** What the Capturist left, in the program's words: what the code kept in this window and in the others (ADR-042
+ * §6), what was there already, what it did not take and what is still to tell. Never the AI's words, which may
+ * promise what the code dropped. */
+function captured(outcome: Extract<CaptureOutcome, { status: "proposed" }>, name: (place: string) => string): string[] {
+  const here = outcome.left.length;
+  const others = outcome.others ?? [];
+  const same = outcome.same ?? [];
+  const nothing = outcome.fields.length === 0 && same.length === 0;
   return [
-    n > 0 ? t.leftWhich(n, place, outcome.left) : t.leftNone(place),
+    ...(here > 0 ? [t.leftWhich(here, name(outcome.place), outcome.left)] : nothing ? [t.leftNone(name(outcome.place))] : []),
+    ...others.map((o) => t.leftWhich(o.left.length, name(o.place), o.left)),
+    ...(same.length > 0 ? [t.same(same)] : []),
     ...(outcome.dropped > 0 ? [t.notTaken] : []),
     ...(outcome.still.length > 0 ? [t.still(outcome.still)] : []),
   ];
 }
 
-/** What the Capturist left and, when it left suggestions, the way to the window to review them. */
+/** What the Capturist left and the way to each window where it left suggestions, to review them. */
 function Captured({ outcome, onGo }: { outcome: Extract<CaptureOutcome, { status: "proposed" }>; onGo: (place: string) => void }) {
   const name = usePlaceName();
+  const others = outcome.others ?? [];
   return (
     <Bubble from="assistant">
-      {captured(outcome, name(outcome.place)).map((line, i) => (
+      {captured(outcome, name).map((line, i) => (
         <p key={i} className={i > 0 ? "mt-2" : ""}>
           {line}
         </p>
       ))}
-      {outcome.fields.length > 0 && (
-        <Button size="sm" variant="secondary" className="mt-3" onClick={() => onGo(outcome.place)}>
-          {t.review}
-          <Icon name="next" size={14} />
-        </Button>
-      )}
-    </Bubble>
-  );
-}
-
-/** What «Llenar con mis documentos» left, in the program's words, and the way to the window to review it. */
-function FromDocuments({ target, notice, onGo }: { target: Fill; notice: FillNotice; onGo: (place: string) => void }) {
-  if (notice.tone === "error") return <Alert tone="warn">{notice.text}</Alert>;
-  return (
-    <Bubble from="assistant">
-      <p>{notice.text}</p>
-      {notice.tone === "ok" && (
-        <Button size="sm" variant="secondary" className="mt-3" onClick={() => onGo(target.place)}>
-          {t.review}
-          <Icon name="next" size={14} />
-        </Button>
+      {(outcome.left.length > 0 || others.length > 0) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {outcome.left.length > 0 && (
+            <Button size="sm" variant="secondary" onClick={() => onGo(outcome.place)}>
+              {t.review}
+              <Icon name="next" size={14} />
+            </Button>
+          )}
+          {others.map((o) => (
+            <Button key={o.place} size="sm" variant="secondary" onClick={() => onGo(o.place)}>
+              {t.goTo(name(o.place))}
+              <Icon name="next" size={14} />
+            </Button>
+          ))}
+        </div>
       )}
     </Bubble>
   );
@@ -315,25 +305,6 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
     }
   }
 
-  /**
-   * «Llenar con mis documentos» under an answer (C3): the Reader of the Expediente leaves suggestions in that window
-   * (or in all of them), each with its document and page; the panel says how many, in the program's words.
-   */
-  async function fromDocuments(target: Fill) {
-    setBusy(true);
-    const before = messages;
-    try {
-      const notice = target.form === "all" ? fillAllNotice(await institutionFillAllFromDocuments()) : fillNotice(await institutionFillFromDocuments(target.form));
-      setMessages([...before, { from: "documents", target, notice }]);
-      void qc.invalidateQueries({ queryKey: ["form"] });
-      void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
-    } catch (e) {
-      setMessages([...before, { from: "error", text: toAppError(e).message }]);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   /** «Llenarlo por mí» under an answer: what the person asked just before it is what the Capturist reads. */
   function fillFrom(at: number, target: Fill) {
     const asked = messages[at - 1];
@@ -393,8 +364,6 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
                 <Alert key={i} tone="error">
                   {m.text}
                 </Alert>
-              ) : m.from === "documents" ? (
-                <FromDocuments key={i} target={m.target} notice={m.notice} onGo={onGo} />
               ) : m.from === "capture" ? (
                 m.outcome.status === "proposed" ? (
                   <Captured key={i} outcome={m.outcome} onGo={onGo} />
@@ -410,17 +379,14 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
               ) : m.outcome.status === "answered" ? (
                 <Answer
                   key={i}
-                  text={m.outcome.text}
+                  text={said(m.outcome, placeName)}
                   sources={m.outcome.sources}
                   documents={m.outcome.documents ?? []}
                   records={m.outcome.records ?? null}
                   place={m.outcome.go_to}
                   fill={m.outcome.fill}
-                  fromDocuments={m.outcome.from_documents ?? null}
-                  busy={busy}
                   onGo={onGo}
                   onFill={(f) => fillFrom(i, f)}
-                  onFromDocuments={(f) => void fromDocuments(f)}
                 />
               ) : (
                 <Unavailable key={i} reason={m.outcome.reason} hits={m.outcome.hits} busy={busy} onRetry={() => void send(m.outcome.asked)} onGo={onGo} />

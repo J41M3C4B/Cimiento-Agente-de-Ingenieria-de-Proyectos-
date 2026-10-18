@@ -9,7 +9,7 @@ tags: [adr]
 ---
 # ADR-042 · Un solo camino para llenar la institución: el primer inicio pide solo lo indispensable
 
-**Estado:** aceptada (2026-10-16, la institución revisó la tabla de §2). Fases 1 y 2 aplicadas (2026-10-16); fase 3, el 2026-10-17. Sale de la prueba del núcleo de la institución ([[Observaciones Pruebas]], problemas 1, 2, 4, 6, 7 y 8).
+**Estado:** aceptada (2026-10-16, la institución revisó la tabla de §2). Fases 1 y 2 aplicadas (2026-10-16); fase 3, el 2026-10-17; fase 4, el 2026-10-18. Sale de la prueba del núcleo de la institución ([[Observaciones Pruebas]], problemas 1, 2, 4, 6, 7 y 8).
 
 ## Contexto
 
@@ -154,7 +154,7 @@ Se mide primero en seco con la prueba completa: por archivo, qué campos detecta
 1. **Indispensables y un solo avance** (hecha, 2026-10-16): la marca `essential`, la prueba de los campos de condición, los pasos desde el catálogo y `completion` como única cuenta. Ver «Fase 1, al aplicarla».
 2. **Archivo en su lugar** (hecha, 2026-10-16): primero la medición en seco y el umbral; después la pregunta. Ver «Fase 2, al aplicarla».
 3. **Sugerencias al subir** (hecha, 2026-10-17): la detección en seco, la llamada por archivo y una corrida real. Ver «Fase 3, al aplicarla».
-4. **Chat:** sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre ventanas; lo igual no se sugiere; el texto de lo dejado lo arma el código; las letras cambiadas.
+4. **Chat** (hecha, 2026-10-18): sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre ventanas; lo igual no se sugiere; el texto de lo dejado lo arma el código; las letras cambiadas. Ver «Fase 4, al aplicarla».
 5. **Detalles de lectura de la prueba:** el municipio con su nombre del catálogo (con acentos, sin mayúsculas sostenidas), «Calle» fuera de la calle, y los servicios desde el informe y no desde el acta.
 
 Después de este ADR va el bloque de diseño: formularios por secciones, sugerencias distintas de un botón y avisos a la vista (problemas 3 y 5).
@@ -236,6 +236,44 @@ Después de este ADR va el bloque de diseño: formularios por secciones, sugeren
 - **Pendiente para la fase 5:** el informe no dio los servicios (el código tiró sus tres sugerencias).
 - La nota que la IA escribe al llenar («Dejé sugeridas las cifras de personas atendidas…») puede nombrar un dato que el código tiró, pero la pantalla nunca la muestra: el aviso lo arma el programa con lo que quedó.
 - **Pruebas:** `cargo test core::reader::upload` (cada documento se pregunta por los campos que escribe; el nombre de una opción; una llamada por archivo, solo con sus pasajes y sin el nombre del archivo; un campo que espera no se vuelve a preguntar, salvo a un archivo con más autoridad; sin IA o sin campos, no se llama) y Vitest del aviso.
+
+## Fase 4, al aplicarla (2026-10-18)
+
+- **«Llenar con mis documentos» sale del chat.** El Asistente ya no lo ofrece como botón: su respuesta no lo trae (`from_documents` se quitó del oficio y del esquema). Si la persona pide llenar con sus documentos, le dice que al subir cada archivo ya llegan sus sugerencias (fase 3) y que el botón está en la ventana, y la lleva ahí (`go_to`).
+- **«Llenarlo por mí» reparte entre las ventanas** (`capturist.v5.md`):
+  - el Capturista ve la ventana donde está la persona y, después, las otras tres, cada una con sus campos y lo que tienen guardado;
+  - cada sugerencia va a la ventana de su campo: «Nos representa la directora…» desde «Contacto» queda en «Datos legales»;
+  - el programa dice qué dejó en cada ventana, con un botón para ir a cada una.
+- **Lo igual no se sugiere,** y el programa lo dice («Ya estaba guardado igual: …»):
+  - el código lo compara como lo lee una persona: sin mayúsculas, acentos ni espacios de más; un dato propio, por sus letras y dígitos («33 1234 5678» es «3312345678»); las opciones, en cualquier orden (`capturist::same`);
+  - comparar le toca al código, no al modelo: el oficio ahora le pide sugerir todo lo que la persona dijo. La primera corrida mostró que el modelo se callaba lo guardado y el programa no podía avisar.
+- **El Asistente nunca dice que hizo lo que no puede hacer:**
+  - cuando ofrece «Llenarlo por mí», la frase del botón la escribe el programa («Esos datos van en «Mi institución». Con el botón de abajo los dejo como sugerencias…»);
+  - lo que la IA contestó se queda, salvo que diga que lo hizo («dejé», «guardé», «llené»…). Eso lo revisa el código (`claims_done`) y entonces se quita;
+  - la primera corrida quitaba siempre el texto de la IA cuando ofrecía el botón, y así se perdió una respuesta del Lector. Ahora solo se quita lo que dice que hizo algo.
+- **Las letras cambiadas por números** («dej3», «bot3n»):
+  - **La causa es el modelo,** no el camino del texto. El programa toma el texto de Gemini tal cual, y solo convierte las letras escritas como HTML. En 5 respuestas de la misma pregunta de la prueba no se repitió (`letters_live`).
+  - **El código lo compone** (`quote::mend_digits`): una palabra con una cifra entre letras se cambia solo por una palabra que el programa conoce (su manual, sus pantallas y el oficio). Primero prueba la vocal con acento que se parece a la cifra («3» es «é»); si no existe, la única vocal con acento que da una palabra conocida («bot3n» es «botón»). Si no hay ninguna, se queda como está.
+  - La batería del Asistente marca cualquier palabra así que quede. En la corrida final no hubo ninguna.
+- **Una cifra va al campo del que hablan sus palabras** (`fill::speaks_of_its_field`, también en el Lector):
+  - al ver todas las ventanas, el modelo puso «Atendemos a 30 abuelitos» también como capacidad, y «calle Hidalgo 45» podía volverse 45 camas;
+  - ahora la cita de una cifra, o el pedazo de lo que dijo la persona donde está esa cifra (entre comas, puntos y «y»), debe traer una palabra del campo: «años» para las edades, «camas», «lugares» o «espacios» para la capacidad, «viven» o «atendemos» para las personas atendidas;
+  - y una cifra dicha una vez llena un solo campo: el mismo número con las mismas palabras en dos campos de cifras es una adivinanza, y se van los dos (`fill::guessed`);
+  - en las palabras de búsqueda, la capacidad dejó «atendimos» (es de las personas atendidas) y ganó «espacios» y «cupo»; las personas atendidas ganaron «atend» y «viven»; el voluntariado, «voluntario».
+
+**Las corridas reales** (modelo `gemini-3.5-flash-lite`, dos rondas cada una, nunca más de 14 llamadas por minuto):
+
+| Batería | Primera corrida | Final | Inventado | Costo final |
+|---|---|---|---|---|
+| Capturista (17 casos: 2 nuevos, la representante desde «Contacto» y lo ya guardado) | 28 de 34, 200 de 202 campos | **33 de 34, 201 de 202 campos**, nada de más | 0 | $0.95 MXN |
+| Asistente (17 preguntas: 1 nueva, la representante) | 29 de 34, citas 17 de 18 | **33 de 34, citas 18 de 18** | 0 | $1.20 MXN |
+| «Llenar con mis documentos» (`reader_live`) | — | 17 de 18, páginas 17 de 17 | 0 | $0.14 MXN |
+| Sugerencias al subir (`upload_live`) | — | 18 de 18 | 0 | $0.16 MXN |
+
+- En el Capturista, la que falta es una cifra que el modelo no tomó («viven 12 niñas», una de dos rondas), nunca una distinta.
+- En el Asistente, «Llena los datos legales con mis documentos» lleva a «Datos legales» y explica que se busca en el Expediente, pero una de dos veces no nombra el botón.
+- En el Lector faltó una vez el sexo, que no es cifra: variación del modelo, que antes salió 18 de 18 con el mismo oficio.
+- **Pruebas:** `cargo test core::agents` (todas las ventanas en el contexto; cada dato a su ventana; lo igual; la frase del programa con «Llenarlo por mí»; la palabra con una cifra), `core::reader::quote` y `core::reader::fill` (la cifra y su campo; una cifra, un campo), y Vitest del chat (sin «Llenar con mis documentos»; lo que quedó en otras ventanas y lo que ya estaba).
 
 ## Alternativas descartadas
 
