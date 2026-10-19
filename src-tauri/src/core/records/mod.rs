@@ -598,6 +598,11 @@ pub fn document_of(conn: &Connection, id: &str) -> Result<Option<String>, Servic
     Ok(store::by_id(conn, id)?.and_then(|r| r.document_id))
 }
 
+/// Development only: an example of `fixtures/` brings its own record, so the one there is goes first.
+pub fn clear_for_example(conn: &Connection) -> Result<(), ServiceError> {
+    Ok(store::clear_all(conn)?)
+}
+
 /// Takes the file off a document, and its clean text out of the drawer (ADR-036): there is no document without a
 /// drawer, nor a text of the Expediente without its document. What the person already accepted from it stays.
 pub fn detach(conn: &mut Connection, id: &str) -> Result<Expediente, ServiceError> {

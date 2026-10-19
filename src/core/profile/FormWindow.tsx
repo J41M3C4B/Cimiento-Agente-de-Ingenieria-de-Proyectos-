@@ -25,7 +25,9 @@ export const formKey = (id: string) => ["form", id];
  */
 export function FormWindow({ id, title, onSaved, onClose }: { id: string; title: string; onSaved: (profile: ProfileView) => void; onClose: () => void }) {
   const qc = useQueryClient();
-  const form = useQuery({ queryKey: formKey(id), queryFn: () => formGet(id) });
+  // nothing kept once it closes (as the lists and the record): opened again, it starts from what is saved now, never
+  // from what it read before (another example, a save from the chat)
+  const form = useQuery({ queryKey: formKey(id), queryFn: () => formGet(id), gcTime: 0 });
   const [values, setValues] = useState<FormValues | null>(null);
   const [issues, setIssues] = useState<ProfileIssue[]>([]);
   const [quarantine, setQuarantine] = useState<QuarantineReport | null>(null);

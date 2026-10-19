@@ -71,6 +71,8 @@ fn seed_lists(conn: &mut Connection, raw: &str) -> Result<(), ServiceError> {
             }
         }
     }
+    // the record of the example replaces the one there is: another example's documents would stay listed
+    crate::core::records::clear_for_example(conn)?;
     for r in lists.records {
         if !matches!(crate::core::records::save(conn, &r.r#type, None, r.values, None)?, crate::core::records::RecordOutcome::Saved { .. }) {
             return Err(bad("document of the record"));
@@ -178,6 +180,22 @@ mod tests {
         }
     }
 
+    /// One example after another leaves nothing of the first: its board, its accounts and its record go (ERP-2: the
+    /// community A.C. showed the Junta of the asilo loaded before).
+    #[test]
+    fn an_example_replaces_the_one_before_it() {
+        let (_d, mut c) = conn();
+        load(&mut c, "asilo").unwrap().unwrap();
+        load(&mut c, "red-comunitaria").unwrap().unwrap();
+        let had: Vec<(String, String)> =
+            crate::core::records::expediente(&c).unwrap().records.into_iter().filter(|r| r.status != "missing").map(|r| (r.kind, r.status)).collect();
+        let kinds: Vec<&str> = had.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(kinds, ["articles_of_incorporation", "power_of_attorney", "tax_status_certificate", "donee_authorization", "cluni_certificate"], "{had:?}");
+        let lists = protected::lists(&c).unwrap();
+        assert!(lists.board.iter().all(|m| m.name.contains("Ejemplo")) && lists.board.iter().any(|m| m.name == "Elena Ejemplo Vega") && lists.board.iter().all(|m| m.name != "Martha Ejemplo Ruiz"));
+        assert_eq!(lists.accounts.len(), 1);
+    }
+
     /// The casa hogar is read as one: girls and adolescents, so its forms ask what fits them.
     #[test]
     fn the_casa_hogar_is_read_as_a_home_for_girls() {
@@ -187,3 +205,4 @@ mod tests {
         assert_eq!(p.input.institution.attention.unwrap().sex_served.as_deref(), Some("women"));
     }
 }
+
