@@ -1,5 +1,6 @@
 # Flujo de trabajo
 
+0. **Todo trabajo es un bloque del [tablero](../tablero/Tablero.md)**, con su rama y su PR, y sigue los roles de [roles y tablero](roles-y-tablero.md). Nada se empieza sin un bloque en «Listo» ni se fusiona a `main` sin la validación del líder.
 1. Antes de implementar una fase, lee su sección en `docs/09-roadmap.md` y los documentos que referencia.
 2. Si una especificación es ambigua o contradictoria, **pregunta** antes de inventar.
 3. Trabaja en pasos pequeños y verificables; corre pruebas al terminar cada uno.

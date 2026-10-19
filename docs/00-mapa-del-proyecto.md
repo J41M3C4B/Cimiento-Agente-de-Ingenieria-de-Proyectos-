@@ -141,17 +141,16 @@ Un ERP para organizaciones de la sociedad civil y sin fines de lucro, con la IA 
 
 ## Qué sigue
 
-|     | Bloque                | Qué hace                                                                                                                                                                                                                                                                       | Estado                |
-| --- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
-| 0   | **MVP-0**             | El ADR-043 y la base reescrita: visión, principios, mapa y roadmap                                                                                                     | **Hecho**             |
-| 1   | **MVP-1**             | Ocultar Personal, Beneficiarios, Instalaciones, Finanzas y Donantes: la app solo muestra el núcleo y Proyectos; su código se queda                                      | Siguiente             |
-| 2   | **MVP-2**             | La bóveda (ADR-044): hacia la IA van marcas, nunca el valor de un dato personal; la IA decide qué es cada marca; sin la ventana de «datos personales» en el chat          | Pendiente             |
-| 3   | **MVP-3**             | El núcleo genérico: revisar lo atado a un asilo o casa hogar I.A.P. (formularios, figura legal, Expediente, textos), una recomendación por punto y tus decisiones          | Pendiente             |
-| 4   | **MVP-4**             | Proyectos sobre la base nueva: convocatoria, conversación que dice si conviene, redacción y guía; el expediente hacia Proyectos; validado con tus dos instituciones       | Pendiente             |
-| —   | Núcleo (C1 a C4)      | Cajones, Lector, Asistente, Capturista, política de llenado y ADR-042: hechos; quedan las casillas sin marcar del [guion](15-guion-pruebas-nucleo.md)                   | **Hecho, por probar** |
-| —   | Módulos               | Personal, Beneficiarios, Instalaciones, Finanzas y Donantes                                                                                                              | **Congelados**        |
+El trabajo se lleva en el [[Tablero]]; cada bloque es una nota con su rama ([[roles-y-tablero|roles, columnas y ramas]]). Lo que no está hecho:
 
-Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 11».
+```dataview
+TABLE WITHOUT ID file.link AS "Bloque", estado AS "Estado", carril AS "Carril", fase AS "Fase"
+FROM "tablero/bloques"
+WHERE estado != "hecho"
+SORT choice(estado = "en-curso", 1, choice(estado = "revision", 2, choice(estado = "listo", 3, 4))) ASC
+```
+
+Las fases y sus criterios están en el [Roadmap](09-roadmap.md), «Fase 11». Personal, Beneficiarios, Instalaciones, Finanzas y Donantes están congelados (ADR-043).
 
 ## Lo que espera tu respuesta
 
