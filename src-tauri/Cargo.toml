@@ -57,6 +57,14 @@ opt-level = 3
 panic = "unwind"
 strip = true
 
+# development builds keep file and line for errors, not the full debug info: with it every test build
+# left gigabytes behind in target/ (it reached 143 GB)
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 [dev-dependencies]
 tempfile = "3.27.0"
 wiremock = "0.6.5"

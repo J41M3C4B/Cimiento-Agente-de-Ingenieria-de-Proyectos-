@@ -97,6 +97,8 @@ pnpm tauri build      # instalador
 
 **Requisito en Windows:** SQLCipher compila OpenSSL desde fuente (`bundled-sqlcipher-vendored-openssl`) y necesita Strawberry Perl **antes** que el `perl` de Git en el `PATH`. La primera compilación tarda ~11 min; las siguientes son rápidas. Ver ADR-002.
 
+**Espacio en disco:** cada compilación de pruebas deja binarios viejos en `src-tauri/target`, y nadie los borra. Con la información de depuración completa llegó a 143 GB (2026-10-18); desde entonces `Cargo.toml` guarda solo archivo y línea (`[profile.dev]`). Si `target` pasa de unos 20 GB, cierra la app y corre `cargo clean` desde `src-tauri/`. La siguiente compilación vuelve a tardar ~11 min.
+
 ## Pruebas con IA real
 
 Todas son opt-in (`#[ignore]`) y llevan tope de llamadas. Antes de gastar cuota se prueba en seco contra el servicio simulado; después se hace una sola corrida real y se registran sus métricas (tiempos, llamadas, costo equivalente) en `docs/09-roadmap.md`.
