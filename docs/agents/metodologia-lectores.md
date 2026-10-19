@@ -4,6 +4,8 @@ Cómo cualquier cajón de documentos (Expediente, Personal, Beneficiarios, Insta
 
 Decisiones de origen: [ADR-038](../archivo/adr/ADR-038-politica-unica-de-llenado-desde-documentos.md) (la política), [ADR-036](../archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) (cajones), [ADR-037](../archivo/adr/ADR-037-pdfium-unico-motor-de-pdf.md) (PDF) y [ADR-035](../archivo/adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) (OCR).
 
+En los patrones del [ADR-045](../adr/ADR-045-tres-patrones-de-la-ia.md): leer, reconocer el tipo, las reglas por tipo y la política de llenado son **deterministas**. El Lector con IA (al subir, al llenar y al contestar) es un **operador** de IA acotada, no un agente. Su ficha sigue [`patrones-de-ia.md`](patrones-de-ia.md) §4.
+
 ## 1. El camino de un archivo, siempre el mismo
 
 1. **Leer** (`documents::reading`), en segundo plano. La persona sigue trabajando y un aviso dice cómo terminó, también si hubo error.

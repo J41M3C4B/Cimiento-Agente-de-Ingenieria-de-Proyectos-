@@ -24,6 +24,7 @@ SociAI: un **ERP para organizaciones de la sociedad civil y sin fines de lucro, 
 6. **El original nunca se modifica.** Los archivos subidos se procesan; se guarda solo la versión limpia. Las exportaciones son copias nuevas.
 7. **Lenguaje sencillo en la UI.** Todo texto visible sigue `docs/08-estilo-redaccion.md`. Nada de jerga técnica en mensajes al usuario.
 8. **Dos capas: lo que consume la IA no es lo que ve la persona.** El esquema de la convocatoria, la ficha de «Mi institución» para el prompt y los JSON de la IA son de la IA. La persona ve una **ficha** corta en sus palabras (`…Card`, compuesta en Rust, no por la pantalla); la estructura completa solo se ofrece como «Consultar el detalle». Antes de diseñar una pantalla pregunta: ¿esto es para la IA o para la persona? Ver `docs/archivo/adr/ADR-024-dos-capas-ia-y-persona.md`.
+9. **Tres patrones, ningún chat (ADR-045).** Todo se construye como **determinista** (reglas y código, el núcleo), **IA acotada** (un operador: tarea de principio y fin conocidos, salida con esquema, revisada por el código) o **agente** (el modelo elige sus pasos dentro de sus herramientas y topes, solo donde el camino no se puede enumerar). Siempre el nivel más bajo que resuelve; subir pide una medición. Ningún modelo contesta texto libre sin un operador o agente detrás. Antes de diseñar una pieza, contesta las cuatro preguntas de `docs/agents/patrones-de-ia.md` y escribe su ficha.
 
 ## Stack
 
