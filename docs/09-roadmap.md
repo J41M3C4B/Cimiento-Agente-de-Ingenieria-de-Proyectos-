@@ -344,5 +344,17 @@ Objetivo: que «Mi institución» sea la fuente de todo lo que la institución e
       - [x] Fase 3 · sugerencias al subir, de lo que ese documento dice (2026-10-17). El código halla sin IA los campos vacíos de los que habla el archivo (2 palabras del campo o el nombre de una opción; en seco, todos los campos que pueden faltar) y hace una llamada barata por archivo. Real: 18 de 18 bien, nada inventado, 9 llamadas por 13 documentos, $0.17 MXN.
       - [x] Fase 4 · el chat (2026-10-18): sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre ventanas; lo igual no se sugiere y el programa lo dice; la frase del botón la escribe el programa y el Asistente nunca dice que hizo algo; las letras cambiadas por números se componen con las palabras del programa; una cifra va al campo del que hablan sus palabras. Real: Capturista 33 de 34, Asistente 33 de 34, nada inventado.
       - [x] Fase 5 · detalles de lectura (2026-10-18): el municipio con su nombre oficial del catálogo del INEGI (2,478 municipios y alcaldías), la calle sin «Calle», y los servicios desde el informe (por la autoridad de la fase 3). Real: 18 de 18, «Benito Juárez» de la constancia.
-    - [ ] Fase 5 · metodología de agentes para los módulos.
-- [ ] **N5** El expediente hacia Proyectos, la IA e Inicio.
+    - [ ] Fase 5 · metodología de agentes para los módulos. **En pausa** con los módulos (ADR-043).
+- [ ] **N5** El expediente hacia Proyectos, la IA e Inicio. **Pasa a la Fase 11** (MVP-4).
+
+## Fase 11 · MVP: el núcleo y los proyectos (ADR-043)
+
+Objetivo: validar con las dos instituciones un ERP con la IA en el núcleo. El MVP centraliza y digitaliza la institución y resuelve los proyectos: de una convocatoria a un proyecto que cabe en ella y que la institución entiende. Personal, Beneficiarios, Instalaciones, Finanzas y Donantes quedan congelados y ocultos. **Un bloque a la vez:** cada uno se prueba en la app antes del siguiente.
+
+- [x] **MVP-0** El [ADR-043](adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md) y la base reescrita: visión, principios (la IA decide dentro de la casa), mapa y roadmap (2026-10-18).
+- [ ] **MVP-1** Ocultar los módulos congelados: el riel, «Mi institución», el primer inicio, Inicio y el mapa de lugares del Asistente solo muestran el núcleo y Proyectos. Su código compila y sus pruebas siguen corriendo; nada del núcleo lee un módulo oculto para mostrarlo.
+- [ ] **MVP-2** La bóveda (ADR-044): hacia la IA van marcas tipadas (`[CORREO_1]`, `[NOMBRE_1]`…) y nunca el valor; la IA puede preguntar qué se sabe de una marca sin recibir el valor; el código resuelve la marca según lo que acepta cada campo. El chat del núcleo ya no muestra la ventana de «datos personales». Terminado cuando ningún valor de la bóveda aparece en ninguna solicitud a la IA en todas las baterías, y tras una corrida real con el modelo más barato. Pendiente de decidir: si lo de salud de una sola persona llega a la IA ligado a una marca.
+- [ ] **MVP-3** El núcleo genérico: revisión de lo que está atado a un asilo o a una casa hogar I.A.P. (catálogo de formularios, figura legal, Expediente, ejemplos, textos y manual), una recomendación por punto, decisiones de la persona dueña del proyecto y los cambios. Terminado cuando una institución que no es asilo ni casa hogar llena el primer inicio y su Expediente sin opciones ni textos ajenos.
+- [ ] **MVP-4** Proyectos sobre la base nueva: revisar lo que dejaron las fases 2 a 4 (convocatoria, diagnóstico, redacción y guía), el expediente hacia Proyectos (antes N5) y la conversación que dice si un proyecto conviene. Terminado cuando las dos instituciones preparan un proyecto con una convocatoria real y lo entienden.
+
+**Terminado cuando:** las dos instituciones dejan su institución completa sobre todo contando y subiendo papeles, preparan un proyecto real en una fracción del tiempo de hoy, el costo de IA por proyecto se mantiene en pocos pesos y ningún valor de un dato personal llega a la IA.

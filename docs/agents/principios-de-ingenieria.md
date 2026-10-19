@@ -4,11 +4,19 @@ Lee este documento completo antes de cualquier tarea. Para el detalle, consulta 
 
 ## Qué es el proyecto
 
-App de escritorio (Tauri 2) local y con IA para que asilos y casas hogar diagnostiquen necesidades y armen proyectos para solicitar donativos. Usuarios finales: directivos y religiosas **sin perfil técnico**. Visión completa en `docs/00-vision.md`.
+SociAI: un **ERP para organizaciones de la sociedad civil y sin fines de lucro, con la IA como núcleo y no como complemento** (ADR-043). Es una app de escritorio (Tauri 2) que guarda todo en el equipo. La persona cuenta y sube sus papeles; el programa ordena, llena, avisa y prepara. Usuarios finales: directivos **sin perfil técnico**. El uso es genérico (cualquier organización civil), con la filosofía enfocada en asistencia social.
+
+**El MVP es el núcleo y los proyectos.** Personal, Beneficiarios, Instalaciones, Finanzas y Donantes están **congelados y ocultos** hasta validar el MVP: no se trabaja en ellos. Visión completa en `docs/00-vision.md`.
 
 ## Principios que NO se negocian
 
-1. **Determinista primero.** Si algo se puede resolver con una regla, va en código. La IA hace: preguntas y conversación (diagnóstico y asistencia), razonamiento, redacción y resumen, y **propuestas** de datos con su fuente. Nunca calcula, nunca guarda y nunca decide sola: lo que propone lo acepta una persona y lo guarda el código (ADR-034). Ver `docs/07-ia-y-costos.md`.
+1. **La IA decide dentro de la casa (ADR-043).** El código pone pocos límites que no crecen con cada caso:
+   - el valor de un dato personal no sale del equipo;
+   - nada se guarda sin una persona;
+   - la IA no calcula;
+   - permisos: cada agente tiene sus herramientas y cada campo dice qué acepta.
+
+   Dentro de ellos, la IA decide qué es cada cosa, a dónde va y qué preguntar, y lo que propone lo acepta una persona y lo guarda el código (ADR-034). El código revisa lo que se puede revisar sin adivinar: una cita en su texto, una cifra en su cita, un valor que cabe. **Antes de agregar una regla para un caso** (una palabra al escáner, una frase a un tipo de documento), busca el límite o el permiso que la vuelve innecesaria; si no lo hay, anota por qué. Ver `docs/07-ia-y-costos.md`.
 2. **La IA nunca calcula.** Totales, porcentajes, presupuestos y validaciones se hacen en Rust/TypeScript.
 3. **La IA nunca escribe archivos.** La IA devuelve JSON estructurado; el código valida y escribe en Word/Excel.
 4. **Todo dato lleva origen.** Campos `origin` (`user`, `document`, `ai_assumption`, `computed`) y `confirmed_at`. Ver `docs/05-modelo-datos.md`.
@@ -37,10 +45,10 @@ src-tauri/src/
   commands/          # Comandos Tauri: capa delgada (permiso, llamada, error amigable), sin lógica de negocio
   modules/projects/  # Proyectos (convocatoria, conversación, diagnóstico, redacción, guía): solo usa core::api
   core/              # Núcleo: institución, primer inicio, acceso, seguridad, documentos, tableros, ficha de la IA
-  modules/hr/        # Personal (ADR-027): tablas hr_*, solo agregados hacia fuera
-  modules/care/      # Beneficiarios (ADR-029): tablas care_*, solo agregados hacia fuera
-  modules/facilities/# Instalaciones (ADR-030): tablas fac_*
-  modules/finance/   # Finanzas (ADR-026, ADR-032): tablas fin_*; ingresos, egresos y balance
+  modules/hr/        # Personal (ADR-027): tablas hr_*, solo agregados hacia fuera. CONGELADO (ADR-043)
+  modules/care/      # Beneficiarios (ADR-029): tablas care_*, solo agregados hacia fuera. CONGELADO
+  modules/facilities/# Instalaciones (ADR-030): tablas fac_*. CONGELADO
+  modules/finance/   # Finanzas (ADR-026, ADR-032): tablas fin_*; ingresos, egresos y balance. CONGELADO
   ai/ audit/ common/ documents/ scanner/ storage/   # Base: infraestructura sin reglas de negocio
 docs/                # Especificaciones (fuente de verdad)
 fixtures/            # Datos ficticios

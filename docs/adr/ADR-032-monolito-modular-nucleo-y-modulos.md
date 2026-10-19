@@ -3,6 +3,7 @@ adr: 32
 estado: aceptada
 fecha: 2026-10-08
 tema: [arquitectura]
+reemplazado_en_parte_por: ["[[ADR-043-un-erp-con-la-ia-en-el-nucleo]]"]
 tags: [adr]
 ---
 # ADR-032 · Monolito modular: un núcleo y módulos independientes

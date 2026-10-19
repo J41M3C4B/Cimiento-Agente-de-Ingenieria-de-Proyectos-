@@ -7,7 +7,19 @@ actualizado: 2026-10-18
 
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
-> [!info] Hoy (2026-10-18)
+> [!info] Hoy (2026-10-18, noche)
+> **SociAI cambia de enfoque: es un ERP con la IA en el núcleo** ([ADR-043](adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md)).
+> - Ya no es «un agente de proyectos»: es un ERP para organizaciones de la sociedad civil donde la IA quita la fricción de un ERP de siempre.
+> - **El MVP es el núcleo y los proyectos.** Personal, Beneficiarios, Instalaciones, Finanzas y Donantes quedan **congelados y ocultos** hasta validarlo con tus dos instituciones; su código se queda.
+> - **El núcleo será genérico desde ya:** cualquier organización civil, no solo un asilo o una casa hogar I.A.P.
+> - **La IA decide dentro de la casa.** El código pone cuatro límites que no crecen con cada caso: el valor de un dato personal no sale, nada se guarda sin una persona, la IA no calcula, y permisos. Antes de agregar una regla para un caso, se busca el límite que la vuelve innecesaria.
+> - Reescritos: la [visión](00-vision.md), los [principios](agents/principios-de-ingenieria.md) y el roadmap (nueva **Fase 11 · MVP**).
+>
+> Antes, del chat: «Llenarlo por mí» ya no repite tu frase tras el aviso del escáner, ya no se queda en «Llenando…» si no dejó nada en esa ventana, y «alcaldía Benito Juárez» ya no se toma por una persona (casillas nuevas en el [guion](15-guion-pruebas-nucleo.md), §8). Ese último arreglo es una regla por caso: la bóveda (MVP-2) lo vuelve innecesario.
+>
+> **Siguiente:** MVP-1, ocultar los módulos congelados. Después, MVP-2, la bóveda (ADR-044).
+>
+> **Antes (2026-10-18): el ADR-042 aplicado completo**
 > **Probaste la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md): funciona.** El acta y los estatutos con nombres de números se reconocieron por sus palabras; un archivo que no es de ningún documento no se guarda y lo dice.
 >
 > **Fase 3 hecha: las sugerencias llegan al subir un archivo** (tus problemas 6 y 7).
@@ -125,24 +137,25 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 
 ## Qué es SociAI, en una línea
 
-Un programa de escritorio, local y con IA, para que asilos y casas hogar ordenen sus datos y armen proyectos para pedir donativos. Lo usan directivas y religiosas sin perfil técnico. Ver [Visión](00-vision.md).
+Un ERP para organizaciones de la sociedad civil y sin fines de lucro, con la IA como núcleo: la persona cuenta y sube sus papeles, y el programa ordena, llena, avisa y prepara. El MVP es el núcleo y los proyectos. Lo usan directivos sin perfil técnico. Ver [Visión](00-vision.md) y [ADR-043](adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md).
 
 ## Qué sigue
 
 |     | Bloque                | Qué hace                                                                                                                                                                                                                                                                       | Estado                |
 | --- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
-| 1   | **C1**                | Cada documento va a un solo cajón; Documentos es la bandeja que pregunta a qué cajón va (por ahora solo el Expediente); la búsqueda siempre dentro de un cajón                                                                                                                 | **Hecho, por probar** |
-| —   | **Lectura y llenado** | ADR-035, 037 y 038: una sola política de llenado, datos propios solos, Pdfium para texto y tablas, OCR (letra chica, hojas giradas, páginas mixtas, imágenes en Word y Excel, prioridad baja), lectura en segundo plano, el Expediente tapa y no rechaza, avisos de contraseña | **Hecho, por probar** |
-| 2   | **C2**                | El Lector del Expediente: llena todo «Mi institución» buscando en el Expediente campo por campo, con la cita de cada dato; botón «Llenar con mis documentos»                                                                                                                   | **Hecho, por probar** |
-| 3   | **C3**                | El Asistente pregunta al Lector del Expediente y sabe qué documentos existen («según mi registro, ¿qué nombre legal pongo?»)                                                                                                                                                   | **Hecho y probado**   |
-| 4   | **C4**                | Revisión completa del núcleo: cada agente aprobado con el modelo más barato y cada pantalla probada por ti. Fases 1 a 4 hechas y tu prueba completa hecha; de ella salió el ADR-042 (un solo camino para llenar la institución, aplicado completo); después, la metodología de agentes | **En curso**          |
-| 5   | **N5**                | El expediente hacia Proyectos, la IA e Inicio                                                                                                                                                                                                                                  | Pendiente             |
-| —   | Módulos               | Finanzas (facturas), Personal y Beneficiarios (Lector solo con reglas), Instalaciones, Donantes: cada uno con su cajón, su Lector y su batería, siguiendo la [metodología de los Lectores](agents/metodologia-lectores.md)                                                     | Esperan al núcleo     |
+| 0   | **MVP-0**             | El ADR-043 y la base reescrita: visión, principios, mapa y roadmap                                                                                                     | **Hecho**             |
+| 1   | **MVP-1**             | Ocultar Personal, Beneficiarios, Instalaciones, Finanzas y Donantes: la app solo muestra el núcleo y Proyectos; su código se queda                                      | Siguiente             |
+| 2   | **MVP-2**             | La bóveda (ADR-044): hacia la IA van marcas, nunca el valor de un dato personal; la IA decide qué es cada marca; sin la ventana de «datos personales» en el chat          | Pendiente             |
+| 3   | **MVP-3**             | El núcleo genérico: revisar lo atado a un asilo o casa hogar I.A.P. (formularios, figura legal, Expediente, textos), una recomendación por punto y tus decisiones          | Pendiente             |
+| 4   | **MVP-4**             | Proyectos sobre la base nueva: convocatoria, conversación que dice si conviene, redacción y guía; el expediente hacia Proyectos; validado con tus dos instituciones       | Pendiente             |
+| —   | Núcleo (C1 a C4)      | Cajones, Lector, Asistente, Capturista, política de llenado y ADR-042: hechos; quedan las casillas sin marcar del [guion](15-guion-pruebas-nucleo.md)                   | **Hecho, por probar** |
+| —   | Módulos               | Personal, Beneficiarios, Instalaciones, Finanzas y Donantes                                                                                                              | **Congelados**        |
 
-Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 10».
+Detalle de cada bloque en el [Roadmap](09-roadmap.md), «Fase 11».
 
 ## Lo que espera tu respuesta
 
+- **Para el ADR-044 (la bóveda):** si lo de salud de una sola persona puede llegar a la IA ligado a una marca («[NOMBRE_1] tiene diabetes»), o se generaliza como hoy. Recomiendo generalizarlo.
 - **Dos decisiones que salieron de la prueba completa** (sección 7 de la guía):
   - cómo detectar una copia desteñida que el lector de imágenes da por buena;
   - si la constancia del SAT debe sugerir también el domicilio de «Contacto y ubicación» (hoy solo el código postal fiscal).
@@ -158,6 +171,7 @@ Todo lo que hay que probar del núcleo está en el [15 · Guion de pruebas del n
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-18 | **ADR-043 · SociAI es un ERP con la IA en el núcleo:** el MVP es el núcleo y los proyectos; módulos congelados y ocultos; núcleo genérico; la IA decide dentro de la casa con cuatro límites del código. Reescritos la visión, los principios y el roadmap (Fase 11). Antes, tres arreglos del chat: la frase no se repite tras el escáner, «Llenando…» solo si dejó sugerencias, «alcaldía Benito Juárez» no es una persona | [ADR-043](adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md) |
 | 2026-10-18 | **ADR-042, fase 5 · detalles de lectura:** el municipio con su nombre del catálogo del INEGI (2,478, con acentos), la calle sin «Calle», los servicios desde el informe. El ADR-042 queda aplicado completo | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
 | 2026-10-18 | **ADR-042, fase 4 · el chat:** sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre las cuatro ventanas; lo igual no se sugiere y el programa lo dice; la frase del botón la escribe el programa; las palabras con una cifra por letra se componen; una cifra va al campo del que hablan sus palabras. Capturista 33 de 34, Asistente 33 de 34, nada inventado | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
 | 2026-10-17 | **ADR-042, fase 3 · las sugerencias llegan al subir un archivo:** el código halla sin IA los campos vacíos de los que habla el archivo (2 palabras del campo o el nombre de una opción) y hace una llamada barata. Real: 18 de 18, nada inventado, $0.17 MXN por 13 documentos. «Notas generales» ya no se llena desde un archivo; un archivo con más autoridad reemplaza la sugerencia de otro; el oficio del Lector pasa a v2 («Llenar con mis documentos» sigue 18 de 18) | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |

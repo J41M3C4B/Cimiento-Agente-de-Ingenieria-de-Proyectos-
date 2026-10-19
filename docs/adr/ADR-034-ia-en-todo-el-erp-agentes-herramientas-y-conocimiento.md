@@ -3,7 +3,7 @@ adr: 34
 estado: aceptada
 fecha: 2026-10-09
 tema: [ia]
-reemplazado_en_parte_por: ["[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]", "[[ADR-038-politica-unica-de-llenado-desde-documentos]]"]
+reemplazado_en_parte_por: ["[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]", "[[ADR-038-politica-unica-de-llenado-desde-documentos]]", "[[ADR-043-un-erp-con-la-ia-en-el-nucleo]]"]
 tags: [adr]
 ---
 # ADR-034 · La IA en todo el ERP: un equipo de agentes con herramientas, conocimiento recuperable y un asistente siempre a la mano
