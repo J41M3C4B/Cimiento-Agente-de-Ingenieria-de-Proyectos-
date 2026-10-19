@@ -9,6 +9,7 @@ import { es } from "../../i18n/es-MX";
 import { dayPartOf, firstName } from "../../lib/greeting";
 import { projectList } from "../../lib/tauri";
 import { useSession } from "../access/session";
+import { useIsPlace } from "../places";
 import { facilitiesOverview } from "../../modules/facilities/api";
 import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { ONBOARDING_KEY, onboardingStatus } from "../onboarding/api";
@@ -32,6 +33,7 @@ export function HomePage({
   onNewProject,
   onGoProjects,
   onGoProfile,
+  onGoPlace,
   onGo,
   onGoAi,
 }: {
@@ -39,6 +41,8 @@ export function HomePage({
   onNewProject: () => void;
   onGoProjects: () => void;
   onGoProfile: () => void;
+  /** opens a place of the map: a page, or a window of «Mi institución» (`profile.capacity`) */
+  onGoPlace: (place: string) => void;
   /** opens a section or a module of the top bar */
   onGo: (page: Page) => void;
   onGoAi: () => void;
@@ -67,6 +71,7 @@ export function HomePage({
 
       <GlobalFigures
         onGo={onGo}
+        onOpenFigures={() => onGoPlace("profile.capacity")}
         aside={
           <div className="fig-stack">
             <TodoCard />
@@ -115,17 +120,22 @@ function PendingData() {
 function NextSteps({ onGo, onGoAi }: { onGo: (page: Page) => void; onGoAi: () => void }) {
   const access = useSession();
   const status = useQuery({ queryKey: ONBOARDING_KEY, queryFn: onboardingStatus });
-  const facilities = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview });
+  // a frozen module (ADR-043) is no place: no step leads to it, and it is not asked
+  const isPlace = useIsPlace();
+  const facilities = useQuery({ queryKey: FACILITIES_KEY, queryFn: facilitiesOverview, enabled: isPlace("facilities") });
   const overview = useOverview();
   const s = status.data;
   if (!s || !s.done) return null;
   type Step = { key: string; icon: IconName; tone: Tone; todo: boolean; go: () => void };
   const of = (module: Exclude<ModuleId, "projects">, todo: boolean): Step => ({ key: module, icon: MODULE_META[module].icon, tone: "ink", todo, go: () => onGo(module) });
-  const all: Step[] = [
+  const modules: Step[] = [
     of("staff", s.records.staff === 0),
     of("people", s.records.served === 0),
     ...(facilities.isSuccess ? [of("facilities", facilities.data.indicators.spaces === 0)] : []),
     ...(overview.isSuccess ? [of("finance", overview.data.balance_annual_mxn === null)] : []),
+  ];
+  const all: Step[] = [
+    ...modules.filter((x) => isPlace(x.key)),
     ...(s.setup && access?.can("settings") ? [{ key: "ai", icon: "sparkles" as IconName, tone: "ink" as const, todo: !s.setup.ai_ready, go: onGoAi }] : []),
   ];
   const pending = all.filter((x) => x.todo);

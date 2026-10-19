@@ -47,7 +47,21 @@ use std::sync::{Arc, LazyLock};
 
 /// Its trade, versioned like a prompt: changing it is a new file. The places it may send the person to come from the
 /// map of the program (`core::places`), so a new page or window reaches it without touching it.
-static TRADE: LazyLock<String> = LazyLock::new(|| include_str!("assistant.v10.md").replace("{places}", &places::listed()));
+static TRADE: LazyLock<String> = LazyLock::new(|| include_str!("assistant.v11.md").replace("{places}", &places::listed()).replace("{not_yet}", &not_yet()));
+
+/// The parts of the program that do not exist yet (ADR-043), by the places the Assistant may send to: only where to
+/// send changes. In the general context, with what each one holds, «¿cuántos extintores tenemos?» was answered «esa
+/// parte todavía no existe» (measured 2026-10-19), when the Expediente says it.
+fn not_yet() -> String {
+    let names = crate::core::modules::not_yet();
+    if names.is_empty() {
+        return String::new();
+    }
+    format!(
+        "  Todavía no existen, y no se ofrecen ni se cambian por otro lugar: {}. Si la persona pregunta dónde anotar algo que va en una de ellas, dígale que esa parte llegará después y deje `go_to` en null.\n",
+        names.join(", ")
+    )
+}
 
 /// The words the program knows, folded to lowercase: its manual, the words of its screens and the trade. A word of an
 /// answer written with a digit for a letter is mended only into one of them.
@@ -518,16 +532,15 @@ mod tests {
             },
             // a doubt about the institution: the part of the sheet that matters
             Case {
-                ask: question("finance", None, "¿Nos alcanza el dinero este año?"),
-                steps: vec![tool("sheet_section", json!({ "section": "money" })), answer("Sí, sus ingresos alcanzan a cubrir los egresos.", Some("finance"), &[])],
+                ask: question("home", None, "¿Nos alcanza el dinero este año?"),
+                steps: vec![tool("sheet_section", json!({ "section": "money" })), answer("Sí, sus ingresos alcanzan a cubrir los egresos.", None, &[])],
                 seen: "Balance del año",
-                // the person is already in Finanzas: a button there would lead nowhere
                 go_to: None,
                 sources: &[],
             },
             // «¿dónde está…?»: the screen entry and a place to go
             Case {
-                ask: question("people", None, "¿Dónde registro al patronato?"),
+                ask: question("documents", None, "¿Dónde registro al patronato?"),
                 steps: vec![tool("manual_entry", json!({ "id": "institution.board_member" })), answer("En Mi institución, apartado «Patronato y cuentas».", Some("profile.board"), &["institution.board_member"])],
                 seen: "Patronato u órgano de gobierno",
                 go_to: Some("profile.board"),
@@ -628,11 +641,12 @@ mod tests {
     /// found by the code from the words of the person, never pushed on every next question (C4).
     #[test]
     fn the_context_says_where_the_person_is_and_what_was_said() {
-        let mut a = question("staff", None, "¿Y eso?");
+        let mut a = question("documents", None, "¿Y eso?");
         a.history = (0..10).map(|i| Turn { from: if i % 2 == 0 { "person".into() } else { "assistant".into() }, text: format!("turno {i}"), documents: vec![] }).collect();
         let c = context(&a, &[]);
-        assert!(c[0].contains("«Personal»") && c[0].contains("`screen.staff`"), "{c:?}");
-        assert!(c[1].contains("turno 9") && c[1].contains("turno 4") && !c[1].contains("turno 3"), "{c:?}");
+        assert!(c[0].contains("«Documentos»") && c[0].contains("`screen.documents`"), "{c:?}");
+        let said = c.iter().find(|l| l.starts_with("La conversación")).unwrap();
+        assert!(said.contains("turno 9") && said.contains("turno 4") && !said.contains("turno 3"), "{c:?}");
         assert!(context(&question("nowhere", None, "x"), &[])[0].contains("(otra)"));
         assert!(context(&question("security", None, "x"), &[])[0].contains("«Seguridad»"), "every page of the map, with its name");
 
@@ -730,8 +744,8 @@ mod tests {
         assert!(matches!(out, AssistantOutcome::Manual { reason: "offline", .. }), "{out:?}");
 
         // a question with a CURP is held; covered, it goes on without it
-        let held = question("people", None, "¿Dónde pongo la CURP LOPM800101MDFRZN09?");
-        let p = MockProvider::new(vec![answer("En la ficha de la persona.", Some("people"), &[])]);
+        let held = question("home", None, "¿Dónde pongo la CURP LOPM800101MDFRZN09?");
+        let p = MockProvider::new(vec![answer("En la ficha de la persona.", None, &[])]);
         assert!(matches!(ask(&db, Some(&p), None, Some(Role::Manager), held.clone(), None).await.unwrap(), AssistantOutcome::Quarantine { .. }));
         assert!(p.requests().is_empty(), "nothing went to the AI");
         let out = ask(&db, Some(&p), None, Some(Role::Manager), held, Some(Decision::Redact)).await.unwrap();
@@ -785,7 +799,11 @@ mod tests {
     /// windows to fill.
     #[test]
     fn the_trade_names_every_place() {
-        assert_eq!(include_str!("assistant.v10.md").matches("{places}").count(), 1, "the list of places is written by the code");
+        assert_eq!(include_str!("assistant.v11.md").matches("{places}").count(), 1, "the list of places is written by the code");
+        // and so are the parts that do not exist yet, by those places (ADR-043): «¿dónde registro los ingresos?»
+        // was sent to the window that looked closest
+        assert_eq!(include_str!("assistant.v11.md").matches("{not_yet}").count(), 1);
+        assert!(TRADE.contains("Todavía no existen") && TRADE.contains("Finanzas") && !TRADE.contains("{not_yet}"));
         let schema = agent().answer["properties"]["go_to"]["anyOf"][0]["enum"].clone();
         for p in places::PLACES.iter() {
             assert!(TRADE.contains(&format!("`{}`:", p.id)), "{} is not in the trade", p.id);
@@ -823,7 +841,7 @@ mod tests {
         let questions = [
             question("profile", Some("institution.junta_folio"), "¿Qué pongo aquí?"),
             question("home", None, "¿Qué me falta por llenar?"),
-            question("finance", None, "¿Nos alcanza el dinero este año?"),
+            question("home", None, "¿Nos alcanza el dinero este año?"),
             question("documents", None, "¿Quién puede firmar convenios con fundaciones y hasta cuándo?"),
         ];
         crate::core::archive::search::tests::load_record(&db.lock().unwrap());

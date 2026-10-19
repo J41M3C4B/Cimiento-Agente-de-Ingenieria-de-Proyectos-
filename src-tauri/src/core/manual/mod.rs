@@ -147,12 +147,21 @@ pub fn search(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Hit>, 
     let Some(terms) = crate::storage::fts::match_terms(query) else { return Ok(Vec::new()) };
     ensure_index(conn)?;
     let mut stmt = conn.prepare("SELECT id FROM manual_fts WHERE manual_fts MATCH ?1 ORDER BY bm25(manual_fts, 0.0, 5.0, 1.0) LIMIT ?2")?;
-    let ids = stmt.query_map(params![terms, limit as i64], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+    let ask = limit + crate::core::modules::HIDDEN.len();
+    let ids = stmt.query_map(params![terms, ask as i64], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
     Ok(ids
         .into_iter()
         .filter_map(|id| MANUAL.iter().find(|e| e.id == id))
+        .filter(|e| !about_a_hidden_module(e))
+        .take(limit)
         .map(|e| Hit { id: e.id.clone(), title: e.title.clone(), snippet: snippet(e) })
         .collect())
+}
+
+/// The screen of a frozen module, or a doubt done there (ADR-043): the program does not show it, so the search does
+/// not answer with it. Its entry stays in the manual for when the module is turned back on.
+fn about_a_hidden_module(e: &Entry) -> bool {
+    [Some(e.id.as_str()), e.at.as_deref()].into_iter().flatten().filter_map(|id| id.strip_prefix("screen.")).any(|page| !crate::core::modules::shown(page))
 }
 
 #[cfg(test)]
@@ -236,7 +245,7 @@ mod tests {
         // without accents, and a plural finds the singular
         assert_eq!(search(&c, "respaldo computadora", 3).unwrap()[0].id, "howto.backup");
         assert!(search(&c, "Convocatorias: ¿a quién atienden?", 3).unwrap().iter().any(|h| h.id == "institution.populations"));
-        assert!(search(&c, "nómina aguinaldo", 3).unwrap().iter().any(|h| h.id == "screen.staff"));
+        assert!(search(&c, "proyecto convocatoria", 3).unwrap().iter().any(|h| h.id == "screen.projects"));
         assert!(search(&c, "que como", 5).unwrap().is_empty(), "only empty words: nothing");
         // what the person writes never reaches FTS5 as syntax
         assert!(search(&c, "\" OR * NEAR( -", 5).unwrap().is_empty());

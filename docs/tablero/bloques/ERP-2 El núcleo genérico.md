@@ -21,6 +21,8 @@ El núcleo todavía supone un asilo o una casa hogar I.A.P.: «a quién atiende�
 
 - [ ] Una institución que no es asilo ni casa hogar llena el primer inicio y su Expediente sin opciones ni textos ajenos.
 
+**Anotado desde ERP-1:** varios textos todavía prometen los módulos congelados. Por ejemplo, el paso «Cuántas personas son» del primer inicio dice «después las fichas de cada persona la reemplazan», y la bienvenida habla de los datos de cada persona. Entran en la revisión de textos de este bloque.
+
 ## Plan
 
 ## Cómo probarlo

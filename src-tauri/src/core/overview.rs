@@ -171,6 +171,16 @@ pub fn figure(records: i64, estimate: Option<i64>) -> Figure {
     }
 }
 
+/// The figure of a module: while the module is hidden (ADR-043) its records are not read and the quick figure of the
+/// core is the figure, with nothing to say it is approximate.
+fn figure_of(page: &str, records: i64, estimate: Option<i64>) -> Figure {
+    if crate::core::modules::shown(page) {
+        figure(records, estimate)
+    } else {
+        Figure { value: estimate.unwrap_or(0), approx: false }
+    }
+}
+
 pub fn occupied_percent(people: i64, capacity: Option<i64>) -> Option<u32> {
     capacity.filter(|c| *c > 0).map(|c| ((people.max(0) * 100 + c / 2) / c).min(100) as u32)
 }
@@ -179,20 +189,21 @@ pub fn institution_overview(conn: &Connection) -> Result<InstitutionOverview, Se
     let input = crate::core::profile::storage::load_current(conn)?.map(|p| p.input).unwrap_or_default();
     let records = crate::core::onboarding::service::records(conn)?;
     let (missing, checks) = forms_missing(conn)?;
-    let spaces = crate::modules::facilities::api::indicators(conn)?.spaces;
+    // a hidden module is not read (ADR-043)
+    let spaces = if crate::core::modules::shown("facilities") { crate::modules::facilities::api::indicators(conn)?.spaces } else { 0 };
     let staff_estimate = match (input.staff_paid_estimate, input.staff_volunteer_estimate) {
         (None, None) => None,
         (p, v) => Some(p.unwrap_or(0) + v.unwrap_or(0)),
     };
-    let people = figure(records.served, input.served_estimate);
+    let people = figure_of("people", records.served, input.served_estimate);
     Ok(InstitutionOverview {
         people,
         capacity: input.capacity_total,
         occupied_percent: occupied_percent(people.value, input.capacity_total),
         vacant: input.capacity_total.map(|c| (c - people.value).max(0)),
-        staff: figure(records.staff, staff_estimate),
+        staff: figure_of("staff", records.staff, staff_estimate),
         spaces,
-        balance_annual_mxn: crate::core::bridge::finance::finances(conn)?.balance_annual_mxn,
+        balance_annual_mxn: if crate::core::modules::shown("finance") { crate::core::bridge::finance::finances(conn)?.balance_annual_mxn } else { None },
         completion: completion(&missing, checks),
         suggestions: suggestions(conn)?,
     })
@@ -201,6 +212,16 @@ pub fn institution_overview(conn: &Connection) -> Result<InstitutionOverview, Se
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ADR-043: a hidden module is not read; its quick figure is the figure, with no «≈». A shown one keeps the rule
+    /// «the records win».
+    #[test]
+    fn a_hidden_module_gives_its_quick_figure_as_it_is() {
+        assert_eq!(figure_of("people", 12, Some(30)), Figure { value: 30, approx: false });
+        assert_eq!(figure_of("staff", 4, None), Figure { value: 0, approx: false });
+        assert_eq!(figure_of("projects", 0, Some(30)), Figure { value: 30, approx: true });
+        assert_eq!(figure_of("projects", 12, Some(30)), Figure { value: 12, approx: false });
+    }
 
     #[test]
     fn complete_data_read_one_hundred() {
@@ -270,7 +291,9 @@ mod tests {
         };
         crate::core::profile::storage::save(&mut c, &input).unwrap();
         let o = institution_overview(&c).unwrap();
-        assert_eq!((o.people, o.occupied_percent, o.vacant, o.staff), (Figure { value: 15, approx: true }, Some(75), Some(5), Figure { value: 6, approx: true }));
+        // the quick figures say they are approximate only while their module is shown and has no records (ADR-043)
+        let approx = crate::core::modules::shown;
+        assert_eq!((o.people, o.occupied_percent, o.vacant, o.staff), (Figure { value: 15, approx: approx("people") }, Some(75), Some(5), Figure { value: 6, approx: approx("staff") }));
         assert_eq!(o.balance_annual_mxn, None);
         let codes: Vec<_> = o.completion.gaps.iter().map(|g| g.code).collect();
         assert!(codes.starts_with(&["mission", "state", "municipality", "legal_form"]) && !codes.contains(&"populations"), "the kind gave the populations: {codes:?}");

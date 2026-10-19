@@ -168,7 +168,7 @@ mod tests {
         assert!(take(&c).unwrap());
         let month = this_month(&c).unwrap();
         let first = of_month(&c, &month).unwrap().unwrap();
-        assert_eq!((first.figures.people, first.figures.people_approx, first.figures.capacity), (12, true, Some(20)));
+        assert_eq!((first.figures.people, first.figures.people_approx, first.figures.capacity), (12, crate::core::modules::shown("people"), Some(20)));
         assert_eq!((first.figures.balance.clone(), first.figures.board), (None, 0));
         assert!(first.figures.percent < 100);
 

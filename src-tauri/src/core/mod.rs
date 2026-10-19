@@ -17,6 +17,7 @@ pub mod history;
 pub mod insights;
 pub mod institution;
 pub mod manual;
+pub mod modules;
 pub mod onboarding;
 pub mod overview;
 pub mod places;

@@ -377,6 +377,8 @@ export const es = {
       facilities: (n: number) => (n === 0 ? "Todavía no hay espacios registrados" : n === 1 ? "1 espacio registrado" : `${n} espacios registrados`),
       financeKnown: (balance: string) => `Balance del año: ${balance}`,
       financeUnknown: "Faltan ingresos o egresos para saber el balance",
+      // while Beneficiarios and Personal are hidden (ADR-043), their tiles show the quick figures of the core
+      core: { people: "Personas que atienden", staff: "Personal" },
     },
     incomeEmpty: "Todavía no hay fuentes de ingreso. Agregue la primera.",
     /** Dinero de la institución: ingresos por tipo, egresos y balance (ADR-026). Las cuentas las hace el programa. */
@@ -1353,15 +1355,16 @@ export const es = {
       art: {
         graph: {
           head: "Mi institución",
-          // name, what it keeps and the id of its isotipo (public/SVG/isotipo_<id>.svg)
+          // name, what it keeps, the id of its isotipo (public/SVG/isotipo_<id>.svg) and its page: only the pages that
+          // are places of the program are drawn (a frozen module is not, ADR-043)
           nodes: [
-            ["Personal", "Quién trabaja", "ch"],
-            ["Beneficiarios", "A quién atiende", "beneficiarios"],
-            ["Finanzas", "Ingresos y gastos", "finanzas"],
-            ["Donantes", "Quién la apoya", "donantes"],
-            ["Proyectos", "Lo que pide apoyo", "proyectos"],
-            ["Documentos", "Todo en un lugar", "documentos"],
-          ] as [string, string, string][],
+            ["Personal", "Quién trabaja", "ch", "staff"],
+            ["Beneficiarios", "A quién atiende", "beneficiarios", "people"],
+            ["Finanzas", "Ingresos y gastos", "finanzas", "finance"],
+            ["Donantes", "Quién la apoya", "donantes", "donors"],
+            ["Proyectos", "Lo que pide apoyo", "proyectos", "projects"],
+            ["Documentos", "Todo en un lugar", "documentos", "documents"],
+          ] as [string, string, string, string][],
         },
         privacy: {
           here: "En esta computadora",
