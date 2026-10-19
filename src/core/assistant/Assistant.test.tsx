@@ -248,5 +248,29 @@ describe("Assistant", () => {
     expect(screen.queryByText(/no encontré datos/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Datos legales y fiscales/ }));
     expect(onGo).toHaveBeenCalledWith("profile.legal");
+    // nothing waits in «Contacto y ubicación»: the panel is not held on a window the person never opened
+    expect(screen.queryByText(/^Llenando/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dejar de llenar" })).toBeNull();
+  });
+
+  it("«Llenarlo por mí» with words the scanner holds: after the decision what was asked is not shown nor sent twice", async () => {
+    const asked = "Estamos ubicados en la alcaldía Benito Juárez";
+    const fill = { form: "institution.contact", place: "profile.contact" };
+    vi.mocked(assistantAsk).mockResolvedValueOnce({ status: "answered", asked, text: "", go_to: null, sources: [], documents: [], fill });
+    vi.mocked(captureAsk)
+      .mockResolvedValueOnce({ status: "quarantine", report: { fields: [{ path: "said", counts: { name: 1 }, blocking: false, redacted_preview: "Estamos ubicados en la alcaldía [NOMBRE]" }], counts: { name: 1 }, has_blocking: false } })
+      .mockResolvedValueOnce({ status: "proposed", asked, form: fill.form, place: fill.place, fields: ["institution.municipality"], left: [], others: [], same: ["Municipio o alcaldía"], still: ["Colonia"], dropped: 0 });
+    draw();
+    fireEvent.click(screen.getByText("abrir"));
+    ask(asked);
+    fireEvent.click(await screen.findByRole("button", { name: "Llenarlo por mí" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Esto no son datos personales/ }));
+    expect(await screen.findByText("Ya estaba guardado igual: «Municipio o alcaldía».")).toBeInTheDocument();
+    expect(screen.getAllByText(asked)).toHaveLength(1);
+    const again = vi.mocked(captureAsk).mock.calls[1]!;
+    expect(again[1]).toBe("not_personal");
+    expect(again[0].history).toEqual([]);
+    // it was already saved: nothing to fill in that window
+    expect(screen.queryByText(/^Llenando/)).toBeNull();
   });
 });

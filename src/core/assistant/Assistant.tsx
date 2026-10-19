@@ -243,7 +243,8 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
   const [field, setField] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [filling, setFilling] = useState<Fill | null>(null);
-  const [held, setHeld] = useState<{ report: QuarantineReport; question: string; target: Fill | null } | null>(null);
+  // what waits for the person's decision before the scanner, sent again as it was first sent (`echo`, `history`)
+  const [held, setHeld] = useState<{ report: QuarantineReport; question: string; target: Fill | null; history: AssistantTurn[]; echo: boolean } | null>(null);
   const qc = useQueryClient();
   const placeName = usePlaceName();
   const end = useRef<HTMLDivElement>(null);
@@ -278,6 +279,9 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
   /**
    * What the person tells, to the Capturist: the suggestions go to the window and the panel says how many. From an
    * answer («Llenarlo por mí»), what was asked is already in the conversation and is not shown again (`echo`).
+   *
+   * The window is being filled only once suggestions wait in it: an answer whose data were already saved, or that left
+   * them only in other windows, does not hold the panel on a window the person never opened.
    */
   async function capture(target: Fill, said: string, history: AssistantTurn[], decision?: Decision, echo = true) {
     setBusy(true);
@@ -286,7 +290,7 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
     try {
       const out = await captureAsk({ form: target.form, said, history }, decision);
       if (out.status === "quarantine") {
-        setHeld({ report: out.report, question: said, target });
+        setHeld({ report: out.report, question: said, target, history, echo });
         return;
       }
       setHeld(null);
@@ -296,6 +300,7 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
         // the window of that form (`formKey` of FormWindow) and the notice of «Mi institución»
         void qc.invalidateQueries({ queryKey: ["form", out.form] });
         void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
+        if (out.left.length > 0) setFilling(target);
       }
     } catch (e) {
       setMessages([...before, ...asked, { from: "error", text: toAppError(e).message }]);
@@ -308,7 +313,6 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
   /** «Llenarlo por mí» under an answer: what the person asked just before it is what the Capturist reads. */
   function fillFrom(at: number, target: Fill) {
     const asked = messages[at - 1];
-    setFilling(target);
     if (asked?.from === "person") void capture(target, asked.text, turns(messages.slice(0, at - 1), placeName), undefined, false);
   }
 
@@ -319,7 +323,7 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
     try {
       const out = await assistantAsk({ screen, field, question, history: turns(before, placeName) }, decision);
       if (out.status === "quarantine") {
-        setHeld({ report: out.report, question, target: null });
+        setHeld({ report: out.report, question, target: null, history: turns(before, placeName), echo: true });
         return;
       }
       setHeld(null);
@@ -452,8 +456,8 @@ export function AssistantProvider({ screen, onGo, children }: { screen: string; 
         <QuarantineDialog
           report={held.report}
           busy={busy}
-          onRedact={() => void (held.target ? capture(held.target, held.question, turns(messages, placeName), "redact") : send(held.question, "redact"))}
-          onNotPersonal={() => void (held.target ? capture(held.target, held.question, turns(messages, placeName), "not_personal") : send(held.question, "not_personal"))}
+          onRedact={() => void (held.target ? capture(held.target, held.question, held.history, "redact", held.echo) : send(held.question, "redact"))}
+          onNotPersonal={() => void (held.target ? capture(held.target, held.question, held.history, "not_personal", held.echo) : send(held.question, "not_personal"))}
           onCancel={() => setHeld(null)}
         />
         </div>

@@ -130,10 +130,10 @@ Para empezar desde cero sin tocar tus datos, abre la app con una carpeta aparte:
   - «Sí es «Acta constitutiva»»: queda en el acta, y la Bitácora dice «Dijo que un archivo es el documento donde lo subió, aunque parecía otro».
   - Cierra la ventana mientras se lee: la pregunta sale igual, donde estés.
 - [x] **Una foto que no se lee**, en cualquier documento: pregunta «No pudimos confirmar que sea «…»». Con «Sí es…» se guarda. Si el nombre del archivo dice el documento («licencia uso de suelo.jpg»), no pregunta.
-- [ ] **Sugerencias al subir** (ADR-042, fase 3; necesita la ayuda automática con su llave): con «Capacidad y cifras rápidas» sin el personal, sube el informe anual. Unos segundos después de «Lo tenemos», un aviso dice «encontramos N datos más para «Mi institución»» y en qué ventanas esperan. Ahí están el personal con sueldo (31) y el voluntario (18), con «Lo leímos en «…», página 1», sin pulsar «Llenar con mis documentos».
+- [x] **Sugerencias al subir** (ADR-042, fase 3; necesita la ayuda automática con su llave): con «Capacidad y cifras rápidas» sin el personal, sube el informe anual. Unos segundos después de «Lo tenemos», un aviso dice «encontramos N datos más para «Mi institución»» y en qué ventanas esperan. Ahí están el personal con sueldo (31) y el voluntario (18), con «Lo leímos en «…», página 1», sin pulsar «Llenar con mis documentos».
   - Un archivo que no habla de ningún campo vacío (la CLUNI, con la CLUNI ya escrita) no dice nada más.
   - «Notas generales» nunca se llena sola.
-- [ ] **Cómo se escriben** (ADR-042, fase 5): con el municipio vacío, sube la constancia del SAT y pulsa «Llenar con mis documentos» en «Contacto y ubicación». La sugerencia del municipio dice «Benito Juárez», con acento, aunque la constancia lo escriba «BENITO JUAREZ». En «Llenarlo por mí», «Calle de los Ejemplos 128» deja la calle «de los Ejemplos».
+- [x] **Cómo se escriben** (ADR-042, fase 5): con el municipio vacío, sube la constancia del SAT y pulsa «Llenar con mis documentos» en «Contacto y ubicación». La sugerencia del municipio dice «Benito Juárez», con acento, aunque la constancia lo escriba «BENITO JUAREZ». En «Llenarlo por mí», «Calle de los Ejemplos 128» deja la calle «de los Ejemplos».
 - [x] **Con contraseña:** el PDF protegido avisa que tiene contraseña. No dice «dañado».
 - [x] «Quitar archivo»: se quita, y lo que ya se llenó con él se queda.
 
@@ -170,7 +170,7 @@ El botón con la estrella, arriba a la derecha, en cualquier pantalla.
 - [x] «¿Qué documentos tengo?»: la lista con sus nombres (los que tiene, los que faltan, en trámite, por vencer).
 - [x] «¿Qué dice ‹nombre de tu archivo›.pdf?», también con el nombre de la foto: contesta con lo que dice. Nunca dice que no puede ver imágenes.
 - [x] «¿Cuántos kilos de comida nos donó el banco de alimentos en 2024?» o algo que **ningún documento dice**: dice que no lo encontró, sin inventar.
-- [ ] «Llena los datos legales con lo que dicen mis documentos» (ADR-042, fase 4): **ya no** ofrece un botón en el chat. Dice que al subir cada documento ya llegan sus sugerencias y que el botón «Llenar con mis documentos» está en la ventana, y ofrece ir a «Datos legales y fiscales».
+- [x] «Llena los datos legales con lo que dicen mis documentos» (ADR-042, fase 4): **ya no** ofrece un botón en el chat. Dice que al subir cada documento ya llegan sus sugerencias y que el botón «Llenar con mis documentos» está en la ventana, y ofrece ir a «Datos legales y fiscales».
 - [x] La conversación se borra al cerrar la app.
 
 **No debe pasar:** que cite un documento que no habla del tema, que dé una cifra que no está en la página que cita, o que te pida nombres de personas.
@@ -188,9 +188,11 @@ En una ventana de Mi institución, «Llenarlo por mí» abre el Asistente en mod
 - [x] **Al cerrar la ventana** (Guardar, Cancelar o la X), el modo se apaga: tu siguiente pregunta la contesta el Asistente, no vuelve a llenar.
 - [x] **Desde la plática:** pregunta algo del poder y luego escribe «Ahora tenemos 35 espacios»: debe ofrecer «Llenarlo por mí» en Capacidad, sin volver al poder.
 - [x] Las sugerencias que no revisaste siguen ahí al volver: Mi institución avisa «Hay N sugerencias en «…»», con «Revisarlas».
-- [ ] **Cada dato a su ventana** (ADR-042, fase 4): en «Contacto y ubicación», «Llenarlo por mí» y escribe «Nos representa la directora, ‹un nombre inventado›» (contesta «Esto no son datos personales de nadie»). La sugerencia queda en «Datos legales y fiscales», y el Asistente dice «Dejé 1 sugerencia en «Datos legales y fiscales»», con un botón para ir ahí. Ya no dice «no encontré datos para «Contacto y ubicación»».
-- [ ] **Lo igual no se repite:** cuéntale un dato que ya guardaste, igual (por ejemplo, la capacidad). No deja sugerencia y dice «Ya estaba guardado igual: …».
-- [ ] **En la plática normal**, sin «Llenarlo por mí»: escribe «Nos representa la directora, ‹un nombre inventado›». El Asistente nunca dice «dejé sugerencias»: la frase con el botón «Llenarlo por mí» la escribe el programa.
+- [x] **Cada dato a su ventana** (ADR-042, fase 4): en «Contacto y ubicación», «Llenarlo por mí» y escribe «Nos representa la directora, ‹un nombre inventado›» (contesta «Esto no son datos personales de nadie»). La sugerencia queda en «Datos legales y fiscales», y el Asistente dice «Dejé 1 sugerencia en «Datos legales y fiscales»», con un botón para ir ahí. Ya no dice «no encontré datos para «Contacto y ubicación»».
+- [x] **Lo igual no se repite:** cuéntale un dato que ya guardaste, igual (por ejemplo, la capacidad). No deja sugerencia y dice «Ya estaba guardado igual: …».
+- [x] **En la plática normal**, sin «Llenarlo por mí»: escribe «Nos representa la directora, ‹un nombre inventado›». El Asistente nunca dice «dejé sugerencias»: la frase con el botón «Llenarlo por mí» la escribe el programa.
+- [ ] **Desde la plática, con un dato ya guardado:** escribe «Estamos ubicados en la alcaldía ‹la que ya guardaste›» y pulsa «Llenarlo por mí». Dice «Ya estaba guardado igual: …» y **no** se queda en «Llenando «…»»: tu siguiente pregunta la contesta el Asistente. El modo de llenado empieza desde la plática solo cuando deja sugerencias en esa ventana.
+- [ ] **Tu frase una sola vez:** si al pulsar «Llenarlo por mí» pregunta por datos personales (un nombre como «Benito Juárez» lo parece) y contestas, tu frase no vuelve a aparecer en el chat.
 
 ## 9. Ayuda automática, Seguridad y Ayuda
 
