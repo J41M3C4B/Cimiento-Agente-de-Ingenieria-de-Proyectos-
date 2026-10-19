@@ -1,14 +1,21 @@
 ---
 tipo: mapa
-actualizado: 2026-10-18
+actualizado: 2026-10-19
 ---
 
 # Mapa del proyecto
 
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
-> [!info] Hoy (2026-10-18, noche)
-> **Primer bloque del tablero: [[ERP-1 Ocultar los módulos congelados|ERP-1]], en «Revisión».**
+> [!info] Hoy (2026-10-19)
+> **[[ERP-1 Ocultar los módulos congelados|ERP-1]] sigue en «Revisión», con tu observación atendida.**
+> - Probaste todas sus casillas. Faltaba una cosa: a «¿Dónde registro los ingresos?» el Asistente te mandaba a «Capacidad y cifras rápidas».
+> - Ahora el Asistente sabe qué partes todavía no existen, y la lista sale del mismo interruptor. A esas preguntas contesta que llegarán después, sin ningún botón.
+> - Corrida real de su batería: **40 de 40**, nada inventado, $1.40 MXN.
+> - **Espera tu respuesta:** la casilla nueva de la tarjeta. Si sale bien, se fusiona a `main` y pasa a «Hecho».
+> - **Siguiente en el carril `erp`:** la revisión de [[ERP-2 El núcleo genérico|ERP-2]], para escribir su «Terminado cuando».
+>
+> **Antes (2026-10-18, noche): primer bloque del tablero, [[ERP-1 Ocultar los módulos congelados|ERP-1]], en «Revisión».**
 > - La app solo muestra el núcleo y Proyectos.
 > - Un solo interruptor en Rust (`core/modules.rs`) decide qué módulos están ocultos; la barra, el Asistente, las cifras, Mi institución, Inicio y la bienvenida salen de él.
 > - Ningún dato se borra. Volver a encender un módulo es quitarlo de la lista.

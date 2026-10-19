@@ -47,7 +47,21 @@ use std::sync::{Arc, LazyLock};
 
 /// Its trade, versioned like a prompt: changing it is a new file. The places it may send the person to come from the
 /// map of the program (`core::places`), so a new page or window reaches it without touching it.
-static TRADE: LazyLock<String> = LazyLock::new(|| include_str!("assistant.v10.md").replace("{places}", &places::listed()));
+static TRADE: LazyLock<String> = LazyLock::new(|| include_str!("assistant.v11.md").replace("{places}", &places::listed()).replace("{not_yet}", &not_yet()));
+
+/// The parts of the program that do not exist yet (ADR-043), by the places the Assistant may send to: only where to
+/// send changes. In the general context, with what each one holds, «¿cuántos extintores tenemos?» was answered «esa
+/// parte todavía no existe» (measured 2026-10-19), when the Expediente says it.
+fn not_yet() -> String {
+    let names = crate::core::modules::not_yet();
+    if names.is_empty() {
+        return String::new();
+    }
+    format!(
+        "  Todavía no existen, y no se ofrecen ni se cambian por otro lugar: {}. Si la persona pregunta dónde anotar algo que va en una de ellas, dígale que esa parte llegará después y deje `go_to` en null.\n",
+        names.join(", ")
+    )
+}
 
 /// The words the program knows, folded to lowercase: its manual, the words of its screens and the trade. A word of an
 /// answer written with a digit for a letter is mended only into one of them.
@@ -631,7 +645,8 @@ mod tests {
         a.history = (0..10).map(|i| Turn { from: if i % 2 == 0 { "person".into() } else { "assistant".into() }, text: format!("turno {i}"), documents: vec![] }).collect();
         let c = context(&a, &[]);
         assert!(c[0].contains("«Documentos»") && c[0].contains("`screen.documents`"), "{c:?}");
-        assert!(c[1].contains("turno 9") && c[1].contains("turno 4") && !c[1].contains("turno 3"), "{c:?}");
+        let said = c.iter().find(|l| l.starts_with("La conversación")).unwrap();
+        assert!(said.contains("turno 9") && said.contains("turno 4") && !said.contains("turno 3"), "{c:?}");
         assert!(context(&question("nowhere", None, "x"), &[])[0].contains("(otra)"));
         assert!(context(&question("security", None, "x"), &[])[0].contains("«Seguridad»"), "every page of the map, with its name");
 
@@ -784,7 +799,11 @@ mod tests {
     /// windows to fill.
     #[test]
     fn the_trade_names_every_place() {
-        assert_eq!(include_str!("assistant.v10.md").matches("{places}").count(), 1, "the list of places is written by the code");
+        assert_eq!(include_str!("assistant.v11.md").matches("{places}").count(), 1, "the list of places is written by the code");
+        // and so are the parts that do not exist yet, by those places (ADR-043): «¿dónde registro los ingresos?»
+        // was sent to the window that looked closest
+        assert_eq!(include_str!("assistant.v11.md").matches("{not_yet}").count(), 1);
+        assert!(TRADE.contains("Todavía no existen") && TRADE.contains("Finanzas") && !TRADE.contains("{not_yet}"));
         let schema = agent().answer["properties"]["go_to"]["anyOf"][0]["enum"].clone();
         for p in places::PLACES.iter() {
             assert!(TRADE.contains(&format!("`{}`:", p.id)), "{} is not in the trade", p.id);

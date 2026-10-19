@@ -11,6 +11,16 @@ pub fn shown(page: &str) -> bool {
     !HIDDEN.contains(&page)
 }
 
+/// What the program does not have yet, for the Assistant: each hidden module by the name of its screen in the manual.
+/// Only the name: what each one holds («su equipo») drew other questions to it («¿cuántos extintores tenemos?»).
+pub fn not_yet() -> Vec<String> {
+    HIDDEN
+        .iter()
+        .filter_map(|page| crate::core::manual::MANUAL.iter().find(|e| e.id == format!("screen.{page}")))
+        .map(|e| e.title.clone())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -35,5 +45,9 @@ mod tests {
         for page in ["home", "profile", "documents", "projects"] {
             assert!(shown(page) && place(page).is_some(), "{page}");
         }
+        // the Assistant is told what does not exist yet, so it does not send the person somewhere else
+        let missing = not_yet();
+        assert_eq!(missing.len(), HIDDEN.len());
+        assert!(missing.contains(&"Finanzas".to_string()) && missing.contains(&"Personal".to_string()), "{missing:?}");
     }
 }

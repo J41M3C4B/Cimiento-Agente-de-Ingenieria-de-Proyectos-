@@ -19,10 +19,10 @@ Personal, Beneficiarios, Instalaciones, Finanzas y Donantes están congelados ha
 
 (Aprobado por el líder, 2026-10-18.)
 
-- [ ] El riel, «Mi institución», el primer inicio (incluida la bienvenida), Inicio y el mapa de lugares del Asistente solo muestran el núcleo y Proyectos.
-- [ ] Nada del núcleo lee un módulo oculto para mostrarlo: lo que tomaba de ellos (ocupación, cifras rápidas, balance) se lo queda el núcleo o deja de mostrarse.
-- [ ] El código de los módulos compila y todas las pruebas pasan, también `cargo test architecture`.
-- [ ] Encenderlos de nuevo es un solo cambio, documentado.
+- [x] El riel, «Mi institución», el primer inicio (incluida la bienvenida), Inicio y el mapa de lugares del Asistente solo muestran el núcleo y Proyectos.
+- [x] Nada del núcleo lee un módulo oculto para mostrarlo: lo que tomaba de ellos (ocupación, cifras rápidas, balance) se lo queda el núcleo o deja de mostrarse.
+- [x] El código de los módulos compila y todas las pruebas pasan, también `cargo test architecture`.
+- [x] Encenderlos de nuevo es un solo cambio, documentado.
 
 ## Plan
 
@@ -49,12 +49,12 @@ Personal, Beneficiarios, Instalaciones, Finanzas y Donantes están congelados ha
 
 Tu `pnpm tauri dev` ya muestra estos cambios, porque la carpeta está en la rama `erp/erp-1-ocultar-modulos`. Si lo cierras y lo vuelves a abrir, la primera vez compila un rato.
 
-- [ ] **La barra de arriba** solo tiene Inicio, Mi institución, Documentos y Mis proyectos.
-- [ ] **Inicio:** la tarjeta «Personas que atendemos» muestra la cifra rápida, los lugares vacíos y el % ocupado, sin la flecha de «entraron o salieron». Al pulsarla se abre «Capacidad y cifras rápidas». No hay tarjeta de balance, y «Siguientes pasos» no ofrece Personal, Beneficiarios, Instalaciones ni Finanzas.
-- [ ] **Mi institución:** a la derecha hay dos tarjetas, «Personas que atienden» (con «de N lugares») y «Personal», sin «≈». Las dos abren «Capacidad y cifras rápidas». No hay tarjetas de Instalaciones ni de Finanzas.
-- [ ] **Cambiar una cifra rápida** (por ejemplo, las personas que atienden) y guardar: la tarjeta de Inicio y la de Mi institución muestran la cifra nueva.
-- [ ] **El Asistente:** pregúntale «¿Dónde registro los ingresos?» o «¿Dónde doy de alta a una persona del personal?». No debe ofrecer un botón a Finanzas ni a Personal, ni mandarte a esas páginas.
-- [ ] **La bienvenida**, con una cuenta nueva que no la haya visto: alrededor de «Mi institución» solo aparecen Proyectos y Documentos.
+- [x] **La barra de arriba** solo tiene Inicio, Mi institución, Documentos y Mis proyectos.
+- [x] **Inicio:** la tarjeta «Personas que atendemos» muestra la cifra rápida, los lugares vacíos y el % ocupado, sin la flecha de «entraron o salieron». Al pulsarla se abre «Capacidad y cifras rápidas». No hay tarjeta de balance, y «Siguientes pasos» no ofrece Personal, Beneficiarios, Instalaciones ni Finanzas.
+- [x] **Mi institución:** a la derecha hay dos tarjetas, «Personas que atienden» (con «de N lugares») y «Personal», sin «≈». Las dos abren «Capacidad y cifras rápidas». No hay tarjetas de Instalaciones ni de Finanzas.
+- [x] **Cambiar una cifra rápida** (por ejemplo, las personas que atienden) y guardar: la tarjeta de Inicio y la de Mi institución muestran la cifra nueva.
+- [x] **El Asistente:** pregúntale «¿Dónde registro los ingresos?» o «¿Dónde doy de alta a una persona del personal?». No debe ofrecer un botón a Finanzas ni a Personal, ni mandarte a esas páginas.
+- [x] **La bienvenida**, con una cuenta nueva que no la haya visto: alrededor de «Mi institución» solo aparecen Proyectos y Documentos.
 
 **Revisado por el CTO en la app real** (copia aparte con el ejemplo del asilo):
 - la barra, Inicio, las dos tarjetas de Mi institución y la ventana que abren;
@@ -62,4 +62,20 @@ Tu `pnpm tauri dev` ya muestra estos cambios, porque la carpeta está en la rama
 
 La bienvenida solo quedó revisada en las pruebas automáticas.
 
+**Lo que faltó (tu observación, 2026-10-19):**
+- [ ] **El Asistente y lo que todavía no existe:** cierra y vuelve a abrir `pnpm tauri dev` y pregúntale «¿Dónde registro los ingresos?». Debe decir que esa parte llegará después, sin ningún botón. Pregúntale también «¿Cuántos extintores tenemos?»: debe contestar con el programa de protección civil.
+
 ## Resultado
+ Nos dio un comportamiento raro al preguntarle donde registro los ingresos:
+ ![[{1C46CBA4-3E8C-41B9-B46D-B58918C02076}.png]]
+
+**Respuesta del CTO (2026-10-19).**
+
+- **La causa:** al Asistente se le quitaron las páginas ocultas, pero nadie le dijo que esas partes no existen todavía. Ante «los ingresos», eligió la ventana que más se parecía.
+- **El arreglo (oficio v11):** el código le dice qué partes todavía no existen y que en esos casos no ofrezca ningún lugar. La lista sale del mismo interruptor (`core/modules.rs`): encender un módulo sigue siendo un solo cambio.
+- **Lo que enseñó la medición:**
+  - Una versión que además le decía qué guarda cada parte («su equipo») contestó «¿Cuántos extintores tenemos?» con «esa parte no existe», aunque el Expediente lo dice. Por eso solo lleva los nombres.
+  - La batería ganó tres preguntas de partes que no existen: ingresos, gastos e inmueble. Si el Asistente ofrece cualquier lugar, la pregunta sale mal.
+- **Corrida real** (modelo más barato, dos rondas, a lo más 14 llamadas por minuto): **40 de 40**, citas 18 de 18 y nada inventado.
+  - Gasto: 63 llamadas del Asistente, 18 del Lector y 19 solicitudes de vectores, **$1.40 MXN** en 5.6 minutos.
+  - Antes (oficio v10): 33 de 34.

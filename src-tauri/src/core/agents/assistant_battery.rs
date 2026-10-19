@@ -41,6 +41,9 @@ pub struct Case {
     pub no_contiene: Vec<String>,
     #[serde(default)]
     pub ir_a: Option<String>,
+    /// It must offer no place to go: what was asked does not exist in the program yet.
+    #[serde(default)]
+    pub sin_ir: bool,
     /// The program must write the list of the documents under the answer.
     #[serde(default)]
     pub lista: bool,
@@ -149,6 +152,9 @@ pub fn grade(c: &Case, out: &AssistantOutcome, tools: &BTreeMap<String, u64>) ->
         if go_to.as_deref() != Some(g.as_str()) {
             bad.push(format!("ir a {go_to:?}, se esperaba {g}"));
         }
+    }
+    if c.sin_ir && go_to.is_some() {
+        bad.push(format!("INVENTÓ un lugar: ir a {go_to:?}, y eso todavía no está en el programa"));
     }
     // the cheapest model now and then writes a digit for an accented letter («dej3»): what is left after the mend
     let odd = super::tests::letters_as_digits(text);
