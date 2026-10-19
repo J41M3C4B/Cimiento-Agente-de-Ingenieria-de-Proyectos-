@@ -15,7 +15,8 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - Pantallas y manual sin asilo, casa hogar ni abuelitos. La bienvenida ya no promete fichas.
 > - Un tercer ejemplo ficticio: «Red Comunitaria Ejemplo, A.C.».
 > - Lo que le toca a la IA (la ficha, los oficios y las baterías) quedó en [[IA-7 La IA ante el núcleo genérico|IA-7]].
-> - **Espera:** que lo pruebes (pasos en la tarjeta). PR #8.
+> - **Lo probaste y volvió con cuatro observaciones; ya están atendidas.** Las dos cifras de personas («hoy» y «en el último año», y la mixta da las dos). Un ejemplo ya no deja su Expediente en otro, y las ventanas ya no muestran lo que leyeron antes. La fila del Expediente dice «Sin archivo».
+> - **Espera:** que pruebes la vuelta 2 (pasos en la tarjeta). PR #8.
 >
 > **Antes, el mismo día: [[ERP-1 Ocultar los módulos congelados|ERP-1]] está hecho (MVP-1).** Lo probaste y se fusionó a `main` en el PR #7.
 > - La app solo muestra el núcleo y Proyectos, con un solo interruptor (`core/modules.rs`).

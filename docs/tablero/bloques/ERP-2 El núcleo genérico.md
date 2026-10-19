@@ -152,7 +152,7 @@ Agregar opciones no borra ni cambia nada de lo guardado; no hace falta migració
 - [ ] Carga el asilo, abre «Su institución» y ciérrala, y carga la red comunitaria: al abrirla otra vez se ve la red, sin nada del asilo. Su Expediente no muestra la Junta.
 - [ ] En el Expediente, un documento «Lo tenemos» sin archivo dice «Sin archivo».
 
-Lo probé así en la app real, con una base aparte: la A.C. desde el primer inicio y el asilo de ejemplo.
+Lo probé así en la app real, con una base aparte: la A.C. desde el primer inicio y el asilo de ejemplo. La vuelta 2 también: los dos ejemplos seguidos con la ventana abierta en medio, y el asilo como mixta, solo comunidad y de regreso.
 
 PR: https://github.com/J41M3C4B/Cimiento-Agente-de-Ingenieria-de-Proyectos-/pull/8
 
