@@ -1,0 +1,160 @@
+{
+  "institution": {
+    "name": "Red Comunitaria Ejemplo",
+    "kind": "other",
+    "mission": "Acompañamos a familias de la colonia con talleres, despensas y asesoría para que sus hijos sigan en la escuela.",
+    "legal_rfc": "RCE120615CD3",
+    "contact_phone": "44 2555 0303",
+    "contact_email": "contacto@red-ejemplo.org",
+    "legal_rep_name": "Elena Ejemplo Vega",
+    "state": "qro",
+    "municipality": "Querétaro",
+    "founded_year": 2012,
+    "legal_form": "ac",
+    "authorized_donee": "in_progress",
+    "cluni": "yes",
+    "attention": {
+      "populations": [
+        "childhood",
+        "adolescence",
+        "adults"
+      ],
+      "sex_served": "all",
+      "modalities": [
+        "community",
+        "support"
+      ],
+      "care_areas": [
+        "education",
+        "food",
+        "community_development"
+      ]
+    },
+    "details": {
+      "institution.legal_name": "Red Comunitaria Ejemplo, A.C.",
+      "institution.purpose": "Promover el desarrollo comunitario y la permanencia escolar de niñas, niños y adolescentes de la colonia, con apoyo a sus familias, sin propósito de lucro.",
+      "institution.services": "Talleres de tareas y lectura, despensas cada mes, becas escolares y asesoría a familias.",
+      "institution.age_min": 6,
+      "institution.age_max": 17,
+      "institution.admission_criteria": "Familias que viven en la colonia y tienen hijos inscritos en la escuela.",
+      "institution.street": "Avenida Ejemplo",
+      "institution.ext_number": "45",
+      "institution.neighborhood": "Colonia Ejemplo",
+      "institution.postal_code": "76000",
+      "institution.tax_regime": "non_profit",
+      "institution.fiscal_postal_code": "76000",
+      "institution.cluni_key": "CLUNI-EJEMPLO-003",
+      "institution.legal_rep_valid_until": "2029-06-30"
+    }
+  },
+  "served_estimate": 340,
+  "staff_paid_estimate": 2,
+  "staff_volunteer_estimate": 15,
+  "annual_budget_mxn": 620000,
+  "notes": "Perfil ficticio para desarrollo y pruebas: una A.C. que no es residencia.",
+  "income": [
+    {
+      "label": "Donativos de particulares",
+      "kind": "occasional_donation",
+      "amount_mxn": 180000,
+      "period": "annual"
+    },
+    {
+      "label": "Fundación Ejemplo, convocatoria 2025",
+      "kind": "project_grant",
+      "amount_mxn": 300000,
+      "period": "annual"
+    },
+    {
+      "label": "Colectas en la colonia",
+      "kind": "other",
+      "amount_mxn": 60000,
+      "period": "annual"
+    }
+  ],
+  "expenses": [
+    {
+      "label": "Despensas",
+      "amount_mxn": 25000,
+      "period": "monthly"
+    },
+    {
+      "label": "Renta de la oficina",
+      "amount_mxn": 6000,
+      "period": "monthly"
+    },
+    {
+      "label": "Material de talleres",
+      "amount_mxn": 40000,
+      "period": "annual"
+    }
+  ],
+  "board": [
+    {
+      "institution.board.name": "Elena Ejemplo Vega",
+      "institution.board.role": "president",
+      "institution.board.since": "2020-02-10"
+    },
+    {
+      "institution.board.name": "Raúl Ejemplo Campos",
+      "institution.board.role": "secretary",
+      "institution.board.since": "2020-02-10"
+    },
+    {
+      "institution.board.name": "Sofía Ejemplo Ríos",
+      "institution.board.role": "treasurer",
+      "institution.board.since": "2022-01-20"
+    },
+    {
+      "institution.board.name": "Pedro Ejemplo Luna",
+      "institution.board.role": "member"
+    }
+  ],
+  "bank_accounts": [
+    {
+      "institution.bank.clabe": "014180099999999916",
+      "institution.bank.purpose": [
+        "donations",
+        "operations"
+      ],
+      "institution.bank.in_documents": true
+    }
+  ],
+  "records": [
+    {
+      "type": "articles_of_incorporation",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "2012-06-15"
+      }
+    },
+    {
+      "type": "power_of_attorney",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "2024-06-30",
+        "institution.record.valid_until": "2029-06-30"
+      }
+    },
+    {
+      "type": "tax_status_certificate",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "2026-07-10"
+      }
+    },
+    {
+      "type": "cluni_certificate",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.reference": "CLUNI-EJEMPLO-REG-0003"
+      }
+    },
+    {
+      "type": "donee_authorization",
+      "values": {
+        "institution.record.status": "in_progress"
+      }
+    }
+  ]
+}

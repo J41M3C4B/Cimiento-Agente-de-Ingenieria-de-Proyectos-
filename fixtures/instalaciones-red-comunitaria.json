@@ -1,0 +1,35 @@
+{
+  "site": {
+    "name": "Oficina de la red",
+    "land_m2": null,
+    "built_m2": 60,
+    "floors": 1,
+    "floor_access": [
+      "none"
+    ],
+    "built_year": 1995,
+    "tenure": "rent",
+    "tenure_documented": true,
+    "water_sources": [
+      "network"
+    ],
+    "water_shortage": "never",
+    "water_storage_liters": 1100,
+    "power_outages": "never",
+    "gas": "none",
+    "drainage": "sewer",
+    "internet": true,
+    "extinguishers": 1,
+    "extinguishers_current": true,
+    "smoke_detectors": 0,
+    "marked_exits": false,
+    "emergency_lights": false,
+    "first_aid_kit": true,
+    "internal_program": "no",
+    "civil_protection_opinion": false,
+    "drills_per_year": 0,
+    "notes": null
+  },
+  "spaces": [],
+  "equipment": []
+}

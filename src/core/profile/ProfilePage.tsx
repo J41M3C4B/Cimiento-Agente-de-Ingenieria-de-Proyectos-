@@ -159,7 +159,7 @@ export function ProfilePage({
     return () => window.clearTimeout(id);
   }, [toast]);
 
-  async function loadExample(name: "asilo" | "casa-hogar") {
+  async function loadExample(name: "asilo" | "casa-hogar" | "red-comunitaria") {
     setBusy(true);
     try {
       qc.setQueryData(["profile"], await devLoadFixture(name));
@@ -491,6 +491,9 @@ export function ProfilePage({
           </Button>
           <Button size="sm" variant="plain" onClick={() => loadExample("casa-hogar")} disabled={busy}>
             {t.devCasaHogar}
+          </Button>
+          <Button size="sm" variant="plain" onClick={() => loadExample("red-comunitaria")} disabled={busy}>
+            {t.devRedComunitaria}
           </Button>
         </p>
       )}

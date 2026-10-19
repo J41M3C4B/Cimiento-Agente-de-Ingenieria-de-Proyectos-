@@ -63,7 +63,7 @@ async fn a_suggestion_is_never_saved_without_a_click() {
     assert_eq!(fields, ["institution.populations", "institution.sex_served", "institution.age_min", "institution.modalities", "institution.care_areas"]);
     assert_eq!(dropped, 0);
     // what the person may still tell, by its title: never what is written (the name) nor what waits
-    assert_eq!(still, ["¿A qué se dedica?", "¿Qué servicios o programas ofrecen?", "Edad máxima que reciben", "¿Qué piden para que alguien ingrese?"]);
+    assert_eq!(still, ["¿A qué se dedica?", "¿Qué servicios o programas ofrecen?", "Edad máxima que atienden", "¿Qué piden para atender a alguien?"]);
 
     let c = db.lock().unwrap();
     let view = get(&c, "institution.identity").unwrap();

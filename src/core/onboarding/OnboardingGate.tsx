@@ -83,7 +83,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     await Promise.all([qc.invalidateQueries({ queryKey: ["profile"] }), qc.invalidateQueries({ queryKey: ["facilities"] })]);
   }
 
-  async function example(name: "asilo" | "casa-hogar") {
+  async function example(name: "asilo" | "casa-hogar" | "red-comunitaria") {
     setBusy(true);
     setError(null);
     try {
@@ -111,6 +111,9 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
         </Button>
         <Button size="sm" variant="plain" disabled={busy} onClick={() => example("casa-hogar")}>
           {es.profile.devCasaHogar}
+        </Button>
+        <Button size="sm" variant="plain" disabled={busy} onClick={() => example("red-comunitaria")}>
+          {es.profile.devRedComunitaria}
         </Button>
       </p>
     );

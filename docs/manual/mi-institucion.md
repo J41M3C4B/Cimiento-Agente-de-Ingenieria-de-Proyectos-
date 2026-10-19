@@ -1,9 +1,9 @@
 # Mi institución {#screen.profile}
 
-Aquí está todo lo que su institución es: quién es, a quién atiende, su ubicación, sus datos legales, su dinero, su personal, las personas que atiende y su inmueble.
+Aquí está todo lo que su institución es: quién es, a quién atiende y cómo, su ubicación, sus datos legales, sus cifras y sus documentos.
 Cada parte del programa toma de aquí lo que necesita. Lo que escriba una vez ya no se lo vuelven a pedir.
 Arriba ve qué tan completos están sus datos y lo que falta, con un botón que la lleva al lugar donde se llena.
-Solo se escriben cuántas personas hay, nunca quiénes son. Las fichas de cada persona viven aparte, en Personal y en Beneficiarios.
+Solo se escriben cuántas personas hay, nunca quiénes son.
 
 # Su institución {#institution.identity}
 
@@ -18,50 +18,52 @@ Para qué sirve: aparece en los documentos y proyectos que arma el programa, y l
 
 ## ¿A qué se dedica? {#institution.mission}
 
-Qué poner: en dos o tres frases, qué hacen y para quién, como se lo contaría a un donante. Por ejemplo: «Damos casa, comida y cuidados a personas mayores sin familia que las atienda».
+Qué poner: en dos o tres frases, qué hacen y para quién, como se lo contaría a un donante. Por ejemplo: «Acompañamos a familias de la colonia con talleres, despensas y asesoría para que sus hijos sigan en la escuela».
 Para qué sirve: es la base de la presentación de sus proyectos. La ayuda automática la lee para entender a su institución antes de proponer o redactar algo.
 No escriba nombres de personas ni datos de contacto: el programa los busca y le pregunta antes de guardarlos.
 
 ## ¿A quién atienden? {#institution.populations}
 
-Qué poner: marque a quiénes atienden según su edad: niñas y niños, adolescentes, jóvenes, personas adultas o personas mayores (los abuelitos). Si atienden a varias, márquelas todas.
-Para qué sirve: decide qué le pide cada sección. Por ejemplo, Beneficiarios le pregunta lo que importa para esas edades, y Personal le sugiere puestos que suelen hacer falta.
+Qué poner: marque a quiénes atienden según su edad: niñas y niños, adolescentes, jóvenes, personas adultas o personas mayores. Si atienden a varias, márquelas todas.
+Si su trabajo no es con un grupo de edad, por ejemplo una organización de medio ambiente, de cultura o de derechos humanos, marque «Población en general». Si apoyan a otras organizaciones, por ejemplo con donativos o asesoría, marque «Otras organizaciones». Con esas dos no se preguntan el sexo ni las edades.
+Para qué sirve: decide qué le pide cada sección y qué documentos le pide el Expediente.
 También dice a qué convocatorias le conviene entrar, porque muchas apoyan solo a una población.
 
 ## ¿Atienden a mujeres, a hombres o a ambos? {#institution.sex_served}
 
-Qué poner: elija si atienden solo a mujeres, solo a hombres o a ambos. Esta pregunta aparece cuando ya marcó a quién atienden.
+Qué poner: elija si atienden solo a mujeres, solo a hombres o a ambos. Esta pregunta aparece cuando marcó un grupo de edad.
 Para qué sirve: algunas convocatorias son solo para mujeres o solo para hombres. Con este dato el programa lo toma en cuenta y la ayuda automática no lo supone.
 
 ## ¿Cómo los atienden? {#institution.modalities}
 
-Qué poner: marque todas las formas en que atienden. Por ejemplo, si las personas viven en la casa y además dan consulta a gente de fuera, marque las dos.
-Para qué sirve: dice cómo es su trabajo de todos los días, y con eso las secciones de Beneficiarios e Instalaciones y la ayuda automática hablan de su institución como es. Muchas convocatorias apoyan solo una forma de atención.
+Qué poner: marque todas las formas en que atienden. Por ejemplo, si dan talleres en la colonia y además entregan becas, marque «En la comunidad» y «Con apoyos: dinero, especie o becas». Si atienden por internet o por teléfono, marque «A distancia o en línea».
+Para qué sirve: dice cómo es su trabajo de todos los días, y con eso la ayuda automática habla de su institución como es. Muchas convocatorias apoyan solo una forma de atención.
+Si las personas viven en la institución o pasan ahí el día, el programa le pregunta cuántas caben, y el Expediente le pide los documentos de un inmueble donde se atiende a personas.
 
 ## ¿En qué los apoyan? {#institution.care_areas}
 
-Qué poner: marque todo en lo que apoyan a las personas: cuidado, salud, alimentación, educación y lo demás que hagan. Si es algo que no está en la lista, marque «Otra».
+Qué poner: marque todo en lo que trabajan: cuidado, salud, alimentación, educación, medio ambiente, cultura, derechos humanos, desarrollo comunitario, empleo y lo demás que hagan. Si es algo que no está en la lista, marque «Otra».
 Para qué sirve: ayuda a encontrar las convocatorias que encajan con su trabajo, y la ayuda automática lo toma en cuenta al proponer y redactar proyectos.
 
 ## ¿Qué servicios o programas ofrecen? {#institution.services}
 
-Qué poner: lo que ofrecen a las personas, en una o dos frases. Por ejemplo: «Residencia, comedor, terapia física y talleres de lectura».
+Qué poner: lo que ofrecen, en una o dos frases. Por ejemplo: «Comedor, talleres de lectura, becas y asesoría a familias».
 Para qué sirve: los donantes y las convocatorias preguntan qué servicios dan. La ayuda automática lo usa para describir su trabajo en los proyectos.
 
-## Edad mínima que reciben {#institution.age_min}
+## Edad mínima que atienden {#institution.age_min}
 
-Qué poner: la edad más baja con la que reciben a una persona, en años. Si no tienen edad mínima, déjela vacía.
-Para qué sirve: Beneficiarios la toma en cuenta al registrar a cada persona, y muchas convocatorias apoyan solo ciertas edades.
+Qué poner: la edad más baja de las personas que atienden, en años. Si no tienen edad mínima, déjela vacía.
+Para qué sirve: muchas convocatorias apoyan solo ciertas edades.
 
-## Edad máxima que reciben {#institution.age_max}
+## Edad máxima que atienden {#institution.age_max}
 
-Qué poner: la edad más alta con la que reciben a una persona, en años. Si no tienen edad máxima, déjela vacía.
-Para qué sirve: junto con la edad mínima, dice a quién pueden recibir. No puede ser menor que la edad mínima.
+Qué poner: la edad más alta de las personas que atienden, en años. Si no tienen edad máxima, déjela vacía.
+Para qué sirve: junto con la edad mínima, dice a quién pueden atender. No puede ser menor que la edad mínima.
 
-## ¿Qué piden para que alguien ingrese? {#institution.admission_criteria}
+## ¿Qué piden para atender a alguien? {#institution.admission_criteria}
 
-Qué poner: las reglas para recibir a una persona. Por ejemplo: «No tener familia que la cuide y vivir en el municipio».
-Para qué sirve: Beneficiarios y la ayuda automática lo toman en cuenta, y las convocatorias suelen preguntar cómo eligen a quién atienden.
+Qué poner: las reglas para atender a una persona. Por ejemplo: «Vivir en el municipio y tener hijos en la escuela».
+Para qué sirve: la ayuda automática lo toma en cuenta, y las convocatorias suelen preguntar cómo eligen a quién atienden.
 No escriba nombres de personas: el programa los busca y le pregunta antes de guardarlos.
 
 # Contacto y ubicación {#institution.contact}
@@ -123,7 +125,7 @@ El RFC, los folios, las claves y el nombre de quien la representa no se comparte
 
 ## Nombre legal {#institution.legal_name}
 
-Qué poner: el nombre completo como aparece en el acta constitutiva, con su figura. Por ejemplo: «Asilo San José, I.A.P.».
+Qué poner: el nombre completo como aparece en el acta constitutiva, con su figura. Por ejemplo: «Fundación Ejemplo, A.C.».
 Para qué sirve: va en los recibos de donativos, en las solicitudes y en los documentos oficiales. El nombre corto se queda en «Su institución».
 
 ## Objeto social {#institution.purpose}
@@ -173,7 +175,7 @@ Para qué sirve: las convocatorias del gobierno federal suelen pedirla. Si conte
 
 ## Rubro autorizado {#institution.donee_category}
 
-Qué poner: el rubro con el que el SAT autorizó a la institución, como dice el oficio. Para un asilo o una casa hogar suele ser «Asistencial».
+Qué poner: el rubro con el que el SAT autorizó a la institución, como dice el oficio. Para una organización de asistencia social suele ser «Asistencial».
 Para qué sirve: algunas convocatorias apoyan solo ciertos rubros. Finanzas lo usa para los recibos.
 
 ## Número del oficio de autorización {#institution.donee_letter_number}
@@ -255,18 +257,19 @@ Para qué sirve: así decide usted qué cuenta se muestra a los donantes. Una cu
 
 # Capacidad y cifras rápidas {#institution.capacity}
 
-La ventana «Capacidad y cifras rápidas» dice cuántas personas caben y, mientras no registre a cada una, cuántas atienden y cuántas trabajan, más o menos.
-Cuando registra a las personas en Beneficiarios y en Personal, el programa usa esos registros y deja de usar estas cifras.
+La ventana «Capacidad y cifras rápidas» dice cuántas personas atienden y cuántas trabajan, más o menos. Si las personas viven en la institución o pasan ahí el día, también cuántas caben.
 
 ## Capacidad total (personas) {#institution.capacity_total}
 
-Qué poner: cuántas personas pueden atender a la vez como máximo. En una residencia, cuántos lugares o camas tienen para las personas que atienden.
-Para qué sirve: con ella se calcula qué tan llena está la casa y cuántos lugares quedan. Las convocatorias suelen preguntarla.
+Qué poner: cuántas personas caben a la vez como máximo: cuántos lugares o camas tienen.
+Solo se pregunta si las personas viven en la institución o pasan ahí el día.
+Para qué sirve: con ella se calcula qué tan ocupados están los lugares y cuántos quedan. Las convocatorias suelen preguntarla.
 
-## ¿Cuántas personas atienden hoy? {#institution.served_estimate}
+## ¿A cuántas personas atendieron en el último año? {#institution.served_estimate}
 
-Qué poner: cuántas personas atienden hoy, más o menos: las que viven en la casa y las que vienen de día. No tiene que ser exacto.
-Para qué sirve: mientras no registre a cada persona en Beneficiarios, el programa usa esta cifra y la marca como aproximada.
+Qué poner: si las personas viven en la institución o pasan ahí el día, la pregunta es «¿Cuántas personas atienden hoy?»: cuántas están hoy, más o menos.
+Si atienden de otra forma, por programa o por temporada, a cuántas personas atendieron en el último año. Si la cifra cambia mucho, ponga una aproximada; no tiene que ser exacta.
+Para qué sirve: los proyectos y las convocatorias preguntan a cuántas personas llega su trabajo.
 
 ## ¿Cuántas personas trabajan con sueldo? {#institution.staff_paid_estimate}
 
@@ -362,7 +365,7 @@ Aparece para las instituciones de asistencia o beneficencia privada (I.A.P., I.B
 ## Registro de Centros de Asistencia Social {#record.social_care_registry}
 
 La inscripción en el Registro Nacional de Centros de Asistencia Social.
-Aparece para las instituciones que reciben a niñas, niños o adolescentes.
+Aparece para las instituciones donde viven niñas, niños o adolescentes.
 
 ## Aviso de funcionamiento sanitario {#record.sanitary_notice}
 
@@ -372,10 +375,12 @@ Aparece cuando la institución atiende con estancia de día o con personas que v
 ## Licencia de uso de suelo {#record.land_use_license}
 
 El permiso del municipio que dice que el inmueble puede usarse para lo que hace la institución.
+Aparece cuando las personas viven en la institución, pasan ahí el día o van a consulta. Si su institución no atiende en un inmueble y tiene la licencia, puede agregarla como otro documento.
 
 ## Programa de protección civil {#record.civil_protection_program}
 
 El programa interno de protección civil del inmueble, aprobado por la autoridad.
+Aparece cuando las personas viven en la institución, pasan ahí el día o van a consulta.
 Si trae la fecha hasta la que vale, escríbala para que el programa le avise antes.
 
 ## Aviso de privacidad {#record.privacy_notice}
@@ -384,7 +389,7 @@ El texto que explica a las personas qué datos suyos se piden, para qué y cómo
 
 ## Reglamento interno {#record.internal_rules}
 
-Las reglas de la vida diaria en la institución, para las personas que atiende y para el personal.
+Las reglas de trabajo de la institución, para las personas que atiende, el personal y quienes ayudan como voluntarias.
 
 ## Organigrama {#record.org_chart}
 

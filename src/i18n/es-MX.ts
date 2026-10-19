@@ -518,6 +518,7 @@ export const es = {
     devLoad: "Cargar ejemplo (solo desarrollo)",
     devAsilo: "Asilo de ejemplo",
     devCasaHogar: "Casa hogar de ejemplo",
+    devRedComunitaria: "Red comunitaria de ejemplo",
   },
   // The staff module (ADR-027): a record per person in four steps, the catalog of positions and the modalities
   hr: {

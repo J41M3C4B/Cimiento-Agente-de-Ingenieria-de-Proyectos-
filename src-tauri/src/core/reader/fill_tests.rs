@@ -129,6 +129,10 @@ async fn a_written_field_is_not_asked_and_a_full_window_asks_nothing() {
     let (_d, db) = db(true);
     {
         let mut conn = db.lock().unwrap();
+        // a residence, so its capacity applies (ERP-2: elsewhere it is not asked nor kept)
+        let mut identity = crate::core::profile::forms::saved_values(&conn, "institution.identity").unwrap();
+        identity.insert("institution.modalities".into(), json!(["residential"]));
+        assert!(matches!(save(&mut conn, "institution.identity", identity, None).unwrap(), SaveProfileOutcome::Saved { .. }));
         let capacity: Values = serde_json::from_value(json!({
             "institution.capacity_total": 50, "institution.served_estimate": 48, "institution.staff_paid_estimate": 31,
             "institution.staff_volunteer_estimate": 18, "institution.notes": "Lista de espera de catorce personas."
