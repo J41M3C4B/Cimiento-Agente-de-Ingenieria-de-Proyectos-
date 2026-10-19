@@ -98,9 +98,10 @@ fn onboarded(conn: &Connection) -> Result<bool, ServiceError> {
 
 /// What the modules hold now: the people served and the team with a record.
 pub fn records(conn: &Connection) -> Result<Records, ServiceError> {
-    let people = crate::modules::care::api::indicators(conn, crate::core::institution::care_flavor(conn))?;
-    let staff = crate::modules::hr::api::ai_summary(conn)?;
-    Ok(Records { served: people.served, staff: staff.total })
+    // a frozen module is not read (ADR-043): its records do not count and its quick figure is asked
+    let served = if crate::core::modules::shown("people") { crate::modules::care::api::indicators(conn, crate::core::institution::care_flavor(conn))?.served } else { 0 };
+    let staff = if crate::core::modules::shown("staff") { crate::modules::hr::api::ai_summary(conn)?.total } else { 0 };
+    Ok(Records { served, staff })
 }
 
 fn setup(conn: &Connection) -> Result<Setup, ServiceError> {

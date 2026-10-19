@@ -3,18 +3,23 @@ import type { CSSProperties } from "react";
 import { Icon } from "../../components/icons";
 import { Disclosure } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
+import { useIsPlace } from "../places";
 
 const a = es.onboarding.welcome.art;
 
 /**
  * Step 1: «Mi institución» and, floating around it, the modules with their own isotipo and one line each. They come in
  * one by one, they bob a little, and a spotlight moves from one to the next so the picture is never still. With the
- * system set to reduce motion, everything shows at once and nothing moves.
+ * system set to reduce motion, everything shows at once and nothing moves. Only the modules that are places of the
+ * program are drawn: a frozen one (ADR-043) is not.
  */
 export function ModuleBubbles() {
-  const nodes = a.graph.nodes;
+  const isPlace = useIsPlace();
+  const nodes = a.graph.nodes.filter(([, , , page]) => isPlace(page));
   const [active, setActive] = useState(-1);
   useEffect(() => {
+    // nothing to light up while the map of the program loads
+    if (nodes.length === 0) return;
     if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let every: ReturnType<typeof setInterval> | undefined;
     // the spotlight starts when the last bubble has come in

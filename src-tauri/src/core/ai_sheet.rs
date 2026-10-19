@@ -921,10 +921,10 @@ pub(crate) mod tests {
             },
             capacity_total: Some(25),
             notes: Some("Perfil ficticio para pruebas.".into()),
-            // the records of the modules are there: these figures are not used
+            // the records of the modules win while the modules are shown; hidden (ADR-043), these are the figures
             served_estimate: Some(40),
             staff_paid_estimate: Some(30),
-            staff_volunteer_estimate: None,
+            staff_volunteer_estimate: Some(10),
             population: vec![
                 PopulationGroupInput { label: "Adultos mayores".into(), count: 8, age_min: Some(70), age_max: Some(95), dependency_level: Some(DependencyLevel::High), paying_count: Some(5), monthly_fee_mxn: Some(3_333), ..Default::default() },
                 PopulationGroupInput { label: "Adultos mayores".into(), count: 3, age_min: Some(66), age_max: Some(80), dependency_level: Some(DependencyLevel::High), ..Default::default() },

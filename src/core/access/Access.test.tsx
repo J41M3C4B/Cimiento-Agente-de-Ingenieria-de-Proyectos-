@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,9 +12,10 @@ vi.mock("./api", () => ({
   accessLogout: vi.fn(),
   accessChangePassword: vi.fn(),
 }));
-vi.mock("../../lib/tauri", () => ({ toAppError: (e: unknown) => ({ code: "x", message: e instanceof Error ? e.message : String(e) }) }));
+vi.mock("../../lib/tauri", () => ({ appPlaces: vi.fn(), toAppError: (e: unknown) => ({ code: "x", message: e instanceof Error ? e.message : String(e) }) }));
 
 import { Shell } from "../../components/Shell";
+import { appPlaces } from "../../lib/tauri";
 import * as api from "./api";
 import { AccessScreen } from "./AccessScreen";
 import type { AccessStatus, SessionView } from "./types";
@@ -74,21 +77,39 @@ describe("entering the app", () => {
 });
 
 describe("the menu shows what each person may use", () => {
+  // the map of the program (core/places.rs): the pages that are places; a frozen module is not (ADR-043)
+  const places = (...ids: string[]) => ids.map((id) => ({ id, label: id }));
+  beforeEach(() => vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "projects", "security", "help")));
+  const withQuery = (node: ReactNode) => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{node}</QueryClientProvider>;
   const shell = (permissions: SessionView["permissions"], page: Parameters<typeof Shell>[0]["page"] = "home", onNavigate = vi.fn()) =>
     render(
-      <Shell page={page} onNavigate={onNavigate} institution="Asilo" access={{ session: { ...session, permissions }, can: (p) => permissions.includes(p), lock: vi.fn(), logout: vi.fn() }}>
-        <p>contenido</p>
-      </Shell>,
+      withQuery(
+        <Shell page={page} onNavigate={onNavigate} institution="Asilo" access={{ session: { ...session, permissions }, can: (p) => permissions.includes(p), lock: vi.fn(), logout: vi.fn() }}>
+          <p>contenido</p>
+        </Shell>,
+      ),
     );
   const openSettings = () => userEvent.click(screen.getByRole("button", { name: "Configuración" }));
 
-  it("the bar names every section of the work, with the page in view marked", () => {
-    shell(["use"], "finance");
-    for (const name of ["Inicio", "Mi institución", "Documentos", "Mis proyectos", "Personal", "Beneficiarios", "Instalaciones", "Finanzas"]) {
+  it("the bar names the core and Proyectos; a frozen module has no tab (ADR-043)", async () => {
+    shell(["use"], "projects");
+    expect(await screen.findByRole("button", { name: "Mis proyectos" })).toHaveAttribute("aria-current", "page");
+    for (const name of ["Inicio", "Mi institución", "Documentos"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
-    expect(screen.getByRole("button", { name: "Finanzas" })).toHaveAttribute("aria-current", "page");
+    for (const name of ["Personal", "Beneficiarios", "Instalaciones", "Finanzas"]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
     expect(screen.getByRole("button", { name: "Inicio" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("a module turned back on gets its tab again", async () => {
+    vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "projects", "staff", "people", "facilities", "finance"));
+    shell(["use"], "finance");
+    expect(await screen.findByRole("button", { name: "Finanzas" })).toHaveAttribute("aria-current", "page");
+    for (const name of ["Personal", "Beneficiarios", "Instalaciones"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
   });
 
   it("the window takes the accent of the page: the institution's, or the module's own", () => {
@@ -126,10 +147,13 @@ describe("the menu shows what each person may use", () => {
 
   it("each account keeps its own avatar color, the same on every page", async () => {
     window.localStorage.clear();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const person = (page: Parameters<typeof Shell>[0]["page"]) => (
-      <Shell page={page} onNavigate={vi.fn()} institution="Asilo" access={{ session, can: () => true, lock: vi.fn(), logout: vi.fn() }}>
-        <p>contenido</p>
-      </Shell>
+      <QueryClientProvider client={client}>
+        <Shell page={page} onNavigate={vi.fn()} institution="Asilo" access={{ session, can: () => true, lock: vi.fn(), logout: vi.fn() }}>
+          <p>contenido</p>
+        </Shell>
+      </QueryClientProvider>
     );
     const { container, rerender } = render(person("home"));
     const avatar = () => container.querySelector(".topbar-person .avatar");
@@ -147,9 +171,11 @@ describe("the menu shows what each person may use", () => {
     const lock = vi.fn();
     const logout = vi.fn();
     render(
-      <Shell page="home" onNavigate={vi.fn()} institution="Asilo" access={{ session, can: () => true, lock, logout }}>
-        <p>contenido</p>
-      </Shell>,
+      withQuery(
+        <Shell page="home" onNavigate={vi.fn()} institution="Asilo" access={{ session, can: () => true, lock, logout }}>
+          <p>contenido</p>
+        </Shell>,
+      ),
     );
     await userEvent.click(screen.getByRole("button", { name: /Mi cuenta/ }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Bloquear" }));

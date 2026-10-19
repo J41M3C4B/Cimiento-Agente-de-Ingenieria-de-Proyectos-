@@ -3,12 +3,12 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../lib/tauri", () => ({ institutionOverview: vi.fn() }));
+vi.mock("../../lib/tauri", () => ({ institutionOverview: vi.fn(), appPlaces: vi.fn() }));
 vi.mock("../../modules/care/api", () => ({ careOverview: vi.fn() }));
 vi.mock("../../modules/care/CareTab", () => ({ CARE_KEY: ["care"] }));
 vi.mock("../../modules/finance/api", () => ({ FINANCE_KEY: ["finance"], financeGet: vi.fn() }));
 
-import { institutionOverview } from "../../lib/tauri";
+import { appPlaces, institutionOverview } from "../../lib/tauri";
 import { careOverview } from "../../modules/care/api";
 import { financeGet } from "../../modules/finance/api";
 import { GlobalFigures } from "./GlobalFigures";
@@ -26,28 +26,49 @@ const care = (served: number, admitted = 0, discharged = 0, latest: "admitted" |
 const finance = (balance: number | null, income = 0, expenses: number | null = null) =>
   ({ finances: { balance_annual_mxn: balance, income_annual_mxn: income, income_known: income > 0, expenses_annual_mxn: expenses } }) as unknown as Awaited<ReturnType<typeof financeGet>>;
 
-function show(onGo = vi.fn()) {
+// the map of the program (core/places.rs): the pages that are places; a frozen module is not (ADR-043)
+const places = (...ids: string[]) => ids.map((id) => ({ id, label: id }));
+
+function show(onGo = vi.fn(), onOpenFigures = vi.fn()) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const { container } = render(
     <QueryClientProvider client={qc}>
-      <GlobalFigures onGo={onGo} aside={<p>aparte</p>} />
+      <GlobalFigures onGo={onGo} onOpenFigures={onOpenFigures} aside={<p>aparte</p>} />
     </QueryClientProvider>,
   );
-  return { onGo, container };
+  return { onGo, onOpenFigures, container };
 }
 
 describe("the figures of the whole institution, at the top of Inicio", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // with Beneficiarios and Finanzas on, as they come back after the MVP
+    vi.mocked(appPlaces).mockResolvedValue(places("home", "people", "finance"));
+  });
+
+  it("with Beneficiarios and Finanzas frozen: the quick figure opens its window, with no movements nor money (ADR-043)", async () => {
+    vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "projects"));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(40, 12));
+    const { onGo, onOpenFigures } = show();
+    await waitFor(() => expect(screen.getByText("12")).toBeInTheDocument());
+    expect(screen.getByText("Vacíos").parentElement?.querySelector("b")).toHaveTextContent("28");
+    expect(screen.queryByRole("img", { name: "Entraron" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Balance del año/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Personas que atendemos/ }));
+    expect(onOpenFigures).toHaveBeenCalledTimes(1);
+    expect(onGo).not.toHaveBeenCalled();
+    expect(careOverview).not.toHaveBeenCalled();
+    expect(financeGet).not.toHaveBeenCalled();
+  });
 
   it("shows the places taken and free, the last movement, the balance of the year and what goes beside them", async () => {
     vi.mocked(institutionOverview).mockResolvedValue(overview(40, 10));
     vi.mocked(careOverview).mockResolvedValue(care(10, 3, 1, "admitted"));
     vi.mocked(financeGet).mockResolvedValue(finance(-1500, 8500, 10000));
     show();
-    await waitFor(() => expect(screen.getByText("Vacíos")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("img", { name: "Entraron" }).parentElement?.querySelector("b")).toHaveTextContent("3"));
     expect(screen.getByText("Vacíos").parentElement?.querySelector("b")).toHaveTextContent("30");
     expect(screen.getByText("25 % ocupado")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Entraron" }).parentElement?.querySelector("b")).toHaveTextContent("3");
     expect(screen.getByText("aparte")).toBeInTheDocument();
     expect(screen.getByText("−$1,500")).toBeInTheDocument();
   });

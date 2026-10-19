@@ -4,6 +4,7 @@ import { es } from "../i18n/es-MX";
 import { useTheme } from "../lib/theme";
 import { PersonMenu } from "../core/access/PersonMenu";
 import { useAssistant } from "../core/assistant/Assistant";
+import { useIsPlace } from "../core/places";
 import type { SessionApi } from "../core/access/session";
 import type { IconName } from "./icons";
 import { accentOf } from "./modules";
@@ -19,7 +20,7 @@ const CORE: [Page, string][] = [
   ["profile", es.nav.profile],
   ["documents", es.nav.documents],
 ];
-/** One tab per module of the institution (ADR-032). */
+/** One tab per module of the institution (ADR-032); a frozen module is no place and has no tab (ADR-043). */
 const MODULES: [ModuleId, string][] = [
   ["projects", es.nav.projects],
   ["staff", es.nav.staff],
@@ -69,6 +70,8 @@ export function Shell({
     </button>
   );
   const more = MORE.filter(({ needs }) => !needs || access?.can(needs));
+  const isPlace = useIsPlace();
+  const modules = MODULES.filter(([id]) => isPlace(id));
 
   return (
     <div className={`shell accent-${accentOf(page)}`}>
@@ -83,7 +86,7 @@ export function Shell({
             </div>
             <span className="topnav-sep" aria-hidden="true" />
             <div role="group" aria-label={es.nav.modulesGroup} className="topnav-group">
-              {MODULES.map(tab)}
+              {modules.map(tab)}
             </div>
           </nav>
           <div className="topbar-tools">

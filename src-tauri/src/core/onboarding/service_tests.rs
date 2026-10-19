@@ -179,8 +179,14 @@ fn the_records_of_the_modules_count_instead_of_the_quick_figures() {
         crate::modules::care::service::save_person(&mut c, crate::modules::care::domain::catalog::Flavor::ElderlyHome, None, p).unwrap();
     }
     let s = status(&c, &rosa).unwrap();
-    assert_eq!(s.records.served, 3);
     let figures = s.steps.iter().find(|x| x.key == "figures").unwrap();
+    if !crate::core::modules::shown("people") {
+        // ADR-043: a hidden module is not read; its quick figure is asked like the others
+        assert_eq!(s.records.served, 0);
+        assert!(figures.missing.contains(&"institution.served_estimate"), "{:?}", figures.missing);
+        return;
+    }
+    assert_eq!(s.records.served, 3);
     assert_eq!(figures.missing, vec!["institution.capacity_total", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"], "served comes from the records");
     assert!(!fields_of(&s, "figures").contains(&"institution.served_estimate"), "and it is not asked");
     // nor is it missing in its window

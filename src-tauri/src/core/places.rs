@@ -69,7 +69,8 @@ fn of_manual(id: &str, entry: &str) -> Option<Place> {
 
 /// Every place: the pages in the order of the manual, then the windows.
 pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
-    let pages = MANUAL.iter().filter_map(|e| e.id.strip_prefix("screen.").and_then(|page| of_manual(page, &e.id)));
+    // a frozen module is not a place: the bar, the Assistant and its buttons do not know it (ADR-043)
+    let pages = MANUAL.iter().filter_map(|e| e.id.strip_prefix("screen.").filter(|page| crate::core::modules::shown(page)).and_then(|page| of_manual(page, &e.id)));
     let windows = WINDOWS.iter().filter_map(|(id, forms)| of_manual(id, forms.first()?));
     pages.chain(windows).collect()
 });
@@ -148,10 +149,15 @@ mod tests {
     }
 
     /// Every page of the bar is a place with its screen in the manual, and every screen of the manual is a page of the
-    /// bar: a new page cannot be offered by the Assistant before it exists, nor exist without its entry.
+    /// bar: a new page cannot be offered by the Assistant before it exists, nor exist without its entry. A frozen
+    /// module (ADR-043) keeps its page and its screen, but it is no place.
     #[test]
     fn every_page_of_the_bar_has_its_screen_in_the_manual() {
         let mut bar = quoted(&screen_file("src/components/Shell.tsx"), "export type Page =");
+        for page in crate::core::modules::HIDDEN {
+            assert!(bar.iter().any(|b| b == page) && MANUAL.iter().any(|e| e.id == format!("screen.{page}")), "{page} must keep its page and its screen, to be turned back on");
+        }
+        bar.retain(|b| crate::core::modules::shown(b));
         let mut pages: Vec<String> = PLACES.iter().filter(|p| !p.is_window()).map(|p| p.id.clone()).collect();
         bar.sort();
         pages.sort();
@@ -197,7 +203,8 @@ mod tests {
     fn every_place_the_manual_names_exists() {
         for e in MANUAL.iter() {
             if let Some(at) = &e.at {
-                assert!(direct(at).is_some(), "{}: «@{at}» is not a place", e.id);
+                let hidden = at.strip_prefix("screen.").is_some_and(|page| !crate::core::modules::shown(page));
+                assert!(direct(at).is_some() || hidden, "{}: «@{at}» is not a place", e.id);
             }
         }
     }
@@ -233,7 +240,9 @@ mod tests {
         assert_eq!(choose(Some("profile"), &["institution.legal_rfc"], "home", m), Some("profile.legal"));
         // the AI chose that window, or the entry has no place: it stays
         assert_eq!(choose(Some("profile.legal"), &["institution.legal_rfc", "howto.saving"], "home", m), Some("profile.legal"));
-        assert_eq!(choose(Some("finance"), &["howto.saving"], "home", m), Some("finance"));
+        assert_eq!(choose(Some("documents"), &["howto.saving"], "home", m), Some("documents"));
+        // a frozen module is no place: no button to it (ADR-043)
+        assert_eq!(choose(Some("finance"), &["howto.saving"], "home", m), None);
         // no place from the AI: the one of the entry
         assert_eq!(choose(None, &["institution.populations"], "home", m), Some("profile.institution"));
         // a place it does not know, or one the person may not open, is no button

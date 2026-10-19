@@ -9,6 +9,7 @@ import { es } from "../../i18n/es-MX";
 import { careOverview } from "../../modules/care/api";
 import { CARE_KEY } from "../../modules/care/CareTab";
 import { FINANCE_KEY, financeGet } from "../../modules/finance/api";
+import { useIsPlace } from "../places";
 import { useOverview } from "../profile/gaps";
 
 const t = es.home.figures;
@@ -18,12 +19,18 @@ const peso = (n: number) => `${n < 0 ? "−" : ""}$${count(Math.abs(n))}`;
 /**
  * The figures that belong to the whole institution (Inicio): how full it is and how the year goes in money. They cross
  * modules, so they live here; the figures of a single module stay in its page. Each one is its own tray of a fixed size
- * and opens the module it comes from. The third cell is `aside`: what Inicio puts next to them (the card of the institution).
+ * and opens the module it comes from. The last cell is `aside`: what Inicio puts next to them (the card of the institution).
+ *
+ * A frozen module (ADR-043) is no place and is not asked: the people come from the quick figure of the core and open
+ * its window («Capacidad y cifras rápidas»), with no entries and exits; the money is not drawn.
  */
-export function GlobalFigures({ onGo, aside }: { onGo: (page: "people" | "finance") => void; aside?: ReactNode }) {
+export function GlobalFigures({ onGo, onOpenFigures, aside }: { onGo: (page: "people" | "finance") => void; onOpenFigures: () => void; aside?: ReactNode }) {
   const overview = useOverview();
-  const care = useQuery({ queryKey: CARE_KEY, queryFn: careOverview });
-  const finance = useQuery({ queryKey: FINANCE_KEY, queryFn: financeGet });
+  const isPlace = useIsPlace();
+  const withCare = isPlace("people");
+  const withFinance = isPlace("finance");
+  const care = useQuery({ queryKey: CARE_KEY, queryFn: careOverview, enabled: withCare });
+  const finance = useQuery({ queryKey: FINANCE_KEY, queryFn: financeGet, enabled: withFinance });
 
   // who is served, how full the house is and what is left, as Rust composes it (ADR-033); while nobody is registered
   // the quick figure of the first start stands in, and says so («≈»)
@@ -53,8 +60,8 @@ export function GlobalFigures({ onGo, aside }: { onGo: (page: "people" | "financ
   }[hover ?? "left"];
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <FigureCard icon={MODULE_META.people.icon} title={t.people} onOpen={() => onGo("people")}>
+    <div className={`grid gap-4 ${withFinance ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+      <FigureCard icon={MODULE_META.people.icon} title={t.people} onOpen={withCare ? () => onGo("people") : onOpenFigures}>
         <div className="fig-row">
           <div className="fig-main">
             <div className="tabular whitespace-nowrap text-display font-normal tracking-tight">{approx ? `≈ ${count(served)}` : count(served)}</div>
@@ -66,12 +73,14 @@ export function GlobalFigures({ onGo, aside }: { onGo: (page: "people" | "financ
                   <span>{t.emptyPlaces}</span>
                 </span>
               )}
-              <span className="fig-col" title={`${lastLeft ? t.leftLabel : t.enteredLabel} · ${t.thisYear.toLowerCase()}`}>
-                <span role="img" aria-label={lastLeft ? t.leftLabel : t.enteredLabel} className={lastLeft ? "text-red" : "text-green"}>
-                  <Icon name={lastLeft ? "down" : "up"} size={18} strokeWidth={2.8} />
+              {withCare && (
+                <span className="fig-col" title={`${lastLeft ? t.leftLabel : t.enteredLabel} · ${t.thisYear.toLowerCase()}`}>
+                  <span role="img" aria-label={lastLeft ? t.leftLabel : t.enteredLabel} className={lastLeft ? "text-red" : "text-green"}>
+                    <Icon name={lastLeft ? "down" : "up"} size={18} strokeWidth={2.8} />
+                  </span>
+                  <b className="tabular">{count(movedN)}</b>
                 </span>
-                <b className="tabular">{count(movedN)}</b>
-              </span>
+              )}
             </div>
           </div>
           {capacity !== null && capacity > 0 && (
@@ -85,6 +94,7 @@ export function GlobalFigures({ onGo, aside }: { onGo: (page: "people" | "financ
         </div>
       </FigureCard>
 
+      {withFinance && (
       <FigureCard icon={MODULE_META.finance.icon} title={t.balance} onOpen={() => onGo("finance")}>
         <div className="fig-values">
           <div className="fig-value" onMouseEnter={() => setHover("income")} onMouseLeave={() => setHover(null)}>
@@ -128,6 +138,7 @@ export function GlobalFigures({ onGo, aside }: { onGo: (page: "people" | "financ
           </Gauge>
         </div>
       </FigureCard>
+      )}
 
       {aside}
     </div>

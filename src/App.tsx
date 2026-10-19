@@ -62,7 +62,7 @@ export default function App() {
       <div hidden={page !== "projects"}>
         <ProjectsPage openId={openId} onOpen={setOpenId} creating={creating} onCreating={setCreating} />
       </div>
-      {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGo={navigate} onGoAi={() => setPage("ai")} />}
+      {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGoPlace={goTo} onGo={navigate} onGoAi={() => setPage("ai")} />}
       {page === "profile" && <ProfilePage onGo={navigate} openWindow={profileWindow} onWindowOpened={() => setProfileWindow(null)} />}
       {page === "staff" && <StaffPage />}
       {page === "people" && <CarePage />}

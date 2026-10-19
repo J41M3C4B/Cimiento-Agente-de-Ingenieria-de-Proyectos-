@@ -518,16 +518,15 @@ mod tests {
             },
             // a doubt about the institution: the part of the sheet that matters
             Case {
-                ask: question("finance", None, "¿Nos alcanza el dinero este año?"),
-                steps: vec![tool("sheet_section", json!({ "section": "money" })), answer("Sí, sus ingresos alcanzan a cubrir los egresos.", Some("finance"), &[])],
+                ask: question("home", None, "¿Nos alcanza el dinero este año?"),
+                steps: vec![tool("sheet_section", json!({ "section": "money" })), answer("Sí, sus ingresos alcanzan a cubrir los egresos.", None, &[])],
                 seen: "Balance del año",
-                // the person is already in Finanzas: a button there would lead nowhere
                 go_to: None,
                 sources: &[],
             },
             // «¿dónde está…?»: the screen entry and a place to go
             Case {
-                ask: question("people", None, "¿Dónde registro al patronato?"),
+                ask: question("documents", None, "¿Dónde registro al patronato?"),
                 steps: vec![tool("manual_entry", json!({ "id": "institution.board_member" })), answer("En Mi institución, apartado «Patronato y cuentas».", Some("profile.board"), &["institution.board_member"])],
                 seen: "Patronato u órgano de gobierno",
                 go_to: Some("profile.board"),
@@ -628,10 +627,10 @@ mod tests {
     /// found by the code from the words of the person, never pushed on every next question (C4).
     #[test]
     fn the_context_says_where_the_person_is_and_what_was_said() {
-        let mut a = question("staff", None, "¿Y eso?");
+        let mut a = question("documents", None, "¿Y eso?");
         a.history = (0..10).map(|i| Turn { from: if i % 2 == 0 { "person".into() } else { "assistant".into() }, text: format!("turno {i}"), documents: vec![] }).collect();
         let c = context(&a, &[]);
-        assert!(c[0].contains("«Personal»") && c[0].contains("`screen.staff`"), "{c:?}");
+        assert!(c[0].contains("«Documentos»") && c[0].contains("`screen.documents`"), "{c:?}");
         assert!(c[1].contains("turno 9") && c[1].contains("turno 4") && !c[1].contains("turno 3"), "{c:?}");
         assert!(context(&question("nowhere", None, "x"), &[])[0].contains("(otra)"));
         assert!(context(&question("security", None, "x"), &[])[0].contains("«Seguridad»"), "every page of the map, with its name");
@@ -730,8 +729,8 @@ mod tests {
         assert!(matches!(out, AssistantOutcome::Manual { reason: "offline", .. }), "{out:?}");
 
         // a question with a CURP is held; covered, it goes on without it
-        let held = question("people", None, "¿Dónde pongo la CURP LOPM800101MDFRZN09?");
-        let p = MockProvider::new(vec![answer("En la ficha de la persona.", Some("people"), &[])]);
+        let held = question("home", None, "¿Dónde pongo la CURP LOPM800101MDFRZN09?");
+        let p = MockProvider::new(vec![answer("En la ficha de la persona.", None, &[])]);
         assert!(matches!(ask(&db, Some(&p), None, Some(Role::Manager), held.clone(), None).await.unwrap(), AssistantOutcome::Quarantine { .. }));
         assert!(p.requests().is_empty(), "nothing went to the AI");
         let out = ask(&db, Some(&p), None, Some(Role::Manager), held, Some(Decision::Redact)).await.unwrap();
@@ -823,7 +822,7 @@ mod tests {
         let questions = [
             question("profile", Some("institution.junta_folio"), "¿Qué pongo aquí?"),
             question("home", None, "¿Qué me falta por llenar?"),
-            question("finance", None, "¿Nos alcanza el dinero este año?"),
+            question("home", None, "¿Nos alcanza el dinero este año?"),
             question("documents", None, "¿Quién puede firmar convenios con fundaciones y hasta cuándo?"),
         ];
         crate::core::archive::search::tests::load_record(&db.lock().unwrap());

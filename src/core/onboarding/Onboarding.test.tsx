@@ -10,7 +10,12 @@ vi.mock("./api", async (orig) => ({
   onboardingFinish: vi.fn(),
   onboardingWelcomeDone: vi.fn(),
 }));
-vi.mock("../../lib/tauri", () => ({ toAppError: (e: unknown) => ({ code: "x", message: String(e) }), devLoadFixture: vi.fn() }));
+// the map of the program (core/places.rs): the core and Proyectos; the frozen modules are not places (ADR-043)
+vi.mock("../../lib/tauri", () => ({
+  toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
+  devLoadFixture: vi.fn(),
+  appPlaces: vi.fn(async () => ["home", "profile", "documents", "projects"].map((id) => ({ id, label: id }))),
+}));
 vi.mock("../access/session", () => ({ useSession: () => ({ can: () => false }) }));
 
 import * as api from "./api";
@@ -70,6 +75,10 @@ describe("the first start", () => {
     gate();
     expect(await screen.findByRole("heading", { name: "Le damos la bienvenida a SociAI" })).toBeInTheDocument();
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
+    // the drawing of the modules shows only what is a place: Proyectos and Documentos, never a frozen one
+    expect(await screen.findByText("Proyectos")).toBeInTheDocument();
+    expect(screen.getByText("Documentos")).toBeInTheDocument();
+    for (const frozen of ["Personal", "Beneficiarios", "Finanzas", "Donantes"]) expect(screen.queryByText(frozen)).not.toBeInTheDocument();
   });
 
   it("the direction cannot skip the data and is told what is missing, in the words of each field", async () => {

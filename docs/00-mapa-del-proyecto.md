@@ -8,6 +8,14 @@ actualizado: 2026-10-18
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
 > [!info] Hoy (2026-10-18, noche)
+> **Primer bloque del tablero: [[ERP-1 Ocultar los módulos congelados|ERP-1]], en «Revisión».**
+> - La app solo muestra el núcleo y Proyectos.
+> - Un solo interruptor en Rust (`core/modules.rs`) decide qué módulos están ocultos; la barra, el Asistente, las cifras, Mi institución, Inicio y la bienvenida salen de él.
+> - Ningún dato se borra. Volver a encender un módulo es quitarlo de la lista.
+> - Falta que lo pruebes (pasos en la tarjeta). Salieron dos pendientes: [[IA-3 La ficha de la IA sin los módulos congelados|IA-3]] y una nota en ERP-2.
+>
+> **Antes, el mismo día:** el tablero, los roles, las ramas, los ADR antiguos archivados y `main` al día.
+>
 > **SociAI cambia de enfoque: es un ERP con la IA en el núcleo** ([ADR-043](adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md)).
 > - Ya no es «un agente de proyectos»: es un ERP para organizaciones de la sociedad civil donde la IA quita la fricción de un ERP de siempre.
 > - **El MVP es el núcleo y los proyectos.** Personal, Beneficiarios, Instalaciones, Finanzas y Donantes quedan **congelados y ocultos** hasta validarlo con tus dos instituciones; su código se queda.

@@ -48,6 +48,9 @@
     }
   },
   "capacity_total": 25,
+  "served_estimate": 18,
+  "staff_paid_estimate": 9,
+  "staff_volunteer_estimate": 6,
   "annual_budget_mxn": 1800000,
   "notes": "Perfil ficticio para desarrollo y pruebas.",
   "income": [

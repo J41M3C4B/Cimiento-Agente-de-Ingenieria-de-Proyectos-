@@ -23,7 +23,7 @@ import { FACILITIES_KEY } from "../../modules/facilities/FacilitiesTab";
 import { CARE_KEY } from "../../modules/care/CareTab";
 import { HR_KEY } from "../../modules/hr/StaffTab";
 import { useSession } from "../access/session";
-import { usePlaceName } from "../places";
+import { useIsPlace, usePlaceName } from "../places";
 import { recordKey, useRecordReadings } from "./recordReading";
 import type { Reading } from "./recordReading";
 
@@ -117,6 +117,7 @@ export function ProfilePage({
   // what each module has and what is missing, composed in Rust (ADR-033): this page only draws it
   const overview = useOverview();
   const placeName = usePlaceName();
+  const isPlace = useIsPlace();
 
   const [edit, setEdit] = useState<Edit | null>(null);
   // the board and the accounts of the institution (ADR-033 §3): never to the AI
@@ -223,21 +224,23 @@ export function ProfilePage({
   const edition = (e: Edit) => <TextButton onClick={() => open(e)}>{t.edit}</TextButton>;
 
   // a tile for each module: what it has, and the way into it. Rust says whether a figure is the quick one of the
-  // first start (while the module has no records), and it is marked «≈»
+  // first start (while the module has no records), and it is marked «≈». A frozen module (ADR-043) is no place: the
+  // people and the staff then show the quick figures of the core and open their window; the others are not drawn
   const people = o?.people ?? { value: 0, approx: false };
   const staff = o?.staff ?? { value: 0, approx: false };
   const spaces = o?.spaces ?? 0;
   const balance = o?.balance_annual_mxn ?? null;
   const shown = (f: { value: number; approx: boolean }) => (f.approx ? `≈ ${count(f.value)}` : count(f.value));
-  const modules: { page: Exclude<ModuleId, "projects">; title: string; figure: string; label: string; approx?: boolean }[] = [
+  const tiles: { page: Exclude<ModuleId, "projects">; title: string; figure: string; label: string; approx?: boolean; core?: string }[] = [
     {
       page: "people",
       title: es.nav.people,
       figure: shown(people),
       label: o?.capacity ? t.kpi.peopleOf(count(o.capacity)) : t.modules.unit.people(people.value),
       approx: people.approx,
+      core: t.modules.core.people,
     },
-    { page: "staff", title: es.nav.staff, figure: shown(staff), label: t.modules.unit.staff(staff.value), approx: staff.approx },
+    { page: "staff", title: es.nav.staff, figure: shown(staff), label: t.modules.unit.staff(staff.value), approx: staff.approx, core: t.modules.core.staff },
     { page: "facilities", title: es.nav.facilities, figure: count(spaces), label: t.modules.unit.facilities(spaces) },
     {
       page: "finance",
@@ -246,6 +249,10 @@ export function ProfilePage({
       label: balance === null ? t.modules.financeUnknown : t.modules.unit.finance,
     },
   ];
+
+  const modules = tiles.flatMap((m) =>
+    isPlace(m.page) ? [{ ...m, onOpen: () => onGo(m.page) }] : m.core ? [{ ...m, title: m.core, onOpen: () => open({ kind: "capacity" }) }] : [],
+  );
 
   const [showTodo, setShowTodo] = useState(false);
 
@@ -291,7 +298,7 @@ export function ProfilePage({
           <ul className="grid min-w-0 grid-cols-2 gap-3 max-[520px]:grid-cols-1">
             {modules.map((m) => (
               <li key={m.page}>
-                <ModuleCard module={m.page} title={m.title} figure={m.figure} label={m.label} approx={m.approx ? t.kpi.approx : undefined} note={m.approx ? t.kpi.approxNote : undefined} onOpen={() => onGo(m.page)} />
+                <ModuleCard module={m.page} title={m.title} figure={m.figure} label={m.label} approx={m.approx ? t.kpi.approx : undefined} note={m.approx ? t.kpi.approxNote : undefined} onOpen={m.onOpen} />
               </li>
             ))}
           </ul>

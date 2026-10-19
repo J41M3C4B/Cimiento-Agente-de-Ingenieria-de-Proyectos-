@@ -21,6 +21,7 @@ vi.mock("./FormWindow", () => ({
   ),
 }));
 
+import { institutionOverview, profileGet } from "../../lib/tauri";
 import { ProfilePage } from "./ProfilePage";
 import type { Where } from "./gaps";
 
@@ -61,5 +62,33 @@ describe("ProfilePage", () => {
     fireEvent.click(screen.getByText("Inicio"));
     fireEvent.click(screen.getByText("Mi institución"));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("the tiles of «Mi institución»", () => {
+  it("with Personal and Beneficiarios frozen, two tiles show the quick figures and open their window; the others are not drawn (ADR-043)", async () => {
+    vi.mocked(profileGet).mockResolvedValue({ input: { institution: { name: "Asilo Ficticio" }, capacity_total: 25, served_estimate: 18, staff_paid_estimate: 9, staff_volunteer_estimate: 6 }, issues: [] } as unknown as Awaited<ReturnType<typeof profileGet>>);
+    vi.mocked(institutionOverview).mockResolvedValue({
+      people: { value: 18, approx: false },
+      staff: { value: 15, approx: false },
+      capacity: 25,
+      spaces: 0,
+      balance_annual_mxn: null,
+      completion: { gaps: [], percent: 100 },
+      suggestions: [],
+    } as unknown as Awaited<ReturnType<typeof institutionOverview>>);
+    const onGo = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ProfilePage onGo={onGo} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Personas que atienden/ }));
+    expect(screen.getByRole("dialog", { name: "Capacidad y cifras rápidas" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Cerrar ventana"));
+    expect(screen.getByRole("button", { name: /Personal/ })).toHaveTextContent("15");
+    expect(screen.queryByRole("button", { name: /Instalaciones/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Finanzas/ })).toBeNull();
+    expect(onGo).not.toHaveBeenCalled();
   });
 });
