@@ -8,11 +8,19 @@ actualizado: 2026-10-19
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
 > [!info] Hoy (2026-10-19)
-> **[[ERP-1 Ocultar los módulos congelados|ERP-1]] está hecho (MVP-1).** Lo probaste y se fusionó a `main` en el PR #7.
+> **[[ERP-2 El núcleo genérico|ERP-2]] está en «Revisión» (MVP-3): el núcleo sirve a cualquier organización civil.** Con tus decisiones de la revisión:
+> - «A quién», «cómo» y «en qué» tienen opciones para organizaciones que no son residencia: población en general, otras organizaciones, a distancia, con apoyos, medio ambiente, cultura, derechos humanos, desarrollo comunitario y empleo.
+> - La capacidad solo se pide donde las personas viven o pasan el día. La cifra de personas es «hoy» ahí y «en el último año» en las demás.
+> - El Expediente pide el registro de centros solo donde viven menores, y el uso de suelo y protección civil solo con un inmueble donde se atiende.
+> - Pantallas y manual sin asilo, casa hogar ni abuelitos. La bienvenida ya no promete fichas.
+> - Un tercer ejemplo ficticio: «Red Comunitaria Ejemplo, A.C.».
+> - Lo que le toca a la IA (la ficha, los oficios y las baterías) quedó en [[IA-7 La IA ante el núcleo genérico|IA-7]].
+> - **Espera:** que lo pruebes (pasos en la tarjeta) y el PR.
+>
+> **Antes, el mismo día: [[ERP-1 Ocultar los módulos congelados|ERP-1]] está hecho (MVP-1).** Lo probaste y se fusionó a `main` en el PR #7.
 > - La app solo muestra el núcleo y Proyectos, con un solo interruptor (`core/modules.rs`).
 > - El Asistente sabe qué partes todavía no existen: a «¿Dónde registro los ingresos?» contesta que llegará después, sin ningún botón. Corrida real de su batería: **40 de 40**, nada inventado, $1.40 MXN.
 > - Tu nota sobre «puede revisar en sus instalaciones» quedó en [[IA-4 El Asistente decide y habla natural|IA-4]].
-> - **Siguiente en el carril `erp`:** la revisión de [[ERP-2 El núcleo genérico|ERP-2]], para escribir su «Terminado cuando».
 >
 > **Antes (2026-10-18, noche): primer bloque del tablero, [[ERP-1 Ocultar los módulos congelados|ERP-1]], en «Revisión».**
 > - La app solo muestra el núcleo y Proyectos.

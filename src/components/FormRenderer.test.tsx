@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../lib/tauri", () => ({ manualEntry: vi.fn() }));
 
 import { manualEntry } from "../lib/tauri";
-import type { FieldSpec, FormSpec, FormValues } from "../lib/types";
+import type { Condition, FieldSpec, FormSpec, FormValues } from "../lib/types";
 import { applies, FormRenderer } from "./FormRenderer";
 
 const field = (id: string, more: Partial<FieldSpec>): FieldSpec => ({
@@ -114,7 +114,7 @@ describe("FormRenderer", () => {
   });
 
   it("a field of another window decides what applies here and which words a field takes (ERP-2)", () => {
-    const lodges = { when: "any_of", field: "institution.modalities", values: ["residential", "day_care"] } as const;
+    const lodges: Condition = { when: "any_of", field: "institution.modalities", values: ["residential", "day_care"] };
     const capacity: FormSpec = {
       id: "institution.capacity",
       sections: [

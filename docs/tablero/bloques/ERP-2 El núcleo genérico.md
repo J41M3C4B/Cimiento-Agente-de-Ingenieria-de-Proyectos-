@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-2
 carril: erp
-estado: en-curso
+estado: revision
 prioridad: media
 fase: MVP-3
 rama: erp/erp-2-nucleo-generico
@@ -122,5 +122,30 @@ Agregar opciones no borra ni cambia nada de lo guardado; no hace falta migració
 **Lo que se guardó:** agregar opciones no toca nada. La capacidad que ya guardó una institución sin residencia ni estancia de día se queda en la base, sin mostrarse ni contar. Se borra solo si la persona vuelve a guardar esa ventana, como cualquier dato que deja de aplicar.
 
 ## Cómo probarlo
+
+(CTO del ERP, 2026-10-19.) Con `pnpm tauri dev`. Para empezar desde cero sin tocar tus datos: `$env:CIMIENTO_DATA_DIR="D:\Agente Proyectos\cimiento-vacio"; pnpm tauri dev`.
+
+**Una A.C. que no es residencia, desde el primer inicio:**
+- [ ] En «A quién atienden» marca **Población en general** y, en «Cómo», **En la comunidad** y **Con apoyos: dinero, especie o becas**. Ves las opciones nuevas en los dos.
+- [ ] En el paso «Cuántas personas son» **no** se pide la capacidad, y la pregunta es «¿A cuántas personas atendieron en el último año?».
+- [ ] Con el último dato, el primer inicio se cierra solo. Inicio muestra la cifra de personas, sin «% ocupado» ni lugares.
+- [ ] En «Mi institución» › «Su institución» **no** aparecen el sexo ni las edades. La última sección dice «¿Qué piden para atender a alguien?».
+- [ ] En «Capacidad y cifras rápidas» no está la capacidad.
+- [ ] El Expediente no pide el registro ante la Junta, el de centros de asistencia social, el aviso sanitario, la licencia de uso de suelo ni el programa de protección civil.
+
+**El mismo caso con el ejemplo:** en la puesta en marcha (o abajo en «Mi institución»), «Red comunitaria de ejemplo». Debe quedar al 100 % sin nada de residencia.
+
+**Una residencia sigue igual:** «Asilo de ejemplo».
+- [ ] Inicio y «Mi institución» dicen «18 de 25 lugares».
+- [ ] «Capacidad y cifras rápidas» pide la capacidad y «¿Cuántas personas atienden hoy?».
+- [ ] El Expediente pide la Junta, el aviso sanitario, el uso de suelo y protección civil, como antes.
+- [ ] Si en «Su institución» cambias «Viven en la institución» por «En la comunidad», la capacidad deja de verse y de contar. Si lo regresas, vuelve con su cifra.
+
+**Los textos:**
+- [ ] La ayuda del nombre legal dice «Fundación Ejemplo, A.C.». El ejemplo de «Sobre nosotros» ya no es una casa hogar.
+- [ ] La bienvenida dice «Cuidamos los datos de las personas», sin prometer fichas.
+- [ ] En el manual («?» de cada campo), «A quién atienden» explica las dos opciones nuevas, sin «abuelitos».
+
+Lo probé así en la app real, con una base aparte: la A.C. desde el primer inicio y el asilo de ejemplo.
 
 ## Resultado

@@ -153,7 +153,7 @@ export const callReadingRetry = (id: string) => invoke<boolean>("call_reading_re
 export const callReadingConfirm = (id: string) => invoke<boolean>("call_reading_confirm", { id });
 /** Writes the «en pocas palabras» of a read call, once. */
 export const callBriefMake = (id: string) => invoke<ReadingDetail>("call_brief_make", { id });
-export const devLoadFixture = (name: "asilo" | "casa-hogar") =>
+export const devLoadFixture = (name: "asilo" | "casa-hogar" | "red-comunitaria") =>
   invoke<ProfileView>("dev_load_fixture", { name });
 
 // AI settings (the key goes to the Windows keychain and never comes back to the screen)
