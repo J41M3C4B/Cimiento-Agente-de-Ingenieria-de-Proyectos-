@@ -245,6 +245,26 @@ async fn each_datum_goes_to_its_window_and_the_same_is_not_suggested() {
     }
 }
 
+/// «alcaldía Benito Juárez» is a place, not a person: it reaches the Capturist without the scanner's question, and the
+/// alcaldía saved the same is said to be there.
+#[tokio::test]
+async fn an_alcaldia_named_after_a_person_is_told_without_the_scanners_question() {
+    let (_d, db) = db();
+    {
+        let mut c = db.lock().unwrap();
+        let contact: Values = serde_json::from_value(json!({ "institution.state": "cdmx", "institution.municipality": "Benito Juárez" })).unwrap();
+        assert!(matches!(save(&mut c, "institution.contact", contact, None).unwrap(), SaveProfileOutcome::Saved { .. }));
+    }
+    let said = "Estamos ubicados en la alcaldia Benito Juarez";
+    let answer = json!({ "proposals": [{ "field": "institution.municipality", "value": "Benito Juarez", "quote": "la alcaldia Benito Juarez" }] });
+    let p = MockProvider::new(vec![reply(answer)]);
+    let out = capture(&db, Some(&p), told("institution.contact", said), None).await.unwrap();
+    let CaptureOutcome::Proposed { fields, same, .. } = out else { panic!("the scanner asked: {out:?}") };
+    assert!(p.requests()[0].user.contains("Benito Juarez"), "{}", p.requests()[0].user);
+    assert!(fields.is_empty());
+    assert_eq!(same, vec![title("institution.municipality")]);
+}
+
 #[test]
 fn the_same_is_read_as_a_person_reads_it() {
     let f = |id: &str| crate::core::institution::forms::field(id).unwrap();

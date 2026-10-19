@@ -45,6 +45,7 @@ Todos los patrones se aplican sobre el texto normalizado a mayúsculas y sin ace
 - Coincidencia: secuencia de 2 a 4 palabras capitalizadas donde al menos una es nombre de pila y otra es apellido de la lista.
 - Disparadores de contexto que suben la confianza: "la niña", "el señor", "la señora", "residente", "doña", "don", "paciente", "su mamá".
 - Lista de exclusión: nombres de la institución, santos y advocaciones en nombres de lugares ("Casa Hogar San José", "Asilo Santa María"), nombres de fundaciones y de sus representantes cuando son públicos.
+- Lo que sigue a una palabra de lugar no es una persona: «calle», «colonia», «municipio», «alcaldía», «delegación», «demarcación»… Las alcaldías de la Ciudad de México llevan nombre de persona («alcaldía Benito Juárez»), y «el señor Benito Juárez Pérez» sigue siendo una persona.
 
 Versión 2 (Fase 8, opcional): modelo NER local pequeño en español.
 

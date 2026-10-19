@@ -193,6 +193,7 @@ En una ventana de Mi institución, «Llenarlo por mí» abre el Asistente en mod
 - [x] **En la plática normal**, sin «Llenarlo por mí»: escribe «Nos representa la directora, ‹un nombre inventado›». El Asistente nunca dice «dejé sugerencias»: la frase con el botón «Llenarlo por mí» la escribe el programa.
 - [ ] **Desde la plática, con un dato ya guardado:** escribe «Estamos ubicados en la alcaldía ‹la que ya guardaste›» y pulsa «Llenarlo por mí». Dice «Ya estaba guardado igual: …» y **no** se queda en «Llenando «…»»: tu siguiente pregunta la contesta el Asistente. El modo de llenado empieza desde la plática solo cuando deja sugerencias en esa ventana.
 - [ ] **Tu frase una sola vez:** si al pulsar «Llenarlo por mí» pregunta por datos personales (un nombre como «Benito Juárez» lo parece) y contestas, tu frase no vuelve a aparecer en el chat.
+- [ ] **Una alcaldía no es una persona:** «Estamos ubicados en la alcaldía Benito Juárez» ya no pregunta por datos personales; con «Llenarlo por mí» deja la alcaldía o dice «Ya estaba guardado igual».
 
 ## 9. Ayuda automática, Seguridad y Ayuda
 
