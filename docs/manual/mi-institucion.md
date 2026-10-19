@@ -24,10 +24,9 @@ No escriba nombres de personas ni datos de contacto: el programa los busca y le 
 
 ## ¿A quién atienden? {#institution.populations}
 
-Qué poner: marque a quiénes atienden según su edad: niñas y niños, adolescentes, jóvenes, personas adultas o personas mayores. Si atienden a varias, márquelas todas.
-Si su trabajo no es con un grupo de edad, por ejemplo una organización de medio ambiente, de cultura o de derechos humanos, marque «Población en general». Si apoyan a otras organizaciones, por ejemplo con donativos o asesoría, marque «Otras organizaciones». Con esas dos no se preguntan el sexo ni las edades.
-Para qué sirve: decide qué le pide cada sección y qué documentos le pide el Expediente.
-También dice a qué convocatorias le conviene entrar, porque muchas apoyan solo a una población.
+Qué poner: marque a quiénes atienden según su edad. Si atienden a varias, márquelas todas.
+Si no trabajan con un grupo de edad (medio ambiente, cultura, derechos humanos), marque «Población en general»; si apoyan a otras organizaciones, «Otras organizaciones». Con esas dos no se preguntan el sexo ni las edades.
+Para qué sirve: decide qué le pide cada sección y el Expediente, y a qué convocatorias le conviene entrar: muchas apoyan solo a una población.
 
 ## ¿Atienden a mujeres, a hombres o a ambos? {#institution.sex_served}
 
@@ -257,7 +256,7 @@ Para qué sirve: así decide usted qué cuenta se muestra a los donantes. Una cu
 
 # Capacidad y cifras rápidas {#institution.capacity}
 
-La ventana «Capacidad y cifras rápidas» dice cuántas personas atienden y cuántas trabajan, más o menos. Si las personas viven en la institución o pasan ahí el día, también cuántas caben.
+La ventana «Capacidad y cifras rápidas» dice cuántas personas atienden y cuántas trabajan, más o menos. Si las personas viven en la institución o pasan ahí el día, también cuántas caben y cuántas hay hoy; si atienden de otra forma, a cuántas atendieron en el último año.
 
 ## Capacidad total (personas) {#institution.capacity_total}
 
@@ -265,10 +264,16 @@ Qué poner: cuántas personas caben a la vez como máximo: cuántos lugares o ca
 Solo se pregunta si las personas viven en la institución o pasan ahí el día.
 Para qué sirve: con ella se calcula qué tan ocupados están los lugares y cuántos quedan. Las convocatorias suelen preguntarla.
 
-## ¿A cuántas personas atendieron en el último año? {#institution.served_estimate}
+## ¿Cuántas personas atienden hoy? {#institution.served_estimate}
 
-Qué poner: si las personas viven en la institución o pasan ahí el día, la pregunta es «¿Cuántas personas atienden hoy?»: cuántas están hoy, más o menos.
-Si atienden de otra forma, por programa o por temporada, a cuántas personas atendieron en el último año. Si la cifra cambia mucho, ponga una aproximada; no tiene que ser exacta.
+Qué poner: cuántas personas viven en la institución o pasan ahí el día, hoy, más o menos. No tiene que ser exacto.
+Solo se pregunta si las personas viven en la institución o pasan ahí el día.
+Para qué sirve: con la capacidad dice qué tan ocupados están los lugares, y los proyectos y las convocatorias la preguntan.
+
+## ¿A cuántas personas atendieron en el último año? {#institution.served_last_year}
+
+Qué poner: a cuántas personas llegaron en el último año con sus programas, talleres, consultas o apoyos. Si la cifra cambia mucho por temporada, ponga una aproximada; no tiene que ser exacta.
+Se pregunta si atienden en la comunidad, en consulta, en su domicilio, a distancia o con apoyos. Si además las personas viven en la institución, se preguntan las dos cifras: cada una dice algo distinto.
 Para qué sirve: los proyectos y las convocatorias preguntan a cuántas personas llega su trabajo.
 
 ## ¿Cuántas personas trabajan con sueldo? {#institution.staff_paid_estimate}

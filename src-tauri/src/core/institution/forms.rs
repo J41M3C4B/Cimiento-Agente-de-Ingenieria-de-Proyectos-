@@ -2,7 +2,7 @@
 //! screen draws them; the words live in `src/i18n/es-MX.ts` under `forms.fields` with the same id.
 
 use super::catalog::{
-    AGE_GROUPS, BANK_PURPOSES, BOARD_ROLES, CARE_AREAS, DONEE_CATEGORIES, LEGAL_FORMS, LODGING, MAX_ESTIMATE, MODALITIES, OLDEST_YEAR, POPULATIONS, RECORD_STATUSES,
+    AGE_GROUPS, BANK_PURPOSES, BOARD_ROLES, BY_PROGRAM, CARE_AREAS, DONEE_CATEGORIES, LEGAL_FORMS, LODGING, MAX_ESTIMATE, MODALITIES, OLDEST_YEAR, POPULATIONS, RECORD_STATUSES,
     REGISTRY, SEXES_SERVED, STATE_CODES, TAX_REGIMES, UNDER_A_JUNTA,
 };
 use crate::common::forms::{AiUse, Condition, FieldKind, FieldSpec, FormSpec, Rule, SectionSpec, Sensitivity};
@@ -30,6 +30,9 @@ const BY_AGE: Condition = Condition::AnyOf { field: "institution.populations", v
 /// What shows where people live or spend the day (`LODGING`): the places, and how many people are there today. It
 /// looks at «Su institución» from «Capacidad y cifras».
 const LODGES: Condition = Condition::AnyOf { field: "institution.modalities", values: LODGING };
+/// What shows where people come and go (`BY_PROGRAM`): how many it served in the last year. A residence with
+/// community programs is asked both.
+const COMES_AND_GOES: Condition = Condition::AnyOf { field: "institution.modalities", values: BY_PROGRAM };
 
 /// «Su institución»: who it is and whom and how it serves. The kind the modules go by comes out of the populations.
 pub const IDENTITY: FormSpec = FormSpec {
@@ -171,12 +174,13 @@ pub const CAPACITY: FormSpec = FormSpec {
                     .essential()
                     .when(LODGES)
                     .used_by(&["care", "facilities", "projects", "ai"]),
-                // where people stay, how many are there today; elsewhere, how many it served in the last year
-                internal(FieldSpec::new("institution.served_estimate", FieldKind::Number))
+                // two counts, so a number never changes its meaning when the ways it serves change (ERP-2)
+                internal(FieldSpec::new("institution.served_estimate", FieldKind::Number)).range(0, MAX_ESTIMATE).essential().when(LODGES).used_by(&["care", "projects", "ai"]),
+                internal(FieldSpec::new("institution.served_last_year", FieldKind::Number))
                     .range(0, MAX_ESTIMATE)
                     .essential()
-                    .worded(LODGES, "today")
-                    .used_by(&["care", "projects", "ai"]),
+                    .when(COMES_AND_GOES)
+                    .used_by(&["projects", "ai"]),
             ],
         },
         SectionSpec {

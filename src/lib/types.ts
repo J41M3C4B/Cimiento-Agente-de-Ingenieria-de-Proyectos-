@@ -47,8 +47,6 @@ export interface FieldSpec {
   used_by: string[];
   min: number | null;
   max: number | null;
-  /** other words while a condition holds: `variants[words]` of its entry in `es.forms.fields` */
-  wording: { when: Condition; words: string } | null;
 }
 export interface SectionSpec {
   id: string;
@@ -70,6 +68,8 @@ export interface Figure {
   approx: boolean;
 }
 export interface InstitutionOverview {
+  /** what `people` counts: today where people stay, the last year where they come and go (ERP-2) */
+  people_period: "today" | "last_year";
   people: Figure;
   capacity: number | null;
   occupied_percent: number | null;

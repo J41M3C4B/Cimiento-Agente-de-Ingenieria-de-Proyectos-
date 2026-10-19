@@ -254,6 +254,8 @@ export const es = {
       newOther: "Otro documento",
       file: "Archivo",
       noFile: "Sin archivo. Puede marcarlo aunque no lo suba.",
+      // in the list: a document the institution has on paper, not uploaded (ADR-033 §5)
+      withoutFile: "Sin archivo",
       attach: "Subir archivo",
       replace: "Cambiar archivo",
       detach: "Quitar archivo",
@@ -345,6 +347,7 @@ export const es = {
     kpi: {
       people: "Personas que atendemos",
       peopleOf: (n: string) => `de ${n} lugares`,
+      peopleLastYear: (n: number) => (n === 1 ? "persona en el último año" : "personas en el último año"),
       staff: "Personal",
       staffPaid: (n: number) => `${n} con sueldo`,
       payroll: "Nómina al mes",
@@ -1172,11 +1175,10 @@ export const es = {
         hint: "Déjelo vacío si el poder no tiene fecha de vencimiento.",
       },
       "institution.capacity_total": { label: "Capacidad total (personas)", hint: "Cuántas personas caben a la vez." },
-      // Rust says which words go (`wording` of the field): «today» where people live or spend the day
-      "institution.served_estimate": {
+      "institution.served_estimate": { label: "¿Cuántas personas atienden hoy?", hint: "Las que viven ahí o pasan el día. Una cifra aproximada basta." },
+      "institution.served_last_year": {
         label: "¿A cuántas personas atendieron en el último año?",
-        hint: "Una cifra aproximada basta.",
-        variants: { today: { label: "¿Cuántas personas atienden hoy?" } },
+        hint: "En sus programas, talleres, consultas o apoyos. Si la cifra cambia mucho, ponga una aproximada.",
       },
       "institution.staff_paid_estimate": { label: "¿Cuántas personas trabajan con sueldo?" },
       "institution.staff_volunteer_estimate": { label: "¿Cuántas ayudan como voluntarias?", hint: "Si no hay, escriba 0." },
@@ -1214,7 +1216,7 @@ export const es = {
       "institution.record.valid_until": { label: "Vigente hasta", hint: "Si el documento trae la fecha. Le avisamos un mes antes." },
       "institution.record.reference": { label: "Folio o número", hint: "La ayuda automática nunca lo ve." },
       "institution.record.notes": { label: "Notas", hint: "Por ejemplo, dónde está el original en papel. Sin nombres de personas." },
-    } as Record<string, FieldWords & { options?: Record<string, string>; variants?: Record<string, FieldWords> }>,
+    } as Record<string, FieldWords & { options?: Record<string, string> }>,
   },
   // The manual of the program (ADR-034): the «?» next to each field and the search in Ayuda. No AI, no internet.
   manual: {
@@ -2421,6 +2423,7 @@ export const es = {
       open: "Abrir",
       people: "Personas que atendemos",
       peopleOf: (n: string) => `de ${n} lugares`,
+      lastYear: "En el último año",
       balance: "Balance del año",
       balanceSub: "Lo que entra menos lo que sale",
       emptyPlaces: "Vacíos",

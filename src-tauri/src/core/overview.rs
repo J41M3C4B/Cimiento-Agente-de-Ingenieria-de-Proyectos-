@@ -45,7 +45,10 @@ pub struct Figure {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct InstitutionOverview {
+    /// The people served: today where they stay, in the last year where they come and go (`people_period`).
     pub people: Figure,
+    /// `today` or `last_year`: what `people` counts (ERP-2).
+    pub people_period: &'static str,
     pub capacity: Option<i64>,
     /// Share of the places taken (people served over capacity), up to 100; `None` without a capacity.
     pub occupied_percent: Option<u32>,
@@ -102,7 +105,7 @@ fn place_of(code: &str) -> Place {
 pub fn code_of(id: &'static str) -> &'static str {
     match id {
         "institution.street" | "institution.postal_code" => "address",
-        "institution.served_estimate" => "served",
+        "institution.served_estimate" | "institution.served_last_year" => "served",
         "institution.staff_paid_estimate" | "institution.staff_volunteer_estimate" => "staff",
         _ => id.strip_prefix("institution.").unwrap_or(id),
     }
@@ -202,11 +205,19 @@ pub fn institution_overview(conn: &Connection) -> Result<InstitutionOverview, Se
         (None, None) => None,
         (p, v) => Some(p.unwrap_or(0) + v.unwrap_or(0)),
     };
-    let people = figure_of("people", records.served, input.served_estimate);
-    // the places count only where people stay (ADR-043, ERP-2): elsewhere a capacity saved before is not shown
-    let capacity = input.capacity_total.filter(|_| lodges(&input));
+    // where people stay, how many are there today and how full the places are; elsewhere, how many it served in the
+    // last year (ERP-2: a capacity or a count saved before for the other way is not shown)
+    let lodging = lodges(&input);
+    let (people, people_period) = if lodging {
+        (figure_of("people", records.served, input.served_estimate), "today")
+    } else {
+        let last_year = input.institution.details.as_ref().and_then(|d| d.get("institution.served_last_year")).and_then(serde_json::Value::as_i64);
+        (Figure { value: last_year.unwrap_or(0), approx: false }, "last_year")
+    };
+    let capacity = input.capacity_total.filter(|_| lodging);
     Ok(InstitutionOverview {
         people,
+        people_period,
         capacity,
         occupied_percent: occupied_percent(people.value, capacity),
         vacant: capacity.map(|c| (c - people.value).max(0)),

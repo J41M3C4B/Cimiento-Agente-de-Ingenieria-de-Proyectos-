@@ -10,7 +10,7 @@ import type { Condition, FieldSpec, FormSpec, FormValues } from "../lib/types";
 import { applies, FormRenderer } from "./FormRenderer";
 
 const field = (id: string, more: Partial<FieldSpec>): FieldSpec => ({
-  id, kind: "text", options: [], required: false, essential: false, applies_when: { when: "always" }, sensitivity: "public", ai: "as_is", used_by: [], min: null, max: null, wording: null, ...more,
+  id, kind: "text", options: [], required: false, essential: false, applies_when: { when: "always" }, sensitivity: "public", ai: "as_is", used_by: [], min: null, max: null, ...more,
 });
 
 // the form «Su institución» as Rust describes it (core/institution/forms.rs), shortened
@@ -113,8 +113,9 @@ describe("FormRenderer", () => {
     expect(screen.queryByText("Qué poner:")).toBeNull();
   });
 
-  it("a field of another window decides what applies here and which words a field takes (ERP-2)", () => {
+  it("a field of another window decides what applies here (ERP-2)", () => {
     const lodges: Condition = { when: "any_of", field: "institution.modalities", values: ["residential", "day_care"] };
+    const byProgram: Condition = { when: "any_of", field: "institution.modalities", values: ["outpatient", "community", "home_care", "remote", "support"] };
     const capacity: FormSpec = {
       id: "institution.capacity",
       sections: [
@@ -123,7 +124,8 @@ describe("FormRenderer", () => {
           columns: 2,
           fields: [
             field("institution.capacity_total", { kind: "number", applies_when: lodges }),
-            field("institution.served_estimate", { kind: "number", wording: { when: lodges, words: "today" } }),
+            field("institution.served_estimate", { kind: "number", applies_when: lodges }),
+            field("institution.served_last_year", { kind: "number", applies_when: byProgram }),
           ],
         },
       ],
@@ -131,12 +133,14 @@ describe("FormRenderer", () => {
     const draw = (context: FormValues) => render(<FormRenderer spec={capacity} values={{}} context={context} onChange={() => {}} />);
     const community = draw({ "institution.modalities": ["community"] });
     expect(screen.queryByText("Capacidad total (personas)")).toBeNull();
+    expect(screen.queryByText("¿Cuántas personas atienden hoy?")).toBeNull();
     expect(screen.getByLabelText(/¿A cuántas personas atendieron en el último año\?/)).toBeInTheDocument();
     community.unmount();
 
+    // a residence with community programs: its places and both counts
     draw({ "institution.modalities": ["community", "residential"] });
     expect(screen.getByLabelText(/Capacidad total \(personas\)/)).toBeInTheDocument();
     expect(screen.getByLabelText(/¿Cuántas personas atienden hoy\?/)).toBeInTheDocument();
-    expect(screen.getByText("Una cifra aproximada basta.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/¿A cuántas personas atendieron en el último año\?/)).toBeInTheDocument();
   });
 });

@@ -192,6 +192,9 @@ pub const MODALITIES: &[&str] = &["residential", "day_care", "outpatient", "comm
 /// The ways where people stay in the institution, so it has places: its capacity and occupancy, and a count of
 /// people served today.
 pub const LODGING: &[&str] = &["residential", "day_care"];
+/// The ways where people come and go: how many it served in the last year is asked (`served_last_year`). With
+/// `LODGING` they are every way, each in one of the two.
+pub const BY_PROGRAM: &[&str] = &["outpatient", "community", "home_care", "remote", "support"];
 /// The ways that need a building where people are served: its land use license and civil protection program.
 pub const PREMISES: &[&str] = &["residential", "day_care", "outpatient"];
 /// What it attends to. Several may be marked.
@@ -244,6 +247,15 @@ mod tests {
         assert_eq!(kind_of(&v(&["childhood", "older_adults"])), "other", "mixed");
         assert_eq!(kind_of(&v(&["adults"])), "other");
         assert_eq!(kind_of(&[]), "other");
+    }
+
+    /// Every way it serves asks one count of people or the other: today where they stay, the last year elsewhere.
+    #[test]
+    fn every_way_of_serving_asks_one_count_of_people() {
+        for m in MODALITIES {
+            assert!(LODGING.contains(m) != BY_PROGRAM.contains(m), "{m}");
+        }
+        assert_eq!(LODGING.len() + BY_PROGRAM.len(), MODALITIES.len());
     }
 
     #[test]

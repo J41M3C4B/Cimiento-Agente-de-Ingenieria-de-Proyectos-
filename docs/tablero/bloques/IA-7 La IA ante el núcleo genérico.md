@@ -24,7 +24,12 @@ cerrado:
 | `institution.care_areas` | `environment` «Medio ambiente», `culture` «Cultura y arte», `human_rights` «Derechos humanos», `community_development` «Desarrollo comunitario», `employment` «Empleo y capacitación» |
 
 **Lo que cambió de sentido:**
-- **`institution.served_estimate`:** con residencia o estancia de día (`catalog::LODGING`) sigue siendo «¿Cuántas personas atienden hoy?». Con cualquier otra forma ahora es **«¿A cuántas personas atendieron en el último año?»**. La ficha de la IA (`ai_sheet::render_people`) hoy dice «Personas atendidas (cifra aproximada…)» sin decir de qué periodo.
+- **Dos cifras de personas** (decisión del líder al probar ERP-2):
+  - `institution.served_estimate`, «¿Cuántas personas atienden hoy?», solo con residencia o estancia de día (`catalog::LODGING`);
+  - `institution.served_last_year` (**campo nuevo**, un detalle de `institution`), «¿A cuántas personas atendieron en el último año?», con las demás formas (`catalog::BY_PROGRAM`);
+  - una institución mixta da las dos.
+
+  **La ficha de la IA (`ai_sheet::render_people`) solo lee `served_estimate`:** para una A.C. comunitaria hoy dice que falta «a quiénes atiende» aunque la cifra del año esté guardada. Además no dice de qué periodo es la cifra.
 - **`institution.capacity_total`** solo aplica con residencia o estancia de día. Su condición mira otra ventana. El Capturista describe la condición solo (`Solo aplica si institution.modalities es residential o day_care`).
 - **`institution.sex_served`, `age_min`, `age_max`** solo aplican si se marcó un grupo de edad: con «Población en general» u «Otras organizaciones» solas, no.
 - **«¿Qué piden para que alguien ingrese?»** ahora es «¿Qué piden para atender a alguien?».
@@ -37,7 +42,7 @@ cerrado:
 **Qué hay que revisar** (sin decir cómo):
 - La ficha de la IA (`ai_sheet.rs`): el periodo de la cifra de personas, y las opciones nuevas en sus palabras.
 - Los oficios del Asistente y del Capturista: ejemplos de asilo o casa hogar, y que entiendan las opciones nuevas.
-- Las palabras del Lector para llenar los campos (`reader::fill::SEARCH`, `upload::SPEAKS_OF`): `served_estimate` busca «viven», «residentes» y «estancia de día».
+- Las palabras del Lector para llenar los campos (`reader::fill::SEARCH`, `upload::SPEAKS_OF`): `served_estimate` busca «viven», «residentes» y «estancia de día». Para que la suite siga pasando, el ERP puso las primeras palabras de `served_last_year` y su línea en `lector.json` («nada», con 48 aceptable). Hay que medirlas.
 - Las baterías (`fixtures/capturista.json`, `fixtures/expediente/asistente.json`, `lector.json`): hoy todas son de residencias. Hay un ejemplo nuevo que no lo es, `fixtures/institucion-red-comunitaria.json`.
 
 ## Terminado cuando

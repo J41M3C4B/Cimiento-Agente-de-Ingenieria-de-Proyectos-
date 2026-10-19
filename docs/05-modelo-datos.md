@@ -133,8 +133,10 @@ CREATE TABLE income_source (
 -- Núcleo genérico (ERP-2, sin migración: solo códigos nuevos en las mismas listas JSON).
 --   populations agrega general_public y organizations; modalities, remote y support; care_areas, environment,
 --   culture, human_rights, community_development y employment.
---   capacity_total aplica solo con modalities residential o day_care (catalog::LODGING); guardada antes, se queda
---   sin mostrarse ni contar. served_estimate es «hoy» con esas formas y «en el último año» con las demás.
+--   capacity_total y served_estimate («hoy») aplican solo con modalities residential o day_care (catalog::LODGING).
+--   institution.served_last_year (migración 0034): a cuántas personas atendió en el último año, con las demás formas
+--   (catalog::BY_PROGRAM). Una institución mixta da las dos. Lo guardado que deja de aplicar se queda sin mostrarse
+--   ni contar, y ninguna cifra cambia de sentido al cambiar cómo atiende.
 --   sex_served, age_min y age_max aplican solo con un grupo de edad (catalog::AGE_GROUPS).
 
 -- Datos nuevos de «Mi institución» (ADR-033 N3a, migración 0024), cada uno un campo del catálogo de

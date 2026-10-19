@@ -15,7 +15,6 @@ const field = (id: string, kind: FieldSpec["kind"], options: string[] = []): Fie
   used_by: [],
   min: null,
   max: null,
-  wording: null,
 });
 
 // the window of «Su institución» with two suggestions of the AI waiting (core/profile/forms.rs and capturist.rs)

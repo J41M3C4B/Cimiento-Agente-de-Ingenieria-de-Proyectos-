@@ -111,14 +111,6 @@ impl Condition {
     }
 }
 
-/// Other words for a field while a condition holds: the screen takes them from `variants.<words>` of the field in
-/// `es-MX.ts`. The value means what those words ask, so the code decides which ones, not the screen.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-pub struct Wording {
-    pub when: Condition,
-    pub words: &'static str,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct FieldSpec {
     /// Stable id, also the key of its value and of its words (`institution.populations`).
@@ -140,13 +132,12 @@ pub struct FieldSpec {
     pub min: Option<i64>,
     pub max: Option<i64>,
     pub rule: Option<Rule>,
-    pub wording: Option<Wording>,
 }
 
 impl FieldSpec {
     /// A field that applies always, is public, may reach the AI as it is and is not required.
     pub const fn new(id: &'static str, kind: FieldKind) -> Self {
-        FieldSpec { id, kind, options: &[], required: false, essential: false, applies_when: Condition::Always, sensitivity: Sensitivity::Public, ai: AiUse::AsIs, used_by: &[], min: None, max: None, rule: None, wording: None }
+        FieldSpec { id, kind, options: &[], required: false, essential: false, applies_when: Condition::Always, sensitivity: Sensitivity::Public, ai: AiUse::AsIs, used_by: &[], min: None, max: None, rule: None }
     }
     pub const fn options(mut self, options: &'static [&'static str]) -> Self {
         self.options = options;
@@ -184,14 +175,9 @@ impl FieldSpec {
         self.rule = Some(rule);
         self
     }
-    /// Asked with other words while `when` holds (`Wording`).
-    pub const fn worded(mut self, when: Condition, words: &'static str) -> Self {
-        self.wording = Some(Wording { when, words });
-        self
-    }
-    /// The fields of other forms its condition and its words look at.
-    pub fn looks_at(&self) -> impl Iterator<Item = &'static str> {
-        self.applies_when.field().into_iter().chain(self.wording.and_then(|w| w.when.field()))
+    /// The field its condition looks at, if any.
+    pub fn looks_at(&self) -> Option<&'static str> {
+        self.applies_when.field()
     }
 }
 
@@ -244,7 +230,7 @@ impl FormSpec {
         f.applies_when.holds(values)
     }
 
-    /// The fields of other forms its conditions and words look at, each once: their values travel with the form.
+    /// The fields of other forms its conditions look at, each once: their values travel with the form.
     pub fn looks_outside(&self) -> Vec<&'static str> {
         let mut out: Vec<&'static str> = Vec::new();
         for id in self.fields().flat_map(FieldSpec::looks_at) {
@@ -424,17 +410,15 @@ mod tests {
                 columns: 1,
                 fields: &[
                     FieldSpec::new("seats", FieldKind::Number).when(Condition::AnyOf { field: "kinds", values: &["b"] }),
-                    FieldSpec::new("people", FieldKind::Number).worded(Condition::AnyOf { field: "kinds", values: &["b"] }, "today"),
-                    FieldSpec::new("note", FieldKind::Text).when(Condition::Filled { field: "people" }).worded(Condition::Filled { field: "name" }, "named"),
+                    FieldSpec::new("people", FieldKind::Number).when(Condition::AnyOf { field: "kinds", values: &["a"] }),
+                    FieldSpec::new("note", FieldKind::Text).when(Condition::Filled { field: "people" }),
                 ],
             }],
         };
-        assert_eq!(OUTSIDE.looks_outside(), vec!["kinds", "name"], "each once, and not its own fields");
+        assert_eq!(OUTSIDE.looks_outside(), vec!["kinds"], "each once, and not its own fields");
         assert!(FORM.looks_outside().is_empty());
         let seats = OUTSIDE.field("seats").unwrap();
         assert!(OUTSIDE.applies(seats, &values(json!({ "kinds": ["a", "b"] }))) && !OUTSIDE.applies(seats, &values(json!({ "kinds": ["a"] }))));
-        let today = OUTSIDE.field("people").unwrap().wording.unwrap();
-        assert!(today.when.holds(&values(json!({ "kinds": ["b"] }))) && !today.when.holds(&values(json!({}))));
     }
 
     #[test]

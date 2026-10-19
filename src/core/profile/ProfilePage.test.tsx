@@ -21,7 +21,7 @@ vi.mock("./FormWindow", () => ({
   ),
 }));
 
-import { institutionOverview, profileGet } from "../../lib/tauri";
+import { institutionOverview, institutionRecords, profileGet } from "../../lib/tauri";
 import { ProfilePage } from "./ProfilePage";
 import type { Where } from "./gaps";
 
@@ -90,5 +90,22 @@ describe("the tiles of «Mi institución»", () => {
     expect(screen.queryByRole("button", { name: /Instalaciones/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Finanzas/ })).toBeNull();
     expect(onGo).not.toHaveBeenCalled();
+  });
+
+  // ERP-2: a document they have on paper counts without its file, and the list says it has none
+  it("a document they have without its file says «Sin archivo» in the list", async () => {
+    vi.mocked(profileGet).mockResolvedValue({ input: { institution: { name: "Red Ficticia" }, capacity_total: null, served_estimate: null, staff_paid_estimate: 2, staff_volunteer_estimate: 15 }, issues: [] } as unknown as Awaited<ReturnType<typeof profileGet>>);
+    const row = (type: string, status: string, file: unknown = null) => ({ id: type, type, custom_name: null, status, issued_on: null, valid_until: null, validity: null, days_left: null, file, origin: null, confirmed_at: null });
+    vi.mocked(institutionRecords).mockResolvedValue({
+      records: [row("articles_of_incorporation", "have"), row("tax_status_certificate", "have", { name: "constancia.pdf", readable: true, from_picture: false, doubtful: [] }), row("privacy_notice", "missing")],
+      summary: { expected: 3, have: 2, in_progress: 0, missing: 1, expiring: 0, expired: 0 },
+    } as unknown as Awaited<ReturnType<typeof institutionRecords>>);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ProfilePage onGo={() => {}} />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("constancia.pdf")).toBeInTheDocument();
+    expect(screen.getAllByText("Sin archivo")).toHaveLength(1);
   });
 });

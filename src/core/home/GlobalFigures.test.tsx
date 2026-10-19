@@ -14,9 +14,10 @@ import { financeGet } from "../../modules/finance/api";
 import { GlobalFigures } from "./GlobalFigures";
 
 // what Rust composes (core/overview.rs): the figure of the people, how full the house is and what is left
-const overview = (capacity: number | null, served: number, approx = false) =>
+const overview = (capacity: number | null, served: number, approx = false, period: "today" | "last_year" = "today") =>
   ({
     people: { value: served, approx },
+    people_period: period,
     capacity,
     occupied_percent: capacity ? Math.min(100, Math.round((served / capacity) * 100)) : null,
     vacant: capacity === null ? null : Math.max(capacity - served, 0),
@@ -59,6 +60,15 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
     expect(onGo).not.toHaveBeenCalled();
     expect(careOverview).not.toHaveBeenCalled();
     expect(financeGet).not.toHaveBeenCalled();
+  });
+
+  it("where people come and go, the count is of the last year and says so, with no places (ERP-2)", async () => {
+    vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "projects"));
+    vi.mocked(institutionOverview).mockResolvedValue(overview(null, 340, false, "last_year"));
+    show();
+    await waitFor(() => expect(screen.getByText("340")).toBeInTheDocument());
+    expect(screen.getByText("En el último año")).toBeInTheDocument();
+    expect(screen.queryByText("Vacíos")).not.toBeInTheDocument();
   });
 
   it("shows the places taken and free, the last movement, the balance of the year and what goes beside them", async () => {

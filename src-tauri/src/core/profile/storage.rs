@@ -32,6 +32,7 @@ pub const DETAILS: &[(&str, &str)] = &[
     ("institution.donee_letter_date", "donee_letter_date"),
     ("institution.cluni_key", "cluni_key"),
     ("institution.legal_rep_valid_until", "legal_rep_valid_until"),
+    ("institution.served_last_year", "served_last_year"),
 ];
 
 pub fn is_detail(field: &str) -> bool {

@@ -374,8 +374,9 @@ mod tests {
         assert_eq!(get(&c, "institution.identity").unwrap().values["institution.age_min"], json!(60));
     }
 
-    /// ERP-2 (A1, A2, A3): «Capacidad y cifras» reads how it serves from «Su institución». Where nobody stays the
-    /// capacity is not asked nor kept, and the count of people is of the last year; the public at large has no ages.
+    /// ERP-2 (A1, A2, A3): «Capacidad y cifras» reads how it serves from «Su institución». Where people stay it asks
+    /// the places and how many are there today; where they come and go, how many it served in the last year; a mix,
+    /// both. A number never changes its meaning: the count that stops applying is kept, neither asked nor shown.
     #[test]
     fn the_capacity_window_reads_how_it_serves_from_another_window() {
         let (_d, mut c) = conn();
@@ -386,23 +387,31 @@ mod tests {
 
         let view = get(&c, "institution.capacity").unwrap();
         assert_eq!(view.context, values(json!({ "institution.modalities": ["community", "support"] })), "only what decides a field here");
-        assert!(!view.missing.contains(&"institution.capacity_total"), "{:?}", view.missing);
-        let capacity = values(json!({ "institution.capacity_total": 40, "institution.served_estimate": 350, "institution.modalities": ["residential"] }));
-        let p = saved(save(&mut c, "institution.capacity", capacity.clone(), None).unwrap());
-        assert_eq!((p.input.capacity_total, p.input.served_estimate), (None, Some(350)), "what the window sends of another one does not decide");
+        assert_eq!(view.missing, vec!["institution.served_last_year", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);
+        let figures = values(json!({ "institution.capacity_total": 40, "institution.served_estimate": 18, "institution.served_last_year": 350, "institution.modalities": ["residential"] }));
+        let p = saved(save(&mut c, "institution.capacity", figures.clone(), None).unwrap());
+        let last_year = |p: &ProfileInput| p.institution.details.as_ref().and_then(|d| d.get("institution.served_last_year").cloned());
+        assert_eq!((p.input.capacity_total, p.input.served_estimate, last_year(&p.input)), (None, None, Some(json!(350))), "what the window sends of another one does not decide");
+        let o = crate::core::overview::institution_overview(&c).unwrap();
+        assert_eq!((o.people.value, o.people_period, o.capacity), (350, "last_year", None));
 
-        // a residence: the capacity is asked and kept
+        // a residence with its community programs: the places and both counts
+        saved(save(&mut c, "institution.identity", identity(json!(["residential", "community"])), None).unwrap());
+        assert_eq!(get(&c, "institution.capacity").unwrap().missing, vec!["institution.capacity_total", "institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);
+        let p = saved(save(&mut c, "institution.capacity", figures.clone(), None).unwrap());
+        assert_eq!((p.input.capacity_total, p.input.served_estimate, last_year(&p.input)), (Some(40), Some(18), Some(json!(350))));
+        let o = crate::core::overview::institution_overview(&c).unwrap();
+        assert_eq!((o.people.value, o.people_period, o.occupied_percent), (18, "today", Some(45)));
+
+        // only a residence: the 18 of today is never read as the people of a year, and the 350 is kept unseen
         saved(save(&mut c, "institution.identity", identity(json!(["residential"])), None).unwrap());
-        assert_eq!(get(&c, "institution.capacity").unwrap().missing, vec!["institution.capacity_total", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);
-        let p = saved(save(&mut c, "institution.capacity", capacity, None).unwrap());
-        assert_eq!(p.input.capacity_total, Some(40));
-        assert_eq!(crate::core::overview::institution_overview(&c).unwrap().occupied_percent, Some(100));
-
-        // it stops staying: the capacity saved is kept, but it is neither asked nor shown
+        assert!(!get(&c, "institution.capacity").unwrap().missing.contains(&"institution.served_last_year"));
+        // only the community again: the 350 is back, not the 18
         saved(save(&mut c, "institution.identity", identity(json!(["community"])), None).unwrap());
         let o = crate::core::overview::institution_overview(&c).unwrap();
-        assert_eq!((o.capacity, o.occupied_percent, o.vacant), (None, None, None));
-        assert_eq!(store::load_current(&c).unwrap().unwrap().input.capacity_total, Some(40));
+        assert_eq!((o.people.value, o.people_period, o.capacity, o.occupied_percent), (350, "last_year", None, None));
+        let kept = store::load_current(&c).unwrap().unwrap().input;
+        assert_eq!((kept.capacity_total, kept.served_estimate), (Some(40), Some(18)), "kept, neither asked nor shown");
     }
 
     #[test]

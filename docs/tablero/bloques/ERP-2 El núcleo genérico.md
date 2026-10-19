@@ -19,7 +19,7 @@ El núcleo todavía supone un asilo o una casa hogar I.A.P.: «a quién atiende�
 
 (Aprobado por el líder el 2026-10-19, con sus decisiones de la revisión.)
 
-- [ ] Con el ejemplo nuevo (una A.C. que no es residencia), el primer inicio y las cuatro ventanas de «Mi institución» se llenan sin una opción, pregunta ni texto ajeno a ella: no le piden capacidad y le preguntan a cuántas personas atendieron en el último año.
+- [ ] Con el ejemplo nuevo (una A.C. que no es residencia), el primer inicio y las cuatro ventanas de «Mi institución» se llenan sin una opción, pregunta ni texto ajeno a ella: no le piden capacidad y le preguntan a cuántas personas atendieron en el último año. Una institución mixta (residencia y programas en la comunidad) da las dos cifras, y ninguna cifra cambia de sentido al cambiar cómo atiende.
 - [ ] Su Expediente pide solo los documentos que le tocan: sin Junta, sin el registro de centros de asistencia social, sin aviso sanitario, sin uso de suelo ni protección civil.
 - [ ] Los dos ejemplos de residencia piden y muestran lo mismo que hoy: capacidad, «¿Cuántas personas atienden hoy?», ocupación, Junta y sus documentos.
 - [ ] Ningún texto del núcleo (pantallas y manual) habla de asilo, casa hogar, residentes o abuelitos, salvo lo que escribió la institución.
@@ -126,28 +126,49 @@ Agregar opciones no borra ni cambia nada de lo guardado; no hace falta migració
 (CTO del ERP, 2026-10-19.) Con `pnpm tauri dev`. Para empezar desde cero sin tocar tus datos: `$env:CIMIENTO_DATA_DIR="D:\Agente Proyectos\cimiento-vacio"; pnpm tauri dev`.
 
 **Una A.C. que no es residencia, desde el primer inicio:**
-- [ ] En «A quién atienden» marca **Población en general** y, en «Cómo», **En la comunidad** y **Con apoyos: dinero, especie o becas**. Ves las opciones nuevas en los dos.
-- [ ] En el paso «Cuántas personas son» **no** se pide la capacidad, y la pregunta es «¿A cuántas personas atendieron en el último año?».
-- [ ] Con el último dato, el primer inicio se cierra solo. Inicio muestra la cifra de personas, sin «% ocupado» ni lugares.
-- [ ] En «Mi institución» › «Su institución» **no** aparecen el sexo ni las edades. La última sección dice «¿Qué piden para atender a alguien?».
-- [ ] En «Capacidad y cifras rápidas» no está la capacidad.
-- [ ] El Expediente no pide el registro ante la Junta, el de centros de asistencia social, el aviso sanitario, la licencia de uso de suelo ni el programa de protección civil.
+- [x] En «A quién atienden» marca **Población en general** y, en «Cómo», **En la comunidad** y **Con apoyos: dinero, especie o becas**. Ves las opciones nuevas en los dos.
+- [x] En el paso «Cuántas personas son» **no** se pide la capacidad, y la pregunta es «¿A cuántas personas atendieron en el último año?».
+- [x] Con el último dato, el primer inicio se cierra solo. Inicio muestra la cifra de personas, sin «% ocupado» ni lugares.
+- [x] En «Mi institución» › «Su institución» **no** aparecen el sexo ni las edades. La última sección dice «¿Qué piden para atender a alguien?».
+- [x] En «Capacidad y cifras rápidas» no está la capacidad.
+- [x] El Expediente no pide el registro ante la Junta, el de centros de asistencia social, el aviso sanitario, la licencia de uso de suelo ni el programa de protección civil.
 
 **El mismo caso con el ejemplo:** en la puesta en marcha (o abajo en «Mi institución»), «Red comunitaria de ejemplo». Debe quedar al 100 % sin nada de residencia.
 
 **Una residencia sigue igual:** «Asilo de ejemplo».
-- [ ] Inicio y «Mi institución» dicen «18 de 25 lugares».
-- [ ] «Capacidad y cifras rápidas» pide la capacidad y «¿Cuántas personas atienden hoy?».
-- [ ] El Expediente pide la Junta, el aviso sanitario, el uso de suelo y protección civil, como antes.
-- [ ] Si en «Su institución» cambias «Viven en la institución» por «En la comunidad», la capacidad deja de verse y de contar. Si lo regresas, vuelve con su cifra.
+- [x] Inicio y «Mi institución» dicen «18 de 25 lugares».
+- [x] «Capacidad y cifras rápidas» pide la capacidad y «¿Cuántas personas atienden hoy?».
+- [x] El Expediente pide la Junta, el aviso sanitario, el uso de suelo y protección civil, como antes.
+- [x] Si en «Su institución» cambias «Viven en la institución» por «En la comunidad», la capacidad deja de verse y de contar. Si lo regresas, vuelve con su cifra.
 
 **Los textos:**
-- [ ] La ayuda del nombre legal dice «Fundación Ejemplo, A.C.». El ejemplo de «Sobre nosotros» ya no es una casa hogar.
-- [ ] La bienvenida dice «Cuidamos los datos de las personas», sin prometer fichas.
-- [ ] En el manual («?» de cada campo), «A quién atienden» explica las dos opciones nuevas, sin «abuelitos».
+- [x] La ayuda del nombre legal dice «Fundación Ejemplo, A.C.». El ejemplo de «Sobre nosotros» ya no es una casa hogar.
+- [x] La bienvenida dice «Cuidamos los datos de las personas», sin prometer fichas.
+- [x] En el manual («?» de cada campo), «A quién atienden» explica las dos opciones nuevas, sin «abuelitos».
+
+**Vuelta 2 (tus observaciones):**
+- [ ] Asilo de ejemplo: en «Su institución» marca también **En la comunidad**. «Capacidad y cifras» pide la capacidad, «hoy» **y** «en el último año».
+- [ ] Llena el del año y quita «Viven en la institución»: Inicio muestra la cifra del año con «En el último año», sin lugares. Regresa «Viven en la institución»: vuelve «18 de 25 lugares».
+- [ ] Carga el asilo, abre «Su institución» y ciérrala, y carga la red comunitaria: al abrirla otra vez se ve la red, sin nada del asilo. Su Expediente no muestra la Junta.
+- [ ] En el Expediente, un documento «Lo tenemos» sin archivo dice «Sin archivo».
 
 Lo probé así en la app real, con una base aparte: la A.C. desde el primer inicio y el asilo de ejemplo.
 
 PR: https://github.com/J41M3C4B/Cimiento-Agente-de-Ingenieria-de-Proyectos-/pull/8
 
 ## Resultado
+Si cambio como los atienden de "Viven en las institucion a Comunidad funciona", pero puedo tener ambas activas y gana viven en la institucion. Ademas el conteo se sigue quedando, osea en capacidad desaparece cuantos pueden atender y se queda cuanto atendieron el ultimo año pero ademas hay problema con cada ejemplo, como que hay un bug que mantiene por un momento los datos de otro ejemplo y entonces los numeros y datos se revuelven abro el asilo y despues abro el AC y me aparecen los datos del acilo en algunos campos
+
+(Y en el chat: «el expediente aparece como si hubiera archivos pero no tienen nada, pero sus estados marcan cosas».)
+
+**Respuesta (CTO del ERP, 2026-10-19).** El bloque volvió a «En curso» y regresa a «Revisión» con esto:
+- **Mixta y cifra que se queda:** la causa era un solo dato con dos sentidos. Con tu decisión ahora son **dos datos**:
+  - «¿Cuántas personas atienden hoy?», junto a la capacidad, donde viven o pasan el día;
+  - «¿A cuántas personas atendieron en el último año?» (nuevo, migración 0034), con las demás formas;
+  - una mixta da las dos;
+  - al cambiar cómo atiende, la cifra que deja de aplicar se guarda sin verse, y vuelve si regresas. El 18 de «hoy» ya no se lee como «18 en el último año».
+  - Inicio y «Mi institución» dicen «En el último año» cuando la cifra es del año.
+- **Datos de un ejemplo en otro**, dos errores:
+  - al cargar un ejemplo se quedaba el Expediente del anterior: la A.C. mostraba la Junta del asilo. Ahora se reemplaza;
+  - las ventanas de «Mi institución» guardaban lo que habían leído antes y al reabrirlas mostraban esos datos viejos. Si guardabas, se escribían. Ahora empiezan siempre de lo guardado, como ya lo hacían las de listas y documentos.
+- **Expediente con estados y sin archivos:** así lo permite la regla (se tiene el papel sin subirlo), y los ejemplos la usan. Con tu decisión, la fila de un documento que tienen sin archivo ahora dice **«Sin archivo»**.

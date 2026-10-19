@@ -32,7 +32,13 @@ pub const STEPS: &[Step] = &[
         key: "figures",
         form: "institution.capacity",
         columns: 2,
-        fields: &["institution.capacity_total", "institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"],
+        fields: &[
+            "institution.capacity_total",
+            "institution.served_estimate",
+            "institution.served_last_year",
+            "institution.staff_paid_estimate",
+            "institution.staff_volunteer_estimate",
+        ],
     },
 ];
 
@@ -121,7 +127,7 @@ mod tests {
             }
         }
         assert!(LIST_FORMS.iter().flat_map(|f| f.fields()).all(|f| !f.essential), "the lists are filled after the first start");
-        assert_eq!(asked.len(), 14);
+        assert_eq!(asked.len(), 15);
     }
 
     /// ADR-042 §1, criterion A: a datum that changes what the program asks or shows is indispensable. Without it the
@@ -153,8 +159,8 @@ mod tests {
                 ("attention", vec!["institution.populations", "institution.modalities"]),
                 ("place", vec!["institution.state", "institution.municipality"]),
                 ("constitution", vec!["institution.legal_form", "institution.founded_year", "institution.authorized_donee", "institution.cluni"]),
-                // the capacity waits for how it serves: with nothing said, nobody stays there
-                ("figures", vec!["institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]),
+                // the capacity and the counts of people wait for how it serves
+                ("figures", vec!["institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]),
             ]
         );
     }
@@ -185,17 +191,22 @@ mod tests {
             "institution.populations": ["general_public"], "institution.modalities": ["community", "support"],
             "institution.state": "pue", "institution.municipality": "Puebla",
             "institution.legal_form": "ac", "institution.founded_year": 2012, "institution.authorized_donee": "no", "institution.cluni": "yes",
-            "institution.served_estimate": 340, "institution.staff_paid_estimate": 2, "institution.staff_volunteer_estimate": 15,
+            "institution.served_last_year": 340, "institution.staff_paid_estimate": 2, "institution.staff_volunteer_estimate": 15,
         }));
         assert!(complete(&steps(&community, &[])), "{:?}", missing(&community, &[]));
+        // a day care with community programs: its places and both counts
         let mut day_care = community.clone();
         day_care.insert("institution.modalities".into(), json!(["community", "day_care"]));
-        assert_eq!(missing(&day_care, &[]), vec![("figures", vec!["institution.capacity_total"])]);
+        assert_eq!(missing(&day_care, &[]), vec![("figures", vec!["institution.capacity_total", "institution.served_estimate"])]);
+        // only a day care: no count of the last year
+        day_care.insert("institution.modalities".into(), json!(["day_care"]));
+        day_care.remove("institution.served_last_year");
+        assert_eq!(missing(&day_care, &[]), vec![("figures", vec!["institution.capacity_total", "institution.served_estimate"])]);
     }
 
     #[test]
     fn the_records_of_the_modules_count_instead_of_the_quick_figures() {
-        let v = values(json!({ "institution.capacity_total": 25 }));
+        let v = values(json!({ "institution.modalities": ["residential"], "institution.capacity_total": 25 }));
         let figures = |answered: &[&str]| steps(&v, answered).into_iter().find(|s| s.key == "figures").unwrap().missing;
         assert_eq!(figures(&answered_by_records(0, 0)), vec!["institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);
         assert_eq!(figures(&answered_by_records(18, 0)), vec!["institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);

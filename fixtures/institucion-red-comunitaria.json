@@ -44,10 +44,10 @@
       "institution.tax_regime": "non_profit",
       "institution.fiscal_postal_code": "76000",
       "institution.cluni_key": "CLUNI-EJEMPLO-003",
-      "institution.legal_rep_valid_until": "2029-06-30"
+      "institution.legal_rep_valid_until": "2029-06-30",
+      "institution.served_last_year": 340
     }
   },
-  "served_estimate": 340,
   "staff_paid_estimate": 2,
   "staff_volunteer_estimate": 15,
   "annual_budget_mxn": 620000,

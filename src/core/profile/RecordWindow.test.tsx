@@ -15,7 +15,6 @@ const field = (id: string, kind: FieldSpec["kind"], options: string[] = []): Fie
   used_by: [],
   min: null,
   max: null,
-  wording: null,
 });
 
 // the window of a document of the catalog, as Rust describes it (core/institution/forms.rs RECORD_KNOWN)
