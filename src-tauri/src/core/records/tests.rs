@@ -67,6 +67,26 @@ fn the_documents_that_apply_follow_what_the_institution_says() {
     assert!(k.contains("junta_registration") && !k.contains("junta_budget"), "{k}");
 }
 
+/// ERP-2 (B1, B2): the documents of a building and of a center where children live are asked only of who has them.
+#[test]
+fn the_documents_of_a_building_follow_how_it_serves() {
+    let building = ["social_care_registry", "sanitary_notice", "land_use_license", "civil_protection_program"];
+    let asked = |populations: Value, modalities: Value| {
+        let (_d, mut c) = conn();
+        profile(&mut c, "institution.identity", json!({ "institution.name": "Ficticia", "institution.populations": populations, "institution.modalities": modalities }));
+        let e = expediente_on(&c, TODAY).unwrap();
+        building.iter().copied().filter(|k| kinds(&e).contains(k)).collect::<Vec<_>>()
+    };
+    // a community organization online and with grants: none of them
+    assert!(asked(json!(["childhood", "general_public"]), json!(["community", "remote", "support"])).is_empty());
+    // an afternoon tutoring for children: its building, not the registry of the centers where children live
+    assert_eq!(asked(json!(["childhood"]), json!(["outpatient"])), vec!["land_use_license", "civil_protection_program"]);
+    // a day care for older adults: its building and its sanitary notice
+    assert_eq!(asked(json!(["older_adults"]), json!(["day_care"])), vec!["sanitary_notice", "land_use_license", "civil_protection_program"]);
+    // a home where children live: all of them
+    assert_eq!(asked(json!(["adolescence"]), json!(["residential"])), building.to_vec());
+}
+
 /// A document counts without its file; its validity is reckoned from the date written in it, 30 days ahead.
 #[test]
 fn a_document_counts_without_a_file_and_its_validity_is_reckoned() {

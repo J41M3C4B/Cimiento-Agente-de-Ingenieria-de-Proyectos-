@@ -149,7 +149,7 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
           </Alert>
         )}
         {form.data && values && (
-          <FormRenderer spec={form.data.spec} values={values} onChange={setValues} errors={errors} suggestions={waiting} onUse={use} onDiscard={(p) => void discard([p])} />
+          <FormRenderer spec={form.data.spec} values={values} context={form.data.context} onChange={setValues} errors={errors} suggestions={waiting} onUse={use} onDiscard={(p) => void discard([p])} />
         )}
         {(failure || unplaced.length > 0) && (
           <div className="mt-4">

@@ -4,7 +4,7 @@ import { Icon } from "./icons";
 import { HelpToggle, ManualPanel } from "./ManualHelp";
 import { Button, Choice, FormSection, Inset, Select, TextArea, TextInput } from "./ui";
 import { es } from "../i18n/es-MX";
-import type { FieldSpec, FormSpec, FormValue, FormValues, Proposal } from "../lib/types";
+import type { Condition, FieldSpec, FormSpec, FormValue, FormValues, Proposal } from "../lib/types";
 
 const words = (id: string) => es.forms.fields[id] ?? { label: id };
 /** Up to this many options are shown as pills; more go in a list that drops down. */
@@ -17,11 +17,24 @@ const filled = (v: FormValue | undefined) => (Array.isArray(v) ? v.length > 0 : 
  * when saving (`common/forms.rs`) and drops what does not apply; this only keeps the screen in step.
  */
 export function applies(f: FieldSpec, values: FormValues): boolean {
-  const c = f.applies_when;
+  return holds(f.applies_when, values);
+}
+
+function holds(c: Condition, values: FormValues): boolean {
   if (c.when === "always") return true;
   const v = values[c.field];
   if (c.when === "filled") return filled(v);
   return Array.isArray(v) ? v.some((x) => c.values.includes(x)) : typeof v === "string" && c.values.includes(v);
+}
+
+/**
+ * The words of a field with what is typed now: those of its variant while the condition Rust gave it holds
+ * (`wording`: «¿Cuántas personas atienden hoy?» where people stay), else its own.
+ */
+export function wordsOf(f: FieldSpec, values: FormValues) {
+  const w = words(f.id);
+  const variant = f.wording && holds(f.wording.when, values) ? w.variants?.[f.wording.words] : undefined;
+  return { ...w, ...variant };
 }
 
 type Props = {
@@ -38,6 +51,8 @@ type Props = {
   notes?: Record<string, string>;
   /** Without the titles of the sections: a step of the first start already says what it asks (ADR-042). */
   bare?: boolean;
+  /** What other windows say that decides a field here (`FormView.context`): read, never saved. */
+  context?: FormValues;
 };
 
 /** A value in the words of its field: the names of its options, or the value as it is. */
@@ -76,13 +91,15 @@ function Suggestion({ f, p, onUse, onDiscard }: { f: FieldSpec; p: Proposal; onU
  * per field the input its kind asks for. The words come from `es.forms` under the id of each field; the «?» next to
  * each label opens what the manual says of it (ADR-034), one at a time.
  */
-export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard, notes = {}, bare = false }: Props) {
+export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard, notes = {}, bare = false, context = {} }: Props) {
   const set = (id: string, v: FormValue) => onChange({ ...values, [id]: v });
+  // what decides each field: this window and, for the fields of others, what is saved there (as Rust does)
+  const seen = { ...values, ...context };
   const [help, setHelp] = useState<string | null>(null);
   return (
     <div className="space-y-6">
       {spec.sections.map((s) => {
-        const shown = s.fields.filter((f) => applies(f, values));
+        const shown = s.fields.filter((f) => applies(f, seen));
         if (shown.length === 0) return null;
         const grid = (
           <div className={`grid grid-cols-1 gap-4 ${s.columns > 1 ? "sm:grid-cols-2" : ""}`}>
@@ -91,7 +108,7 @@ export function FormRenderer({ spec, values, onChange, errors = {}, suggestions 
                 const aside = <HelpToggle open={help === f.id} onToggle={() => setHelp(help === f.id ? null : f.id)} controls={panelId} />;
                 return (
                   <div key={f.id} className="min-w-0">
-                    <Field f={f} value={values[f.id]} error={errors[f.id]} onChange={(v) => set(f.id, v)} aside={aside} />
+                    <Field f={f} w={wordsOf(f, seen)} value={values[f.id]} error={errors[f.id]} onChange={(v) => set(f.id, v)} aside={aside} />
                     {notes[f.id] && <p className="mt-1 text-small text-ink-3">{notes[f.id]}</p>}
                     {help === f.id && <ManualPanel id={f.id} panelId={panelId} />}
                     {suggestions
@@ -116,8 +133,7 @@ export function FormRenderer({ spec, values, onChange, errors = {}, suggestions 
   );
 }
 
-function Field({ f, value, error, onChange, aside }: { f: FieldSpec; value: FormValue | undefined; error?: string; onChange: (v: FormValue) => void; aside: ReactNode }) {
-  const w = words(f.id);
+function Field({ f, w, value, error, onChange, aside }: { f: FieldSpec; w: ReturnType<typeof wordsOf>; value: FormValue | undefined; error?: string; onChange: (v: FormValue) => void; aside: ReactNode }) {
   const label = (code: string) => w.options?.[code] ?? code;
   const text = typeof value === "string" ? value : value === undefined ? "" : String(value);
 

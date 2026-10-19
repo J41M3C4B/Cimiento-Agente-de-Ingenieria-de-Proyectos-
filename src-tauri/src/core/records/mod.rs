@@ -28,7 +28,7 @@ use crate::core::archive::storage::PageMarks;
 use crate::core::error::ServiceError;
 use crate::documents::reading::{self, ReadError};
 use crate::core::history::{self, Source};
-use crate::core::institution::catalog::{Applies, MINORS, RECORD_OTHER, RECORD_TYPES, UNDER_A_JUNTA};
+use crate::core::institution::catalog::{Applies, LODGING, MINORS, PREMISES, RECORD_OTHER, RECORD_TYPES, UNDER_A_JUNTA};
 use crate::core::institution::forms::{RECORD, RECORD_KNOWN};
 use crate::core::profile::domain::ProfileIssue;
 use crate::core::reader::kinds::Placement;
@@ -192,13 +192,15 @@ fn list(v: &Values, field: &str) -> Vec<String> {
 /// Whether a type applies to the institution, from what it says of itself now.
 fn applies(a: Applies, identity: &Values, legal: &Values) -> bool {
     let one_of = |field: &str, codes: &[&str]| text(legal, field).is_some_and(|v| codes.contains(&v.as_str()));
+    let serves_by = |ways: &[&str]| list(identity, "institution.modalities").iter().any(|m| ways.contains(&m.as_str()));
     match a {
         Applies::Always => true,
         Applies::Donee => one_of("institution.authorized_donee", &["yes", "in_progress"]),
         Applies::Cluni => one_of("institution.cluni", &["yes", "in_progress"]),
         Applies::Junta => one_of("institution.legal_form", UNDER_A_JUNTA),
-        Applies::Minors => list(identity, "institution.populations").iter().any(|p| MINORS.contains(&p.as_str())),
-        Applies::Housing => list(identity, "institution.modalities").iter().any(|m| m == "residential" || m == "day_care"),
+        Applies::MinorsLiving => list(identity, "institution.populations").iter().any(|p| MINORS.contains(&p.as_str())) && serves_by(&["residential"]),
+        Applies::Housing => serves_by(LODGING),
+        Applies::Premises => serves_by(PREMISES),
     }
 }
 

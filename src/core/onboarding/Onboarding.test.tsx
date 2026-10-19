@@ -25,7 +25,7 @@ import { OnboardingGate, resumeOnboarding } from "./OnboardingGate";
 
 // the steps as Rust sends them (ADR-042): each one drawn from the catalog of forms
 const field = (id: string, kind: FieldSpec["kind"] = "text"): FieldSpec => ({
-  id, kind, options: [], required: true, essential: true, applies_when: { when: "always" }, sensitivity: "public", ai: "as_is", used_by: [], min: null, max: null,
+  id, kind, options: [], required: true, essential: true, applies_when: { when: "always" }, sensitivity: "public", ai: "as_is", used_by: [], min: null, max: null, wording: null,
 });
 const FIELDS: Record<string, FieldSpec[]> = {
   who: [field("institution.name"), field("institution.mission", "long_text")],

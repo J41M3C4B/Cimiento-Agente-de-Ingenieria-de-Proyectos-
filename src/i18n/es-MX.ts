@@ -2,6 +2,8 @@
 // (usted cordial, short sentences, no technical jargon).
 
 type Plural = { one: string; other: string };
+/** The words of a field: its label and, if it needs one, a line of help under it. */
+type FieldWords = { label: string; hint?: string };
 
 // Lists shared by the first start and the forms of «Mi institución» (a test of Rust finds them by their name).
 const STATES: Record<string, string> = {
@@ -358,7 +360,7 @@ export const es = {
       help: "Cuente en pocas líneas quiénes son y a qué se dedican. Así presentamos a su institución en los documentos.",
       label: "Sobre nosotros",
       placeholder:
-        "Por ejemplo: Somos una casa hogar que acompaña a niñas y niños en situación de abandono. Les damos un espacio seguro, educación y cariño todos los días.",
+        "Por ejemplo: Acompañamos a familias de la colonia con talleres, despensas y asesoría para que sus hijos sigan en la escuela.",
       needsName: "Primero registre el nombre de su institución y después podrá contar aquí quiénes son.",
     },
     /** Lo que lleva cada módulo, en una línea; el botón lleva al módulo (ADR-032). */
@@ -1021,8 +1023,8 @@ export const es = {
     sections: {
       who: "Quiénes son",
       attention: "A quién atienden y cómo",
-      admission: "Edades que reciben",
-      admission_rules: "Quién puede ingresar",
+      admission: "Edades que atienden",
+      admission_rules: "Qué piden para atender",
       contact: "Cómo comunicarse",
       address: "Domicilio",
       legal_identity: "Nombre legal y objeto social",
@@ -1030,7 +1032,7 @@ export const es = {
       fiscal: "Datos fiscales",
       registries: "Registros",
       legal_rep: "Representante legal",
-      capacity_people: "Lugares y personas",
+      capacity_people: "Personas que atienden",
       capacity_staff: "Personal, más o menos",
       capacity_notes: "Notas",
       board_member: "Quién es y qué cargo tiene",
@@ -1054,6 +1056,8 @@ export const es = {
           youth: "Juventud (18 a 29 años)",
           adults: "Personas adultas (30 a 59 años)",
           older_adults: "Personas mayores (60 años o más)",
+          general_public: "Población en general (sin un grupo de edad)",
+          organizations: "Otras organizaciones",
         },
       },
       "institution.sex_served": {
@@ -1069,6 +1073,8 @@ export const es = {
           outpatient: "Consulta o atención sin quedarse",
           community: "En la comunidad",
           home_care: "En su domicilio",
+          remote: "A distancia o en línea",
+          support: "Con apoyos: dinero, especie o becas",
         },
       },
       "institution.care_areas": {
@@ -1085,18 +1091,23 @@ export const es = {
           street: "Situación de calle",
           migration: "Migración",
           mental_health: "Salud mental",
+          environment: "Medio ambiente",
+          culture: "Cultura y arte",
+          human_rights: "Derechos humanos",
+          community_development: "Desarrollo comunitario",
+          employment: "Empleo y capacitación",
           other: "Otra",
         },
       },
       "institution.services": {
         label: "¿Qué servicios o programas ofrecen?",
-        hint: "Por ejemplo: residencia, comedor, terapia física o talleres.",
+        hint: "Por ejemplo: comedor, talleres, terapia, becas o asesoría.",
       },
-      "institution.age_min": { label: "Edad mínima que reciben", hint: "En años. Déjela vacía si no hay edad mínima." },
-      "institution.age_max": { label: "Edad máxima que reciben", hint: "En años. Déjela vacía si no hay edad máxima." },
+      "institution.age_min": { label: "Edad mínima que atienden", hint: "En años. Déjela vacía si no hay edad mínima." },
+      "institution.age_max": { label: "Edad máxima que atienden", hint: "En años. Déjela vacía si no hay edad máxima." },
       "institution.admission_criteria": {
-        label: "¿Qué piden para que alguien ingrese?",
-        hint: "Por ejemplo: no tener familia que la cuide o vivir en el municipio. No escriba nombres.",
+        label: "¿Qué piden para atender a alguien?",
+        hint: "Por ejemplo: vivir en el municipio o estar inscrito en una escuela. No escriba nombres.",
       },
       "institution.contact_phone": { label: "Teléfono de la institución" },
       "institution.contact_email": { label: "Correo de la institución" },
@@ -1109,7 +1120,7 @@ export const es = {
       "institution.state": { label: "Estado", options: STATES },
       "institution.legal_name": {
         label: "Nombre legal",
-        hint: "Como aparece en el acta constitutiva. Por ejemplo: «Asilo San José, I.A.P.».",
+        hint: "Como aparece en el acta constitutiva. Por ejemplo: «Fundación Ejemplo, A.C.».",
       },
       "institution.purpose": {
         label: "Objeto social",
@@ -1159,8 +1170,13 @@ export const es = {
         label: "¿Hasta cuándo vale su poder?",
         hint: "Déjelo vacío si el poder no tiene fecha de vencimiento.",
       },
-      "institution.capacity_total": { label: "Capacidad total (personas)" },
-      "institution.served_estimate": { label: "¿Cuántas personas atienden hoy?" },
+      "institution.capacity_total": { label: "Capacidad total (personas)", hint: "Cuántas personas caben a la vez." },
+      // Rust says which words go (`wording` of the field): «today» where people live or spend the day
+      "institution.served_estimate": {
+        label: "¿A cuántas personas atendieron en el último año?",
+        hint: "Una cifra aproximada basta.",
+        variants: { today: { label: "¿Cuántas personas atienden hoy?" } },
+      },
       "institution.staff_paid_estimate": { label: "¿Cuántas personas trabajan con sueldo?" },
       "institution.staff_volunteer_estimate": { label: "¿Cuántas ayudan como voluntarias?", hint: "Si no hay, escriba 0." },
       "institution.notes": { label: "Notas generales" },
@@ -1197,7 +1213,7 @@ export const es = {
       "institution.record.valid_until": { label: "Vigente hasta", hint: "Si el documento trae la fecha. Le avisamos un mes antes." },
       "institution.record.reference": { label: "Folio o número", hint: "La ayuda automática nunca lo ve." },
       "institution.record.notes": { label: "Notas", hint: "Por ejemplo, dónde está el original en papel. Sin nombres de personas." },
-    } as Record<string, { label: string; hint?: string; options?: Record<string, string> }>,
+    } as Record<string, FieldWords & { options?: Record<string, string>; variants?: Record<string, FieldWords> }>,
   },
   // The manual of the program (ADR-034): the «?» next to each field and the search in Ayuda. No AI, no internet.
   manual: {
@@ -1341,9 +1357,9 @@ export const es = {
           text: "Aquí prepara los proyectos de su institución para pedir donativos, paso a paso.",
         },
         {
-          title: "Cuidamos a quienes atienden",
+          title: "Cuidamos los datos de las personas",
           highlight: "",
-          text: "Los datos de cada persona se quedan en esta computadora. La ayuda automática solo sabe cuántas hay.",
+          text: "Los nombres y datos de las personas se quedan en esta computadora. La ayuda automática nunca los ve.",
         },
         {
           title: "Si tiene dudas, aquí estamos",
@@ -1368,7 +1384,7 @@ export const es = {
         },
         privacy: {
           here: "En esta computadora",
-          hereNote: "Nombres, edades y datos de cada persona",
+          hereNote: "Nombres y datos de personas, también los de sus documentos",
           sees: "La ayuda automática",
           seesNote: "Solo cuántas personas hay",
           count: "38",
@@ -1422,10 +1438,10 @@ export const es = {
     // information (not an instruction) and the two facts that hold in every step
     about: {
       who: { title: "Su institución, en pocas líneas", soft: "pocas líneas", text: "La ayuda automática lo usa para conocerla: cómo se llama y a qué se dedica." },
-      attention: { title: "A quién atienden y cómo", soft: "y cómo", text: "Con esto el programa sabe qué documentos pedirle y qué datos llevar de cada persona." },
+      attention: { title: "A quién atienden y cómo", soft: "y cómo", text: "Con esto el programa sabe qué preguntarle y qué documentos pedirle." },
       place: { title: "Dónde está", soft: "Dónde", text: "Muchas convocatorias son solo para ciertos estados o municipios." },
       constitution: { title: "Cómo está constituida", soft: "constituida", text: "La figura jurídica, los años de operación y ser donataria autorizada son lo primero que revisa un donante." },
-      figures: { title: "Las personas de su institución", soft: "personas", text: "Basta una cifra aproximada; después las fichas de cada persona la reemplazan y se calcula sola." },
+      figures: { title: "Las personas de su institución", soft: "personas", text: "Basta una cifra aproximada. Con ella los proyectos dicen a cuántas personas llega su trabajo." },
       review: { title: "Todo en un solo vistazo", soft: "un solo vistazo", text: "Antes de terminar, aquí está lo que capturó. Lo demás se llena después en «Mi institución», también con sus documentos." },
     } as Record<string, { title: string; soft: string; text: string }>,
     // [title, line] of the two facts under every step

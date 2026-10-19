@@ -148,7 +148,8 @@ fn forms_missing(conn: &Connection) -> Result<(Vec<&'static str>, usize), Servic
     for spec in crate::core::institution::forms::FORMS {
         let view = crate::core::profile::forms::get(conn, spec.id)?;
         missing.extend(view.missing);
-        for f in spec.fields().filter(|f| f.required && spec.applies(f, &view.values)) {
+        let all = crate::core::profile::forms::with_context(&view.values, &view.context);
+        for f in spec.fields().filter(|f| f.required && spec.applies(f, &all)) {
             let code = code_of(f.id);
             if !checks.contains(&code) {
                 checks.push(code);
@@ -181,6 +182,12 @@ fn figure_of(page: &str, records: i64, estimate: Option<i64>) -> Figure {
     }
 }
 
+/// Whether people live or spend the day there, so it has places (`catalog::LODGING`).
+fn lodges(input: &crate::core::profile::domain::ProfileInput) -> bool {
+    let ways = input.institution.attention.as_ref().map(|a| a.modalities.as_slice()).unwrap_or_default();
+    ways.iter().any(|m| crate::core::institution::catalog::LODGING.contains(&m.as_str()))
+}
+
 pub fn occupied_percent(people: i64, capacity: Option<i64>) -> Option<u32> {
     capacity.filter(|c| *c > 0).map(|c| ((people.max(0) * 100 + c / 2) / c).min(100) as u32)
 }
@@ -196,11 +203,13 @@ pub fn institution_overview(conn: &Connection) -> Result<InstitutionOverview, Se
         (p, v) => Some(p.unwrap_or(0) + v.unwrap_or(0)),
     };
     let people = figure_of("people", records.served, input.served_estimate);
+    // the places count only where people stay (ADR-043, ERP-2): elsewhere a capacity saved before is not shown
+    let capacity = input.capacity_total.filter(|_| lodges(&input));
     Ok(InstitutionOverview {
         people,
-        capacity: input.capacity_total,
-        occupied_percent: occupied_percent(people.value, input.capacity_total),
-        vacant: input.capacity_total.map(|c| (c - people.value).max(0)),
+        capacity,
+        occupied_percent: occupied_percent(people.value, capacity),
+        vacant: capacity.map(|c| (c - people.value).max(0)),
         staff: figure_of("staff", records.staff, staff_estimate),
         spaces,
         balance_annual_mxn: if crate::core::modules::shown("finance") { crate::core::bridge::finance::finances(conn)?.balance_annual_mxn } else { None },

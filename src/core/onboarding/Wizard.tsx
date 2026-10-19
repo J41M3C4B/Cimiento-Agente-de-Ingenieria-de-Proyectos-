@@ -1,22 +1,27 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
 import { Alert, Button, Facts, StepNav, Status, TextButton } from "../../components/ui";
-import { FormRenderer, shownValue } from "../../components/FormRenderer";
+import { FormRenderer, applies, shownValue, wordsOf } from "../../components/FormRenderer";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
-import type { Decision, FormValues, QuarantineReport } from "../../lib/types";
+import type { Decision, FieldSpec, FormValues, QuarantineReport } from "../../lib/types";
 import { onboardingFinish, onboardingSave } from "./api";
 import type { OnboardingIssue, OnboardingStatus, StepStatus } from "./api";
 import { StartFrame, asideOf } from "./Welcome";
 
 const o = es.onboarding;
 const REVIEW = "review";
-/** What a missing field is called, in the words of its window. */
-const fieldName = (id: string) => es.forms.fields[id]?.label ?? id;
+/** The fields of every step, by id. */
+const fieldsOf = (status: OnboardingStatus): FieldSpec[] => status.steps.flatMap((s) => s.form.sections.flatMap((sec) => sec.fields));
+/** What a field is called, in the words of its window with what was answered (`wordsOf`). */
+const nameOf = (status: OnboardingStatus, values: FormValues) => (id: string) => {
+  const f = fieldsOf(status).find((x) => x.id === id);
+  return f ? wordsOf(f, values).label : (es.forms.fields[id]?.label ?? id);
+};
 /** «Para seguir falta: …» with the names of the fields, closed with a period unless the last one is a question. */
-const stillMissing = (ids: string[]) => {
-  const list = ids.map(fieldName).join(", ");
+const stillMissing = (ids: string[], name: (id: string) => string) => {
+  const list = ids.map(name).join(", ");
   return `${o.stillMissing} ${list}${/[?.]$/.test(list) ? "" : "."}`;
 };
 
@@ -137,7 +142,7 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
 
         {shownMissing.length > 0 && (
           <Alert tone="pending">
-            {stillMissing(shownMissing)}
+            {stillMissing(shownMissing, nameOf(status, values))}
           </Alert>
         )}
         {unplaced.length > 0 && <Alert tone="error">{unplaced.map((i) => es.issues[i.code] ?? es.errors.generic).join(" ")}</Alert>}
@@ -152,12 +157,17 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
 function Review({ status, onEdit }: { status: OnboardingStatus; onEdit: (i: number) => void }) {
   const none = o.reviewEmpty;
   const pending = status.steps.filter((s) => !s.complete).length;
+  const name = nameOf(status, status.values);
+  // what does not apply with the answers is not asked, so it is not reviewed either (the capacity, where nobody stays)
   const rows = (s: StepStatus): [string, React.ReactNode][] =>
-    s.form.sections.flatMap((sec) => sec.fields).map((f) => {
-      const v = status.values[f.id];
-      const shown = v === undefined || (Array.isArray(v) && v.length === 0) ? <span className="font-medium text-ink-3">{none}</span> : shownValue(f, v);
-      return [fieldName(f.id), shown];
-    });
+    s.form.sections
+      .flatMap((sec) => sec.fields)
+      .filter((f) => applies(f, status.values))
+      .map((f) => {
+        const v = status.values[f.id];
+        const shown = v === undefined || (Array.isArray(v) && v.length === 0) ? <span className="font-medium text-ink-3">{none}</span> : shownValue(f, v);
+        return [name(f.id), shown];
+      });
   return (
     <div className="space-y-4">
       <Alert tone={pending === 0 ? "ok" : "pending"}>{pending === 0 ? o.reviewReady : o.reviewPending(pending)}</Alert>
@@ -170,7 +180,7 @@ function Review({ status, onEdit }: { status: OnboardingStatus; onEdit: (i: numb
             </div>
             <Status kind={s.complete ? "ok" : "pending"}>{s.complete ? o.stepDone : o.stepPending}</Status>
             <Facts columns={1} items={rows(s)} />
-            {!s.complete && <p className="text-small font-semibold text-amber-ink">{stillMissing(s.missing)}</p>}
+            {!s.complete && <p className="text-small font-semibold text-amber-ink">{stillMissing(s.missing, name)}</p>}
           </section>
         ))}
       </div>

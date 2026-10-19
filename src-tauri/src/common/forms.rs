@@ -79,10 +79,44 @@ pub enum Rule {
 #[serde(tag = "when", rename_all = "snake_case")]
 pub enum Condition {
     Always,
-    /// Another field is filled (a text that is not blank, a list that is not empty).
+    /// Another field is filled (a text that is not blank, a list that is not empty). No field of the core waits for
+    /// one today; the forms of the modules will.
+    #[allow(dead_code)]
     Filled { field: &'static str },
     /// Another field holds one of these codes (a list: any of them).
     AnyOf { field: &'static str, values: &'static [&'static str] },
+}
+
+impl Condition {
+    /// Whether it holds with these values. The field it looks at may belong to another form: whoever asks passes the
+    /// values of that form too (`profile::forms`).
+    pub fn holds(&self, values: &Values) -> bool {
+        match *self {
+            Condition::Always => true,
+            Condition::Filled { field } => is_filled(values.get(field)),
+            Condition::AnyOf { field, values: wanted } => match values.get(field) {
+                Some(Value::String(s)) => wanted.contains(&s.as_str()),
+                Some(Value::Array(a)) => a.iter().any(|x| x.as_str().is_some_and(|s| wanted.contains(&s))),
+                _ => false,
+            },
+        }
+    }
+
+    /// The field it looks at, if any.
+    pub const fn field(&self) -> Option<&'static str> {
+        match *self {
+            Condition::Always => None,
+            Condition::Filled { field } | Condition::AnyOf { field, .. } => Some(field),
+        }
+    }
+}
+
+/// Other words for a field while a condition holds: the screen takes them from `variants.<words>` of the field in
+/// `es-MX.ts`. The value means what those words ask, so the code decides which ones, not the screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Wording {
+    pub when: Condition,
+    pub words: &'static str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -106,12 +140,13 @@ pub struct FieldSpec {
     pub min: Option<i64>,
     pub max: Option<i64>,
     pub rule: Option<Rule>,
+    pub wording: Option<Wording>,
 }
 
 impl FieldSpec {
     /// A field that applies always, is public, may reach the AI as it is and is not required.
     pub const fn new(id: &'static str, kind: FieldKind) -> Self {
-        FieldSpec { id, kind, options: &[], required: false, essential: false, applies_when: Condition::Always, sensitivity: Sensitivity::Public, ai: AiUse::AsIs, used_by: &[], min: None, max: None, rule: None }
+        FieldSpec { id, kind, options: &[], required: false, essential: false, applies_when: Condition::Always, sensitivity: Sensitivity::Public, ai: AiUse::AsIs, used_by: &[], min: None, max: None, rule: None, wording: None }
     }
     pub const fn options(mut self, options: &'static [&'static str]) -> Self {
         self.options = options;
@@ -148,6 +183,15 @@ impl FieldSpec {
     pub const fn rule(mut self, rule: Rule) -> Self {
         self.rule = Some(rule);
         self
+    }
+    /// Asked with other words while `when` holds (`Wording`).
+    pub const fn worded(mut self, when: Condition, words: &'static str) -> Self {
+        self.wording = Some(Wording { when, words });
+        self
+    }
+    /// The fields of other forms its condition and its words look at.
+    pub fn looks_at(&self) -> impl Iterator<Item = &'static str> {
+        self.applies_when.field().into_iter().chain(self.wording.and_then(|w| w.when.field()))
     }
 }
 
@@ -197,15 +241,18 @@ impl FormSpec {
 
     /// Whether a field applies with these values.
     pub fn applies(&self, f: &FieldSpec, values: &Values) -> bool {
-        match f.applies_when {
-            Condition::Always => true,
-            Condition::Filled { field } => is_filled(values.get(field)),
-            Condition::AnyOf { field, values: wanted } => match values.get(field) {
-                Some(Value::String(s)) => wanted.contains(&s.as_str()),
-                Some(Value::Array(a)) => a.iter().any(|x| x.as_str().is_some_and(|s| wanted.contains(&s))),
-                _ => false,
-            },
+        f.applies_when.holds(values)
+    }
+
+    /// The fields of other forms its conditions and words look at, each once: their values travel with the form.
+    pub fn looks_outside(&self) -> Vec<&'static str> {
+        let mut out: Vec<&'static str> = Vec::new();
+        for id in self.fields().flat_map(FieldSpec::looks_at) {
+            if self.field(id).is_none() && !out.contains(&id) {
+                out.push(id);
+            }
         }
+        out
     }
 
     /// The required fields that apply and are empty, in the order of the form.
@@ -365,6 +412,29 @@ mod tests {
         assert!(!FORM.applies(main, &empty) && FORM.applies(main, &with_b));
         assert!(!FORM.applies(only_b, &values(json!({ "kinds": ["a"] }))) && FORM.applies(only_b, &with_b));
         assert!(!FORM.applies(main, &values(json!({ "kinds": [] }))), "an empty list is not filled");
+    }
+
+    /// A condition may look at a field of another form; that form's values travel with this one.
+    #[test]
+    fn a_form_says_which_fields_of_other_forms_it_looks_at() {
+        const OUTSIDE: FormSpec = FormSpec {
+            id: "outside",
+            sections: &[SectionSpec {
+                id: "one",
+                columns: 1,
+                fields: &[
+                    FieldSpec::new("seats", FieldKind::Number).when(Condition::AnyOf { field: "kinds", values: &["b"] }),
+                    FieldSpec::new("people", FieldKind::Number).worded(Condition::AnyOf { field: "kinds", values: &["b"] }, "today"),
+                    FieldSpec::new("note", FieldKind::Text).when(Condition::Filled { field: "people" }).worded(Condition::Filled { field: "name" }, "named"),
+                ],
+            }],
+        };
+        assert_eq!(OUTSIDE.looks_outside(), vec!["kinds", "name"], "each once, and not its own fields");
+        assert!(FORM.looks_outside().is_empty());
+        let seats = OUTSIDE.field("seats").unwrap();
+        assert!(OUTSIDE.applies(seats, &values(json!({ "kinds": ["a", "b"] }))) && !OUTSIDE.applies(seats, &values(json!({ "kinds": ["a"] }))));
+        let today = OUTSIDE.field("people").unwrap().wording.unwrap();
+        assert!(today.when.holds(&values(json!({ "kinds": ["b"] }))) && !today.when.holds(&values(json!({}))));
     }
 
     #[test]

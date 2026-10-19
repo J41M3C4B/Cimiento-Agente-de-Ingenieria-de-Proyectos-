@@ -58,12 +58,14 @@ pub struct StepStatus {
 }
 
 /// What each step still needs, from the values of the windows of «Mi institución» (by field id) and what the records
-/// already answer.
+/// already answer. A field that does not apply with what was said before is not needed (the capacity, where nobody
+/// stays).
 pub fn steps(values: &Values, answered: &[&str]) -> Vec<StepStatus> {
     STEPS
         .iter()
         .map(|s| {
-            let missing: Vec<&'static str> = s.fields.iter().copied().filter(|f| !answered.contains(f) && !is_filled(values.get(*f))).collect();
+            let missing: Vec<&'static str> =
+                s.fields.iter().copied().filter(|f| !answered.contains(f) && field(f).applies_when.holds(values) && !is_filled(values.get(*f))).collect();
             StepStatus { key: s.key, complete: missing.is_empty(), missing }
         })
         .collect()
@@ -82,7 +84,6 @@ pub fn field(id: &str) -> &'static FieldSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::forms::Condition;
     use crate::core::institution::catalog::{state_name, RECORD_TYPES, STATES};
     use crate::core::institution::forms::{form, FORMS, LIST_FORMS};
     use serde_json::json;
@@ -96,7 +97,8 @@ mod tests {
     }
 
     /// ADR-042 §1: the steps ask exactly the fields the catalog marks indispensable, each one once, each step inside
-    /// one window, and every one of them always asked (none hides behind another answer).
+    /// one window. Each one is always asked, or hides only behind another indispensable datum asked in an earlier step
+    /// (ERP-2: the capacity, behind how it serves), so nothing hides behind an answer still to come.
     #[test]
     fn the_steps_are_the_indispensable_fields_of_the_catalog() {
         let essential: Vec<&str> = FORMS.iter().flat_map(|f| f.fields()).filter(|f| f.essential).map(|f| f.id).collect();
@@ -107,11 +109,15 @@ mod tests {
         b.sort_unstable();
         assert_eq!(a, b, "the first start and the catalog disagree");
         assert!((1..asked.len()).all(|i| !asked[..i].contains(&asked[i])), "a field is asked twice: {asked:?}");
-        for s in STEPS {
+        for (n, s) in STEPS.iter().enumerate() {
             let window = form(s.form).unwrap_or_else(|| panic!("{} is not a window", s.form));
+            let before: Vec<&str> = STEPS[..n].iter().flat_map(|s| s.fields.iter().copied()).collect();
             for f in s.fields {
                 let spec = window.field(f).unwrap_or_else(|| panic!("{f} is not in {}", s.form));
-                assert!(spec.required && spec.applies_when == Condition::Always, "{f}: an indispensable field is required and always asked");
+                assert!(spec.required, "{f}: an indispensable field is required");
+                if let Some(decider) = spec.applies_when.field() {
+                    assert!(before.contains(&decider), "{f} hides behind {decider}, which is not asked in an earlier step");
+                }
             }
         }
         assert!(LIST_FORMS.iter().flat_map(|f| f.fields()).all(|f| !f.essential), "the lists are filled after the first start");
@@ -127,13 +133,10 @@ mod tests {
             .iter()
             .chain(LIST_FORMS)
             .flat_map(|f| f.fields())
-            .filter_map(|f| match f.applies_when {
-                Condition::Always => None,
-                Condition::Filled { field } | Condition::AnyOf { field, .. } => Some(field),
-            })
+            .flat_map(|f| f.looks_at())
             .filter(|id| profile(id))
             .collect();
-        deciders.extend(RECORD_TYPES.iter().filter_map(|(_, a)| a.field()));
+        deciders.extend(RECORD_TYPES.iter().flat_map(|(_, a)| a.fields().iter().copied()));
         // the kind the modules go by comes out of whom it serves
         deciders.push("institution.populations");
         for id in deciders {
@@ -150,7 +153,8 @@ mod tests {
                 ("attention", vec!["institution.populations", "institution.modalities"]),
                 ("place", vec!["institution.state", "institution.municipality"]),
                 ("constitution", vec!["institution.legal_form", "institution.founded_year", "institution.authorized_donee", "institution.cluni"]),
-                ("figures", vec!["institution.capacity_total", "institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]),
+                // the capacity waits for how it serves: with nothing said, nobody stays there
+                ("figures", vec!["institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]),
             ]
         );
     }
@@ -171,6 +175,22 @@ mod tests {
         assert_eq!(missing(&blank, &[]), vec![("attention", vec!["institution.populations"]), ("place", vec!["institution.municipality"])]);
         assert_eq!(state_name("qroo"), Some("Quintana Roo"));
         assert_eq!(STATES.len(), 32);
+    }
+
+    /// ERP-2: an organization where nobody stays is not asked its places; a residence still is.
+    #[test]
+    fn the_capacity_is_asked_only_where_people_stay() {
+        let community = values(json!({
+            "institution.name": "Red Comunitaria Ficticia", "institution.mission": "Talleres y despensas en la colonia.",
+            "institution.populations": ["general_public"], "institution.modalities": ["community", "support"],
+            "institution.state": "pue", "institution.municipality": "Puebla",
+            "institution.legal_form": "ac", "institution.founded_year": 2012, "institution.authorized_donee": "no", "institution.cluni": "yes",
+            "institution.served_estimate": 340, "institution.staff_paid_estimate": 2, "institution.staff_volunteer_estimate": 15,
+        }));
+        assert!(complete(&steps(&community, &[])), "{:?}", missing(&community, &[]));
+        let mut day_care = community.clone();
+        day_care.insert("institution.modalities".into(), json!(["community", "day_care"]));
+        assert_eq!(missing(&day_care, &[]), vec![("figures", vec!["institution.capacity_total"])]);
     }
 
     #[test]

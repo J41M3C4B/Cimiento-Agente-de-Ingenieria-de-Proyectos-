@@ -2,8 +2,8 @@
 //! screen draws them; the words live in `src/i18n/es-MX.ts` under `forms.fields` with the same id.
 
 use super::catalog::{
-    BANK_PURPOSES, BOARD_ROLES, CARE_AREAS, DONEE_CATEGORIES, LEGAL_FORMS, MAX_ESTIMATE, MODALITIES, OLDEST_YEAR, POPULATIONS, RECORD_STATUSES, REGISTRY, SEXES_SERVED,
-    STATE_CODES, TAX_REGIMES, UNDER_A_JUNTA,
+    AGE_GROUPS, BANK_PURPOSES, BOARD_ROLES, CARE_AREAS, DONEE_CATEGORIES, LEGAL_FORMS, LODGING, MAX_ESTIMATE, MODALITIES, OLDEST_YEAR, POPULATIONS, RECORD_STATUSES,
+    REGISTRY, SEXES_SERVED, STATE_CODES, TAX_REGIMES, UNDER_A_JUNTA,
 };
 use crate::common::forms::{AiUse, Condition, FieldKind, FieldSpec, FormSpec, Rule, SectionSpec, Sensitivity};
 
@@ -24,8 +24,12 @@ const fn internal(f: FieldSpec) -> FieldSpec {
 
 /// What shows only for a donee (`authorized_donee = yes`).
 const DONEE: Condition = Condition::AnyOf { field: "institution.authorized_donee", values: &["yes"] };
-/// What shows once the person said whom they serve.
-const SERVES: Condition = Condition::Filled { field: "institution.populations" };
+/// What shows once the person said they serve a stage of life: the public at large or other organizations have no
+/// sex nor ages to say.
+const BY_AGE: Condition = Condition::AnyOf { field: "institution.populations", values: AGE_GROUPS };
+/// What shows where people live or spend the day (`LODGING`): the places, and how many people are there today. It
+/// looks at «Su institución» from «Capacidad y cifras».
+const LODGES: Condition = Condition::AnyOf { field: "institution.modalities", values: LODGING };
 
 /// «Su institución»: who it is and whom and how it serves. The kind the modules go by comes out of the populations.
 pub const IDENTITY: FormSpec = FormSpec {
@@ -44,7 +48,7 @@ pub const IDENTITY: FormSpec = FormSpec {
             columns: 1,
             fields: &[
                 FieldSpec::new("institution.populations", FieldKind::MultiSelect).options(POPULATIONS).essential().used_by(&["care", "hr", "facilities", "projects", "ai"]),
-                FieldSpec::new("institution.sex_served", FieldKind::Select).options(SEXES_SERVED).when(SERVES).used_by(&["care", "projects", "ai"]),
+                FieldSpec::new("institution.sex_served", FieldKind::Select).options(SEXES_SERVED).when(BY_AGE).used_by(&["care", "projects", "ai"]),
                 FieldSpec::new("institution.modalities", FieldKind::MultiSelect).options(MODALITIES).essential().used_by(&["care", "facilities", "projects", "ai"]),
                 FieldSpec::new("institution.care_areas", FieldKind::MultiSelect).options(CARE_AREAS).used_by(&["care", "hr", "projects", "ai"]),
                 FieldSpec::new("institution.services", FieldKind::LongText).used_by(&["projects", "care", "ai"]),
@@ -54,8 +58,8 @@ pub const IDENTITY: FormSpec = FormSpec {
             id: "admission",
             columns: 2,
             fields: &[
-                FieldSpec::new("institution.age_min", FieldKind::Number).range(0, MAX_AGE).when(SERVES).used_by(&["care", "projects", "ai"]),
-                FieldSpec::new("institution.age_max", FieldKind::Number).range(0, MAX_AGE).when(SERVES).used_by(&["care", "projects", "ai"]),
+                FieldSpec::new("institution.age_min", FieldKind::Number).range(0, MAX_AGE).when(BY_AGE).used_by(&["care", "projects", "ai"]),
+                FieldSpec::new("institution.age_max", FieldKind::Number).range(0, MAX_AGE).when(BY_AGE).used_by(&["care", "projects", "ai"]),
             ],
         },
         SectionSpec {
@@ -153,8 +157,8 @@ pub const LEGAL: FormSpec = FormSpec {
     ],
 };
 
-/// «Capacidad y cifras rápidas»: how many fit, and how many are served and work there while their records are not
-/// there yet. The records of the modules win over the quick figures.
+/// «Capacidad y cifras rápidas»: how many fit (where people stay), and how many are served and work there while their
+/// records are not there yet. The records of the modules win over the quick figures.
 pub const CAPACITY: FormSpec = FormSpec {
     id: "institution.capacity",
     sections: &[
@@ -162,8 +166,17 @@ pub const CAPACITY: FormSpec = FormSpec {
             id: "capacity_people",
             columns: 2,
             fields: &[
-                internal(FieldSpec::new("institution.capacity_total", FieldKind::Number)).range(0, MAX_ESTIMATE).essential().used_by(&["care", "facilities", "projects", "ai"]),
-                internal(FieldSpec::new("institution.served_estimate", FieldKind::Number)).range(0, MAX_ESTIMATE).essential().used_by(&["care", "projects", "ai"]),
+                internal(FieldSpec::new("institution.capacity_total", FieldKind::Number))
+                    .range(0, MAX_ESTIMATE)
+                    .essential()
+                    .when(LODGES)
+                    .used_by(&["care", "facilities", "projects", "ai"]),
+                // where people stay, how many are there today; elsewhere, how many it served in the last year
+                internal(FieldSpec::new("institution.served_estimate", FieldKind::Number))
+                    .range(0, MAX_ESTIMATE)
+                    .essential()
+                    .worded(LODGES, "today")
+                    .used_by(&["care", "projects", "ai"]),
             ],
         },
         SectionSpec {

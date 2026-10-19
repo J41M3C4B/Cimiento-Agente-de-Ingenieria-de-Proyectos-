@@ -15,6 +15,7 @@ const field = (id: string, kind: FieldSpec["kind"], options: string[] = []): Fie
   used_by: [],
   min: null,
   max: null,
+  wording: null,
 });
 
 // the window of «Su institución» with two suggestions of the AI waiting (core/profile/forms.rs and capturist.rs)
@@ -24,6 +25,7 @@ const view: FormView = {
     sections: [{ id: "who", columns: 1, fields: [field("institution.name", "text"), field("institution.populations", "multi_select", ["childhood", "older_adults"]), field("institution.age_min", "number")] }],
   },
   values: { "institution.name": "Asilo Ficticio" },
+  context: {},
   origins: {},
   missing: [],
   proposals: [

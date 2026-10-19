@@ -10,7 +10,7 @@ import type { FieldSpec, FormSpec, FormValues } from "../lib/types";
 import { applies, FormRenderer } from "./FormRenderer";
 
 const field = (id: string, more: Partial<FieldSpec>): FieldSpec => ({
-  id, kind: "text", options: [], required: false, essential: false, applies_when: { when: "always" }, sensitivity: "public", ai: "as_is", used_by: [], min: null, max: null, ...more,
+  id, kind: "text", options: [], required: false, essential: false, applies_when: { when: "always" }, sensitivity: "public", ai: "as_is", used_by: [], min: null, max: null, wording: null, ...more,
 });
 
 // the form «Su institución» as Rust describes it (core/institution/forms.rs), shortened
@@ -111,5 +111,32 @@ describe("FormRenderer", () => {
     // one at a time, and the same «?» closes it
     fireEvent.click(toggles[0]!);
     expect(screen.queryByText("Qué poner:")).toBeNull();
+  });
+
+  it("a field of another window decides what applies here and which words a field takes (ERP-2)", () => {
+    const lodges = { when: "any_of", field: "institution.modalities", values: ["residential", "day_care"] } as const;
+    const capacity: FormSpec = {
+      id: "institution.capacity",
+      sections: [
+        {
+          id: "capacity_people",
+          columns: 2,
+          fields: [
+            field("institution.capacity_total", { kind: "number", applies_when: lodges }),
+            field("institution.served_estimate", { kind: "number", wording: { when: lodges, words: "today" } }),
+          ],
+        },
+      ],
+    };
+    const draw = (context: FormValues) => render(<FormRenderer spec={capacity} values={{}} context={context} onChange={() => {}} />);
+    const community = draw({ "institution.modalities": ["community"] });
+    expect(screen.queryByText("Capacidad total (personas)")).toBeNull();
+    expect(screen.getByLabelText(/¿A cuántas personas atendieron en el último año\?/)).toBeInTheDocument();
+    community.unmount();
+
+    draw({ "institution.modalities": ["community", "residential"] });
+    expect(screen.getByLabelText(/Capacidad total \(personas\)/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/¿Cuántas personas atienden hoy\?/)).toBeInTheDocument();
+    expect(screen.getByText("Una cifra aproximada basta.")).toBeInTheDocument();
   });
 });

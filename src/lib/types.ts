@@ -47,6 +47,8 @@ export interface FieldSpec {
   used_by: string[];
   min: number | null;
   max: number | null;
+  /** other words while a condition holds: `variants[words]` of its entry in `es.forms.fields` */
+  wording: { when: Condition; words: string } | null;
 }
 export interface SectionSpec {
   id: string;
@@ -82,6 +84,8 @@ export interface InstitutionOverview {
 export interface FormView {
   spec: FormSpec;
   values: FormValues;
+  /** what other windows saved that decides a field here (how it serves, for the capacity): read, never saved */
+  context: FormValues;
   /** Where each saved datum comes from (ADR-033 §4): `user`, `document`, `ai_assumption` or `computed`. */
   origins: Record<string, FieldOrigin>;
   missing: string[];
