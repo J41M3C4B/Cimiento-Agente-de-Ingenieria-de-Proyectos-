@@ -15,7 +15,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - Pantallas y manual sin asilo, casa hogar ni abuelitos. La bienvenida ya no promete fichas.
 > - Un tercer ejemplo ficticio: «Red Comunitaria Ejemplo, A.C.».
 > - Lo que le toca a la IA (la ficha, los oficios y las baterías) quedó en [[IA-7 La IA ante el núcleo genérico|IA-7]].
-> - **Espera:** que lo pruebes (pasos en la tarjeta) y el PR.
+> - **Espera:** que lo pruebes (pasos en la tarjeta). PR #8.
 >
 > **Antes, el mismo día: [[ERP-1 Ocultar los módulos congelados|ERP-1]] está hecho (MVP-1).** Lo probaste y se fusionó a `main` en el PR #7.
 > - La app solo muestra el núcleo y Proyectos, con un solo interruptor (`core/modules.rs`).

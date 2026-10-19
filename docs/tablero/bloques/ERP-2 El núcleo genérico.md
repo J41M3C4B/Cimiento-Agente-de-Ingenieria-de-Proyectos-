@@ -148,4 +148,6 @@ Agregar opciones no borra ni cambia nada de lo guardado; no hace falta migració
 
 Lo probé así en la app real, con una base aparte: la A.C. desde el primer inicio y el asilo de ejemplo.
 
+PR: https://github.com/J41M3C4B/Cimiento-Agente-de-Ingenieria-de-Proyectos-/pull/8
+
 ## Resultado
