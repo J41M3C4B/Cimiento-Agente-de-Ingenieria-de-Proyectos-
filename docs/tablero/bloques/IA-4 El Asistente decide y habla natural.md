@@ -30,6 +30,11 @@ Lo que se quiere:
 - Conviene hacerlo después de la bóveda (IA-2), o junto con ella, porque los dos cambian lo que el Asistente recibe y cómo responde.
 - Se mide con las baterías del Asistente y del Capturista con el modelo más barato, más casos nuevos: «un dato que ya estaba», «uno nuevo», «uno a medias».
 
+**Anotado desde ERP-1 (2026-10-19, observación del líder):** a «¿Cuántos extintores tenemos?», sin el dato en los documentos, el Asistente contestó: «Puede revisar en sus instalaciones o anotar ese dato cuando agreguemos la sección correspondiente».
+- No es un error, pero es ambiguo: «instalaciones» puede ser el edificio o la parte del programa (sin «» no se sabe cuál).
+- Además promete una parte que todavía no existe, cuando nadie preguntó dónde anotarlo.
+- Entra en la revisión de cómo habla el Asistente: cuándo nombra una parte del programa, siempre entre «», y que no ofrezca lo que todavía no existe si la persona no lo pidió.
+
 ## Terminado cuando
 
 (Por definir.)

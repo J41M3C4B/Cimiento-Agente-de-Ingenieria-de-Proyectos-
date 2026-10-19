@@ -2,13 +2,13 @@
 tipo: bloque
 id: ERP-1
 carril: erp
-estado: revision
+estado: hecho
 prioridad: alta
 fase: MVP-1
-rama: erp/erp-1-ocultar-modulos
+rama: erp/erp-1-ocultar-modulos (fusionada en el PR #7 y borrada)
 adr: "[[ADR-043-un-erp-con-la-ia-en-el-nucleo]]"
 creado: 2026-10-18
-cerrado:
+cerrado: 2026-10-19
 ---
 
 ## Qué y por qué
@@ -63,7 +63,7 @@ Tu `pnpm tauri dev` ya muestra estos cambios, porque la carpeta está en la rama
 La bienvenida solo quedó revisada en las pruebas automáticas.
 
 **Lo que faltó (tu observación, 2026-10-19):**
-- [ ] **El Asistente y lo que todavía no existe:** cierra y vuelve a abrir `pnpm tauri dev` y pregúntale «¿Dónde registro los ingresos?». Debe decir que esa parte llegará después, sin ningún botón. Pregúntale también «¿Cuántos extintores tenemos?»: debe contestar con el programa de protección civil.
+- [x] **El Asistente y lo que todavía no existe:** cierra y vuelve a abrir `pnpm tauri dev` y pregúntale «¿Dónde registro los ingresos?». Debe decir que esa parte llegará después, sin ningún botón. Pregúntale también «¿Cuántos extintores tenemos?»: debe contestar con el programa de protección civil.
 
 ## Resultado
  Nos dio un comportamiento raro al preguntarle donde registro los ingresos:
@@ -79,3 +79,8 @@ La bienvenida solo quedó revisada en las pruebas automáticas.
 - **Corrida real** (modelo más barato, dos rondas, a lo más 14 llamadas por minuto): **40 de 40**, citas 18 de 18 y nada inventado.
   - Gasto: 63 llamadas del Asistente, 18 del Lector y 19 solicitudes de vectores, **$1.40 MXN** en 5.6 minutos.
   - Antes (oficio v10): 33 de 34.
+
+**Validado por el líder (2026-10-19):** probó la casilla nueva en la app y salió bien. Se fusionó a `main` en el PR #7.
+- Quedó una respuesta ambigua, que no es un error del programa. A «¿Cuántos extintores tenemos?» contestó: «Ninguno de los documentos que tiene guardados dice cuántos extintores tienen. Puede revisar en sus instalaciones o anotar ese dato cuando agreguemos la sección correspondiente».
+- «Sus instalaciones» se lee como el edificio, sin «» que lo marque como una parte del programa, y «la sección correspondiente» habla de una parte que todavía no existe.
+- Se anotó en [[IA-4 El Asistente decide y habla natural|IA-4]], que trata cómo habla el Asistente.

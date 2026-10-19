@@ -8,11 +8,10 @@ actualizado: 2026-10-19
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
 > [!info] Hoy (2026-10-19)
-> **[[ERP-1 Ocultar los módulos congelados|ERP-1]] sigue en «Revisión», con tu observación atendida.**
-> - Probaste todas sus casillas. Faltaba una cosa: a «¿Dónde registro los ingresos?» el Asistente te mandaba a «Capacidad y cifras rápidas».
-> - Ahora el Asistente sabe qué partes todavía no existen, y la lista sale del mismo interruptor. A esas preguntas contesta que llegarán después, sin ningún botón.
-> - Corrida real de su batería: **40 de 40**, nada inventado, $1.40 MXN.
-> - **Espera tu respuesta:** la casilla nueva de la tarjeta. Si sale bien, se fusiona a `main` y pasa a «Hecho».
+> **[[ERP-1 Ocultar los módulos congelados|ERP-1]] está hecho (MVP-1).** Lo probaste y se fusionó a `main` en el PR #7.
+> - La app solo muestra el núcleo y Proyectos, con un solo interruptor (`core/modules.rs`).
+> - El Asistente sabe qué partes todavía no existen: a «¿Dónde registro los ingresos?» contesta que llegará después, sin ningún botón. Corrida real de su batería: **40 de 40**, nada inventado, $1.40 MXN.
+> - Tu nota sobre «puede revisar en sus instalaciones» quedó en [[IA-4 El Asistente decide y habla natural|IA-4]].
 > - **Siguiente en el carril `erp`:** la revisión de [[ERP-2 El núcleo genérico|ERP-2]], para escribir su «Terminado cuando».
 >
 > **Antes (2026-10-18, noche): primer bloque del tablero, [[ERP-1 Ocultar los módulos congelados|ERP-1]], en «Revisión».**
