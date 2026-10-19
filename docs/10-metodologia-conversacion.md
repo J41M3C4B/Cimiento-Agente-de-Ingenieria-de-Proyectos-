@@ -1,6 +1,6 @@
 # 10 · Metodología de la conversación y bitácora
 
-**Estado:** parcialmente adoptada. El 2026-10-03 se aprobó la **convocatoria primero** y la **conversación progresiva guiada por la IA** (apertura + cinco porqués, solo con IA, interfaz de chat) en el `adr/ADR-017-conversacion-guiada-con-ia.md`, que ya está construido. Siguen **pendientes** de este documento: la bitácora completa con solidez por hecho (§4–5), el formulario tipado (§13), el plan de pruebas generado y la priorización como «elegir el objetivo». Donde este documento y el ADR-017 difieran, vale el ADR-017.
+**Estado:** parcialmente adoptada. El 2026-10-03 se aprobó la **convocatoria primero** y la **conversación progresiva guiada por la IA** (apertura + cinco porqués, solo con IA, interfaz de chat) en el `archivo/adr/ADR-017-conversacion-guiada-con-ia.md`, que ya está construido. Siguen **pendientes** de este documento: la bitácora completa con solidez por hecho (§4–5), el formulario tipado (§13), el plan de pruebas generado y la priorización como «elegir el objetivo». Donde este documento y el ADR-017 difieran, vale el ADR-017.
 
 ## 1. Por qué
 

@@ -20,7 +20,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > **Siguiente:** MVP-1, ocultar los módulos congelados. Después, MVP-2, la bóveda (ADR-044).
 >
 > **Antes (2026-10-18): el ADR-042 aplicado completo**
-> **Probaste la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md): funciona.** El acta y los estatutos con nombres de números se reconocieron por sus palabras; un archivo que no es de ningún documento no se guarda y lo dice.
+> **Probaste la fase 2 del [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md): funciona.** El acta y los estatutos con nombres de números se reconocieron por sus palabras; un archivo que no es de ningún documento no se guarda y lo dice.
 >
 > **Fase 3 hecha: las sugerencias llegan al subir un archivo** (tus problemas 6 y 7).
 > - Al guardar un archivo, el código busca sin IA de qué campos vacíos de «Mi institución» habla ese archivo. Si encuentra alguno, hace **una** llamada barata con esos campos y lo que dice el archivo. Un aviso dice cuántos datos encontró y en qué ventanas esperan. Ya no hace falta pulsar «Llenar con mis documentos» en cada ventana.
@@ -37,7 +37,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - Al repartir entre ventanas apareció un riesgo nuevo, «Atendemos a 30 abuelitos» como capacidad. Se cerró con una regla del código: una cifra va al campo del que hablan sus palabras, y una cifra dicha una vez llena un solo campo.
 > - Corridas reales, dos rondas: Capturista **33 de 34**, Asistente **33 de 34**, citas 18 de 18, **nada inventado**.
 >
-> **Fase 5 hecha: los detalles de lectura.** Con ella, el [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) queda aplicado completo.
+> **Fase 5 hecha: los detalles de lectura.** Con ella, el [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) queda aplicado completo.
 > - El municipio se sugiere con su nombre oficial («Benito Juárez», no «BENITO JUAREZ»). El programa ahora trae el catálogo del INEGI: 2,478 municipios y alcaldías.
 > - La calle se sugiere sin «Calle» delante, porque la etiqueta ya lo dice.
 > - Los servicios ya salen del informe anual, que tiene más autoridad que el acta.
@@ -45,7 +45,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > **Siguiente:** que pruebes las fases 3, 4 y 5 ([guion](15-guion-pruebas-nucleo.md), las casillas sin marcar de las secciones 5, 7 y 8). Después, el **bloque de diseño** (tus problemas 3 y 5).
 >
 > **Antes (2026-10-16, noche)**
-> **Probaste el guion completo (sección 15): todo salió bien.** Siguió la fase 2 del [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) (tu problema 4).
+> **Probaste el guion completo (sección 15): todo salió bien.** Siguió la fase 2 del [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) (tu problema 4).
 >
 > **Fase 2 hecha: un archivo solo se guarda en su lugar si el código confía en que es de ahí.**
 > - El código cuenta qué tan seguro está: las palabras de ese documento en el archivo, contra las de cualquier otro, y el nombre del archivo.
@@ -56,7 +56,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 >
 > **Siguiente:** que pruebes la fase 2 ([guion, sección 5](15-guion-pruebas-nucleo.md), las dos casillas nuevas sin marcar); después, la fase 3 (sugerencias al subir).
 >
-> **Antes (2026-10-16): la prueba completa del núcleo** ([[Observaciones Pruebas]]): 33 de 39 datos quedaron bien; lo que falló fue el camino y el diseño. De ahí salió el [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md): un solo camino para llenar la institución, en cinco fases.
+> **Antes (2026-10-16): la prueba completa del núcleo** ([[Observaciones Pruebas]]): 33 de 39 datos quedaron bien; lo que falló fue el camino y el diseño. De ahí salió el [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md): un solo camino para llenar la institución, en cinco fases.
 >
 > **Fase 1 hecha: el primer inicio pide solo lo indispensable.**
 > - 14 datos en cinco pasos cortos (antes unos 19 en seis). Ya no pide dinero, inmueble ni contacto.
@@ -83,7 +83,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - la Ayuda decía «Olvidé mi PIN»; ahora es «Olvidé mi contraseña»;
 > - el manual de «Llenarlo por mí» y la pantalla de Ayuda automática decían que el asistente nunca ve el teléfono ni el domicilio: desde el ADR-041 los copia si tú se los cuentas.
 >
-> **Antes (2026-10-15, noche): C4, fase 3 hecha: los tres agentes del núcleo están aprobados** ([ADR-036, aprobación](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)). Corrida final con el modelo más barato, dos rondas, nunca más de 14 llamadas por minuto:
+> **Antes (2026-10-15, noche): C4, fase 3 hecha: los tres agentes del núcleo están aprobados** ([ADR-036, aprobación](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)). Corrida final con el modelo más barato, dos rondas, nunca más de 14 llamadas por minuto:
 >
 > | Agente | Resultado | Inventado | Costo |
 > |---|---|---|---|
@@ -93,7 +93,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 >
 > Lo que falló fue algo que no tomaron (el año dicho con palabras, la comida entre los apoyos, una edad), nunca un dato distinto. La primera corrida encontró que «vienen voluntarios de **una** parroquia» pasaba como 1 voluntario; ya se corrigió para los tres agentes.
 >
-> **Antes (2026-10-15, tarde): C4, fase 2 hecha: el Asistente y lo que encontraste al probar la fase 1** ([ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md), [ADR-040](adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md)):
+> **Antes (2026-10-15, tarde): C4, fase 2 hecha: el Asistente y lo que encontraste al probar la fase 1** ([ADR-036, precisiones C4](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md), [ADR-040](archivo/adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md)):
 > - «Tenemos 35 espacios» después de hablar del poder ya no se va al poder: la causa era una frase mía de C3, que se quitó. Ahora ofrece «Llenarlo por mí»;
 > - «Tenemos 30 espacios… y viven 12 niñas» deja las dos cifras;
 > - «con base en ese mismo» siempre le pregunta al Lector (lo hace el código), y «¿qué documentos tengo?» trae la lista con sus nombres, escrita por el programa;
@@ -104,13 +104,13 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 >
 > **Después de tu prueba de la fase 2:**
 > - cerrar la ventana que «Llenarlo por mí» estaba llenando apaga el modo solo;
-> - «Llenarlo por mí» ahora sugiere también el domicilio, el teléfono, el correo, el RFC y los folios que le cuentas, copiados letra por letra de tus palabras (tu decisión, [ADR-041](adr/ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion.md)). Un dígito cambiado se tira. Si al escribir un teléfono o un RFC el programa pregunta si es dato personal, contesta «No es dato personal».
+> - «Llenarlo por mí» ahora sugiere también el domicilio, el teléfono, el correo, el RFC y los folios que le cuentas, copiados letra por letra de tus palabras (tu decisión, [ADR-041](archivo/adr/ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion.md)). Un dígito cambiado se tira. Si al escribir un teléfono o un RFC el programa pregunta si es dato personal, contesta «No es dato personal».
 >
 > Medido con la llave nueva: Capturista v4, 29 de 30 casos bien, nada inventado, $0.56 MXN las dos rondas. El domicilio completo, el teléfono y el RFC se sugieren copiados.
 >
 > Lo probaste y funciona.
 >
-> **Antes (2026-10-15, mañana): C4 empezó. Fase 1 hecha: el Capturista tiene su batería** ([ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
+> **Antes (2026-10-15, mañana): C4 empezó. Fase 1 hecha: el Capturista tiene su batería** ([ADR-036, precisiones C4](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
 > - 12 casos de lo que una persona cuenta en el chat, con trampas: sumas, edades supuestas, cifras con palabras, datos protegidos;
 > - el código ahora revisa que una cifra esté en tus palabras: «20 camas arriba y 15 abajo» ya no se vuelve «35»;
 > - lo que dice el Capturista después de llenar ya lo escribe el programa: qué dejó, qué no tomó y qué falta contar. Antes la IA podía prometer algo que el código había tirado.
@@ -118,14 +118,14 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > Con el modelo más barato: 68 de 69 casos bien, nada inventado, unos $0.02 MXN por caso.
 >
 >
-> **Antes (2026-10-14): arreglos tras tu prueba de C3** ([ADR-039](adr/ADR-039-mapa-de-lugares-desde-el-manual.md)):
+> **Antes (2026-10-14): arreglos tras tu prueba de C3** ([ADR-039](archivo/adr/ADR-039-mapa-de-lugares-desde-el-manual.md)):
 > - el botón «Ir a…» ya no se escribe a mano: sale de un mapa armado con el manual y los formularios. Una página nueva solo necesita su entrada en el manual;
 > - el respaldo desde «Mi institución» lleva a **Seguridad**, y nunca se ofrece un botón a la pantalla donde ya estás;
 > - «con base en ese mismo» ahora le pregunta al Lector por el documento de la respuesta anterior, en vez de contestar de memoria (1 de 2 rondas; la otra ofrece «Llenar con mis documentos»).
 >
 > Batería de 14 preguntas con el modelo más barato, dos rondas: 25 de 28, nada inventado, $1.14 MXN.
 >
-> **Antes (2026-10-13): C3 está hecho: el Asistente le pregunta al Lector del Expediente** ([ADR-036, precisiones C3](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
+> **Antes (2026-10-13): C3 está hecho: el Asistente le pregunta al Lector del Expediente** ([ADR-036, precisiones C3](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)):
 > - el Asistente ya no lee documentos: le pregunta al Lector, que contesta con la frase exacta, y el programa muestra el documento y la página;
 > - cada pregunta lleva el mapa del Expediente: qué documentos hay y cómo están (nunca qué dicen);
 > - la IA ve el tipo del documento, nunca el nombre del archivo (tu decisión), también en C2;
@@ -171,34 +171,34 @@ Todo lo que hay que probar del núcleo está en el [15 · Guion de pruebas del n
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
 | 2026-10-18 | **ADR-043 · SociAI es un ERP con la IA en el núcleo:** el MVP es el núcleo y los proyectos; módulos congelados y ocultos; núcleo genérico; la IA decide dentro de la casa con cuatro límites del código. Reescritos la visión, los principios y el roadmap (Fase 11). Antes, tres arreglos del chat: la frase no se repite tras el escáner, «Llenando…» solo si dejó sugerencias, «alcaldía Benito Juárez» no es una persona | [ADR-043](adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md) |
-| 2026-10-18 | **ADR-042, fase 5 · detalles de lectura:** el municipio con su nombre del catálogo del INEGI (2,478, con acentos), la calle sin «Calle», los servicios desde el informe. El ADR-042 queda aplicado completo | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
-| 2026-10-18 | **ADR-042, fase 4 · el chat:** sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre las cuatro ventanas; lo igual no se sugiere y el programa lo dice; la frase del botón la escribe el programa; las palabras con una cifra por letra se componen; una cifra va al campo del que hablan sus palabras. Capturista 33 de 34, Asistente 33 de 34, nada inventado | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
-| 2026-10-17 | **ADR-042, fase 3 · las sugerencias llegan al subir un archivo:** el código halla sin IA los campos vacíos de los que habla el archivo (2 palabras del campo o el nombre de una opción) y hace una llamada barata. Real: 18 de 18, nada inventado, $0.17 MXN por 13 documentos. «Notas generales» ya no se llena desde un archivo; un archivo con más autoridad reemplaza la sugerencia de otro; el oficio del Lector pasa a v2 («Llenar con mis documentos» sigue 18 de 18) | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
-| 2026-10-16 | **ADR-042, fase 2 · un archivo solo se guarda en su lugar si el código confía en que es de ahí:** la confianza es una cuenta del código (palabras del documento contra las de otro, más el nombre del archivo); si no confía, pregunta antes de guardar nada. Umbral medido en seco: 563 lugares equivocados, ninguno guardado. Corregidas las reglas de la licencia de uso de suelo y del registro desteñido | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |
-| 2026-10-16 | **ADR-042, fase 1 · el primer inicio pide solo lo indispensable:** 14 datos del catálogo en cinco pasos, cada paso por su ventana, se cierra solo con el último dato, una sola cuenta del avance (sin fichas de módulos); el municipio con regla de nombre de lugar, sin escáner. Salió de tu prueba completa (33 de 39 datos bien) | [ADR-042](adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |
+| 2026-10-18 | **ADR-042, fase 5 · detalles de lectura:** el municipio con su nombre del catálogo del INEGI (2,478, con acentos), la calle sin «Calle», los servicios desde el informe. El ADR-042 queda aplicado completo | [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
+| 2026-10-18 | **ADR-042, fase 4 · el chat:** sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre las cuatro ventanas; lo igual no se sugiere y el programa lo dice; la frase del botón la escribe el programa; las palabras con una cifra por letra se componen; una cifra va al campo del que hablan sus palabras. Capturista 33 de 34, Asistente 33 de 34, nada inventado | [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
+| 2026-10-17 | **ADR-042, fase 3 · las sugerencias llegan al subir un archivo:** el código halla sin IA los campos vacíos de los que habla el archivo (2 palabras del campo o el nombre de una opción) y hace una llamada barata. Real: 18 de 18, nada inventado, $0.17 MXN por 13 documentos. «Notas generales» ya no se llena desde un archivo; un archivo con más autoridad reemplaza la sugerencia de otro; el oficio del Lector pasa a v2 («Llenar con mis documentos» sigue 18 de 18) | [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
+| 2026-10-16 | **ADR-042, fase 2 · un archivo solo se guarda en su lugar si el código confía en que es de ahí:** la confianza es una cuenta del código (palabras del documento contra las de otro, más el nombre del archivo); si no confía, pregunta antes de guardar nada. Umbral medido en seco: 563 lugares equivocados, ninguno guardado. Corregidas las reglas de la licencia de uso de suelo y del registro desteñido | [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |
+| 2026-10-16 | **ADR-042, fase 1 · el primer inicio pide solo lo indispensable:** 14 datos del catálogo en cinco pasos, cada paso por su ventana, se cierra solo con el último dato, una sola cuenta del avance (sin fichas de módulos); el municipio con regla de nombre de lugar, sin escáner. Salió de tu prueba completa (33 de 39 datos bien) | [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md), [[Observaciones Pruebas]] |
 | 2026-10-15 | **La prueba completa del núcleo:** la institución de prueba «Casa San Ejemplo», 24 archivos del Expediente (escaneos, fotos, Word y fallas a propósito), lo que debe quedar y cómo calificar; la prueba en seco `full_expediente`. Corregido: el número de escritura partido en dos renglones | [16 · La institución de prueba](16-institucion-de-prueba.md) |
 | 2026-10-15 | **C4, fase 4 · guion de pruebas del núcleo:** una sección por pantalla con lo que debe pasar en cada paso; junta las pruebas sueltas del mapa. Se corrigieron cuatro textos viejos (el PIN de Seguridad y de la Ayuda, y lo que el asistente ve según el ADR-041) | [15 · Guion](15-guion-pruebas-nucleo.md) |
-| 2026-10-15 | **C4, fase 3 · corrida final:** Asistente 32 de 32, Capturista 28 de 30, «Llenar con mis documentos» 35 de 36, nada inventado; los tres aprobados. «Una parroquia» ya no pasa como la cifra 1. Las baterías nunca pasan de 14 llamadas por minuto | [ADR-036, aprobación](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
-| 2026-10-15 | **Tras probar la fase 2:** cerrar la ventana apaga «Llenarlo por mí»; el Capturista sugiere los datos propios de la institución copiados letra por letra (ADR-041); lo que la persona aclara ante el escáner ya no se vuelve a tapar en ese encargo. Capturista v4: 29 de 30, nada inventado | [ADR-041](adr/ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion.md) |
-| 2026-10-15 | **C4, fase 2 · el Asistente y la prueba de la fase 1:** una sola revisión de citas que perdona un desliz de copia y nunca una cifra; «ese mismo» va al Lector por el código; la lista de documentos la escribe el programa; el bucle corre la herramienta antes que una respuesta prematura; Asistente v9 y Capturista v3. 32 de 32, 28 de 28 y 18 de 18, nada inventado. ADR-040: los nombres de la institución en su Expediente sí llegan a la IA | [ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md), [ADR-040](adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md) |
-| 2026-10-15 | **C4, fase 1 · batería del Capturista:** 12 casos con trampas en las cuatro ventanas; el código revisa que cada cifra esté en las palabras de la persona; la IA ya no escribe la nota, el programa dice qué dejó, qué no tomó y qué falta contar. 68 de 69 casos bien, nada inventado | [ADR-036, precisiones C4](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
-| 2026-10-14 | **El mapa de lugares y «ese mismo»:** los botones «Ir a…» salen de un mapa armado con el manual y los formularios (sin listas a mano); el código elige el botón y nunca ofrece la pantalla donde ya estás; el respaldo lleva a Seguridad; la pregunta que sigue a un documento va al Lector con la clave de ese documento; el mapa del Expediente trae sus cifras para que la IA no cuente. Batería de 14: 25 de 28 en dos rondas, nada inventado | [ADR-039](adr/ADR-039-mapa-de-lugares-desde-el-manual.md) |
-| 2026-10-13 | **C3 · el Asistente como orquestador:** le pregunta al Lector del Expediente (`record_reader`), que contesta con su cita revisada por el código; el mapa del Expediente en cada pregunta; la IA ve el tipo del documento, nunca el nombre del archivo; «Llenar con mis documentos» bajo una respuesta. Batería de 13 preguntas: 26 de 26 en dos rondas con el modelo más barato, $0.04 MXN por pregunta. Se queda el protocolo JSON (las funciones nativas de Gemini: 25 de 26 y 52 % más caras) | [ADR-036, precisiones C3](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
-| 2026-10-13 | **C2 · «Llenar con mis documentos»:** el Lector busca en el Expediente los pasajes de cada campo vacío y hace una llamada por ventana con el modelo más barato; el código revisa cita, página, cifra y valor. 18 de 18 campos bien, nada inventado, $0.14 MXN las cuatro ventanas. Las opciones van a la IA con su nombre en la pantalla | [ADR-036, precisiones C2](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
-| 2026-10-13 | **Lectura y llenado sin huecos (ADR-038):** una sola política de llenado (datos propios solos, sugerencias solo en campos vacíos, nunca lo rechazado, autoridad por campo, lugar equivocado); Pdfium lee también las tablas (salen `pdf-extract` y `lopdf`); OCR con prioridad baja, hojas giradas, páginas mixtas e imágenes en Word y Excel; el Expediente lee en segundo plano; la metodología para los módulos | [ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md), [metodología](agents/metodologia-lectores.md) |
-| 2026-10-13 | **Pdfium lee el texto de todo PDF:** palabras enteras (antes «Thi s report»), párrafos por la distancia entre renglones, guion de corte; de 5 a 20 veces más rápido. Un PDF, Word o Excel con contraseña lo dice en el Expediente y en las convocatorias | [ADR-037, bloque 2](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
-| 2026-10-13 | **Pdfium contra `pdf-extract` (medición):** en 24 PDF de muestra sacan las mismas letras, pero `pdf-extract` parte palabras («Thi s report outli nes») y es de 5 a 20 veces más lento; se decide Pdfium como único motor | [ADR-037](adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
-| 2026-10-13 | **El Expediente tapa, no rechaza:** ningún archivo del Expediente se rechaza por «lista de personas» ni pide «Tapar y seguir»; el escáner tapa todo, la pantalla dice cuántos datos y la bitácora guarda los conteos. Las convocatorias conservan el rechazo | [ADR-036, precisión del 2026-10-13](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
-| 2026-10-13 | **OCR · letra chica:** una imagen con letra de menos de 20 píxeles se agranda hasta que mida 30 (a lo más ×4) y se lee otra vez; una imagen chica sin ninguna palabra, ×3. Una captura ficticia pasa de 4 errores y sin título a leerse completa con su correo; una foto chica, de cero palabras a completa | [ADR-035, precisión 1](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
-| 2026-10-13 | **OCR con documentos reales (solo medición):** agrandar la letra chica lleva una captura de 13 palabras mal leídas a 2; dos actas reales se rechazan como «lista de personas» por dos reglas toscas del escáner; 37 páginas tardan 171 s en un equipo de 4 núcleos; no se entrena Tesseract ni se usa la nube | [ADR-035, precisiones 2026-10-13](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
-| 2026-10-12 | **C1:** cada documento lleva su cajón; Documentos es la bandeja (pregunta qué documento del Expediente es y abre su ventana); la búsqueda siempre en un cajón; quitar o reemplazar un archivo saca su texto del cajón; «Borrar esto y todo…» ya no falla con un dato aceptado | [ADR-036, precisiones C1](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
-| 2026-10-12 | **ADR-036:** cajones con dueño, un agente por cajón, el Asistente como orquestador, cada agente validado con el modelo más barato; primero el núcleo | [ADR-036](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
+| 2026-10-15 | **C4, fase 3 · corrida final:** Asistente 32 de 32, Capturista 28 de 30, «Llenar con mis documentos» 35 de 36, nada inventado; los tres aprobados. «Una parroquia» ya no pasa como la cifra 1. Las baterías nunca pasan de 14 llamadas por minuto | [ADR-036, aprobación](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
+| 2026-10-15 | **Tras probar la fase 2:** cerrar la ventana apaga «Llenarlo por mí»; el Capturista sugiere los datos propios de la institución copiados letra por letra (ADR-041); lo que la persona aclara ante el escáner ya no se vuelve a tapar en ese encargo. Capturista v4: 29 de 30, nada inventado | [ADR-041](archivo/adr/ADR-041-el-capturista-copia-los-datos-propios-de-la-institucion.md) |
+| 2026-10-15 | **C4, fase 2 · el Asistente y la prueba de la fase 1:** una sola revisión de citas que perdona un desliz de copia y nunca una cifra; «ese mismo» va al Lector por el código; la lista de documentos la escribe el programa; el bucle corre la herramienta antes que una respuesta prematura; Asistente v9 y Capturista v3. 32 de 32, 28 de 28 y 18 de 18, nada inventado. ADR-040: los nombres de la institución en su Expediente sí llegan a la IA | [ADR-036, precisiones C4](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md), [ADR-040](archivo/adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md) |
+| 2026-10-15 | **C4, fase 1 · batería del Capturista:** 12 casos con trampas en las cuatro ventanas; el código revisa que cada cifra esté en las palabras de la persona; la IA ya no escribe la nota, el programa dice qué dejó, qué no tomó y qué falta contar. 68 de 69 casos bien, nada inventado | [ADR-036, precisiones C4](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
+| 2026-10-14 | **El mapa de lugares y «ese mismo»:** los botones «Ir a…» salen de un mapa armado con el manual y los formularios (sin listas a mano); el código elige el botón y nunca ofrece la pantalla donde ya estás; el respaldo lleva a Seguridad; la pregunta que sigue a un documento va al Lector con la clave de ese documento; el mapa del Expediente trae sus cifras para que la IA no cuente. Batería de 14: 25 de 28 en dos rondas, nada inventado | [ADR-039](archivo/adr/ADR-039-mapa-de-lugares-desde-el-manual.md) |
+| 2026-10-13 | **C3 · el Asistente como orquestador:** le pregunta al Lector del Expediente (`record_reader`), que contesta con su cita revisada por el código; el mapa del Expediente en cada pregunta; la IA ve el tipo del documento, nunca el nombre del archivo; «Llenar con mis documentos» bajo una respuesta. Batería de 13 preguntas: 26 de 26 en dos rondas con el modelo más barato, $0.04 MXN por pregunta. Se queda el protocolo JSON (las funciones nativas de Gemini: 25 de 26 y 52 % más caras) | [ADR-036, precisiones C3](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
+| 2026-10-13 | **C2 · «Llenar con mis documentos»:** el Lector busca en el Expediente los pasajes de cada campo vacío y hace una llamada por ventana con el modelo más barato; el código revisa cita, página, cifra y valor. 18 de 18 campos bien, nada inventado, $0.14 MXN las cuatro ventanas. Las opciones van a la IA con su nombre en la pantalla | [ADR-036, precisiones C2](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
+| 2026-10-13 | **Lectura y llenado sin huecos (ADR-038):** una sola política de llenado (datos propios solos, sugerencias solo en campos vacíos, nunca lo rechazado, autoridad por campo, lugar equivocado); Pdfium lee también las tablas (salen `pdf-extract` y `lopdf`); OCR con prioridad baja, hojas giradas, páginas mixtas e imágenes en Word y Excel; el Expediente lee en segundo plano; la metodología para los módulos | [ADR-038](archivo/adr/ADR-038-politica-unica-de-llenado-desde-documentos.md), [metodología](agents/metodologia-lectores.md) |
+| 2026-10-13 | **Pdfium lee el texto de todo PDF:** palabras enteras (antes «Thi s report»), párrafos por la distancia entre renglones, guion de corte; de 5 a 20 veces más rápido. Un PDF, Word o Excel con contraseña lo dice en el Expediente y en las convocatorias | [ADR-037, bloque 2](archivo/adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
+| 2026-10-13 | **Pdfium contra `pdf-extract` (medición):** en 24 PDF de muestra sacan las mismas letras, pero `pdf-extract` parte palabras («Thi s report outli nes») y es de 5 a 20 veces más lento; se decide Pdfium como único motor | [ADR-037](archivo/adr/ADR-037-pdfium-unico-motor-de-pdf.md) |
+| 2026-10-13 | **El Expediente tapa, no rechaza:** ningún archivo del Expediente se rechaza por «lista de personas» ni pide «Tapar y seguir»; el escáner tapa todo, la pantalla dice cuántos datos y la bitácora guarda los conteos. Las convocatorias conservan el rechazo | [ADR-036, precisión del 2026-10-13](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
+| 2026-10-13 | **OCR · letra chica:** una imagen con letra de menos de 20 píxeles se agranda hasta que mida 30 (a lo más ×4) y se lee otra vez; una imagen chica sin ninguna palabra, ×3. Una captura ficticia pasa de 4 errores y sin título a leerse completa con su correo; una foto chica, de cero palabras a completa | [ADR-035, precisión 1](archivo/adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
+| 2026-10-13 | **OCR con documentos reales (solo medición):** agrandar la letra chica lleva una captura de 13 palabras mal leídas a 2; dos actas reales se rechazan como «lista de personas» por dos reglas toscas del escáner; 37 páginas tardan 171 s en un equipo de 4 núcleos; no se entrena Tesseract ni se usa la nube | [ADR-035, precisiones 2026-10-13](archivo/adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
+| 2026-10-12 | **C1:** cada documento lleva su cajón; Documentos es la bandeja (pregunta qué documento del Expediente es y abre su ventana); la búsqueda siempre en un cajón; quitar o reemplazar un archivo saca su texto del cajón; «Borrar esto y todo…» ya no falla con un dato aceptado | [ADR-036, precisiones C1](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
+| 2026-10-12 | **ADR-036:** cajones con dueño, un agente por cajón, el Asistente como orquestador, cada agente validado con el modelo más barato; primero el núcleo | [ADR-036](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) |
 | 2026-10-12 | **IA6a con documentos reales:** el Lector entiende un acta real de 14 páginas y la ficha de la Junta (nombre, figura, año, objeto, número de institución); el objeto nunca incluye nombres del patronato | [Roadmap, IA6a](09-roadmap.md) |
-| 2026-10-12 | **IA6a:** la clase y el tipo de cada documento; sus datos llegan como sugerencias con documento y página; un dato protegido solo por reglas | [ADR-034, precisiones IA6a](adr/ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento.md) |
-| 2026-10-12 | **IA5:** búsqueda dentro de los documentos por palabras y por significado (vectores); medido antes de activarla: de 50 % a 100 % de aciertos con preguntas dichas con otras palabras | [ADR-034, precisiones IA5](adr/ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento.md) |
-| 2026-10-10 | **OCR:** leer páginas escaneadas y fotos | [ADR-035](adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
-| 2026-10-10 | **N4:** el expediente de la institución con vigencia | [ADR-033 §5](adr/ADR-033-nucleo-expediente-y-formularios-universales.md) |
-| 2026-10-10 | **IA3–IA4:** el Asistente en toda la app y el Capturista («Llenarlo por mí») | [ADR-034](adr/ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento.md) |
+| 2026-10-12 | **IA6a:** la clase y el tipo de cada documento; sus datos llegan como sugerencias con documento y página; un dato protegido solo por reglas | [ADR-034, precisiones IA6a](archivo/adr/ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento.md) |
+| 2026-10-12 | **IA5:** búsqueda dentro de los documentos por palabras y por significado (vectores); medido antes de activarla: de 50 % a 100 % de aciertos con preguntas dichas con otras palabras | [ADR-034, precisiones IA5](archivo/adr/ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento.md) |
+| 2026-10-10 | **OCR:** leer páginas escaneadas y fotos | [ADR-035](archivo/adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) |
+| 2026-10-10 | **N4:** el expediente de la institución con vigencia | [ADR-033 §5](archivo/adr/ADR-033-nucleo-expediente-y-formularios-universales.md) |
+| 2026-10-10 | **IA3–IA4:** el Asistente en toda la app y el Capturista («Llenarlo por mí») | [ADR-034](archivo/adr/ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento.md) |
 
 ## Cómo está armado, en un dibujo
 
@@ -220,7 +220,7 @@ Capas (ADR-032): base → módulos → núcleo → proyectos → pantallas; cada
 | Para saber… | Lee |
 |---|---|
 | Qué es y para quién | [Visión](00-vision.md) |
-| Cómo está construido (capas, núcleo y módulos) | [Arquitectura](01-arquitectura.md) · [ADR-032](adr/ADR-032-monolito-modular-nucleo-y-modulos.md) |
+| Cómo está construido (capas, núcleo y módulos) | [Arquitectura](01-arquitectura.md) · [ADR-032](archivo/adr/ADR-032-monolito-modular-nucleo-y-modulos.md) |
 | Qué datos nunca salen y cómo se cuidan | [Gobernanza de datos](03-gobernanza-datos.md) · [Escáner](04-escaner-datos-sensibles.md) |
 | Qué tablas hay y de quién es cada una | [Modelo de datos](05-modelo-datos.md) |
 | Cómo usamos la IA y cuánto cuesta | [IA y costos](07-ia-y-costos.md) |
@@ -231,7 +231,7 @@ Capas (ADR-032): base → módulos → núcleo → proyectos → pantallas; cada
 | Qué probar del núcleo, pantalla por pantalla | [Guion de pruebas del núcleo](15-guion-pruebas-nucleo.md) |
 | La prueba completa: la institución de prueba, sus 24 archivos y lo que debe quedar | [16 · La institución de prueba](16-institucion-de-prueba.md) |
 | Las reglas para trabajar en el código | [Principios](agents/principios-de-ingenieria.md) · [Flujo de trabajo](agents/flujo-de-trabajo.md) · [Comandos y pruebas](agents/comandos-y-pruebas.md) |
-| Cómo un cajón lee sus archivos y llena sus formularios (para cada módulo) | [Metodología de los Lectores](agents/metodologia-lectores.md) · [ADR-038](adr/ADR-038-politica-unica-de-llenado-desde-documentos.md) |
+| Cómo un cajón lee sus archivos y llena sus formularios (para cada módulo) | [Metodología de los Lectores](agents/metodologia-lectores.md) · [ADR-038](archivo/adr/ADR-038-politica-unica-de-llenado-desde-documentos.md) |
 | Por qué se decidió cada cosa | Los ADR, abajo · [Índice de ADR](adr/README.md) |
 
 ## Tus observaciones
@@ -250,6 +250,8 @@ SORT fecha DESC
 Observaciones dentro de los ADR: búsquelas con la búsqueda de Obsidian (Ctrl + Shift + F) escribiendo `"[!nota]" path:adr`.
 
 ## Las decisiones (ADR)
+
+Se empieza en limpio desde el [ADR-043](adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md). Los ADR 001 a 042 están [archivados](archivo/adr/README.md): solo se abren para un caso específico.
 
 Las vigentes, de la más nueva a la más vieja:
 

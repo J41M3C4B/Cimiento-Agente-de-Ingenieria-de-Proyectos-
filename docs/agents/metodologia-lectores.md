@@ -2,7 +2,7 @@
 
 Cómo cualquier cajón de documentos (Expediente, Personal, Beneficiarios, Instalaciones, Finanzas, Donantes) lee un archivo y llena sus formularios con lo que dice. El Expediente del núcleo es la referencia: un módulo nuevo copia esta forma y no inventa otra.
 
-Decisiones de origen: [ADR-038](../adr/ADR-038-politica-unica-de-llenado-desde-documentos.md) (la política), [ADR-036](../adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) (cajones), [ADR-037](../adr/ADR-037-pdfium-unico-motor-de-pdf.md) (PDF) y [ADR-035](../adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) (OCR).
+Decisiones de origen: [ADR-038](../archivo/adr/ADR-038-politica-unica-de-llenado-desde-documentos.md) (la política), [ADR-036](../archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md) (cajones), [ADR-037](../archivo/adr/ADR-037-pdfium-unico-motor-de-pdf.md) (PDF) y [ADR-035](../archivo/adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md) (OCR).
 
 ## 1. El camino de un archivo, siempre el mismo
 

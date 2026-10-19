@@ -43,7 +43,7 @@ La arquitectura es la casa de la IA, no un vigilante aparte. En lugar de un glos
 
 Dentro de esos límites, la IA decide qué es cada cosa, a qué campo va, qué documento es y qué preguntar. El código revisa lo que se puede revisar sin adivinar: que una cita esté en su texto (perdonando un desliz de copia, nunca una cifra), que una cifra esté en su cita y que un valor quepa en su campo.
 
-**Los agentes del núcleo** ([ADR-034](docs/adr/ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento.md), [ADR-036](docs/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)) corren en un bucle propio en Rust, cada uno con su oficio versionado, sus herramientas y sus topes:
+**Los agentes del núcleo** ([ADR-034](docs/archivo/adr/ADR-034-ia-en-todo-el-erp-agentes-herramientas-y-conocimiento.md), [ADR-036](docs/archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)) corren en un bucle propio en Rust, cada uno con su oficio versionado, sus herramientas y sus topes:
 
 | Agente | Qué hace | Medición con el modelo más barato (dos rondas) |
 |---|---|---|
@@ -55,10 +55,10 @@ Cada agente se valida con el modelo más barato: si funciona con él, funciona c
 
 ## Leer los papeles de una institución
 
-- **Un solo motor de PDF:** Pdfium saca el texto, los párrafos, el guion de corte y las tablas con y sin bordes ([ADR-037](docs/adr/ADR-037-pdfium-unico-motor-de-pdf.md)).
-- **Escaneos y fotos con OCR:** Tesseract, con la letra chica agrandada, las hojas giradas enderezadas y un aviso en las páginas dudosas ([ADR-035](docs/adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md)).
-- **El tipo de documento se reconoce por sus palabras.** Un archivo solo se guarda en su lugar si el código confía en que es de ahí; si no, pregunta antes de guardar nada ([ADR-042](docs/adr/ADR-042-primer-inicio-solo-lo-indispensable.md)). Medido en seco: de 563 lugares equivocados, ninguno se guardó.
-- **Una sola política de llenado** ([ADR-038](docs/adr/ADR-038-politica-unica-de-llenado-desde-documentos.md)):
+- **Un solo motor de PDF:** Pdfium saca el texto, los párrafos, el guion de corte y las tablas con y sin bordes ([ADR-037](docs/archivo/adr/ADR-037-pdfium-unico-motor-de-pdf.md)).
+- **Escaneos y fotos con OCR:** Tesseract, con la letra chica agrandada, las hojas giradas enderezadas y un aviso en las páginas dudosas ([ADR-035](docs/archivo/adr/ADR-035-leer-paginas-escaneadas-y-fotos-ocr.md)).
+- **El tipo de documento se reconoce por sus palabras.** Un archivo solo se guarda en su lugar si el código confía en que es de ahí; si no, pregunta antes de guardar nada ([ADR-042](docs/archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md)). Medido en seco: de 563 lugares equivocados, ninguno se guardó.
+- **Una sola política de llenado** ([ADR-038](docs/archivo/adr/ADR-038-politica-unica-de-llenado-desde-documentos.md)):
   - los datos propios del documento (emisión, vigencia, número) se escriben solos;
   - los demás llegan como sugerencia, solo en campos vacíos;
   - nunca se toca lo que escribió la persona, y lo que rechazó no vuelve.
@@ -66,7 +66,7 @@ Cada agente se valida con el modelo más barato: si funciona con él, funciona c
 
 ## Las convocatorias: un contrato para cualquier donante
 
-La pieza central de los proyectos es [`schemas/canonical_call.schema.json`](schemas/canonical_call.schema.json) (JSON Schema 2020-12): **un contrato universal que fija qué información hace falta de toda convocatoria, sin decir dónde ni cómo está escrita**. El modelo la busca y la rellena con citas, y el código verifica y normaliza ([ADR-015](docs/adr/ADR-015-schema-canonico-de-convocatorias.md)).
+La pieza central de los proyectos es [`schemas/canonical_call.schema.json`](schemas/canonical_call.schema.json) (JSON Schema 2020-12): **un contrato universal que fija qué información hace falta de toda convocatoria, sin decir dónde ni cómo está escrita**. El modelo la busca y la rellena con citas, y el código verifica y normaliza ([ADR-015](docs/archivo/adr/ADR-015-schema-canonico-de-convocatorias.md)).
 
 1. **Cada dato es su cita.** Cita literal, página y documento; el código comprueba que exista.
 2. **`no_aparece` y `ambiguo` son respuestas válidas.** Un campo vacío siempre dice por qué.
@@ -80,7 +80,7 @@ La pieza central de los proyectos es [`schemas/canonical_call.schema.json`](sche
 | **Lectura completa** con modelo fuerte | 34/42 y 11/22, a mayor costo | Mejor, pero cara |
 | **Esquema canónico con citas verificadas** (actual) | Tres convocatorias nuevas, **a ciegas**: 96–99 % de citas verificadas, $1.3 a $2.2 MXN por convocatoria | Adoptado; el riel se archivó |
 
-**El diagnóstico no es un chat abierto** ([ADR-017](docs/adr/ADR-017-conversacion-guiada-con-ia.md)):
+**El diagnóstico no es un chat abierto** ([ADR-017](docs/archivo/adr/ADR-017-conversacion-guiada-con-ia.md)):
 - empieza por *idea → obstrucción → beneficio futuro*;
 - sigue con hasta cinco «¿por qué?», porque lo que se pide casi nunca es el problema, sino su consecuencia;
 - el código conduce y garantiza el final: la causa propuesta debe estar citada en las palabras de la persona y el cierre exige su confirmación.
@@ -93,7 +93,7 @@ En el ensayo con una convocatoria real, la causa de fondo apareció en la tercer
 |---|---|
 | Chat sin fin | Conversaciones con estructura y topes de pasos por agente; el código fuerza el cierre |
 | Clics repetidos | Un proceso de IA por proyecto y una lectura por documento a la vez, desde Rust |
-| Saturación del servicio | Cadena de modelos de respaldo ([ADR-008](docs/adr/ADR-008-cadena-de-respaldo.md)); los 5xx no cuentan contra el cupo |
+| Saturación del servicio | Cadena de modelos de respaldo ([ADR-008](docs/archivo/adr/ADR-008-cadena-de-respaldo.md)); los 5xx no cuentan contra el cupo |
 | Límites del proveedor | Ritmo por modelo (por minuto y por día): el programa espera en lugar de provocar un 429; las baterías nunca pasan de 14 solicitudes por minuto |
 | Gasto mensual | Tope configurable con aviso al 80 % y pausa de la IA al 100 %; lo que no es IA sigue funcionando |
 | Falta de visibilidad | Cada intento, también los fallidos, queda con latencia, tokens, motivo y costo en `ai_usage`; la pantalla «Ayuda automática» lo muestra |
@@ -107,20 +107,20 @@ En el ensayo con una convocatoria real, la causa de fondo apareció en la tercer
 - **Escáner de datos sensibles:** CURP, RFC, clave de elector, CLABE, tarjetas, NSS, teléfonos, correos, nombres y contexto de salud, con dígitos verificadores y pruebas positivas y negativas por patrón.
 - **Siguiente paso: la bóveda.** Hoy el escáner tapa o le pregunta a la persona. En el plan del MVP, hacia la IA irán marcas tipadas (`[CORREO_1]`, `[NOMBRE_1]`) y nunca el valor. La IA decidirá qué es cada marca por su contexto y el código la resolverá en el equipo, sin detener a la persona.
 - **La bitácora no guarda contenido,** solo el tipo de evento y conteos.
-- **Términos del proveedor según el uso.** El desarrollo, con datos ficticios, usa el nivel gratuito del proveedor, cuyas condiciones permiten usar el contenido para mejorar sus productos. El uso con documentos reales va con una **API de pago**, bajo términos que no entrenan con el contenido ([ADR-040](docs/adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md)).
+- **Términos del proveedor según el uso.** El desarrollo, con datos ficticios, usa el nivel gratuito del proveedor, cuyas condiciones permiten usar el contenido para mejorar sus productos. El uso con documentos reales va con una **API de pago**, bajo términos que no entrenan con el contenido ([ADR-040](docs/archivo/adr/ADR-040-nombres-propios-de-la-institucion-en-su-expediente.md)).
 - **Lo pendiente:** antes de una entrega general faltan la revisión legal de privacidad (menores y datos de salud) y el aviso de privacidad con su consentimiento.
 
 ## UX para quien no es técnico
 
 - **Contar en lugar de capturar.** «Llenarlo por mí» y el Lector dejan sugerencias con su fuente («Usted dijo: …», «Acta constitutiva, página 3»); la persona las usa o las descarta.
-- **Dos capas** ([ADR-024](docs/adr/ADR-024-dos-capas-ia-y-persona.md)): lo que consume la IA no es lo que ve la persona. Ella ve una ficha corta en sus palabras.
+- **Dos capas** ([ADR-024](docs/archivo/adr/ADR-024-dos-capas-ia-y-persona.md)): lo que consume la IA no es lo que ve la persona. Ella ve una ficha corta en sus palabras.
 - **Lo que dice el programa lo escribe el programa.** Lo que quedó sugerido y lo que falta lo compone el código, nunca la IA, que podría prometer lo que el código descartó.
 - **Cuando la IA falla, no se inventa nada:** el Asistente responde con el manual sin conexión, y lo que no es IA sigue funcionando.
 - **Lenguaje sencillo** con una guía de estilo ([`docs/08-estilo-redaccion.md`](docs/08-estilo-redaccion.md)) y una prueba automática de jerga.
 
 ## Arquitectura
 
-Monolito modular ([ADR-032](docs/adr/ADR-032-monolito-modular-nucleo-y-modulos.md)): un núcleo y módulos que solo hablan por su `api`, en capas que solo miran hacia abajo. `cargo test architecture` lo revisa, y también que solo el dueño de una tabla escriba SQL sobre ella.
+Monolito modular ([ADR-032](docs/archivo/adr/ADR-032-monolito-modular-nucleo-y-modulos.md)): un núcleo y módulos que solo hablan por su `api`, en capas que solo miran hacia abajo. `cargo test architecture` lo revisa, y también que solo el dueño de una tabla escriba SQL sobre ella.
 
 ```mermaid
 flowchart TB
@@ -148,7 +148,7 @@ Dos instituciones de asistencia privada probaron una primera versión con inform
 - **Un proceso sencillo** que no imaginaban: una herramienta que las acompaña a pensar sus proyectos.
 - **Pidieron más:** digitalizar sus procesos, empezando por su institución, sus empleados y sus beneficiarios. De ahí salió el giro hacia un ERP.
 
-El núcleo se probó después con una institución inventada y 24 archivos con fallas a propósito (escaneos, fotos, una hoja girada, una copia desteñida, un archivo con contraseña): 33 de 39 datos quedaron bien a la primera, y de lo que falló salió el [ADR-042](docs/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) ([`docs/16-institucion-de-prueba.md`](docs/16-institucion-de-prueba.md)).
+El núcleo se probó después con una institución inventada y 24 archivos con fallas a propósito (escaneos, fotos, una hoja girada, una copia desteñida, un archivo con contraseña): 33 de 39 datos quedaron bien a la primera, y de lo que falló salió el [ADR-042](docs/archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) ([`docs/16-institucion-de-prueba.md`](docs/16-institucion-de-prueba.md)).
 
 ## Estado
 
@@ -174,7 +174,7 @@ Roadmap completo en [`docs/09-roadmap.md`](docs/09-roadmap.md) (Fase 11) y estad
 
 ## Cómo correrlo
 
-Requisitos: Node.js (LTS), pnpm, Rust estable y WebView2 (ya viene con Windows 11). En **Windows**, SQLCipher compila OpenSSL desde fuente y necesita [Strawberry Perl](https://strawberryperl.com/) **antes** que el `perl` de Git en el `PATH`; la primera compilación tarda unos 11 minutos ([ADR-002](docs/adr/ADR-002-sqlite-sqlcipher.md)).
+Requisitos: Node.js (LTS), pnpm, Rust estable y WebView2 (ya viene con Windows 11). En **Windows**, SQLCipher compila OpenSSL desde fuente y necesita [Strawberry Perl](https://strawberryperl.com/) **antes** que el `perl` de Git en el `PATH`; la primera compilación tarda unos 11 minutos ([ADR-002](docs/archivo/adr/ADR-002-sqlite-sqlcipher.md)).
 
 ```bash
 pnpm install
@@ -210,10 +210,10 @@ Para usar la IA real hace falta una llave de API de Gemini, que se captura dentr
 
 **Por dónde empezar a leer:**
 - [ADR-043](docs/adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md): el ERP con la IA en el núcleo;
-- [ADR-036](docs/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md): un agente por cajón de documentos;
-- [ADR-038](docs/adr/ADR-038-politica-unica-de-llenado-desde-documentos.md): una sola política de llenado;
-- [ADR-015](docs/adr/ADR-015-schema-canonico-de-convocatorias.md): de las reglas al contrato con citas verificadas;
-- [ADR-003](docs/adr/ADR-003-ia-propone-codigo-escribe.md): la IA propone, una persona acepta.
+- [ADR-036](docs/archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md): un agente por cajón de documentos;
+- [ADR-038](docs/archivo/adr/ADR-038-politica-unica-de-llenado-desde-documentos.md): una sola política de llenado;
+- [ADR-015](docs/archivo/adr/ADR-015-schema-canonico-de-convocatorias.md): de las reglas al contrato con citas verificadas;
+- [ADR-003](docs/archivo/adr/ADR-003-ia-propone-codigo-escribe.md): la IA propone, una persona acepta.
 
 ## Método de trabajo
 

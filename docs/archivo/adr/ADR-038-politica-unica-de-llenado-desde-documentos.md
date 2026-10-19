@@ -8,7 +8,7 @@ tags: [adr]
 ---
 # ADR-038 · Una sola política para llenar desde documentos, y la lectura de archivos sin huecos
 
-**Estado:** aceptada (2026-10-13, decisiones de la institución). Aplicada en el Expediente; es la metodología de los Lectores de todos los módulos ([metodología](../agents/metodologia-lectores.md)).
+**Estado:** aceptada (2026-10-13, decisiones de la institución). Aplicada en el Expediente; es la metodología de los Lectores de todos los módulos ([metodología](../../agents/metodologia-lectores.md)).
 
 ## Contexto
 
@@ -88,7 +88,7 @@ Batería de 13 documentos ficticios.
 
 ## Consecuencias
 
-- **Para los módulos:** la [metodología de los Lectores](../agents/metodologia-lectores.md) dice qué entrega cada uno: tipos, datos propios con origen por campo, reglas, autoridad, fixtures, batería y pruebas de ciclo de vida.
+- **Para los módulos:** la [metodología de los Lectores](../../agents/metodologia-lectores.md) dice qué entrega cada uno: tipos, datos propios con origen por campo, reglas, autoridad, fixtures, batería y pruebas de ciclo de vida.
 - **Reemplaza en parte:**
   - al ADR-034 (IA6): el Lector ya no solo sugiere; los datos propios se escriben solos;
   - al ADR-036 §4: la política del Lector del Expediente.

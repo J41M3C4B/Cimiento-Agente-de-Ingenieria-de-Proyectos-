@@ -6,7 +6,7 @@ sobre: "[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]"
 
 # 15 · Guion de pruebas del núcleo
 
-La prueba completa del núcleo por la institución: C4, fase 4 ([ADR-036](adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)). Los tres agentes ya se aprobaron con sus baterías (fase 3). Lo que falta es que tú pruebes cada pantalla con la app abierta, como la usaría una directora.
+La prueba completa del núcleo por la institución: C4, fase 4 ([ADR-036](archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md)). Los tres agentes ya se aprobaron con sus baterías (fase 3). Lo que falta es que tú pruebes cada pantalla con la app abierta, como la usaría una directora.
 
 El núcleo es: el primer inicio y las cuentas, **Inicio**, **Mi institución** con su Expediente, **Documentos**, el **Asistente** y las pantallas de servicio (Ayuda automática, Seguridad, Administración y Ayuda). Personal, Beneficiarios, Instalaciones, Finanzas y Proyectos **no entran** (nota `C1_NOTAS`): si aparecen, no los pruebes.
 
