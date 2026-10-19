@@ -2,14 +2,14 @@
 tipo: bloque
 id: IA-5
 carril: ia
-estado: revision
+estado: hecho
 prioridad: alta
 fase: MVP-2
 patron: [determinista, acotada, agente]
 rama: ia/ia-5-tres-patrones
 adr: "[[ADR-045-tres-patrones-de-la-ia]]"
 creado: 2026-10-19
-cerrado:
+cerrado: 2026-10-19
 ---
 
 ## Qué y por qué
@@ -43,9 +43,16 @@ Solo documentos, sin código. En su propia carpeta (`D:\Agente Proyectos\cimient
 
 ## Cómo probarlo
 
-- [ ] Lee el [[ADR-045-tres-patrones-de-la-ia|ADR-045]]. ¿Dice lo que decidiste? Si sí, cambia su `estado` a `aceptada`.
-- [ ] Lee [[patrones-de-ia]] y pon a prueba las cuatro preguntas con un caso que tengas en mente, por ejemplo un operador para Proyectos o la bienvenida del primer inicio. ¿Te lleva al patrón que esperabas?
-- [ ] Revisa la tabla de §6 («Lo que tenemos hoy» y la deuda). ¿Falta algo o algo está mal clasificado?
-- [ ] Revisa [[IA-4 El Asistente decide y habla natural|IA-4]] y contesta su pregunta: ¿el botón «Llenarlo por mí» se queda como permiso o pasa a ser «Ver sugerencias»?
+- [x] Lee el [[ADR-045-tres-patrones-de-la-ia|ADR-045]]. ¿Dice lo que decidiste? Si sí, cambia su `estado` a `aceptada`.
+- [x] Lee [[patrones-de-ia]] y pon a prueba las cuatro preguntas con un caso que tengas en mente, por ejemplo un operador para Proyectos o la bienvenida del primer inicio. ¿Te lleva al patrón que esperabas?
+- [x] Revisa la tabla de §6 («Lo que tenemos hoy» y la deuda). ¿Falta algo o algo está mal clasificado?
+- [ ] Revisa [[IA-4 El Asistente decide y habla natural|IA-4]] y contesta su pregunta: ¿el botón «Llenarlo por mí» se queda como permiso o pasa a ser «Ver sugerencias»? *(Sigue abierta en IA-4: se contesta al definir su «Terminado cuando».)*
 
 ## Resultado
+
+Validado por el líder el 2026-10-19: leyó el ADR, entendió la división y lo aprobó. Fusionado a `main` con *squash*. Solo documentos; no cambió código.
+
+- [[ADR-045-tres-patrones-de-la-ia|ADR-045]] **aceptado**: sin chats, tres patrones (determinista, IA acotada con operadores, agentes), siempre el nivel más bajo y la capa de IA propia, sin framework.
+- La metodología vive en [[patrones-de-ia|docs/agents/patrones-de-ia.md]] y la carga `CLAUDE.md`. Los patrones también son la frontera entre los dos CTO ([[roles-y-tablero|Roles y tablero]], escrito por el carril `erp`).
+- Todos los bloques `ia` llevan su `patron`: IA-2 e IA-3 son deterministas; IA-4 e IA-6, operador y agente.
+- **Queda abierto:** la pregunta del botón, en IA-4.

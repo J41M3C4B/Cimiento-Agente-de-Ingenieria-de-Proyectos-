@@ -1,13 +1,13 @@
 ---
 adr: 45
-estado: propuesta
+estado: aceptada
 fecha: 2026-10-19
 tema: [ia, arquitectura, metodologia]
 tags: [adr]
 ---
 # ADR-045 · Tres patrones: determinista, IA acotada y agentes; sin chats
 
-**Estado:** propuesta (2026-10-19). La decisión es del líder en la sesión del 2026-10-19; el texto y la metodología los escribió el CTO y esperan su aprobación. El número 044 queda para la bóveda (ADR-043 §5).
+**Estado:** aceptada (2026-10-19). La decisión es del líder en la sesión del 2026-10-19; el texto y la metodología los escribió el CTO y el líder los aprobó el mismo día. El número 044 queda para la bóveda (ADR-043 §5).
 
 ## Contexto
 

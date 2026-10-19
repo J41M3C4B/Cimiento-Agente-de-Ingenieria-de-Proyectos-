@@ -14,6 +14,11 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - Tu nota sobre «puede revisar en sus instalaciones» quedó en [[IA-4 El Asistente decide y habla natural|IA-4]].
 > - **Siguiente en el carril `erp`:** la revisión de [[ERP-2 El núcleo genérico|ERP-2]], para escribir su «Terminado cuando».
 >
+> **Carril `ia`: [[IA-5 Los tres patrones de la IA|IA-5]] está hecho.** Aprobaste el [ADR-045](adr/ADR-045-tres-patrones-de-la-ia.md): sin chats y tres patrones (determinista, IA acotada con operadores, agentes), siempre el nivel más bajo. La metodología está en [[patrones-de-ia|docs/agents/patrones-de-ia.md]].
+> - El carril `ia` trabaja en su propia carpeta, `D:\Agente Proyectos\cimiento-ia`: es el mismo repositorio, con otra rama.
+> - **Espera tu respuesta:** la pregunta del botón «Llenarlo por mí» en [[IA-4 El Asistente decide y habla natural|IA-4]].
+> - **Siguiente en el carril `ia`:** [[IA-2 La bóveda|IA-2]], la bóveda: el ADR-044 y su «Terminado cuando», para que los apruebes antes de programarla.
+>
 > **Antes (2026-10-18, noche): primer bloque del tablero, [[ERP-1 Ocultar los módulos congelados|ERP-1]], en «Revisión».**
 > - La app solo muestra el núcleo y Proyectos.
 > - Un solo interruptor en Rust (`core/modules.rs`) decide qué módulos están ocultos; la barra, el Asistente, las cifras, Mi institución, Inicio y la bienvenida salen de él.
