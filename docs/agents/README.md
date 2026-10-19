@@ -1,6 +1,6 @@
 # Guía operativa para agentes de desarrollo
 
-Cimiento se desarrolla con apoyo de agentes de código. Esta carpeta es el **manual de operación** que esos agentes leen antes de tocar el proyecto: qué reglas no se negocian, cómo se llaman las cosas, cómo se prueba y en qué orden se trabaja.
+SociAI se desarrolla con apoyo de agentes de código (el repositorio y el código se llaman `cimiento`). Esta carpeta es el **manual de operación** que esos agentes leen antes de tocar el proyecto: qué reglas no se negocian, cómo se llaman las cosas, cómo se prueba y en qué orden se trabaja.
 
 La idea es la misma que rige el producto: **el agente propone, y las pruebas, los ADR y el criterio del autor deciden.** Las especificaciones de `docs/` son la fuente de verdad; esta carpeta solo les dice a los agentes cómo respetarlas.
 
@@ -10,6 +10,7 @@ La idea es la misma que rige el producto: **el agente propone, y las pruebas, lo
 | [`glosario-dominio.md`](glosario-dominio.md) | Vocabulario del dominio (español) y su nombre en el código (inglés) |
 | [`comandos-y-pruebas.md`](comandos-y-pruebas.md) | Cómo correr, probar y empaquetar; pruebas en seco y pruebas con IA real (opt-in, con tope de llamadas) |
 | [`flujo-de-trabajo.md`](flujo-de-trabajo.md) | Orden de trabajo, cuándo preguntar, cómo cerrar una tarea y qué datos se pueden usar |
+| [`patrones-de-ia.md`](patrones-de-ia.md) | Los tres patrones (determinista, IA acotada, agentes): cómo se elige, la ficha de cada uno y lo que hay hoy (ADR-045) |
 
 ## Controles que hacen confiable el trabajo asistido
 
