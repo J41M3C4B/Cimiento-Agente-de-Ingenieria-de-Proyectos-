@@ -1,0 +1,33 @@
+=== PAGINA 1 ===
+CONSTANCIA DE SITUACIÓN FISCAL
+Servicio de Administración Tributaria
+
+Lugar y fecha de emisión: Ciudad de México, a 6 de febrero de 2026
+
+Datos de identificación del contribuyente
+RFC: CRF150310KX4
+Denominación o razón social: CASA DE REPOSO FICTICIA SAN EJEMPLO
+Régimen capital: INSTITUCION DE ASISTENCIA PRIVADA
+Nombre comercial: CASA SAN EJEMPLO
+Fecha inicio de operaciones: 10 DE MARZO DE 2015
+Estatus en el padrón: ACTIVO
+
+Datos del domicilio registrado
+Código postal: 03100
+Tipo de vialidad: CALLE
+Nombre de la vialidad: DE LOS EJEMPLOS
+Nombre de la colonia: DEL VALLE CENTRO
+Nombre del municipio o demarcación territorial: BENITO JUAREZ
+Nombre de la entidad federativa: CIUDAD DE MEXICO
+
+=== PAGINA 2 ===
+Actividades económicas
+Orden 1. Asilos y otras residencias del sector privado para el cuidado de ancianos. Porcentaje 100. Fecha inicio 10/03/2015.
+
+Regímenes
+Personas Morales con Fines no Lucrativos. Fecha inicio 10/03/2015.
+
+Obligaciones
+Declaración informativa anual de personas morales con fines no lucrativos. Vencimiento: a más tardar el 15 de febrero del año siguiente.
+Declaración informativa de transparencia de donatarias autorizadas. Vencimiento: en el mes de mayo de cada año.
+Entero de retenciones mensuales de ISR por sueldos y salarios. Vencimiento: a más tardar el día 17 del mes inmediato posterior.

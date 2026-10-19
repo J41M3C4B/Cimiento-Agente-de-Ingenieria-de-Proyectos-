@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { Icon } from "../icons";
 import type { IconName } from "../icons";
 
-/** The colors of the system (docs/13 §3.2) plus `ink` (black), `neutral` (gray) and `pc` (the project's own color). */
-export type Tone = "sky" | "violet" | "rose" | "red" | "amber" | "green" | "teal" | "cyan" | "ink" | "neutral" | "pc";
+/** The colors of the system (docs/13 §3.2) plus `ink` (black), `neutral` (gray), `pc` (the project's own color) and `ac` (the accent of the screen). */
+export type Tone = "sky" | "violet" | "rose" | "red" | "amber" | "green" | "teal" | "cyan" | "ink" | "neutral" | "pc" | "ac";
 export type TagTone = Tone;
 
 /** The colors that tell people, positions and groups apart (red is left for what is wrong, amber for «attention»). */
@@ -56,6 +56,24 @@ export function Tile({ icon, tone = "sky", small }: { icon: IconName; tone?: Ton
   return (
     <span className={`tile tone-${tone} ${small ? "tile--sm" : ""}`}>
       <Icon name={icon} size={small ? 16 : 20} />
+    </span>
+  );
+}
+
+const STATUS_ICONS = { ok: "check", pending: "clock", warn: "warn", error: "alert", idle: "minus" } as const;
+
+/**
+ * A state told with a round mark and its words, with no capsule behind it (docs/13 §3.5): «Lista», «Pendiente» (a
+ * clock), «Cuidado» (a warning) and «No se pudo». The mark carries the color; the words are always there. For a line
+ * of a list, a row, a heading.
+ */
+export function Status({ kind, children, className = "" }: { kind: "ok" | "pending" | "warn" | "error" | "idle"; children: ReactNode; className?: string }) {
+  return (
+    <span className={`status status--${kind} ${className}`}>
+      <span aria-hidden="true" className="status-mark">
+        {kind !== "idle" && <Icon name={STATUS_ICONS[kind]} size={12} strokeWidth={3} />}
+      </span>
+      {children}
     </span>
   );
 }

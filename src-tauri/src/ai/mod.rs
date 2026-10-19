@@ -3,11 +3,17 @@
 //! The AI only asks diagnosis questions, reasons about needs and writes text.
 //! It never calculates and never writes files: it returns JSON, code validates it.
 
+pub mod agent;
 pub mod anthropic;
+pub mod figures;
 pub mod gemini;
+#[cfg(test)]
+pub mod gemini_native;
 pub mod metrics;
 #[cfg(test)]
 pub mod mock;
+#[cfg(test)]
+pub(crate) mod paced;
 pub mod pipeline;
 pub mod prompts;
 pub mod settings;
@@ -47,6 +53,12 @@ pub enum AiTask {
     CallCanonical,
     /// Writes the «en pocas palabras» of a call for the person (ADR-024), from what its reading understood.
     CallBrief,
+    /// One step of an agent (ADR-034): it asks for a tool or gives its answer. The agent says its name (the task in
+    /// `ai_usage`, `agent.<name>`) and its tier; its prompt and schema come with the call (`pipeline::Custom`).
+    Agent { name: &'static str, tier: ModelTier },
+    /// The vectors of the fragments of the documents of the institution, or of a question to look for in them (IA5,
+    /// ADR-034 §3): no prompt and no answer to validate, only text that was already through the scanner.
+    Embed,
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // used by the measurement tests, not by the application
@@ -72,18 +84,21 @@ impl AiTask {
             AiTask::DraftingAll => "drafting.all",
             AiTask::CallCanonical => "call.canonical",
             AiTask::CallBrief => "call.brief",
+            AiTask::Agent { name, .. } => name,
+            AiTask::Embed => "embed.records",
         }
     }
 
     pub fn tier(self) -> ModelTier {
         match self {
-            AiTask::ConversationTurn | AiTask::CallBrief => ModelTier::Light,
+            AiTask::ConversationTurn | AiTask::CallBrief | AiTask::Embed => ModelTier::Light,
             AiTask::DiagnosisSummary
             | AiTask::PrioritizationProposeNeeds
             | AiTask::DraftingSection
             | AiTask::DraftingPlan
             | AiTask::DraftingAll
             | AiTask::CallCanonical => ModelTier::Strong,
+            AiTask::Agent { tier, .. } => tier,
         }
     }
 
@@ -91,7 +106,8 @@ impl AiTask {
     /// quickly; the reading of a call runs once, in the background, over a lot of text.
     pub fn timeout_secs(self) -> u64 {
         match self {
-            AiTask::ConversationTurn | AiTask::CallBrief => 60,
+            AiTask::Embed => 30,
+            AiTask::ConversationTurn | AiTask::CallBrief | AiTask::Agent { .. } => 60,
             AiTask::DiagnosisSummary | AiTask::PrioritizationProposeNeeds | AiTask::DraftingSection | AiTask::DraftingPlan => 120,
             AiTask::DraftingAll => 180,
             AiTask::CallCanonical => 300,
@@ -120,7 +136,9 @@ impl AiTask {
     /// doc's 1,200 because a truncated JSON is useless and cost follows real usage.
     pub fn max_output_tokens(self) -> u32 {
         match self {
-            AiTask::ConversationTurn | AiTask::CallBrief => 500,
+            // an agent sets it per call (`pipeline::Custom`)
+            AiTask::Embed => 0,
+            AiTask::ConversationTurn | AiTask::CallBrief | AiTask::Agent { .. } => 500,
             AiTask::DiagnosisSummary => 2000,
             AiTask::PrioritizationProposeNeeds => 1000,
             AiTask::DraftingSection => 1500,

@@ -1,0 +1,36 @@
+{
+  "_nota": "Batería del Lector del Expediente con IA (C2, ADR-036): por ventana de «Mi institución», qué debe sugerir cada campo con los documentos ficticios de esta carpeta y en qué páginas está. «valores»: uno de estos (sin acentos ni mayúsculas); «contiene»: el texto sugerido lleva estas palabras; «alguno»: lleva al menos una; «incluye»: la lista sugerida lleva estos códigos; «nada»: ningún documento lo dice y no debe sugerirse (o solo «aceptables»); «libre»: no se califica. Todo es ficticio.",
+  "institution.identity": {
+    "institution.name": { "valores": ["Casa San Ejemplo", "Casa de Reposo Ficticia San Ejemplo"], "paginas": [["constancia-situacion-fiscal.txt", 1], ["informe-anual-2025.txt", 1], ["acta-constitutiva.txt", 1], ["reglamento-interno.txt", 1]] },
+    "institution.mission": { "contiene": ["mayores"], "paginas": [["acta-constitutiva.txt", 2], ["informe-anual-2025.txt", 1], ["aviso-funcionamiento.txt", 1]] },
+    "institution.populations": { "incluye": ["older_adults"], "paginas": [["acta-constitutiva.txt", 2], ["reglamento-interno.txt", 1], ["aviso-funcionamiento.txt", 1], ["contrato-comodato.txt", 1]] },
+    "institution.sex_served": { "valores": ["all"], "paginas": [["reglamento-interno.txt", 1]] },
+    "institution.modalities": { "incluye": ["residential"], "paginas": [["informe-anual-2025.txt", 1], ["aviso-funcionamiento.txt", 1]] },
+    "institution.care_areas": { "libre": true, "paginas": [["acta-constitutiva.txt", 2], ["informe-anual-2025.txt", 2], ["reglamento-interno.txt", 3]] },
+    "institution.services": { "libre": true, "paginas": [["informe-anual-2025.txt", 2], ["acta-constitutiva.txt", 2]] },
+    "institution.age_min": { "valores": [60], "paginas": [["reglamento-interno.txt", 1], ["acta-constitutiva.txt", 2]] },
+    "institution.age_max": { "nada": true },
+    "institution.admission_criteria": { "alguno": ["sesenta", "solicitud"], "paginas": [["reglamento-interno.txt", 1]] }
+  },
+  "institution.contact": {
+    "institution.municipality": { "valores": ["Benito Juarez"], "paginas": [["constancia-situacion-fiscal.txt", 1]] },
+    "institution.state": { "valores": ["cdmx"], "paginas": [["constancia-situacion-fiscal.txt", 1], ["acta-constitutiva.txt", 1], ["contrato-comodato.txt", 1]] }
+  },
+  "institution.legal": {
+    "institution.legal_name": { "contiene": ["casa de reposo ficticia san ejemplo"], "paginas": [["constancia-situacion-fiscal.txt", 1], ["acta-constitutiva.txt", 1]] },
+    "institution.purpose": { "contiene": ["alojamiento"], "paginas": [["acta-constitutiva.txt", 2]] },
+    "institution.legal_form": { "valores": ["iap"], "paginas": [["constancia-situacion-fiscal.txt", 1], ["acta-constitutiva.txt", 1]] },
+    "institution.founded_year": { "valores": [2015], "paginas": [["acta-constitutiva.txt", 1], ["constancia-situacion-fiscal.txt", 1]] },
+    "institution.tax_regime": { "valores": ["non_profit"], "paginas": [["constancia-situacion-fiscal.txt", 2]] },
+    "institution.authorized_donee": { "valores": ["yes"], "paginas": [["oficio-donataria.txt", 1]] },
+    "institution.cluni": { "valores": ["yes"], "paginas": [["cluni.txt", 1]] },
+    "institution.donee_category": { "valores": ["assistance"], "paginas": [["oficio-donataria.txt", 1]] }
+  },
+  "institution.capacity": {
+    "institution.capacity_total": { "nada": true },
+    "institution.served_estimate": { "nada": true, "aceptables": [48] },
+    "institution.staff_paid_estimate": { "valores": [31], "paginas": [["informe-anual-2025.txt", 1]] },
+    "institution.staff_volunteer_estimate": { "valores": [18], "paginas": [["informe-anual-2025.txt", 1]] },
+    "institution.notes": { "libre": true }
+  }
+}

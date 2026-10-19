@@ -2,47 +2,51 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Shell } from "./components/Shell";
 import type { Page } from "./components/Shell";
-import { AiSettingsPage } from "./features/ai/AiSettingsPage";
-import { HomePage } from "./features/home/HomePage";
-import { DocumentsPage } from "./features/documents/DocumentsPage";
-import { HelpPage } from "./features/help/HelpPage";
-import { ProfilePage } from "./features/profile/ProfilePage";
-import type { ProfileTab } from "./features/profile/ProfilePage";
-import { ProjectsPage } from "./features/projects/ProjectsPage";
-import { AdminPage } from "./features/access/AdminPage";
-import { useSession } from "./features/access/session";
-import { SecurityPage } from "./features/security/SecurityPage";
+import { AiSettingsPage } from "./core/ai/AiSettingsPage";
+import { AssistantProvider } from "./core/assistant/Assistant";
+import { HomePage } from "./core/home/HomePage";
+import { DocumentsPage } from "./core/documents/DocumentsPage";
+import { HelpPage } from "./core/help/HelpPage";
+import { ProfilePage } from "./core/profile/ProfilePage";
+import { RecordReadingWatcher } from "./core/profile/recordReading";
+import { attachedNotice } from "./core/profile/RecordWindow";
+import type { Where } from "./core/profile/gaps";
+import { ProjectsPage } from "./modules/projects/ProjectsPage";
+import { StaffPage } from "./modules/hr/StaffPage";
+import { CarePage } from "./modules/care/CarePage";
+import { FacilitiesPage } from "./modules/facilities/FacilitiesPage";
+import { FinancePage } from "./modules/finance/FinancePage";
+import { AdminPage } from "./core/access/AdminPage";
+import { useSession } from "./core/access/session";
+import { SecurityPage } from "./core/security/SecurityPage";
 import { es } from "./i18n/es-MX";
-import { profileGet, projectList } from "./lib/tauri";
+import { profileGet } from "./lib/tauri";
 
 export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  // «Mi institución» opens on the tab a link from Inicio points to; the rail always opens it on the first
-  const [profileTab, setProfileTab] = useState<ProfileTab | undefined>(undefined);
+  // a window of «Mi institución» to open when arriving there (the Assistant's «Ir a…»); `n` makes each request new.
+  // It is used once: coming back to the page later must not open it again
+  const [profileWindow, setProfileWindow] = useState<{ where: Where; n: number } | null>(null);
   // the app is shown only with a person inside (AccessGate, ADR-028); what they may do shapes the menu
   const access = useSession();
   const profile = useQuery({ queryKey: ["profile"], queryFn: profileGet });
-  const projects = useQuery({ queryKey: ["projects"], queryFn: projectList });
 
   const institution = profile.data?.input.institution.name?.trim() || es.nav.profile;
 
-  // the capsule talks about the project that is open or, failing that, the one in progress
-  const focus = projects.data?.find((p) => p.id === openId) ?? projects.data?.find((p) => p.stage !== "READY") ?? projects.data?.[0];
   const openProject = (id: string) => {
     setOpenId(id);
     setCreating(false);
     setPage("projects");
   };
-  const openFocus = () => focus && openProject(focus.id);
-  const goProfile = (tab?: ProfileTab) => {
-    setProfileTab(tab);
-    setPage("profile");
-  };
-  const navigate = (p: Page) => {
-    if (p === "profile") setProfileTab(undefined);
-    setPage(p);
+  const goProfile = () => setPage("profile");
+  const navigate = (p: Page) => setPage(p);
+  // where the Assistant sends the person: a page, or a window of «Mi institución» (`profile.legal`)
+  const goTo = (place: string) => {
+    const [target, part] = place.split(".");
+    setPage(target as Page);
+    if (target === "profile" && part) setProfileWindow({ where: part as Where, n: Date.now() });
   };
   const newProject = () => {
     setOpenId(null);
@@ -51,19 +55,27 @@ export default function App() {
   };
 
   return (
-    <Shell page={page} onNavigate={navigate} institution={institution} focus={focus} onOpenFocus={openFocus} access={access}>
+    <AssistantProvider screen={page} onGo={goTo}>
+    <Shell page={page} onNavigate={navigate} institution={institution} access={access}>
       {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
           project, the project that was open and what they were writing are still there when they come back */}
       <div hidden={page !== "projects"}>
         <ProjectsPage openId={openId} onOpen={setOpenId} creating={creating} onCreating={setCreating} />
       </div>
-      {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGoAi={() => setPage("ai")} />}
-      {page === "profile" && <ProfilePage key={profileTab ?? "first"} initialTab={profileTab} />}
+      {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGo={navigate} onGoAi={() => setPage("ai")} />}
+      {page === "profile" && <ProfilePage onGo={navigate} openWindow={profileWindow} onWindowOpened={() => setProfileWindow(null)} />}
+      {page === "staff" && <StaffPage />}
+      {page === "people" && <CarePage />}
+      {page === "facilities" && <FacilitiesPage />}
+      {page === "finance" && <FinancePage />}
       {page === "documents" && <DocumentsPage />}
       {page === "ai" && access?.can("settings") && <AiSettingsPage />}
       {page === "admin" && access?.can("administer") && <AdminPage />}
       {page === "security" && <SecurityPage />}
       {page === "help" && <HelpPage />}
+      {/* the files of the Expediente read in the background say how they ended, wherever the person is (ADR-038) */}
+      <RecordReadingWatcher attachedText={attachedNotice} />
     </Shell>
+    </AssistantProvider>
   );
 }

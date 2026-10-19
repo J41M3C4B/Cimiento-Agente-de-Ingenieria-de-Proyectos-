@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { es } from "../i18n/es-MX";
 import type {
-  AddDocumentOutcome,
   AddNeedOutcome,
   AiCheckView,
   AiModelsView,
@@ -11,6 +10,18 @@ import type {
   AiStatusView,
   AnswerOutcome,
   AppError,
+  AppPlace,
+  AssistantAsk,
+  AttachStart,
+  PlaceAnswer,
+  PlaceStart,
+  Expediente,
+  RecordForm,
+  RecordOutcome,
+  CaptureAsk,
+  CaptureOutcome,
+  FillOutcome,
+  AssistantOutcome,
   BackupFile,
   ScanSummary,
   BudgetItemInput,
@@ -24,6 +35,7 @@ import type {
   Exported,
   ReviewView,
   DocumentSummary,
+  Found,
   EditOutcome,
   FileRole,
   NeedsView,
@@ -32,6 +44,15 @@ import type {
   ProfileView,
   DonorKind,
   DraftMode,
+  FormValues,
+  FormView,
+  ManualEntry,
+  ManualHit,
+  InstitutionLists,
+  InstitutionOverview,
+  ListForm,
+  ListKind,
+  ListOutcome,
   ProjectColor,
   ProjectRow,
   ReadingDetail,
@@ -62,14 +83,47 @@ export const profileGet = () => invoke<ProfileView | null>("profile_get");
 export const profileSave = (input: ProfileInput, decision?: Decision) =>
   invoke<SaveProfileOutcome>("profile_save", { input, decision: decision ?? null });
 export const profileConfirm = () => invoke<ProfileView>("profile_confirm");
+export const institutionOverview = () => invoke<InstitutionOverview>("institution_overview");
+// Forms of «Mi institución» described as data (ADR-033)
+export const formGet = (id: string) => invoke<FormView>("form_get", { id });
+// `used`: the suggestions of the AI the person put in their fields (IA4)
+export const formSave = (id: string, values: FormValues, decision?: Decision, used: string[] = []) =>
+  invoke<SaveProfileOutcome>("form_save", { id, values, decision: decision ?? null, used });
+// The record of the institution (ADR-033 §5)
+export const institutionRecords = () => invoke<Expediente>("institution_records");
+export const institutionRecordForm = (kind: string, id: string | null) => invoke<RecordForm>("institution_record_form", { kind, id });
+export const institutionRecordSave = (kind: string, id: string | null, values: FormValues, decision?: Decision) =>
+  invoke<RecordOutcome>("institution_record_save", { kind, id, values, decision: decision ?? null });
+export const institutionRecordAttach = (kind: string, id: string | null, path: string) =>
+  invoke<AttachStart>("institution_record_attach", { kind, id, path });
+export const institutionRecordPlace = (key: string, answer: PlaceAnswer) => invoke<PlaceStart>("institution_record_place", { key, answer });
+export const institutionRecordDetach = (id: string) => invoke<Expediente>("institution_record_detach", { id });
+export const institutionRecordOpen = (id: string) => invoke<boolean>("institution_record_open", { id });
+// The board and the bank accounts of the institution (ADR-033 §3)
+export const institutionLists = () => invoke<InstitutionLists>("institution_lists");
+export const institutionListForm = (kind: ListKind, id: string | null) => invoke<ListForm>("institution_list_form", { kind, id });
+export const institutionListSave = (kind: ListKind, id: string | null, values: FormValues) =>
+  invoke<ListOutcome>("institution_list_save", { kind, id, values });
+export const institutionListSetActive = (kind: ListKind, id: string, active: boolean) =>
+  invoke<InstitutionLists>("institution_list_set_active", { kind, id, active });
+export const institutionListDelete = (kind: ListKind, id: string) => invoke<InstitutionLists>("institution_list_delete", { kind, id });
+export const institutionClabeReveal = (id: string) => invoke<string>("institution_clabe_reveal", { id });
+// The Assistant (ADR-034 §4): a question from any screen
+export const assistantAsk = (ask: AssistantAsk, decision?: Decision) => invoke<AssistantOutcome>("assistant_ask", { ask, decision: decision ?? null });
+// The Capturist (IA4): suggestions in a window, and discarding them
+export const captureAsk = (capture: CaptureAsk, decision?: Decision) => invoke<CaptureOutcome>("capture_ask", { capture, decision: decision ?? null });
+// «Llenar con mis documentos» (C2): suggestions from the documents of the Expediente, one window or the four
+export const institutionFillFromDocuments = (form: string) => invoke<FillOutcome>("institution_fill_from_documents", { form });
+export const institutionFillAllFromDocuments = () => invoke<FillOutcome[]>("institution_fill_all_from_documents");
+export const proposalsReject = (ids: string[]) => invoke<number>("proposals_reject", { ids });
+// The manual of the program (ADR-034): the «?» of each field and the search in Ayuda, offline
+export const manualEntry = (id: string) => invoke<ManualEntry | null>("manual_entry", { id });
+export const appPlaces = () => invoke<AppPlace[]>("app_places");
+export const manualSearch = (query: string) => invoke<ManualHit[]>("manual_search", { query });
 // Documents of the institution (global): the files of a call come in with their project
-export const documentAddText = (displayName: string, text: string, decision?: Decision) =>
-  invoke<AddDocumentOutcome>("document_add_text", {
-    displayName,
-    text,
-    decision: decision ?? null,
-  });
 export const documentsList = () => invoke<DocumentSummary[]>("documents_list");
+/** Looks for a question inside the documents of the institution (IA5): by words, and by meaning when it can. */
+export const documentsSearch = (query: string) => invoke<Found>("documents_search", { query });
 export const documentEmergencyDelete = (id: string) =>
   invoke<DeleteSummary>("document_emergency_delete", { id });
 // Calls (convocatorias) belong to the project born from them: files go in as text (base64) and the

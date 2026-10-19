@@ -36,7 +36,7 @@ Es la rutina del proyecto, no un chat libre. Va **siempre** en este orden y **so
 4. **Confirmación explícita:** «La causa de fondo parece ser X. ¿Es así?» Solo un «sí» la cierra (el silencio no confirma). Un «no» con explicación pide una propuesta nueva; un segundo «no» toma las palabras de la persona tal cual.
 5. **Resumen:** con la conversación y la causa de fondo, la IA arma el resumen (misma salida de abajo); lo que no se preguntó (alternativas, sostenibilidad, cotizaciones) queda en `open_questions`.
 
-El código lleva la cuenta de la fase, el tope de porqués y el estancamiento (dos respuestas vagas seguidas → opciones cerradas; tres → se propone lo que hay). Detalle y decisiones en `adr/ADR-017-conversacion-guiada-con-ia.md`.
+El código lleva la cuenta de la fase, el tope de porqués y el estancamiento (dos respuestas vagas seguidas → opciones cerradas; tres → se propone lo que hay). Detalle y decisiones en `archivo/adr/ADR-017-conversacion-guiada-con-ia.md`.
 
 El resumen es un borrador: el directivo lo confirma o lo corrige (un resumen corregido vuelve a pedir confirmación). Todo número del resumen debe aparecer en lo que el directivo dijo; si no, el código pide una corrección y, si persiste, lo señala en pantalla. Sin la IA no hay resumen: la persona intenta otra vez cuando vuelva.
 
@@ -95,4 +95,4 @@ Checklist automático, sin IA, que se recalcula con un botón. **Errores** (bloq
 
 ## Listo: la guía en Word
 
-El formato del donante **no** se llena aquí. Se genera un Word con las conclusiones del proyecto para que la persona las pase a los formularios y documentos que le toquen: datos de la convocatoria (con dónde lo dice cada uno), qué hay que entregar, resumen, propuesta del proyecto, presupuesto, cronograma, indicadores, datos de la institución y pendientes. Detalle en `adr/ADR-018-redaccion-revision-y-guia-en-word.md`.
+El formato del donante **no** se llena aquí. Se genera un Word con las conclusiones del proyecto para que la persona las pase a los formularios y documentos que le toquen: datos de la convocatoria (con dónde lo dice cada uno), qué hay que entregar, resumen, propuesta del proyecto, presupuesto, cronograma, indicadores, datos de la institución y pendientes. Detalle en `archivo/adr/ADR-018-redaccion-revision-y-guia-en-word.md`.

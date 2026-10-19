@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Icon } from "../icons";
 import type { IconName } from "../icons";
 import { Inset } from "./Surface";
-import { Tile } from "./Tag";
 import type { Tone } from "./Tag";
 
 /** The small label over a block («PRÓXIMOS PASOS»). */
@@ -236,19 +235,21 @@ export function NextBox({ title, detail, goLabel, onGo, eyebrow }: { title: stri
   );
 }
 
-/** One figure on an inset: its square with an icon, its label, the number, a detail and (optionally) a bar. */
+/** One figure on an inset: its clean line icon (no square behind it), its label in ink, the number, a detail and (optionally) a bar. */
 export function Metric({
-  icon, tone, label, value, sub, fill, note, approx, hint,
+  icon, tone, label, value, sub, fill, note, approx, hint, barTone,
 }: {
   icon: IconName; tone: Tone; label: string; value: string; sub?: string; fill?: number; note?: string;
   /** says the figure is an estimate the person gave, not a sum of records: a tag by the number and a line that explains it */
   approx?: string; hint?: string;
+  /** the color of the bar, when it is not the one of the icon */
+  barTone?: Tone;
 }) {
   return (
     <Inset className="flex flex-col gap-3">
       <div className="flex items-center gap-2.5">
-        <Tile icon={icon} tone={tone} small />
-        <span className="text-ui font-semibold text-ink-2">{label}</span>
+        <Icon name={icon} size={20} className="text-ink" />
+        <span className="text-ui font-semibold text-ink">{label}</span>
       </div>
       <div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -269,7 +270,7 @@ export function Metric({
         </p>
       )}
       {fill !== undefined && (
-        <div className={`bar tone-${tone} mt-auto !h-1.5`}>
+        <div className={`bar tone-${barTone ?? tone} mt-auto !h-1.5`}>
           <i style={{ width: `${Math.max(0, Math.min(100, fill))}%` }} />
         </div>
       )}

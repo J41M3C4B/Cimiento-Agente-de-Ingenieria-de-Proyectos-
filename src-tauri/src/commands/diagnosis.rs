@@ -1,22 +1,22 @@
 ﻿//! Commands for the AI settings, projects, diagnosis and needs. Thin: they build the
-//! provider (the API key never leaves Rust) and call `diagnosis_service`.
+//! provider (the API key never leaves Rust) and call `modules::projects::diagnosis`.
 
 use super::guard;
-use crate::access_service::Session;
+use crate::core::access::service::Session;
 use crate::ai::metrics::{self, UsageReport};
 use crate::ai::settings::{self, AiSettings, ProviderKind};
 use crate::ai::{self, AiError, AiProvider, ModelCheck, ModelTier};
-use crate::conversation_service::{self as convo, AnswerOutcome, ConversationView};
-use crate::diagnosis_service::{
+use crate::modules::projects::conversation::{self as convo, AnswerOutcome, ConversationView};
+use crate::modules::projects::diagnosis::{
     self as svc, AddNeedOutcome, AiStatus, CreateProjectOutcome, EditOutcome, NeedsView, SharedDb, SummaryEdit, SummaryOutcome,
 };
-use crate::domain::priority::Scores;
-use crate::domain::stage::Stage;
+use crate::modules::projects::domain::priority::Scores;
+use crate::modules::projects::domain::stage::Stage;
 use crate::error::UiError;
-use crate::jobs::{JobGuard, JobKind, JobStatus, Jobs};
+use crate::modules::projects::jobs::{JobGuard, JobKind, JobStatus, Jobs};
 use crate::scanner::guard::Decision;
-use crate::service::ServiceError;
-use crate::storage::projects::{self as store, ProjectRow};
+use crate::core::error::ServiceError;
+use crate::modules::projects::storage::projects::{self as store, ProjectRow};
 use crate::storage::{self, StorageError};
 use crate::Db;
 use serde::Serialize;
@@ -142,12 +142,15 @@ pub fn ai_set_models(session: State<'_, Session>, db: State<'_, Db>, light: Stri
 }
 
 #[tauri::command]
-pub fn ai_set_key(session: State<'_, Session>, provider: ProviderKind, key: String) -> Result<(), UiError> {
+pub fn ai_set_key(session: State<'_, Session>, db: State<'_, Db>, provider: ProviderKind, key: String) -> Result<(), UiError> {
     guard(&session, "ai_set_key")?;
     if key.trim().is_empty() {
         return Err(UiError::new("empty_text", "Este dato nos falta."));
     }
-    storage::set_api_key(provider.as_str(), &key).map_err(|e: StorageError| conn_err(e))
+    storage::set_api_key(provider.as_str(), &key).map_err(|e: StorageError| conn_err(e))?;
+    // with the key, the vectors of the documents already saved can be made (IA5)
+    super::index_documents(&db.0);
+    Ok(())
 }
 
 #[tauri::command]
@@ -224,7 +227,7 @@ pub fn project_delete(session: State<'_, Session>, db: State<'_, Db>, project_id
     let gate = guard(&session, "project_delete")?;
     let mut conn = db.0.lock().map_err(|_| UiError::internal())?;
     if !gate.may_delete() {
-        crate::access_service::request_deletion(&mut conn, gate.user()?, crate::domain::access::DeletionKind::Project, &project_id)?;
+        crate::core::access::service::request_deletion(&mut conn, gate.user()?, crate::core::access::domain::DeletionKind::Project, &project_id)?;
         return Ok(true);
     }
     store::delete_project(&mut conn, &project_id).map_err(conn_err)

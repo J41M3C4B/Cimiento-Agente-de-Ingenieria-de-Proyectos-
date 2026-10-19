@@ -142,7 +142,7 @@ async fn call_with_retries(
     loop {
         attempts += 1;
         let call = AiCall { task: AiTask::CallCanonical, context: context.clone(), user: user.clone(), project_id: Some(label.to_string()) };
-        let result = pipeline::run_with(provider, scanner, ledger, call, Some(Custom { schema: schema.clone(), max_output_tokens })).await;
+        let result = pipeline::run_with(provider, scanner, ledger, call, Some(Custom { schema: schema.clone(), max_output_tokens, system: None })).await;
         let wait = match &result {
             Err(AiError::RateLimited) if attempts < 4 => 65,
             Err(AiError::Http { status, .. }) if *status >= 500 && attempts < 3 => 20 * u64::from(attempts),

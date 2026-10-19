@@ -73,13 +73,14 @@ export function Tip({ text, children, align = "center" }: { text: string; childr
 
 const alertTones = {
   info: { tone: "sky", icon: "info" },
+  pending: { tone: "amber", icon: "clock" },
   warn: { tone: "amber", icon: "warn" },
   error: { tone: "red", icon: "alert" },
   ok: { tone: "green", icon: "check" },
 } as const;
 
 /** A notice in the color of its state (blue says, yellow warns, red failed, green is done), always with words. */
-export function Alert({ tone, children }: { tone: "info" | "warn" | "error" | "ok"; children: ReactNode }) {
+export function Alert({ tone, children }: { tone: "info" | "pending" | "warn" | "error" | "ok"; children: ReactNode }) {
   const t = alertTones[tone];
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`alert tone-${t.tone}`}>

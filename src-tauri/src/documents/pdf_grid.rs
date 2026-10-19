@@ -11,8 +11,6 @@
 //! page text is never changed. It knows nothing about any funder or layout, only about lines and letters.
 
 use super::pdf_rows::{cell_text, Dir, Glyph};
-use lopdf::content::Operation;
-use lopdf::{Dictionary, Document, Object, ObjectId};
 
 /// A rectangle thinner than this (in points) is a ruling line drawn as ink, not a box.
 const THIN: f64 = 2.5;
@@ -95,17 +93,8 @@ fn apply(m: &Matrix, x: f64, y: f64) -> (f64, f64) {
     (m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5])
 }
 
-fn num(o: &Object) -> Option<f64> {
-    o.as_float().ok().map(f64::from).or_else(|| o.as_i64().ok().map(|n| n as f64))
-}
-
-fn nums(ops: &[Object]) -> Option<Vec<f64>> {
-    ops.iter().map(num).collect()
-}
-
 #[derive(Debug)]
 enum Item {
-    Rect(f64, f64, f64, f64),
     /// Straight segments of one subpath (a curve breaks it: it is not a ruling line).
     Poly(Vec<(f64, f64)>),
 }
@@ -136,10 +125,6 @@ fn paint(items: &[Item], ctm: &Matrix, stroke: bool, page: (f64, f64), out: &mut
     };
     for item in items {
         match item {
-            Item::Rect(x, y, w, h) => {
-                let (a, b) = (apply(ctm, *x, *y), apply(ctm, x + w, y + h));
-                boxed(a.0, a.1, b.0, b.1, out);
-            }
             Item::Poly(points) => {
                 let p: Vec<(f64, f64)> = points.iter().map(|(x, y)| apply(ctm, *x, *y)).collect();
                 // four corners (closed or not) that make an axis-aligned rectangle: a box drawn with lines
@@ -170,108 +155,82 @@ fn paint(items: &[Item], ctm: &Matrix, stroke: bool, page: (f64, f64), out: &mut
     }
 }
 
-/// Runs the drawing operators of a content stream and collects the lines it leaves. `form` gives the
-/// operators and matrix of a nested form by name (the caller owns the document).
-fn interpret(ops: &[Operation], start: Matrix, page: (f64, f64), form: &dyn Fn(&str) -> Option<(Vec<Operation>, Matrix)>, depth: usize, out: &mut Vec<Rule>) {
-    let mut ctm = start;
-    let mut stack: Vec<Matrix> = Vec::new();
-    let mut path: Vec<Item> = Vec::new();
+/// A matrix of Pdfium as the six numbers of the PDF.
+fn matrix_from(m: &pdfium_render::prelude::PdfMatrix) -> Matrix {
+    [m.a(), m.b(), m.c(), m.d(), m.e(), m.f()].map(f64::from)
+}
+
+/// The straight subpaths of a path of Pdfium, in its own coordinates; a subpath with a curve is no line.
+fn items_of(path: &pdfium_render::prelude::PdfPagePathObject) -> Vec<Item> {
+    use pdfium_render::prelude::*;
+    let mut items = Vec::new();
     let mut subpath: Vec<(f64, f64)> = Vec::new();
     let mut curved = false;
-    let flush = |path: &mut Vec<Item>, subpath: &mut Vec<(f64, f64)>, curved: &mut bool| {
+    let flush = |items: &mut Vec<Item>, subpath: &mut Vec<(f64, f64)>, curved: &mut bool| {
         if subpath.len() >= 2 && !*curved {
-            path.push(Item::Poly(std::mem::take(subpath)));
+            items.push(Item::Poly(std::mem::take(subpath)));
         }
         subpath.clear();
         *curved = false;
     };
-    for op in ops {
-        if out.len() > MAX_RULES {
-            return;
+    for seg in path.segments().iter() {
+        let point = (f64::from(seg.x().value), f64::from(seg.y().value));
+        match seg.segment_type() {
+            PdfPathSegmentType::MoveTo => {
+                flush(&mut items, &mut subpath, &mut curved);
+                subpath.push(point);
+            }
+            PdfPathSegmentType::LineTo => subpath.push(point),
+            PdfPathSegmentType::BezierTo => curved = true,
+            _ => {}
         }
-        let o = op.operands.as_slice();
-        match op.operator.as_str() {
-            "q" => stack.push(ctm),
-            "Q" => {
-                if let Some(m) = stack.pop() {
-                    ctm = m;
-                }
-            }
-            "cm" => {
-                if let Some([a, b, c, d, e, f]) = nums(o).as_deref() {
-                    ctm = then(&[*a, *b, *c, *d, *e, *f], &ctm);
-                }
-            }
-            "m" => {
-                flush(&mut path, &mut subpath, &mut curved);
-                if let Some([x, y]) = nums(o).as_deref() {
-                    subpath.push((*x, *y));
-                }
-            }
-            "l" => {
-                if let Some([x, y]) = nums(o).as_deref() {
-                    subpath.push((*x, *y));
-                }
-            }
-            "c" | "v" | "y" => curved = true,
-            "h" => {
-                if let Some(first) = subpath.first().copied() {
+        // a closed subpath ends where it began, once (Pdfium may already give that point)
+        if seg.is_close() {
+            if let (Some(first), Some(last)) = (subpath.first().copied(), subpath.last().copied()) {
+                if subpath.len() > 1 && ((first.0 - last.0).abs() > 0.01 || (first.1 - last.1).abs() > 0.01) {
                     subpath.push(first);
                 }
             }
-            "re" => {
-                if let Some([x, y, w, h]) = nums(o).as_deref() {
-                    path.push(Item::Rect(*x, *y, *w, *h));
-                }
-            }
-            "S" | "s" | "f" | "F" | "f*" | "B" | "B*" | "b" | "b*" => {
-                if matches!(op.operator.as_str(), "s" | "b" | "b*") {
-                    if let Some(first) = subpath.first().copied() {
-                        subpath.push(first);
-                    }
-                }
-                flush(&mut path, &mut subpath, &mut curved);
-                let stroke = matches!(op.operator.as_str(), "S" | "s" | "B" | "B*" | "b" | "b*");
-                paint(&path, &ctm, stroke, page, out);
-                path.clear();
-            }
-            "n" => {
-                path.clear();
-                subpath.clear();
-                curved = false;
-            }
-            "Do" if depth < MAX_FORM_DEPTH => {
-                if let Some(name) = o.first().and_then(|n| n.as_name().ok()).and_then(|n| std::str::from_utf8(n).ok()) {
-                    if let Some((inner, matrix)) = form(name) {
-                        interpret(&inner, then(&matrix, &ctm), page, form, depth + 1, out);
-                    }
-                }
-            }
-            _ => {}
         }
+    }
+    flush(&mut items, &mut subpath, &mut curved);
+    items
+}
+
+fn rules_of_object(object: &pdfium_render::prelude::PdfPageObject, parent: &Matrix, page: (f64, f64), depth: usize, out: &mut Vec<Rule>) {
+    use pdfium_render::prelude::*;
+    if out.len() > MAX_RULES {
+        return;
+    }
+    match object {
+        PdfPageObject::Path(path) => {
+            let stroke = path.is_stroked().unwrap_or(false);
+            let filled = path.fill_mode().is_ok_and(|m| m != PdfPathFillMode::None);
+            if stroke || filled {
+                let own = path.matrix().map(|m| matrix_from(&m)).unwrap_or(IDENTITY);
+                paint(&items_of(path), &then(&own, parent), stroke, page, out);
+            }
+        }
+        PdfPageObject::XObjectForm(form) if depth < MAX_FORM_DEPTH => {
+            let own = form.matrix().map(|m| matrix_from(&m)).unwrap_or(IDENTITY);
+            let m = then(&own, parent);
+            for child in form.iter() {
+                rules_of_object(&child, &m, page, depth + 1, out);
+            }
+        }
+        _ => {}
     }
 }
 
-fn matrix_of(d: &Dictionary) -> Matrix {
-    d.get(b"Matrix").ok().and_then(|m| m.as_array().ok()).and_then(|a| nums(a)).and_then(|v| <[f64; 6]>::try_from(v).ok()).unwrap_or(IDENTITY)
-}
-
-/// The lines of a page in the PDF's own coordinates (y grows upward).
-pub fn page_rules(doc: &Document, page_id: ObjectId, page: (f64, f64)) -> Vec<Rule> {
-    let Ok(bytes) = doc.get_page_content(page_id) else { return Vec::new() };
-    let Ok(content) = lopdf::content::Content::decode(&bytes) else { return Vec::new() };
-    let resources = doc.get_page_resources(page_id).ok().and_then(|(r, _)| r);
-    let xobject = |name: &str| -> Option<(Vec<Operation>, Matrix)> {
-        let xo = doc.dereference(resources?.get(b"XObject").ok()?).ok()?.1.as_dict().ok()?;
-        let stream = doc.dereference(xo.get(name.as_bytes()).ok()?).ok()?.1.as_stream().ok()?;
-        if stream.dict.get(b"Subtype").ok().and_then(|s| s.as_name().ok()) != Some(&b"Form"[..]) {
-            return None;
-        }
-        let ops = lopdf::content::Content::decode(&stream.decompressed_content().ok()?).ok()?.operations;
-        Some((ops, matrix_of(&stream.dict)))
-    };
+/// The lines of a page as Pdfium gives its painted paths (ADR-037), in the PDF's own coordinates (y grows upward),
+/// following nested forms with their matrices. A page with too many lines is vector art (a map, a chart): none.
+pub fn rules_of_page(page: &pdfium_render::prelude::PdfPage) -> Vec<Rule> {
+    use pdfium_render::prelude::*;
+    let size = (f64::from(page.width().value), f64::from(page.height().value));
     let mut out = Vec::new();
-    interpret(&content.operations, IDENTITY, page, &xobject, 0, &mut out);
+    for object in page.objects().iter() {
+        rules_of_object(&object, &IDENTITY, size, 0, &mut out);
+    }
     if out.len() > MAX_RULES {
         return Vec::new();
     }
@@ -622,47 +581,55 @@ mod tests {
         g.extend(letters(205.0, 150.0, "mayo"));
         assert_eq!(grid_tables(&rules, &g, H)[0].rows, vec!["Etapa | Fecha", "Cierre | mayo"]);
     }
+    // ---- the paths of a page, as Pdfium gives them
 
-    // ---- the operators of a content stream
-
-    fn op(name: &str, args: &[f64]) -> Operation {
-        Operation::new(name, args.iter().map(|a| Object::Real(*a as f32)).collect())
-    }
-
-    fn no_forms(_: &str) -> Option<(Vec<Operation>, Matrix)> {
-        None
-    }
-
-    fn rules_of(ops: &[Operation]) -> Vec<Rule> {
+    fn painted(items: &[Item], m: &Matrix, stroke: bool) -> Vec<Rule> {
         let mut out = Vec::new();
-        interpret(ops, IDENTITY, (600.0, 800.0), &no_forms, 0, &mut out);
+        paint(items, m, stroke, (600.0, 800.0), &mut out);
         out
+    }
+
+    fn rect(x: f64, y: f64, w: f64, h: f64) -> Item {
+        Item::Poly(vec![(x, y), (x + w, y), (x + w, y + h), (x, y + h), (x, y)])
     }
 
     #[test]
     fn thin_filled_rectangles_stroked_segments_and_boxes_are_all_lines() {
-        // a Word-style table: borders are thin rectangles filled with ink (`re f*`), under a `cm`
-        let ops = vec![op("q", &[]), op("cm", &[1.0, 0.0, 0.0, 1.0, 10.0, 20.0]), op("re", &[40.0, 700.0, 300.0, 0.5]), op("f*", &[]), op("re", &[40.0, 600.0, 0.5, 100.0]), op("f", &[]), op("Q", &[])];
-        assert_eq!(rules_of(&ops), vec![Rule { horizontal: true, at: 720.25, from: 50.0, to: 350.0 }, Rule { horizontal: false, at: 50.25, from: 620.0, to: 720.0 }]);
+        // a Word-style table: borders are thin rectangles filled with ink, under a matrix that moves them
+        let moved = [1.0, 0.0, 0.0, 1.0, 10.0, 20.0];
+        assert_eq!(
+            painted(&[rect(40.0, 700.0, 300.0, 0.5), rect(40.0, 600.0, 0.5, 100.0)], &moved, false),
+            vec![Rule { horizontal: true, at: 720.25, from: 50.0, to: 350.0 }, Rule { horizontal: false, at: 50.25, from: 620.0, to: 720.0 }]
+        );
         // stroked lines
-        let ops = vec![op("m", &[10.0, 100.0]), op("l", &[210.0, 100.0]), op("S", &[]), op("m", &[10.0, 100.0]), op("l", &[10.0, 200.0]), op("S", &[])];
-        let r = rules_of(&ops);
+        let r = painted(&[Item::Poly(vec![(10.0, 100.0), (210.0, 100.0)]), Item::Poly(vec![(10.0, 100.0), (10.0, 200.0)])], &IDENTITY, true);
         assert_eq!((r.len(), r[0].horizontal, r[1].horizontal), (2, true, false));
         // a stroked box gives its four sides; a box that covers the page is a background and gives none
-        assert_eq!(rules_of(&[op("re", &[50.0, 50.0, 200.0, 100.0]), op("S", &[])]).len(), 4);
-        assert!(rules_of(&[op("re", &[0.0, 0.0, 600.0, 800.0]), op("f", &[])]).is_empty());
-        // a path that is not painted (a clip) leaves nothing, and a diagonal or a curve is no line
-        assert!(rules_of(&[op("re", &[50.0, 50.0, 200.0, 0.5]), op("n", &[])]).is_empty());
-        assert!(rules_of(&[op("m", &[0.0, 0.0]), op("l", &[100.0, 100.0]), op("S", &[])]).is_empty());
-        assert!(rules_of(&[op("m", &[0.0, 0.0]), op("c", &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]), op("l", &[100.0, 0.0]), op("S", &[])]).is_empty());
+        assert_eq!(painted(&[rect(50.0, 50.0, 200.0, 100.0)], &IDENTITY, true).len(), 4);
+        assert!(painted(&[rect(0.0, 0.0, 600.0, 800.0)], &IDENTITY, false).is_empty());
+        // a diagonal is no line
+        assert!(painted(&[Item::Poly(vec![(0.0, 0.0), (100.0, 100.0)])], &IDENTITY, true).is_empty());
     }
 
+    fn fixture(name: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/office").join(name)
+    }
+
+    /// ADR-037: a table drawn with thin filled rectangles and stroked lines inside a nested form, over a background
+    /// that covers the page, read by Pdfium: its lines are found where the form puts them, and its cells row by row.
     #[test]
-    fn a_nested_form_is_followed_with_its_own_matrix() {
-        let form = |name: &str| (name == "Fm1").then(|| (vec![op("re", &[0.0, 0.0, 100.0, 0.5]), op("f", &[])], [1.0, 0.0, 0.0, 1.0, 30.0, 400.0]));
-        let mut out = Vec::new();
-        let ops = vec![Operation::new("Do", vec![Object::Name(b"Fm1".to_vec())])];
-        interpret(&ops, IDENTITY, (600.0, 800.0), &form, 0, &mut out);
-        assert_eq!(out, vec![Rule { horizontal: true, at: 400.25, from: 30.0, to: 130.0 }]);
+    fn a_table_inside_a_nested_form_is_read_by_its_lines() {
+        let pdfium = crate::documents::ocr::pdfium().expect("pdfium: run scripts/fetch-ocr.ps1");
+        let doc = pdfium.load_pdf_from_file(&fixture("tabla-con-lineas.pdf"), None).unwrap();
+        let page = doc.pages().get(0).unwrap();
+        let rules = rules_of_page(&page);
+        let (horizontal, vertical) = (rules.iter().filter(|r| r.horizontal).count(), rules.iter().filter(|r| !r.horizontal).count());
+        assert_eq!((horizontal, vertical), (4, 3), "{rules:?}");
+        // the form is drawn 72 points in and 560 up: its first line goes from 72 to 372
+        assert!(rules.iter().any(|r| r.horizontal && (r.from - 72.0).abs() < 0.5 && (r.to - 372.0).abs() < 0.5), "{rules:?}");
+        let read = crate::documents::pdf::read_pdf_with_rows(&fixture("tabla-con-lineas.pdf")).unwrap();
+        for row in ["Concepto | Monto", "Obra y equipamiento | $300,000", "Capacitación | $50,000"] {
+            assert!(read.pages[0].contains(row), "{row}: {}", read.pages[0]);
+        }
     }
 }

@@ -14,6 +14,8 @@ dist-ssr
 *.local
 /src-tauri/target/
 /src-tauri/gen/schemas
+# what reads scanned pages (OCR, ADR-035): fetched by scripts/fetch-ocr.ps1, never committed
+/src-tauri/resources/ocr/
 
 # Secrets and local data: nothing real ever goes in this repo
 .env
@@ -48,3 +50,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Obsidian: docs/ is opened as a vault; the settings and the trash of each person are not shared
+.obsidian/
+.trash/

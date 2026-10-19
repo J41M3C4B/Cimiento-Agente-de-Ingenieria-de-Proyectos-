@@ -1,30 +1,12 @@
-mod access_service;
 mod ai;
 mod audit;
-mod call_service;
-mod care;
-mod care_service;
 mod commands;
 mod common;
-mod conversation_service;
-mod diagnosis_service;
+mod core;
 mod documents;
-mod domain;
-mod facilities;
-mod facilities_service;
-mod drafting_service;
 mod error;
-mod guide_service;
-mod hr;
-mod institution_context;
-mod onboarding_service;
-mod jobs;
-mod review_service;
-mod profile_sync;
+mod modules;
 mod scanner;
-mod security_service;
-mod service;
-mod staff_service;
 mod storage;
 #[cfg(test)]
 mod architecture_tests;
@@ -40,7 +22,16 @@ pub struct Db(pub Arc<Mutex<rusqlite::Connection>>);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // the native window to choose a file: the record keeps where its original is (N4)
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // what reads scanned pages and photos (OCR, ADR-035) ships with the program; the screen hears how many
+            // pages are read
+            documents::ocr::set_home(app.path().resource_dir()?.join("ocr"));
+            let handle = app.handle().clone();
+            documents::reading::on_progress(move |key, done, total| {
+                let _ = tauri::Emitter::emit(&handle, "reading-progress", serde_json::json!({ "key": key, "done": done, "total": total }));
+            });
             #[allow(unused_mut)]
             let mut dir = app.path().app_data_dir()?;
             // development only: another folder, to try the first start from zero without touching the examples
@@ -52,13 +43,17 @@ pub fn run() {
             let key = storage::get_or_create_db_key()?;
             let conn = storage::open_encrypted(&dir.join("cimiento.db"), &key)?;
             // a reading that was running when the program was closed waits to be resumed
-            let _ = storage::calls::mark_interrupted(&conn);
+            let _ = modules::projects::storage::calls::mark_interrupted(&conn);
+            // the photo of this month (ADR-033 §4): taken again at each opening until the month ends
+            let _ = core::snapshot::take(&conn);
             let db = Arc::new(Mutex::new(conn));
             // who is using the app (ADR-028): nobody until they enter
-            app.manage(access_service::Session::new(db.clone()));
+            // the vectors of the documents that are missing (IA5), in the background, if the person chose Gemini
+            tauri::async_runtime::spawn(core::archive::vectors::index_in_background(db.clone()));
+            app.manage(core::access::service::Session::new(db.clone()));
             app.manage(Db(db));
-            app.manage(security_service::Attempts::default());
-            app.manage(jobs::Jobs::default());
+            app.manage(core::security::Attempts::default());
+            app.manage(modules::projects::jobs::Jobs::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -71,6 +66,7 @@ pub fn run() {
             commands::access::access_lock,
             commands::access::access_logout,
             commands::access::access_change_password,
+            commands::access::access_team,
             commands::access::admin_overview,
             commands::access::admin_user_create,
             commands::access::admin_user_update,
@@ -80,9 +76,33 @@ pub fn run() {
             commands::access::admin_recovery_code_new,
             commands::profile_get,
             commands::profile_save,
+            commands::form_get,
+            commands::institution_overview,
+            commands::form_save,
+            commands::institution::institution_lists,
+            commands::institution::institution_list_form,
+            commands::institution::institution_list_save,
+            commands::institution::institution_list_set_active,
+            commands::institution::institution_list_delete,
+            commands::records::institution_records,
+            commands::records::institution_record_form,
+            commands::records::institution_record_save,
+            commands::records::institution_record_attach,
+            commands::records::institution_record_place,
+            commands::records::institution_record_detach,
+            commands::records::institution_record_open,
+            commands::institution::institution_clabe_reveal,
+            commands::manual_entry,
+            commands::app_places,
+            commands::assistant::assistant_ask,
+            commands::assistant::capture_ask,
+            commands::assistant::institution_fill_from_documents,
+            commands::assistant::institution_fill_all_from_documents,
+            commands::assistant::proposals_reject,
+            commands::manual_search,
             commands::profile_confirm,
-            commands::document_add_text,
             commands::documents_list,
+            commands::documents_search,
             commands::document_emergency_delete,
             commands::dev_load_fixture,
             commands::care::care_overview,
@@ -106,6 +126,8 @@ pub fn run() {
             commands::facilities::facilities_space_delete,
             commands::facilities::facilities_equipment_save,
             commands::facilities::facilities_equipment_delete,
+            commands::finance::finance_get,
+            commands::finance::finance_save,
             commands::hr::hr_overview,
             commands::hr::hr_person_get,
             commands::hr::hr_person_save,

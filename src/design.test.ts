@@ -20,8 +20,8 @@ const walk = (dir: string): string[] =>
 // the catalog and the tokens are where the values live; tests and texts are not interface code
 const screens = walk(SRC).filter((f) => /\.(tsx?)$/.test(f) && !/\.test\.tsx?$/.test(f) && !f.includes(`${join("components", "ui")}`) && !f.includes("i18n") && !f.includes("design.test"));
 
-const COLORS = "ink|ink-2|ink-3|on-ink|on-brand|brand|onc|sky-ink|red-ink|amber-ink|green-ink|sky|violet|rose|red|amber|green|teal|cyan|card|inset|line|canvas|current|transparent|inherit";
-const SIZES = "caption|small|ui|body|heading|subtitle|title|hero|display";
+const COLORS = "ink|ink-2|ink-3|on-ink|on-brand|brand-ink|brand|onc|sky-ink|red-ink|amber-ink|green-ink|sky|violet|rose|red|amber|green|teal|cyan|card|inset|line|canvas|current|transparent|inherit";
+const SIZES = "caption|small|ui|body|heading|subtitle|title|hero|headline|display";
 const ALIGN = "left|center|right|justify|start|end|wrap|nowrap|balance|pretty|ellipsis|clip";
 const RADII = "tick|field|inset|card|pill|none";
 
@@ -60,6 +60,25 @@ describe("el sistema visual (docs/13 §14)", () => {
       expect(found, `${rule.why}\n${found.slice(0, 40).join("\n")}`).toEqual([]);
     });
   }
+
+  // §3.6 and §3.2.1: the brand blue and the drawings of public/SVG belong to the first start, not to the daily screens
+  const outsideOnboarding = screens.filter((f) => !f.includes(join("core", "onboarding")));
+  const findIn = (files: string[], test: RegExp) =>
+    files.flatMap((file) =>
+      readFileSync(file, "utf8")
+        .split("\n")
+        .flatMap((line: string, i: number) => (!/^\s*(\*|\/\/|\/\*)/.test(line) && test.test(line) ? [`${relative(SRC, file)}:${i + 1}  ${line.trim().slice(0, 120)}`] : [])),
+    );
+
+  it("el azul de marca solo se usa en el primer inicio (§3.2.1)", () => {
+    const found = findIn(outsideOnboarding, /\b(?:bg|text|border|ring|fill|stroke)-(?:brand|on-brand)(?![\w-])/);
+    expect(found, `the brand blue is only for the first start\n${found.join("\n")}`).toEqual([]);
+  });
+
+  it("los dibujos de public/SVG solo se usan en el primer inicio (§3.6)", () => {
+    const found = findIn(outsideOnboarding, /\/SVG\//);
+    expect(found, `modules are told apart by their line icon and color, not by drawings\n${found.join("\n")}`).toEqual([]);
+  });
 
   it("solo hay un archivo de estilos, y es el de los tokens", () => {
     expect(walk(SRC).filter((f) => f.endsWith(".css")).map((f) => relative(SRC, f))).toEqual(["index.css"]);

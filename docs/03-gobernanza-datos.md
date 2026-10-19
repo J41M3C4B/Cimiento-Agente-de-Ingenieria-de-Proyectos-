@@ -6,6 +6,8 @@
 
 **Identificadores del personal (ADR-027):** CURP, RFC, NSS y CLABE se guardan en la base cifrada, se validan con su dígito verificador, nunca salen del servicio en claro y en pantalla se ven tapados. Mostrarlos queda en la bitácora (`hr.sensitive_viewed`, con el campo y nunca el valor). Borrar a una persona elimina todo lo suyo y queda registrado (`hr.person_deleted`). Los datos de salud del personal no se recogen.
 
+**Patronato y cuentas de la institución (ADR-033 §3):** son datos de la institución, no de una persona atendida ni del personal, y se guardan con nombre y CLABE (`institutional_private`). Nunca llegan a la IA ni a las herramientas de los agentes: de la institución, la IA solo sabe cuántas personas forman el patronato y qué cargos tienen. La CLABE se valida con su dígito verificador, en pantalla se ve tapada y mostrarla queda en la bitácora (`institution.sensitive_viewed`, con el campo y nunca el valor). El historial (`core_change`) anota que la lista cambió, sin el valor. La CLABE de una persona del personal sigue siendo dato personal del módulo de Personal.
+
 ## Niveles de datos
 
 | Nivel | Qué incluye | Se guarda | Se envía a la IA |
@@ -54,7 +56,11 @@ El diseño de "nivel rojo fuera" reduce mucho el riesgo, pero no sustituye esa r
 | Bitácora | 2 años |
 | Registro de uso de IA | 2 años (solo métricas) |
 
-**Botón de emergencia** ("Borrar esto y todo lo que salió de ahí"): borra el documento, sus fragmentos, entradas FTS, vectores y cualquier texto derivado que lo cite. Después ejecuta `VACUUM` para que no queden restos en el archivo. Registra en bitácora solo que hubo un borrado de emergencia.
+**Vectores de los documentos (IA5, ADR-034):** para buscar por significado, el texto limpio de cada página de los documentos de la institución (ya pasó por el escáner) se manda una vez al servicio de vectores del proveedor que la persona eligió, y solo si es Gemini con su llave guardada. Se guarda el vector, no se manda nada más. Con otro proveedor o sin llave, la búsqueda es por palabras y nada sale de la computadora. Una pregunta de búsqueda sale solo si el escáner no le encuentra datos de una persona.
+
+**El Lector lee antes de que el escáner tape (IA6, ADR-034):** al subir un documento, unas reglas del programa (no la IA) leen su texto en memoria para sugerir los datos de la institución que trae: su RFC, el número del oficio, la vigencia del poder. Lo que se guarda del documento sigue tapado. Un dato protegido solo llega como sugerencia a su campo, sin la línea de donde salió, y se borra de la sugerencia en cuanto la persona la usa o la descarta.
+
+**Botón de emergencia** ("Borrar esto y todo lo que salió de ahí"): borra el documento, sus fragmentos, entradas FTS, vectores y cualquier texto derivado que lo cite. Lo que una persona ya aceptó de él (un dato de «Mi institución») se queda: ya es de la institución, y su origen y su historial siguen diciendo de dónde salió (ADR-036). Después ejecuta `VACUUM` para que no queden restos en el archivo. Registra en bitácora solo que hubo un borrado de emergencia.
 
 ## Bitácora
 
@@ -64,7 +70,9 @@ Registra **eventos**, nunca contenido:
 { "at": "2026-10-01T10:00:00Z", "event": "scanner.quarantine", "entity": "document", "entity_id": "doc_123", "details": { "findings": { "curp": 3, "phone": 1 }, "decision": "redacted" } }
 ```
 
-Eventos mínimos: `document.uploaded`, `scanner.quarantine`, `scanner.override`, `scanner.leak_prevented`, `emergency.delete`, `ai.call`, `export.created`, `profile.confirmed`, `stage.changed`, `backup.created`.
+Eventos mínimos: `document.uploaded`, `scanner.quarantine`, `scanner.override`, `scanner.leak_prevented`, `emergency.delete`, `ai.call`, `ai.run`, `export.created`, `profile.confirmed`, `stage.changed`, `backup.created`.
+
+`ai.run` es el fin de un encargo de un agente (ADR-034): qué agente, cuántas llamadas y cuántos pedidos de herramientas, cuántas veces corrió cada herramienta, cuántos pedidos se rechazaron y cómo terminó (`answered`, `step_limit`, `token_limit` o el tipo de error). Nunca la pregunta, la respuesta ni lo que devolvió una herramienta.
 
 ## Roles
 

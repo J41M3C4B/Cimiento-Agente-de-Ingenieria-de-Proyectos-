@@ -35,9 +35,9 @@ export function Logo({ inverse, onBrand, className = "" }: { inverse?: boolean; 
 }
 
 /** Just the S, for the small places (a round icon, the tab). */
-export function LogoMark({ inverse, className = "" }: { inverse?: boolean; className?: string }) {
+export function LogoMark({ inverse, mono, accent, className = "" }: { inverse?: boolean; /** one ink, the one of the text: black in the light theme, white in the dark one */ mono?: boolean; /** the accent of the page the person is in (`--ac`) */ accent?: boolean; className?: string }) {
   return (
-    <svg className={`logo ${inverse ? "logo--inverse" : ""} ${className}`} viewBox="-1 -1 53.1 79.3" role="img" aria-label={NAME}>
+    <svg className={`logo ${inverse ? "logo--inverse" : ""} ${mono ? "logo--mono" : ""} ${accent ? "logo--accent" : ""} ${className}`} viewBox="-1 -1 53.1 79.3" role="img" aria-label={NAME}>
       {MARK}
     </svg>
   );

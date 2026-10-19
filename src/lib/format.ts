@@ -11,8 +11,20 @@ export function toNumber(text: string): number {
   return cleaned === "" ? Number.NaN : Number(cleaned);
 }
 
-/** A date as a person reads it, «1 de octubre de 2026». Empty if the text is not a date. */
+/** A date as a person reads it, «1 de octubre de 2026». Empty if the text is not a date. A day alone
+ * («2027-01-18») is that day where the person is, not midnight in London, which in Mexico is the day before. */
 export function formatDate(iso: string): string {
-  const d = new Date(iso);
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  const d = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/**
+ * An amount as people write it: «1800000», «1,800,000», «$1 800 000». The same reading as `parse_pesos` in Rust
+ * (separators only between groups of three digits); `null` when it is not an amount.
+ */
+export function parsePesos(v: string): number | null {
+  const s = v.trim().replace(/^\$\s*/, "");
+  if (!/^(\d+|\d{1,3}([,. ]\d{3})+)$/.test(s)) return null;
+  return Number(s.replace(/[,. ]/g, ""));
 }

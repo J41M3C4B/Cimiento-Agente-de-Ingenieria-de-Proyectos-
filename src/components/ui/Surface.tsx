@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import type { ElementType, ReactNode } from "react";
 import { es } from "../../i18n/es-MX";
 import type { IconName } from "../icons";
@@ -34,30 +35,90 @@ export function Folder({
   tone = "sky",
   title,
   chip,
+  tabs,
   children,
   className = "",
   bodyClassName = "",
   as: As = "div",
 }: {
   tone?: Tone;
-  title: ReactNode;
+  /** the one tab of a folder with a single view */
+  title?: ReactNode;
   /** text of the title for the `title` attribute when it is cut short */
   titleText?: string;
   chip?: ReactNode;
+  /** a folder with several views: one tab each, the chosen one in the folder's color and joined to the body */
+  tabs?: { items: { id: string; label: string; count?: number }[]; value: string; onChange: (id: string) => void; label: string };
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
   as?: ElementType;
 }) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const bodyHeight = useRef<number | null>(null);
+  const view = tabs?.value;
+
+  // Keep the height of the body up to date, so a change of view can start from the one that was on screen.
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el || view === undefined || typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(() => { bodyHeight.current = el.getBoundingClientRect().height; });
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [view === undefined]);
+
+  // A change of view is a transformation, not a jump: the body grows or shrinks to its new height and the content settles in.
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el || view === undefined) return;
+    const next = el.getBoundingClientRect().height;
+    const prev = bodyHeight.current;
+    bodyHeight.current = next;
+    if (prev === null || typeof el.animate !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    panelRef.current?.animate(
+      [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }],
+      { duration: 460, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    );
+    if (Math.abs(prev - next) < 1) return;
+    const keep = { flex: el.style.flex, overflow: el.style.overflow };
+    el.style.flex = "none";
+    el.style.overflow = "hidden";
+    const grow = el.animate([{ height: `${prev}px` }, { height: `${next}px` }], { duration: 420, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+    const done = () => { el.style.flex = keep.flex; el.style.overflow = keep.overflow; };
+    grow.onfinish = done;
+    grow.oncancel = done;
+  }, [view]);
+
   return (
     <As className={`folder tone-${tone} ${className}`}>
       <div className="folder-top">
-        <div className="folder-tab">
-          <b className="folder-title">{title}</b>
-          {chip}
-        </div>
+        {tabs ? (
+          <div role="tablist" aria-label={tabs.label} className="folder-tabs">
+            {tabs.items.map((t, i) => {
+              const on = t.id === tabs.value;
+              return (
+                <button key={t.id} type="button" role="tab" id={`ftab-${t.id}`} aria-selected={on} aria-controls={`fpanel-${t.id}`} onClick={() => tabs.onChange(t.id)} className="folder-tabbtn" style={{ zIndex: tabs.items.length - i }}>
+                  {t.label}
+                  {t.count !== undefined && t.count > 0 && <span className="folder-count tabular">{t.count}</span>}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="folder-tab">
+            <b className="folder-title">{title}</b>
+            {chip}
+          </div>
+        )}
       </div>
-      <div className={`folder-body ${bodyClassName}`}>{children}</div>
+      <div
+        ref={bodyRef}
+        className={`folder-body ${bodyClassName}`}
+        {...(tabs ? { role: "tabpanel", id: `fpanel-${tabs.value}`, "aria-labelledby": `ftab-${tabs.value}` } : {})}
+      >
+        {tabs ? <div ref={panelRef} className="folder-panel">{children}</div> : children}
+      </div>
     </As>
   );
 }

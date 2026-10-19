@@ -18,6 +18,322 @@ export interface InstitutionInput {
   legal_form: string | null;
   authorized_donee: string | null;
   cluni: string | null;
+  /** Whom and how it serves (ADR-033); left out when a window does not edit it, so what is saved stays. */
+  attention?: Attention | null;
+  /** The data kept as fields of the catalog (ADR-033), by field id: legal name, address, fiscal data… */
+  details?: Record<string, FormValue> | null;
+}
+/** The attention profile: codes of `core::institution::catalog`. */
+export interface Attention {
+  populations: string[];
+  sex_served: string | null;
+  modalities: string[];
+  care_areas: string[];
+}
+
+// Forms described as data (ADR-033, common/forms.rs): the screen draws them, Rust validates and saves them.
+export type FieldKind = "text" | "long_text" | "number" | "money" | "year" | "date" | "select" | "multi_select" | "yes_no" | "email" | "phone";
+export type Condition = { when: "always" } | { when: "filled"; field: string } | { when: "any_of"; field: string; values: string[] };
+export interface FieldSpec {
+  id: string;
+  kind: FieldKind;
+  options: string[];
+  required: boolean;
+  /** indispensable (ADR-042): the first start asks it */
+  essential: boolean;
+  applies_when: Condition;
+  sensitivity: "public" | "internal" | "institutional_private" | "personal";
+  ai: "as_is" | "aggregate_only" | "never";
+  used_by: string[];
+  min: number | null;
+  max: number | null;
+}
+export interface SectionSpec {
+  id: string;
+  columns: number;
+  fields: FieldSpec[];
+}
+export interface FormSpec {
+  id: string;
+  sections: SectionSpec[];
+}
+export type FormValue = string | number | boolean | string[];
+export type FormValues = Record<string, FormValue>;
+// The institution at a glance (ADR-033, core/overview.rs): composed in Rust, the screen only draws it.
+/** A window of «Mi institución» (ADR-042: what the modules lack is asked from Inicio). */
+export type Place = "institution" | "contact" | "legal" | "board" | "capacity";
+export interface Figure {
+  value: number;
+  /** the quick figure of the first start, while the module has no records */
+  approx: boolean;
+}
+export interface InstitutionOverview {
+  people: Figure;
+  capacity: number | null;
+  occupied_percent: number | null;
+  vacant: number | null;
+  staff: Figure;
+  spaces: number;
+  balance_annual_mxn: number | null;
+  completion: { gaps: { code: string; place: Place }[]; percent: number };
+  /** the suggestions of the AI waiting in each window (IA4) */
+  suggestions: { place: Place; count: number }[];
+}
+export interface FormView {
+  spec: FormSpec;
+  values: FormValues;
+  /** Where each saved datum comes from (ADR-033 §4): `user`, `document`, `ai_assumption` or `computed`. */
+  origins: Record<string, FieldOrigin>;
+  missing: string[];
+  /** the suggestions of the AI waiting in this window (IA4) */
+  proposals: Proposal[];
+  /** whether the Capturist may fill this window */
+  fill: Fill | null;
+}
+/** A window of «Mi institución» the Capturist fills: its form and its place (`profile.institution`). */
+export interface Fill {
+  form: string;
+  place: string;
+}
+/** A suggestion of the AI for a field (ADR-034 §2): nothing is saved until the person uses it and saves. */
+export interface Proposal {
+  id: string;
+  form_id: string;
+  field_id: string;
+  value: FormValue;
+  origin: "ai_assumption" | "document";
+  /** the words of the person it was taken from */
+  said: string | null;
+  /** the document it was read from and its page, when it came from a document (IA6) */
+  document: string | null;
+  page: number | null;
+}
+export interface FieldOrigin {
+  origin: "user" | "document" | "ai_assumption" | "computed";
+  source_ref: string | null;
+  confirmed_at: string | null;
+}
+// The board and the bank accounts of the institution (ADR-033 §3, core/protected): never to the AI.
+export type ListKind = "board_member" | "bank_account";
+// The record of the institution (ADR-033 §5, core/records): what it must have, with its state.
+export type RecordStatus = "have" | "in_progress" | "missing" | "not_applicable";
+export interface RecordFile {
+  name: string;
+  /** false: a picture with no text that could be read */
+  readable: boolean;
+  /** its text was read from a picture (OCR, ADR-035) */
+  from_picture: boolean;
+  /** the pages read with doubts */
+  doubtful: number[];
+}
+export interface InstitutionRecord {
+  /** null while nothing was written of it */
+  id: string | null;
+  /** a type of the catalog, or `other` */
+  type: string;
+  custom_name: string | null;
+  status: RecordStatus;
+  issued_on: string | null;
+  valid_until: string | null;
+  validity: "valid" | "expiring" | "expired" | null;
+  days_left: number | null;
+  file: RecordFile | null;
+  origin: string | null;
+  confirmed_at: string | null;
+}
+export interface Expediente {
+  records: InstitutionRecord[];
+  summary: { expected: number; have: number; in_progress: number; missing: number; expiring: number; expired: number };
+}
+export interface RecordForm {
+  spec: FormSpec;
+  values: FormValues;
+  missing: string[];
+  file: RecordFile | null;
+  /** the data of its window read from its file, by field: the page, and whether a rule worked it out (ADR-038) */
+  read: Record<string, { page: number | null; computed: boolean }>;
+}
+export type RecordOutcome =
+  | { status: "saved"; id: string; expediente: Expediente }
+  | { status: "invalid"; issues: ProfileIssue[] }
+  | { status: "quarantine"; report: QuarantineReport };
+/** How a reading in the background started (ADR-038): `record-read` says how it ended, with the same `key`. */
+export type AttachStart = { status: "reading"; key: string } | { status: "already_reading"; key: string };
+/** How a reading in the background ended: what came of the file, or the error. */
+export interface RecordRead {
+  key: string;
+  kind: string;
+  outcome?: AttachOutcome;
+  error?: { code: string; message: string };
+}
+export type AttachOutcome =
+  /**
+   * `covered`: data of people the scanner covered (it never refuses nor asks, 2026-10-13); `filled`: fields of its own
+   * window written from the file; `suggested`: suggestions left in «Mi institución»
+   */
+  | {
+      status: "attached";
+      id: string;
+      readable: boolean;
+      from_picture: boolean;
+      doubtful: number[];
+      covered: number;
+      filled: string[];
+      suggested: number;
+      expediente: Expediente;
+    }
+  /**
+   * Not kept (ADR-042 §4): Rust is not sure the file is the document it was put on, and it waits for the person.
+   * `looks_like`: the document its words say, if any; `there_has_file`: that one already has a file, which it replaces.
+   */
+  | { status: "ask"; looks_like: string | null; file_name: string; there_has_file: boolean }
+  | { status: "unreadable"; reason: string };
+/**
+ * What a file just kept says of the empty fields of «Mi institución» (ADR-042 §5), with the key of its document:
+ * `fields` are the suggestions left, each `[form, field]`.
+ */
+export interface RecordSuggested {
+  key: string;
+  kind: string;
+  outcome?:
+    | { status: "proposed"; fields: [string, string][]; dropped: number }
+    | { status: "nothing"; reason: string }
+    | { status: "unavailable"; reason: string };
+  error?: { code: string; message: string };
+}
+/** What the person answers about a file that waits (ADR-042 §4). */
+export type PlaceAnswer = "here" | "there" | "cancel";
+/** How an answer started: kept in the background on the document of `key` (`record-read` says how it ended), or not at all. */
+export type PlaceStart = { status: "reading"; key: string; kind: string } | { status: "already_reading"; key: string } | { status: "cancelled" };
+export interface BoardMember {
+  id: string;
+  name: string;
+  /** a code of `forms.fields["institution.board.role"]` */
+  role: string;
+  role_other: string | null;
+  since: string | null;
+  active: boolean;
+  origin: FieldOrigin["origin"];
+  confirmed_at: string | null;
+}
+export interface BankAccount {
+  id: string;
+  /** the CLABE covered: only its last four digits show */
+  masked: string;
+  bank: string | null;
+  purpose: string[];
+  in_documents: boolean;
+  active: boolean;
+  origin: FieldOrigin["origin"];
+  confirmed_at: string | null;
+}
+export interface InstitutionLists {
+  board: BoardMember[];
+  accounts: BankAccount[];
+}
+export interface ListForm {
+  spec: FormSpec;
+  values: FormValues;
+  missing: string[];
+  /** the CLABE of a saved account, covered (the form no longer asks it) */
+  masked: string | null;
+}
+export type ListOutcome = { status: "saved"; lists: InstitutionLists } | { status: "invalid"; issues: ProfileIssue[] };
+// The Assistant (ADR-034 §4, core/agents/assistant.rs): the conversation lives only on the screen.
+export interface AssistantTurn {
+  from: "person" | "assistant";
+  text: string;
+  /** the documents of the Expediente the answer was based on (ids, from its citations): «ese mismo» has a document */
+  documents?: string[];
+}
+/** A place of the program a button may take the person to, with its name (core/places.rs). */
+export interface AppPlace {
+  id: string;
+  label: string;
+}
+export interface AssistantAsk {
+  /** the page where the person is */
+  screen: string;
+  /** the field whose «?» opened the question */
+  field: string | null;
+  question: string;
+  history: AssistantTurn[];
+}
+export interface ManualSource {
+  id: string;
+  title: string;
+}
+/** A passage of a document of the institution an answer is based on: its name and page come from the code (IA5). */
+/** The documents of the Expediente by their names and how they are (core/agents/assistant.rs). */
+export interface RecordsList {
+  have: string[];
+  missing: string[];
+  in_progress: string[];
+  expiring: { name: string; date: string }[];
+  expired: { name: string; date: string }[];
+}
+export interface DocumentSource {
+  document_id: string;
+  document: string;
+  page: number | null;
+}
+export type AssistantOutcome =
+  | {
+      status: "answered";
+      asked: string;
+      text: string;
+      go_to: string | null;
+      sources: ManualSource[];
+      documents: DocumentSource[];
+      /** «Llenarlo por mí»: then `text` is empty and the screen says the program's sentence (ADR-042 §6). */
+      fill: Fill | null;
+      /** The documents of the Expediente by how they are, written by the program under the answer (C4). */
+      records?: RecordsList | null;
+    }
+  | { status: "manual"; asked: string; reason: string; hits: ManualSource[] }
+  | { status: "quarantine"; report: QuarantineReport };
+// The Capturist (ADR-034, IA4, core/agents/capturist.rs): what the person tells becomes suggestions in a window.
+export interface CaptureAsk {
+  form: string;
+  said: string;
+  history: AssistantTurn[];
+}
+/** How «Llenar con mis documentos» went for a window (C2). */
+export type FillOutcome =
+  | { status: "proposed"; form: string; place: string; fields: string[]; dropped: number; note: string }
+  | { status: "nothing"; form: string; place: string; reason: string }
+  | { status: "unavailable"; form: string; place: string; reason: string };
+export type CaptureOutcome =
+  /**
+   * `left`: titles of what was left in the window the person is in; `others`: in other windows, each by its place
+   * (ADR-042 §6); `same`: what was saved already the same.
+   */
+  | {
+      status: "proposed";
+      asked: string;
+      form: string;
+      place: string;
+      fields: string[];
+      left: string[];
+      others: { place: string; left: string[] }[];
+      same: string[];
+      still: string[];
+      dropped: number;
+    }
+  | { status: "unavailable"; asked: string; reason: string }
+  | { status: "quarantine"; report: QuarantineReport };
+// The manual of the program (ADR-034, core/manual): in the program, with no AI and no internet.
+export interface ManualEntry {
+  id: string;
+  title: string;
+  paragraphs: string[];
+  /** what uses the field (codes of `used_by` in the catalog); empty for a screen */
+  used_by: string[];
+}
+export interface ManualHit {
+  id: string;
+  title: string;
+  snippet: string;
 }
 export interface PopulationGroupInput {
   label: string;
@@ -57,7 +373,6 @@ export interface ExpenseItemInput {
 export interface ProfileInput {
   institution: InstitutionInput;
   capacity_total: number | null;
-  annual_budget_mxn: number | null;
   notes: string | null;
   /** Quick figures while the records are not in the modules yet (ADR-031). */
   served_estimate: number | null;
@@ -65,6 +380,12 @@ export interface ProfileInput {
   staff_volunteer_estimate: number | null;
   population: PopulationGroupInput[];
   staff: StaffGroupInput[];
+}
+
+/** Everything the person writes about the money; it lives in the finance module (ADR-032). */
+export interface FinanceInput {
+  /** «Gasto anual aproximado»: the quick way to start; once the list has a line, the list is the total. */
+  annual_budget_mxn: number | null;
   income: IncomeSourceInput[];
   expenses: ExpenseItemInput[];
 }
@@ -78,7 +399,6 @@ export interface ProfileTotals {
   population: number;
   staff_paid: number;
   staff_volunteer: number;
-  income_annual_mxn: number;
   payroll_monthly_mxn: number;
   payroll_annual_mxn: number;
   payroll_benefits_annual_mxn: number;
@@ -100,11 +420,17 @@ export interface ProfileView {
   is_draft: boolean;
   input: ProfileInput;
   totals: ProfileTotals;
+  issues: ProfileIssue[];
+}
+
+/** The money as the finance module shows it: what was written, the sums made by Rust and the heads-ups. */
+export interface FinanceView {
+  input: FinanceInput;
   finances: Finances;
   issues: ProfileIssue[];
 }
 
-/** One line of money, as Rust computed it. `index` points into `input.income` / `input.expenses`; `null` is a line
+/** One line of money, as Rust computed it. `index` points into `FinanceInput.income` / `.expenses`; `null` is a line
  * the app computes from the roster (`beneficiary_fees`, `payroll`) and nobody edits. */
 export interface FinanceLine {
   label: string;
@@ -146,19 +472,47 @@ export type SaveProfileOutcome =
   | { status: "quarantine"; report: QuarantineReport }
   | { status: "invalid"; issues: ProfileIssue[] };
 
+export type FinanceOutcome =
+  | { status: "saved"; finance: FinanceView }
+  | { status: "quarantine"; report: QuarantineReport }
+  | { status: "invalid"; issues: ProfileIssue[] };
+
 export interface DocumentSummary {
   id: string;
   kind: string;
   display_name: string;
+  mime: string;
   data_level: string;
   redactions_count: number;
   chunks: number;
   created_at: string;
+  /** how many pages were read from a picture (OCR, ADR-035), and which of them with doubts */
+  picture_pages: number;
+  doubtful_pages: number[];
+  /** the class the person chose and what the document is, a kind of the record (IA6), with who said it */
+  category: "legal" | "financial" | "programs" | null;
+  doc_type: string | null;
+  doc_type_origin: "computed" | "user" | null;
+  /** the drawer it belongs to (ADR-036), and the document of the Expediente it is the file of */
+  drawer: "record" | "projects" | null;
+  record_id: string | null;
+  record_type: string | null;
+  record_name: string | null;
 }
-export type AddDocumentOutcome =
-  | { status: "saved"; document: DocumentSummary }
-  | { status: "quarantine"; report: QuarantineReport }
-  | { status: "rejected_roster" };
+/** A piece of a document that answers a search (IA5, core/archive/search.rs). */
+export interface Passage {
+  chunk: number;
+  document_id: string;
+  document: string;
+  page: number | null;
+  /** the words around what was looked for */
+  snippet: string;
+}
+/** What a search in the documents found, and whether it also looked by meaning. */
+export interface Found {
+  passages: Passage[];
+  by_meaning: boolean;
+}
 
 export interface DeleteSummary {
   chunks: number;

@@ -5,10 +5,12 @@
 
 mod checks;
 pub mod guard;
+mod public;
 mod names;
-mod normalize;
+pub mod normalize;
 
 use normalize::Normalized;
+pub use public::PublicDocScanner;
 use regex::Regex;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -121,6 +123,12 @@ pub struct ScannerConfig {
     pub institutional_emails: Vec<String>,
     /// Names of the institution, places, foundations and public representatives.
     pub safe_phrases: Vec<String>,
+    /// The CLABE of each bank account of the institution (ADR-033 §3): a CLABE in a text is let through only when it
+    /// is exactly one of these.
+    pub institutional_clabes: Vec<String>,
+    /// What the person said is not personal in this errand («No es dato personal»): a warning on exactly one of these
+    /// texts is not raised again before the AI (ADR-041). A blocking finding (a CURP, the RFC of a person) never is.
+    pub cleared: Vec<String>,
 }
 
 pub trait SensitiveScanner: Send + Sync {
@@ -138,6 +146,43 @@ struct Patterns {
     clabe: Regex,
     card: Regex,
     nss: Regex,
+    /// An address ending in a known domain, glued to the word before it: an email whose «@» was misread.
+    misread_email: Regex,
+    /// A CURP and an RFC of a person read from a picture, with letters where digits go («O» for «0»).
+    misread_curp: Regex,
+    misread_rfc_person: Regex,
+}
+
+/// What a picture puts in place of a digit: O→0, I and L→1, Z→2, S→5, G→6, B→8 (the text is in capitals here).
+fn as_digit(c: char) -> char {
+    match c {
+        'O' => '0',
+        'I' | 'L' => '1',
+        'Z' => '2',
+        'S' => '5',
+        'G' => '6',
+        'B' => '8',
+        _ => c,
+    }
+}
+
+/// An id read from a picture with the places that hold digits fixed, when it holds enough true digits there to be one
+/// (four of the six of its date): `None` otherwise, or when nothing needed fixing.
+fn with_digits_fixed(id: &str, places: &[std::ops::Range<usize>]) -> Option<String> {
+    let mut chars: Vec<char> = id.chars().collect();
+    let date = places.first()?;
+    if chars.get(date.clone())?.iter().filter(|c| c.is_ascii_digit()).count() < 4 {
+        return None;
+    }
+    let mut changed = false;
+    for range in places {
+        for c in chars.get_mut(range.clone())? {
+            let d = as_digit(*c);
+            changed |= d != *c;
+            *c = d;
+        }
+    }
+    changed.then(|| chars.into_iter().collect())
 }
 
 fn patterns() -> &'static Patterns {
@@ -154,6 +199,9 @@ fn patterns() -> &'static Patterns {
             clabe: r(r"\b\d{18}\b"),
             card: r(r"\b\d(?:[ -]?\d){12,18}\b"),
             nss: r(r"\b\d{11}\b"),
+            misread_email: r(r"[A-Z0-9][A-Z0-9._%+()-]*\.(?:COM|ORG|NET|MX|ES|GOB|EDU|INFO|IO|CO|US)(?:\.[A-Z]{2})?\b"),
+            misread_curp: r(r"\b[A-Z][AEIOUX][A-Z]{2}[0-9OILZSGB]{6}[HMX][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9][0-9OILZSGB]\b"),
+            misread_rfc_person: r(r"\b[A-Z&]{4}[0-9OILZSGB]{6}[A-Z0-9]{3}\b"),
         }
     })
 }
@@ -166,6 +214,10 @@ pub struct RegexScanner {
     cfg: ScannerConfig,
     phones: Vec<String>,
     emails: Vec<String>,
+    /// Each account of the institution, with or without spaces or dashes between its digits.
+    own_accounts: Vec<Regex>,
+    /// The text was read from a picture (OCR, ADR-035): an email with its «@» misread is still looked for.
+    pictures: bool,
 }
 
 impl RegexScanner {
@@ -183,7 +235,42 @@ impl RegexScanner {
             .iter()
             .map(|e| e.trim().to_uppercase())
             .collect();
-        RegexScanner { cfg, phones, emails }
+        let own_accounts = cfg
+            .institutional_clabes
+            .iter()
+            .map(|c| digits(c))
+            .filter(|d| d.len() == 18)
+            .filter_map(|d| Regex::new(&format!(r"\b{}\b", d.chars().map(String::from).collect::<Vec<_>>().join("[ -]?"))).ok())
+            .collect();
+        RegexScanner { cfg, phones, emails, own_accounts, pictures: false }
+    }
+
+    /// For a text read from a picture (OCR, ADR-035): Tesseract may read the «@» of an email as «G», «(» or «©»
+    /// («infoGorlandojuan.es»), which the email pattern no longer sees. Then an address ending in a known domain,
+    /// glued to the word before it, is taken as an email (a warning: the person may say it is not personal) when its
+    /// line speaks of mail or when it has a sign in place of the «@». A web address (`www.`, `http`) is not.
+    pub fn reading_pictures(mut self) -> Self {
+        self.pictures = true;
+        self
+    }
+
+    /// The emails whose «@» was misread, as ranges of the normalized text.
+    fn misread_emails(&self, t: &str) -> Vec<Range<usize>> {
+        patterns()
+            .misread_email
+            .find_iter(t)
+            .filter(|m| {
+                let token = m.as_str();
+                let line = &t[t[..m.start()].rfind('\n').map_or(0, |i| i + 1)..m.start()];
+                let web = token.starts_with("WWW.") || line.ends_with("//") || line.ends_with("WWW.");
+                let speaks_of_mail = ["MAIL", "CORREO"].iter().any(|w| line.contains(w));
+                let sign = token.contains(['(', ')']);
+                // the address of the institution, misread too, is still its own
+                let own = self.emails.iter().any(|e| e.split_once('@').is_some_and(|(local, domain)| token.starts_with(local) && token.ends_with(domain)));
+                !web && !own && (speaks_of_mail || sign)
+            })
+            .map(|m| m.range())
+            .collect()
     }
 
     /// True when the text looks like a list of people (a record file) and must be rejected whole.
@@ -271,11 +358,42 @@ impl SensitiveScanner for RegexScanner {
                 push(FindingKind::Email, Severity::Warn, m.range(), 1.0);
             }
         }
+        if self.pictures {
+            for r in self.misread_emails(t) {
+                push(FindingKind::Email, Severity::Warn, r, 0.5);
+            }
+            // a CURP or an RFC of a person read with a letter where a digit goes: fixed, it must still be one (the
+            // check digit of a CURP, a real date in an RFC) to be covered
+            for m in p.misread_curp.find_iter(t) {
+                if let Some(fixed) = with_digits_fixed(m.as_str(), &[4..10, 17..18]) {
+                    if p.curp.is_match(&fixed) && checks::curp_ok(&fixed) {
+                        push(FindingKind::Curp, Severity::Block, m.range(), 0.8);
+                    }
+                }
+            }
+            for m in p.misread_rfc_person.find_iter(t) {
+                if let Some(fixed) = with_digits_fixed(m.as_str(), &[4..10]) {
+                    if checks::yymmdd_ok(&fixed[4..10]) {
+                        push(FindingKind::RfcPerson, Severity::Block, m.range(), 0.7);
+                    }
+                }
+            }
+        }
+
+        // an account of the institution is its own, not a person's: nothing found inside exactly one of them counts
+        let own: Vec<Range<usize>> = self.own_accounts.iter().flat_map(|r| r.find_iter(t).map(|m| norm.orig_span(m.range())).collect::<Vec<_>>()).collect();
+        found.retain(|f| !own.iter().any(|o| o.start <= f.span.start && f.span.end <= o.end));
 
         let name_findings = names::find_names(text, &self.cfg);
         let health = names::find_health(&norm, &name_findings);
         found.extend(name_findings);
         found.extend(health);
+
+        // what the person cleared in this errand: a warning on the same text, and only a warning
+        if !self.cfg.cleared.is_empty() {
+            let cleared: Vec<String> = self.cfg.cleared.iter().map(|c| normalize::fold_str(c.trim())).collect();
+            found.retain(|f| f.severity != Severity::Warn || !text.get(f.span.clone()).is_some_and(|s| cleared.contains(&normalize::fold_str(s.trim()))));
+        }
 
         ScanReport { findings: resolve_overlaps(found) }
     }

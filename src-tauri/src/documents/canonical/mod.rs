@@ -24,7 +24,6 @@ pub mod normalize;
 pub mod package;
 pub mod retrieve;
 pub mod run;
-pub mod requirements;
 pub mod summary;
 
 #[cfg(test)]

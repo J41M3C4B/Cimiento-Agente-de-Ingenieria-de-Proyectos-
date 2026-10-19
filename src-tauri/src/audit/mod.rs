@@ -49,6 +49,13 @@ pub enum AuditKind {
     FacilitiesImported,
     /// The institution finished its first start (ADR-031).
     InstitutionOnboarded,
+    /// An errand of an agent ended (ADR-034): agent, steps, tools used (counts) and result; never content.
+    AiRun,
+    /// A protected datum of the institution was shown in full (ADR-033 §3): which field, never the value.
+    InstitutionSensitiveViewed,
+    /// The person said a file is the document it was put on, although its words did not say so (ADR-042 §4): which
+    /// documents, never the file.
+    RecordKindConfirmed,
 }
 
 impl AuditKind {
@@ -87,6 +94,9 @@ impl AuditKind {
             AuditKind::CareImported => "care.imported",
             AuditKind::FacilitiesImported => "facilities.imported",
             AuditKind::InstitutionOnboarded => "institution.onboarded",
+            AuditKind::AiRun => "ai.run",
+            AuditKind::InstitutionSensitiveViewed => "institution.sensitive_viewed",
+            AuditKind::RecordKindConfirmed => "institution.record_kind_confirmed",
         }
     }
 }

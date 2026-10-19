@@ -16,6 +16,10 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+/// The embedding model: chooses, for each block of a call, the pages worth reading (ADR-015), and finds by meaning
+/// in the documents of the institution (IA5, ADR-034).
+pub const EMBEDDING_MODEL: &str = "gemini-embedding-2";
+
 /// A fragment too short to say anything is not indexed.
 const MIN_CHUNK_CHARS: usize = 20;
 /// Reciprocal rank fusion constant: the usual one.
@@ -260,19 +264,35 @@ pub struct GeminiEmbedder {
     dims: Option<u32>,
     /// The service does not take batches for this model: one text per request.
     single: AtomicBool,
+    /// Waits and tries again when the service is busy; a question somebody is waiting for does not.
+    patient: bool,
     pub requests: AtomicUsize,
     pub texts: AtomicUsize,
 }
 
+/// How many numbers each vector has (`outputDimensionality`); the vector tables are made for it.
+pub const EMBEDDING_DIMS: usize = 768;
+
 impl GeminiEmbedder {
     pub fn new(key: String, model: &str) -> Self {
+        Self::with_timeout(key, model, 60, true)
+    }
+
+    /// For a question somebody is waiting for: a few seconds and no second try; on any failure the search goes on by
+    /// words.
+    pub fn quick(key: String, model: &str) -> Self {
+        Self::with_timeout(key, model, 8, false)
+    }
+
+    fn with_timeout(key: String, model: &str, secs: u64, patient: bool) -> Self {
         GeminiEmbedder {
-            http: reqwest::Client::builder().timeout(Duration::from_secs(60)).build().expect("http client"),
+            http: reqwest::Client::builder().timeout(Duration::from_secs(secs)).build().expect("http client"),
             base_url: "https://generativelanguage.googleapis.com".into(),
             key,
             model: model.trim_start_matches("models/").to_string(),
-            dims: Some(768),
+            dims: Some(EMBEDDING_DIMS as u32),
             single: AtomicBool::new(false),
+            patient,
             requests: AtomicUsize::new(0),
             texts: AtomicUsize::new(0),
         }
@@ -345,8 +365,8 @@ impl Embedder for GeminiEmbedder {
                 match status {
                     200 => return Ok(Some(v)),
                     404 => return Ok(None),
-                    429 if tries < 8 => tokio::time::sleep(Duration::from_secs(30)).await,
-                    s if s >= 500 && tries < 4 => tokio::time::sleep(Duration::from_secs(10)).await,
+                    429 if self.patient && tries < 8 => tokio::time::sleep(Duration::from_secs(30)).await,
+                    s if s >= 500 && self.patient && tries < 4 => tokio::time::sleep(Duration::from_secs(10)).await,
                     s => return Err(format!("embedding service answered {s}: {}", v["error"]["message"].as_str().unwrap_or("").chars().take(300).collect::<String>())),
                 }
             }

@@ -31,9 +31,12 @@ umya-spreadsheet = "3.1.0"
 zip = "8.6.0"
 regex = "1.13.1"
 sqlite-vec = "0.1.9"
-pdf-extract = "0.12.1"
-# the same version pdf-extract reads with: the content of a page is read here to find the lines of a table
-lopdf = "0.42.0"
+# reads every PDF: its text, the letters and lines of its tables, and draws its scanned pages for Tesseract
+# (ADR-035, ADR-037); pdfium.dll ships in resources/ocr
+pdfium-render = { version = "0.9.4", default-features = false, features = ["pdfium_latest", "thread_safe"] }
+# opens a photo or a drawn page to enlarge small letters before Tesseract reads it again (ADR-035): Tesseract does
+# not enlarge; only the formats read here, no threads
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "pnm"] }
 base64 = "0.22.1"
 ulid = "3.0.0"
 sha2 = "0.11.0"
@@ -42,6 +45,7 @@ async-trait = "0.1.92"
 jsonschema = "0.58.3"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time"] }
 argon2 = "0.6.0"
+tauri-plugin-dialog = "2.8.2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
@@ -52,6 +56,14 @@ opt-level = 3
 # a damaged PDF can make the reader panic: it must be caught (`catch_unwind`), not end the program
 panic = "unwind"
 strip = true
+
+# development builds keep file and line for errors, not the full debug info: with it every test build
+# left gigabytes behind in target/ (it reached 143 GB)
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
 
 [dev-dependencies]
 tempfile = "3.27.0"

@@ -1,0 +1,236 @@
+import { useId, useState } from "react";
+import type { ReactNode } from "react";
+import { Icon } from "./icons";
+import { HelpToggle, ManualPanel } from "./ManualHelp";
+import { Button, Choice, FormSection, Inset, Select, TextArea, TextInput } from "./ui";
+import { es } from "../i18n/es-MX";
+import type { FieldSpec, FormSpec, FormValue, FormValues, Proposal } from "../lib/types";
+
+const words = (id: string) => es.forms.fields[id] ?? { label: id };
+/** Up to this many options are shown as pills; more go in a list that drops down. */
+const PILLS_UP_TO = 4;
+
+const filled = (v: FormValue | undefined) => (Array.isArray(v) ? v.length > 0 : typeof v === "string" ? v.trim() !== "" : v !== undefined);
+
+/**
+ * Whether a field applies with what is typed now, so it shows or hides as the person answers. Rust decides it again
+ * when saving (`common/forms.rs`) and drops what does not apply; this only keeps the screen in step.
+ */
+export function applies(f: FieldSpec, values: FormValues): boolean {
+  const c = f.applies_when;
+  if (c.when === "always") return true;
+  const v = values[c.field];
+  if (c.when === "filled") return filled(v);
+  return Array.isArray(v) ? v.some((x) => c.values.includes(x)) : typeof v === "string" && c.values.includes(v);
+}
+
+type Props = {
+  spec: FormSpec;
+  values: FormValues;
+  onChange: (values: FormValues) => void;
+  /** The problem of a field, already in words, by field id. */
+  errors?: Record<string, string>;
+  /** The suggestions of the AI still to review (IA4): each one under its field, to use or discard. */
+  suggestions?: Proposal[];
+  onUse?: (p: Proposal) => void;
+  onDiscard?: (p: Proposal) => void;
+  /** A line under a field that says where its value came from («Leído del archivo, pág. 2»), by field id. */
+  notes?: Record<string, string>;
+  /** Without the titles of the sections: a step of the first start already says what it asks (ADR-042). */
+  bare?: boolean;
+};
+
+/** A value in the words of its field: the names of its options, or the value as it is. */
+export function shownValue(f: FieldSpec, v: FormValue): string {
+  const w = words(f.id);
+  const label = (code: string) => w.options?.[code] ?? code;
+  if (Array.isArray(v)) return v.map(label).join(", ");
+  if (typeof v === "boolean") return v ? es.common.yes : es.common.no;
+  return f.options.length > 0 ? label(String(v)) : String(v);
+}
+
+/** A suggestion of the AI under its field: what it says, the words of the person it came from, and the two choices. */
+function Suggestion({ f, p, onUse, onDiscard }: { f: FieldSpec; p: Proposal; onUse?: (p: Proposal) => void; onDiscard?: (p: Proposal) => void }) {
+  const t = es.suggestions;
+  return (
+    <Inset className="mt-2 space-y-2 !p-3 text-small">
+      <p>
+        <span className="font-semibold">{p.document ? t.titleDocument : t.title}</span> {shownValue(f, p.value)}
+      </p>
+      {p.said && <p className="text-ink-3">{t.said(p.said)}</p>}
+      {p.document && <p className="text-ink-3">{t.fromDocument(p.document, p.page)}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="primary" onClick={() => onUse?.(p)}>
+          {t.use}
+        </Button>
+        <Button size="sm" variant="plain" onClick={() => onDiscard?.(p)}>
+          {t.discard}
+        </Button>
+      </div>
+    </Inset>
+  );
+}
+
+/**
+ * A form described in Rust (ADR-033), drawn with the components of the system: a section per group of fields, and
+ * per field the input its kind asks for. The words come from `es.forms` under the id of each field; the «?» next to
+ * each label opens what the manual says of it (ADR-034), one at a time.
+ */
+export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard, notes = {}, bare = false }: Props) {
+  const set = (id: string, v: FormValue) => onChange({ ...values, [id]: v });
+  const [help, setHelp] = useState<string | null>(null);
+  return (
+    <div className="space-y-6">
+      {spec.sections.map((s) => {
+        const shown = s.fields.filter((f) => applies(f, values));
+        if (shown.length === 0) return null;
+        const grid = (
+          <div className={`grid grid-cols-1 gap-4 ${s.columns > 1 ? "sm:grid-cols-2" : ""}`}>
+              {shown.map((f) => {
+                const panelId = `manual-${f.id}`;
+                const aside = <HelpToggle open={help === f.id} onToggle={() => setHelp(help === f.id ? null : f.id)} controls={panelId} />;
+                return (
+                  <div key={f.id} className="min-w-0">
+                    <Field f={f} value={values[f.id]} error={errors[f.id]} onChange={(v) => set(f.id, v)} aside={aside} />
+                    {notes[f.id] && <p className="mt-1 text-small text-ink-3">{notes[f.id]}</p>}
+                    {help === f.id && <ManualPanel id={f.id} panelId={panelId} />}
+                    {suggestions
+                      .filter((p) => p.field_id === f.id)
+                      .map((p) => (
+                        <Suggestion key={p.id} f={f} p={p} onUse={onUse} onDiscard={onDiscard} />
+                      ))}
+                  </div>
+                );
+              })}
+          </div>
+        );
+        return bare ? (
+          <div key={s.id}>{grid}</div>
+        ) : (
+          <FormSection key={s.id} title={es.forms.sections[s.id] ?? s.id}>
+            {grid}
+          </FormSection>
+        );
+      })}
+    </div>
+  );
+}
+
+function Field({ f, value, error, onChange, aside }: { f: FieldSpec; value: FormValue | undefined; error?: string; onChange: (v: FormValue) => void; aside: ReactNode }) {
+  const w = words(f.id);
+  const label = (code: string) => w.options?.[code] ?? code;
+  const text = typeof value === "string" ? value : value === undefined ? "" : String(value);
+
+  switch (f.kind) {
+    case "long_text":
+      return <TextArea label={w.label} hint={w.hint} error={error} required={f.required} labelAside={aside} value={text} onChange={(e) => onChange(e.target.value)} />;
+    case "multi_select": {
+      const chosen = Array.isArray(value) ? value : [];
+      return (
+        <Pills label={w.label} hint={w.hint} error={error} required={f.required} labelAside={aside}>
+          {f.options.map((code) => (
+            <Choice
+              key={code}
+              type="checkbox"
+              checked={chosen.includes(code)}
+              // the codes keep the order of the list, whatever the order they were marked in
+              onChange={(e) => onChange(f.options.filter((x) => (x === code ? e.target.checked : chosen.includes(x))))}
+            >
+              {label(code)}
+            </Choice>
+          ))}
+        </Pills>
+      );
+    }
+    case "select":
+      if (f.options.length <= PILLS_UP_TO) {
+        return (
+          <Pills label={w.label} hint={w.hint} error={error} required={f.required} labelAside={aside}>
+            {f.options.map((code) => (
+              <Choice key={code} name={f.id} checked={text === code} onChange={() => onChange(code)}>
+                {label(code)}
+              </Choice>
+            ))}
+          </Pills>
+        );
+      }
+      return (
+        <Select
+          label={w.label}
+          hint={w.hint}
+          error={error}
+          required={f.required}
+          labelAside={aside}
+          options={[["", es.facilities.select], ...f.options.map((c): [string, string] => [c, label(c)])]}
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
+    case "yes_no":
+      return (
+        <Pills label={w.label} hint={w.hint} error={error} required={f.required} labelAside={aside}>
+          {([true, false] as const).map((answer) => (
+            <Choice key={String(answer)} name={f.id} checked={value === answer} onChange={() => onChange(answer)}>
+              {answer ? es.common.yes : es.common.no}
+            </Choice>
+          ))}
+        </Pills>
+      );
+    case "number":
+    case "money":
+    case "year":
+      return (
+        <TextInput
+          label={w.label}
+          hint={w.hint}
+          error={error}
+          required={f.required}
+          labelAside={aside}
+          inputMode="numeric"
+          prefix={f.kind === "money" ? "$" : undefined}
+          value={text}
+          // a number travels as a number; what is not one stays as typed and Rust says what is wrong
+          onChange={(e) => onChange(/^\d+$/.test(e.target.value.trim()) ? Number(e.target.value.trim()) : e.target.value)}
+        />
+      );
+    default:
+      return (
+        <TextInput
+          label={w.label}
+          hint={w.hint}
+          error={error}
+          required={f.required}
+          labelAside={aside}
+          inputMode={f.kind === "email" ? "email" : f.kind === "phone" ? "tel" : undefined}
+          type={f.kind === "date" ? "date" : "text"}
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
+  }
+}
+
+/** A group of pills with the label, help and error of every field. */
+function Pills({ label, hint, error, required, labelAside, children }: { label: string; hint?: string; error?: string; required: boolean; labelAside?: ReactNode; children: ReactNode }) {
+  // named by its words alone, so the «?» does not end up in the name of the group
+  const labelId = useId();
+  return (
+    <fieldset className="min-w-0" aria-labelledby={labelId}>
+      <legend className="field-label">
+        <span id={labelId}>
+          {label}
+          {required && <span className="req">*</span>}
+        </span>
+        {labelAside}
+      </legend>
+      <div className="flex flex-wrap gap-2">{children}</div>
+      {hint && <span className="field-hint">{hint}</span>}
+      {error && (
+        <span role="alert" className="field-error">
+          <Icon name="alert" size={15} />
+          {error}
+        </span>
+      )}
+    </fieldset>
+  );
+}

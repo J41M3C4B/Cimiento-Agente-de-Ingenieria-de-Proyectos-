@@ -1,0 +1,395 @@
+{
+  "_nota": "La prueba completa del Expediente en seco (cargo test full_expediente -- --ignored --nocapture): lo que dice la persona antes, cada archivo en el documento donde se sube y lo que debe pasar. «espera»: no_se_pudo (por qué no se tomó), legible, de_imagen, con_dudas, tapados (datos de personas tapados en su texto), llenos (datos propios del documento escritos solos), sugerencias (cuántas dejó en «Mi institución»), parece (otro tipo de documento). Al final, los datos de cada documento y las sugerencias que esperan. Todo es ficticio. En palabras: docs/16-institucion-de-prueba.md.",
+  "hoy": "2026-10-16",
+  "antes": {
+    "institution.identity": {
+      "institution.name": "Casa San Ejemplo",
+      "institution.populations": [
+        "older_adults"
+      ],
+      "institution.modalities": [
+        "residential",
+        "day_care"
+      ]
+    },
+    "institution.legal": {
+      "institution.legal_form": "iap",
+      "institution.authorized_donee": "yes",
+      "institution.cluni": "yes"
+    }
+  },
+  "pasos": [
+    {
+      "archivo": "19-acta-constitutiva-version-final.pdf",
+      "documento": "articles_of_incorporation",
+      "espera": {
+        "pregunta": { "parece": "tax_status_certificate" }
+      },
+      "responde": "cancelar"
+    },
+    {
+      "archivo": "01-acta-constitutiva.pdf",
+      "documento": "articles_of_incorporation",
+      "espera": {
+        "legible": true,
+        "de_imagen": false,
+        "tapados": 0,
+        "llenos": [
+          "institution.record.issued_on",
+          "institution.record.reference"
+        ],
+        "sugerencias": 3
+      }
+    },
+    {
+      "archivo": "02-reformas-estatutos-2019-escaneo.pdf",
+      "documento": "bylaws_amendments",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "con_dudas": false,
+        "tapados": 1,
+        "llenos": [
+          "institution.record.issued_on",
+          "institution.record.reference"
+        ],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "03-poder-notarial-hoja-girada.pdf",
+      "documento": "power_of_attorney",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "tapados": 0,
+        "llenos": [
+          "institution.record.issued_on",
+          "institution.record.reference",
+          "institution.record.valid_until"
+        ],
+        "sugerencias": 1
+      }
+    },
+    {
+      "archivo": "04-constancia-situacion-fiscal.pdf",
+      "documento": "tax_status_certificate",
+      "espera": {
+        "legible": true,
+        "de_imagen": false,
+        "tapados": 1,
+        "llenos": [
+          "institution.record.issued_on"
+        ],
+        "sugerencias": 4
+      }
+    },
+    {
+      "archivo": "05-opinion-cumplimiento-foto.jpg",
+      "documento": "tax_compliance_opinion",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "tapados": 1,
+        "llenos": [
+          "institution.record.issued_on",
+          "institution.record.reference",
+          "institution.record.valid_until"
+        ],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "06-oficio-donataria-escaneo.pdf",
+      "documento": "donee_authorization",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "tapados": 0,
+        "llenos": [
+          "institution.record.issued_on",
+          "institution.record.reference"
+        ],
+        "sugerencias": 3
+      }
+    },
+    {
+      "archivo": "07-cluni-captura.png",
+      "documento": "cluni_certificate",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "tapados": 0,
+        "llenos": [
+          "institution.record.issued_on",
+          "institution.record.reference"
+        ],
+        "sugerencias": 1
+      }
+    },
+    {
+      "archivo": "08-registro-junta-destenido.pdf",
+      "documento": "junta_registration",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "con_dudas": true,
+        "tapados": 0,
+        "llenos": [
+          "institution.record.issued_on",
+          "institution.record.reference"
+        ],
+        "sugerencias": 1
+      }
+    },
+    {
+      "archivo": "09-aviso-funcionamiento.docx",
+      "documento": "sanitary_notice",
+      "espera": {
+        "legible": true,
+        "de_imagen": false,
+        "tapados": 0,
+        "llenos": [
+          "institution.record.issued_on"
+        ],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "10-proteccion-civil-con-contrasena.pdf",
+      "documento": "civil_protection_program",
+      "espera": {
+        "no_se_pudo": "protected"
+      }
+    },
+    {
+      "archivo": "10b-proteccion-civil.pdf",
+      "documento": "civil_protection_program",
+      "espera": {
+        "legible": true,
+        "de_imagen": false,
+        "tapados": 0,
+        "llenos": [],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "11-aviso-privacidad.docx",
+      "documento": "privacy_notice",
+      "espera": {
+        "legible": true,
+        "de_imagen": false,
+        "tapados": 2,
+        "llenos": [],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "12-reglamento-interno-con-hoja-escaneada.docx",
+      "documento": "internal_rules",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "tapados": 0,
+        "llenos": [],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "13-organigrama.png",
+      "documento": "org_chart",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "tapados": 0,
+        "llenos": [],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "14b-estados-financieros-2025-danado.pdf",
+      "documento": "financial_statements",
+      "espera": {
+        "no_se_pudo": "damaged"
+      }
+    },
+    {
+      "archivo": "14-estados-financieros-2025.pdf",
+      "documento": "financial_statements",
+      "espera": {
+        "legible": true,
+        "de_imagen": false,
+        "tapados": 0,
+        "llenos": [],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "15b-informe-anual-2025.odt",
+      "documento": "annual_report",
+      "espera": {
+        "no_se_pudo": "unsupported_type"
+      }
+    },
+    {
+      "archivo": "15-informe-anual-2025.pdf",
+      "documento": "annual_report",
+      "espera": {
+        "legible": true,
+        "de_imagen": false,
+        "tapados": 0,
+        "llenos": [],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "16-presupuesto-junta-2026.xlsx",
+      "documento": "junta_budget",
+      "espera": {
+        "no_se_pudo": "unsupported_type"
+      }
+    },
+    {
+      "archivo": "16b-presupuesto-junta-2026.pdf",
+      "documento": "junta_budget",
+      "espera": {
+        "legible": true,
+        "de_imagen": false,
+        "tapados": 0,
+        "llenos": [],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "20-foto-sin-texto.jpg",
+      "documento": "land_use_license",
+      "espera": {
+        "pregunta": { "parece": null },
+        "legible": false
+      },
+      "responde": "aqui"
+    },
+    {
+      "archivo": "17-licencia-uso-suelo-foto.jpg",
+      "documento": "land_use_license",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "tapados": 0,
+        "llenos": [
+          "institution.record.issued_on"
+        ],
+        "sugerencias": 0
+      }
+    },
+    {
+      "archivo": "18-contrato-comodato-pagina-mixta.pdf",
+      "documento": "other",
+      "nombre": "Contrato de comodato",
+      "espera": {
+        "legible": true,
+        "de_imagen": true,
+        "tapados": 0,
+        "llenos": [],
+        "sugerencias": 0
+      }
+    }
+  ],
+  "expediente": {
+    "articles_of_incorporation": {
+      "estado": "have",
+      "emision": "2015-03-10",
+      "numero": "42110"
+    },
+    "bylaws_amendments": {
+      "estado": "have",
+      "emision": "2019-08-22",
+      "numero": "47820"
+    },
+    "power_of_attorney": {
+      "estado": "have",
+      "emision": "2024-01-18",
+      "vigencia": "2027-01-18",
+      "numero": "51300",
+      "validez": "Valid"
+    },
+    "tax_status_certificate": {
+      "estado": "have",
+      "emision": "2026-02-06"
+    },
+    "tax_compliance_opinion": {
+      "estado": "have",
+      "emision": "2026-09-20",
+      "vigencia": "2026-10-20",
+      "numero": "26NB1234567",
+      "validez": "Expiring"
+    },
+    "donee_authorization": {
+      "estado": "have",
+      "emision": "2017-03-14",
+      "numero": "600-04-02-2017-11234"
+    },
+    "cluni_certificate": {
+      "estado": "have",
+      "emision": "2016-05-11",
+      "numero": "CRF15031009015"
+    },
+    "junta_registration": {
+      "estado": "have",
+      "emision": "2015-06-02",
+      "numero": "JAP-1234/2015"
+    },
+    "sanitary_notice": {
+      "estado": "have",
+      "emision": "2025-09-03"
+    },
+    "land_use_license": {
+      "estado": "have",
+      "emision": "2023-05-15"
+    },
+    "civil_protection_program": {
+      "estado": "have"
+    },
+    "privacy_notice": {
+      "estado": "have"
+    },
+    "internal_rules": {
+      "estado": "have"
+    },
+    "org_chart": {
+      "estado": "have"
+    },
+    "financial_statements": {
+      "estado": "have"
+    },
+    "annual_report": {
+      "estado": "have"
+    },
+    "junta_budget": {
+      "estado": "have"
+    },
+    "Contrato de comodato": {
+      "estado": "have"
+    }
+  },
+  "sugerencias": {
+    "institution.founded_year": 2015,
+    "institution.purpose": "I. Brindar alojamiento, alimentación, vestido y atención médica a personas adultas mayores de sesenta años en situación de abandono o de escasos recursos. II. Proporcionar terapia física, ocupacional y actividades recreativas que mejoren la calidad de vida de las personas residentes. III. Ofrecer orientación a las familias sobre el cuidado de la persona mayor. IV. Recibir donativos en dinero o en especie para el cumplimiento de su objeto.",
+    "institution.legal_rep_valid_until": "2027-01-18",
+    "institution.legal_rfc": "CRF150310KX4",
+    "institution.legal_name": "CASA DE REPOSO FICTICIA SAN EJEMPLO",
+    "institution.tax_regime": "non_profit",
+    "institution.fiscal_postal_code": "03100",
+    "institution.donee_letter_number": "600-04-02-2017-11234",
+    "institution.donee_letter_date": "2017-03-14",
+    "institution.donee_category": "assistance",
+    "institution.cluni_key": "CRF15031009015",
+    "institution.junta_folio": "JAP-1234/2015"
+  },
+  "conocidos": [
+    "08-registro-junta-destenido.pdf: con dudas",
+    "expediente: junta_registration.numero",
+    "sugerencias: institution.junta_folio"
+  ],
+  "_conocidos": "Lo que el programa todavía no hace bien con estos archivos: se reporta aparte y no hace fallar la prueba. Si uno se corrige, la prueba pide quitarlo de aquí. La copia desteñida del registro ante la Junta se lee con errores (el folio pierde su «/») y no se marca «con dudas»."
+}

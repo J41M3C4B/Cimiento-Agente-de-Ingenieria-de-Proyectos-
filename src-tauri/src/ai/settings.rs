@@ -124,9 +124,14 @@ fn default_prices() -> BTreeMap<String, ModelPrice> {
         ("claude-sonnet-5", 2.0, 10.0),
         ("claude-opus-5-5", 4.0, 20.0),
         ("gemini-3.5-flash-lite", 0.30, 2.50),
+        // an older Flash-Lite, offered to pick by hand when 3.5 Flash-Lite is overloaded; not a
+        // backup of the chain and not in `sampling_models` until it is measured
+        ("gemini-3.1-flash-lite", 0.25, 1.50),
         ("gemini-3.5-flash", 1.50, 9.00),
         // preview model: Google may change its price when it leaves preview
         ("gemini-3-flash-preview", 0.50, 3.00),
+        // vectors of the documents of the institution (IA5): only what goes in is charged
+        ("gemini-embedding-2", 0.20, 0.0),
     ] {
         prices.insert(m.to_string(), ModelPrice::flat(i, o));
     }
@@ -140,7 +145,10 @@ fn default_prices() -> BTreeMap<String, ModelPrice> {
 /// Limits read from the Google AI Studio table (columns: per minute, tokens per minute, per day).
 fn default_rate_limits() -> BTreeMap<String, RateLimit> {
     let mut limits = BTreeMap::new();
-    limits.insert("gemini-3.5-flash-lite".to_string(), RateLimit { per_minute: 15, tokens_per_minute: 250_000, per_day: 500 });
+    // 3.1 Flash-Lite is given the limits of 3.5 Flash-Lite until they are read from the table
+    for m in ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"] {
+        limits.insert(m.to_string(), RateLimit { per_minute: 15, tokens_per_minute: 250_000, per_day: 500 });
+    }
     for m in ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"] {
         limits.insert(m.to_string(), RateLimit { per_minute: 5, tokens_per_minute: 250_000, per_day: 20 });
     }
@@ -491,7 +499,9 @@ mod tests {
         let s = load(&c).unwrap();
         assert_eq!(s.monthly_cap_mxn, 80.0, "the person's change is kept");
         assert!(s.prices.contains_key("gemini-3.8-flash") && s.prices.contains_key("gemini-3.5-flash-lite"));
+        assert!(s.known_models(ProviderKind::Gemini).contains(&"gemini-3.1-flash-lite".to_string()), "it can be picked by hand");
         assert_eq!(s.rate_limits["gemini-3.8-flash"].per_day, 20);
+        assert_eq!(s.rate_limits["gemini-3.1-flash-lite"].per_minute, 15);
         assert_eq!(s.provider, ProviderKind::Gemini);
     }
 

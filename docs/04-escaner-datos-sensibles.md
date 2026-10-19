@@ -33,7 +33,7 @@ Todos los patrones se aplican sobre el texto normalizado a mayúsculas y sin ace
 | Clave de elector | `\b[A-Z]{6}\d{8}[HMX]\d{3}\b` | — | Block |
 | Teléfono MX | `(\+?52[\s-]?)?(\(?\d{2,3}\)?[\s-]?)\d{3,4}[\s-]?\d{4}` que sume 10 dígitos | Excluir si coincide con el teléfono institucional registrado | Warn |
 | Correo | Patrón estándar de correo | Excluir correo institucional registrado | Warn |
-| CLABE | `\b\d{18}\b` | Dígito de control CLABE | Block |
+| CLABE | `\b\d{18}\b` | Dígito de control CLABE; excluir solo si es exactamente una cuenta registrada de la institución (con o sin espacios) | Block |
 | Tarjeta | 13 a 19 dígitos con separadores opcionales | Algoritmo de Luhn | Block |
 | NSS | `\b\d{11}\b` | Dígito verificador (Luhn) | Block |
 | Nombre de persona | Heurística (ver abajo) | Contexto | Warn |
@@ -45,6 +45,7 @@ Todos los patrones se aplican sobre el texto normalizado a mayúsculas y sin ace
 - Coincidencia: secuencia de 2 a 4 palabras capitalizadas donde al menos una es nombre de pila y otra es apellido de la lista.
 - Disparadores de contexto que suben la confianza: "la niña", "el señor", "la señora", "residente", "doña", "don", "paciente", "su mamá".
 - Lista de exclusión: nombres de la institución, santos y advocaciones en nombres de lugares ("Casa Hogar San José", "Asilo Santa María"), nombres de fundaciones y de sus representantes cuando son públicos.
+- Lo que sigue a una palabra de lugar no es una persona: «calle», «colonia», «municipio», «alcaldía», «delegación», «demarcación»… Las alcaldías de la Ciudad de México llevan nombre de persona («alcaldía Benito Juárez»), y «el señor Benito Juárez Pérez» sigue siendo una persona.
 
 Versión 2 (Fase 8, opcional): modelo NER local pequeño en español.
 
@@ -74,6 +75,18 @@ Formato de tapado: `[CURP OCULTA]`, `[TELÉFONO OCULTO]`, `[NOMBRE OCULTO]`, etc
 
 Si un archivo tiene más de N hallazgos `Block` (inicial: 5) o un patrón de tabla con columnas tipo "Nombre / Edad / Diagnóstico", la app lo rechaza completo con el mensaje: *"Este archivo parece una lista de personas. Para cuidarlas, no lo guardamos. Si necesitas esos datos para el proyecto, mejor escribe solo los totales."*
 
+**Excepción: el Expediente de la institución** (decisión del 2026-10-13, ADR-036). Sus papeles (actas, constancias, poderes) traen por fuerza datos de socios, patronato y representantes, y cuántos depende de cada institución. Ahí el escáner **tapa todo lo que encuentra y el archivo se guarda**: sin rechazo por «lista de personas» y sin ventana de cuarentena. La pantalla dice cuántos datos se taparon y la bitácora guarda los conteos. Hoy la regla de rechazo solo queda para las convocatorias de Proyectos.
+
+## Texto leído de una imagen (OCR)
+
+El texto de un escaneo o de una foto (ADR-035) pasa por el escáner como cualquier otro, pero puede venir mal leído: una CURP con «O» en lugar de «0» o un correo borroso pueden escapar a los patrones. Por eso:
+- la lectura usa el modelo `eng+spa` (el de español no lee la «@» y perdía los correos);
+- en un texto leído de imagen, una CURP o un RFC de persona con una letra en lugar de un dígito («O» por «0», «S» por «5», «I» o «l» por «1», «B» por «8», «Z» por «2», «G» por «6») se tapa (`Block`) si, corregido, sigue siéndolo: el dígito verificador de la CURP, una fecha real en el RFC y al menos cuatro dígitos verdaderos en los seis de su fecha (ADR-038);
+- en un texto leído de imagen, el escáner también toma como correo (aviso, la persona decide) una dirección que termina en un dominio conocido (`.com`, `.org`, `.mx`, `.es`…) pegada a otra palabra, cuando su renglón habla de correo («Email», «Correo») o un signo ocupa el lugar de la «@» (`RegexScanner::reading_pictures`). Ejemplo real: «Email: infoGorlandojuan.es». Una dirección web (`www.`, `http`) y la de la institución no cuentan;
+- se avisa qué páginas se leyeron con dudas.
+
+Puede escapar todavía una CURP o un RFC con más de dos letras en lugar de dígitos, o uno cuyo dígito verificador también se leyó mal.
+
 ## Pruebas obligatorias
 
 - `fixtures/escaner/positivos.txt`: un caso por línea que **debe** detectarse.
@@ -92,3 +105,5 @@ Si un archivo tiene más de N hallazgos `Block` (inicial: 5) o un patrón de tab
 - Las listas `scanner/data/given_names.txt` (~245) y `surnames.txt` (~155) son una primera versión, **más cortas que las ~2,000 previstas**. Ampliarlas es trabajo pendiente; cada falso negativo reportado se agrega a `fixtures/escaner/positivos.txt`.
 - Rendimiento: ~520 KB (unas 100 páginas) en menos de 1 s incluso en compilación de desarrollo.
 - Los datos de contacto institucionales (teléfono, correo, RFC, representante) no se escanean y su teléfono/correo no se marcan en otros textos.
+- Las cuentas de la institución y los nombres de su patronato (ADR-033 §3) tampoco: `ScannerConfig.institutional_clabes` deja pasar una CLABE solo si es exactamente una de sus cuentas, escrita con o sin espacios o guiones (nada de lo que se encuentre dentro de ella cuenta). Cualquier otra CLABE, aunque difiera en un dígito, sigue bloqueada. Los nombres del patronato van en `safe_phrases`; por eso tampoco se tapan en el texto del Expediente y llegan a la IA en los pasajes del Lector (ADR-040).
+- **Lo que la persona aclaró** (`ScannerConfig::cleared`, ADR-041): cuando contesta «No es dato personal» en «Llenarlo por mí», la última revisión antes de la IA no vuelve a tapar ese texto exacto en ese encargo. Solo se aplica a advertencias: una CURP o el RFC de una persona se tapan siempre.

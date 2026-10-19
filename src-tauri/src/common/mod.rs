@@ -1,8 +1,9 @@
 //! What the modules share without depending on each other or on the app (ADR-029): Mexican identifiers, dates and
-//! the shape of contact data. It depends on nothing.
+//! the shape of contact data, and forms described as data (ADR-033). It depends on nothing.
 
 pub mod contact;
 pub mod dates;
+pub mod forms;
 pub mod ids;
 
 #[cfg(test)]

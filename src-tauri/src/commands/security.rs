@@ -1,11 +1,11 @@
 //! Commands of the encrypted backup and the scan of the database (ADR-019). Thin: they call
-//! `security_service`.
+//! `core::security`.
 
 use super::guard;
-use crate::access_service::Session;
+use crate::core::access::service::Session;
 use super::diagnosis::shared;
 use crate::error::UiError;
-use crate::security_service::{self as svc, BackupFile, ScanSummary};
+use crate::core::security::{self as svc, BackupFile, ScanSummary};
 use crate::Db;
 use base64::Engine;
 use tauri::{AppHandle, Manager, State};

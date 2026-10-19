@@ -131,7 +131,7 @@ Responde con un único objeto JSON que cumpla este JSON Schema, con todos los ca
 /// Gemini accepts only part of JSON Schema. `additionalProperties: false` is the one keyword
 /// we use that is not guaranteed, and dropping it loses nothing: `pipeline::validate` checks
 /// the answer against the full schema afterwards.
-fn without_additional_properties(schema: &Value) -> Value {
+pub(crate) fn without_additional_properties(schema: &Value) -> Value {
     match schema {
         Value::Object(map) => Value::Object(
             map.iter()

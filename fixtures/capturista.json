@@ -1,0 +1,301 @@
+{
+  "_nota": "Batería del Capturista (IA4, C4): lo que una persona cuenta en el chat de su institución y lo que debe quedar sugerido en la ventana. «campos»: por campo, «valores» (uno de estos, sin acentos ni mayúsculas), «contiene» (el texto lleva estas palabras), «incluye» (la lista lleva estos códigos), «nada» (la persona no lo dijo: no debe sugerirse) o «libre» (no se califica). Un campo que no está en «campos» y se sugiere cuenta como «de más». «trampas»: respuestas que un modelo podría dar y que el código debe tirar todas (en seco). «historial»: la conversación antes de lo que dice ahora. «no_es_personal»: ante el escáner la persona contestó «No es dato personal» (el teléfono o el RFC de la institución); si no, se tapa. «ventana»: donde está la persona; cada dato puede quedar en la ventana a la que pertenece (ADR-042 §6), y un campo de otra ventana se califica igual. «guardado»: lo que ya tiene guardado la institución, por ventana; lo que la persona cuenta igual no se sugiere. Los datos propios de la institución se copian de sus palabras (ADR-041). Todo es ficticio.",
+  "casos": [
+    {
+      "id": "asilo-mixto",
+      "ventana": "institution.identity",
+      "dice": "Somos una casa de reposo para señoras y señores de 65 años en adelante. La mayoría vive aquí y también recibimos a algunos solo de día. Les damos alimentación, atención médica y terapia física.",
+      "campos": {
+        "institution.populations": { "incluye": ["older_adults"] },
+        "institution.sex_served": { "valores": ["all"] },
+        "institution.age_min": { "valores": [65] },
+        "institution.modalities": { "incluye": ["residential", "day_care"] },
+        "institution.care_areas": { "incluye": ["food", "health"] },
+        "institution.age_max": { "nada": true },
+        "institution.admission_criteria": { "libre": true },
+        "institution.mission": { "libre": true },
+        "institution.services": { "libre": true }
+      }
+    },
+    {
+      "id": "casa-hogar-ninas",
+      "ventana": "institution.identity",
+      "dice": "Atendemos a niñas de 6 a 17 años que no pueden vivir con su familia. Viven en la casa, van a la escuela y aquí les damos comida, tareas dirigidas y apoyo psicológico.",
+      "campos": {
+        "institution.populations": { "incluye": ["childhood", "adolescence"] },
+        "institution.sex_served": { "valores": ["women"] },
+        "institution.age_min": { "valores": [6] },
+        "institution.age_max": { "valores": [17] },
+        "institution.modalities": { "incluye": ["residential"] },
+        "institution.care_areas": { "incluye": ["food", "education"] },
+        "institution.admission_criteria": { "libre": true },
+        "institution.mission": { "libre": true },
+        "institution.services": { "libre": true }
+      }
+    },
+    {
+      "id": "solo-abuelitos",
+      "ventana": "institution.identity",
+      "dice": "Atendemos a 30 abuelitos.",
+      "campos": {
+        "institution.served_estimate": { "libre": true },
+        "institution.populations": { "incluye": ["older_adults"] },
+        "institution.sex_served": { "nada": true },
+        "institution.age_min": { "nada": true },
+        "institution.age_max": { "nada": true },
+        "institution.modalities": { "nada": true },
+        "institution.care_areas": { "nada": true },
+        "institution.services": { "nada": true },
+        "institution.admission_criteria": { "nada": true },
+        "institution.mission": { "libre": true }
+      }
+    },
+    {
+      "id": "a-domicilio",
+      "ventana": "institution.identity",
+      "dice": "Atendemos a personas mayores que viven solas; les llevamos comida a su casa tres veces por semana.",
+      "campos": {
+        "institution.populations": { "incluye": ["older_adults"] },
+        "institution.modalities": { "incluye": ["home_care"] },
+        "institution.care_areas": { "incluye": ["food"] },
+        "institution.sex_served": { "nada": true },
+        "institution.age_min": { "nada": true },
+        "institution.age_max": { "nada": true },
+        "institution.admission_criteria": { "libre": true },
+        "institution.mission": { "libre": true },
+        "institution.services": { "libre": true }
+      },
+      "trampas": [
+        { "field": "institution.mission", "value": "Brindar amor y dignidad a los adultos mayores.", "quote": "les damos amor y dignidad" },
+        { "field": "institution.age_min", "value": 60, "quote": "personas mayores" }
+      ]
+    },
+    {
+      "id": "pregunta-sin-datos",
+      "ventana": "institution.identity",
+      "dice": "¿Qué tengo que poner en esta ventana?",
+      "campos": {
+        "institution.mission": { "nada": true },
+        "institution.populations": { "nada": true },
+        "institution.sex_served": { "nada": true },
+        "institution.modalities": { "nada": true },
+        "institution.care_areas": { "nada": true },
+        "institution.services": { "nada": true },
+        "institution.age_min": { "nada": true },
+        "institution.age_max": { "nada": true },
+        "institution.admission_criteria": { "nada": true }
+      }
+    },
+    {
+      "id": "capacidad-clara",
+      "ventana": "institution.capacity",
+      "dice": "Tenemos 40 camas y ahorita viven 36 personas. Trabajan 12 personas con sueldo y nos ayudan 8 voluntarios.",
+      "campos": {
+        "institution.modalities": { "libre": true },
+        "institution.capacity_total": { "valores": [40] },
+        "institution.served_estimate": { "valores": [36] },
+        "institution.staff_paid_estimate": { "valores": [12] },
+        "institution.staff_volunteer_estimate": { "valores": [8] },
+        "institution.notes": { "libre": true }
+      }
+    },
+    {
+      "id": "capacidad-suma",
+      "ventana": "institution.capacity",
+      "dice": "Tenemos 20 camas en el piso de arriba y 15 en el de abajo. Los fines de semana vienen voluntarios de una parroquia.",
+      "campos": {
+        "institution.modalities": { "libre": true },
+        "institution.capacity_total": { "nada": true },
+        "institution.served_estimate": { "nada": true },
+        "institution.staff_paid_estimate": { "nada": true },
+        "institution.staff_volunteer_estimate": { "nada": true },
+        "institution.notes": { "libre": true }
+      },
+      "trampas": [
+        { "field": "institution.capacity_total", "value": 35, "quote": "20 camas en el piso de arriba y 15 en el de abajo" },
+        { "field": "institution.staff_volunteer_estimate", "value": 4, "quote": "vienen voluntarios de una parroquia" },
+        { "field": "institution.staff_volunteer_estimate", "value": 1, "quote": "vienen voluntarios de una parroquia" }
+      ]
+    },
+    {
+      "id": "capacidad-en-palabras",
+      "ventana": "institution.capacity",
+      "dice": "Contamos con cincuenta y dos lugares, atendemos a cuarenta y ocho personas y tenemos veinte empleados.",
+      "campos": {
+        "institution.capacity_total": { "valores": [52] },
+        "institution.served_estimate": { "valores": [48] },
+        "institution.staff_paid_estimate": { "valores": [20] },
+        "institution.staff_volunteer_estimate": { "nada": true },
+        "institution.notes": { "libre": true }
+      }
+    },
+    {
+      "id": "con-historial",
+      "ventana": "institution.capacity",
+      "historial": [
+        { "de": "persona", "texto": "Tenemos 25 camas y viven 22 señoras." },
+        { "de": "asistente", "texto": "Puedo dejarlo como sugerencia en «Capacidad y cifras rápidas». ¿Quiere que lo haga?" }
+      ],
+      "dice": "Sí, por favor.",
+      "campos": {
+        "institution.populations": { "libre": true },
+        "institution.sex_served": { "libre": true },
+        "institution.modalities": { "libre": true },
+        "institution.capacity_total": { "valores": [25] },
+        "institution.served_estimate": { "valores": [22] },
+        "institution.staff_paid_estimate": { "nada": true },
+        "institution.staff_volunteer_estimate": { "nada": true },
+        "institution.notes": { "libre": true }
+      }
+    },
+    {
+      "id": "desde-el-chat-tras-otro-tema",
+      "ventana": "institution.capacity",
+      "historial": [
+        { "de": "persona", "texto": "¿En qué documento viene el representante legal?" },
+        { "de": "asistente", "texto": "Viene en el poder notarial: ahí dice quién representa a la institución y hasta cuándo." },
+        { "de": "persona", "texto": "Ya lo subí, gracias." },
+        { "de": "asistente", "texto": "Con gusto. Si quiere, puede revisar su Expediente para ver qué documentos le faltan." }
+      ],
+      "dice": "Tenemos 30 espacios disponibles para atender y viven 12 niñas",
+      "campos": {
+        "institution.populations": { "libre": true },
+        "institution.sex_served": { "libre": true },
+        "institution.modalities": { "libre": true },
+        "institution.capacity_total": { "valores": [30] },
+        "institution.served_estimate": { "valores": [12] },
+        "institution.staff_paid_estimate": { "nada": true },
+        "institution.staff_volunteer_estimate": { "nada": true },
+        "institution.notes": { "libre": true }
+      }
+    },
+    {
+      "id": "lugares-libres",
+      "ventana": "institution.capacity",
+      "dice": "Ahorita nos quedan 5 lugares libres y viven aquí 25 señores.",
+      "campos": {
+        "institution.populations": { "libre": true },
+        "institution.sex_served": { "libre": true },
+        "institution.modalities": { "libre": true },
+        "institution.capacity_total": { "nada": true },
+        "institution.served_estimate": { "valores": [25] },
+        "institution.staff_paid_estimate": { "nada": true },
+        "institution.staff_volunteer_estimate": { "nada": true },
+        "institution.notes": { "libre": true }
+      },
+      "trampas": [
+        { "field": "institution.capacity_total", "value": 30, "quote": "nos quedan 5 lugares libres y viven aquí 25 señores" }
+      ]
+    },
+    {
+      "id": "legal-iap",
+      "ventana": "institution.legal",
+      "no_es_personal": true,
+      "dice": "Somos una I.A.P. fundada en 1987. Somos donataria autorizada en el rubro asistencial y la CLUNI todavía está en trámite. Nuestro RFC es CSE870512AB3.",
+      "campos": {
+        "institution.legal_rfc": { "valores": ["CSE870512AB3"] },
+        "institution.legal_form": { "valores": ["iap"] },
+        "institution.founded_year": { "valores": [1987] },
+        "institution.authorized_donee": { "valores": ["yes"] },
+        "institution.donee_category": { "valores": ["assistance"] },
+        "institution.cluni": { "valores": ["in_progress"] },
+        "institution.legal_name": { "nada": true },
+        "institution.purpose": { "nada": true },
+        "institution.tax_regime": { "nada": true }
+      },
+      "trampas": [
+        { "field": "institution.legal_rfc", "value": "CSE870512AB3", "quote": "Nuestro RFC es" },
+        { "field": "institution.legal_rfc", "value": "CSE870512AB8", "quote": "Nuestro RFC es CSE870512AB3" },
+        { "field": "institution.founded_year", "value": 1988, "quote": "fundada en 1987" },
+        { "field": "institution.junta_folio", "value": "123", "quote": "Somos una I.A.P." }
+      ]
+    },
+    {
+      "id": "legal-ac-palabras",
+      "ventana": "institution.legal",
+      "dice": "Somos una asociación civil desde dos mil diez y tributamos como persona moral con fines no lucrativos. Todavía no somos donataria autorizada ni tenemos CLUNI.",
+      "campos": {
+        "institution.legal_form": { "valores": ["ac"] },
+        "institution.founded_year": { "valores": [2010] },
+        "institution.tax_regime": { "valores": ["non_profit"] },
+        "institution.authorized_donee": { "valores": ["no"] },
+        "institution.cluni": { "valores": ["no"] },
+        "institution.donee_category": { "nada": true },
+        "institution.legal_name": { "nada": true },
+        "institution.purpose": { "nada": true }
+      }
+    },
+    {
+      "id": "contacto",
+      "ventana": "institution.contact",
+      "no_es_personal": true,
+      "dice": "Estamos en la calle Hidalgo 45, colonia Centro, en Zapopan, Jalisco. Nuestro teléfono es 33 1234 5678.",
+      "campos": {
+        "institution.capacity_total": { "nada": true },
+        "institution.municipality": { "valores": ["Zapopan"] },
+        "institution.state": { "valores": ["jal"] },
+        "institution.street": { "contiene": ["hidalgo"] },
+        "institution.ext_number": { "valores": ["45"] },
+        "institution.neighborhood": { "contiene": ["centro"] },
+        "institution.contact_phone": { "valores": ["3312345678", "33 1234 5678"] },
+        "institution.contact_email": { "nada": true },
+        "institution.postal_code": { "nada": true },
+        "institution.int_number": { "nada": true }
+      },
+      "trampas": [
+        { "field": "institution.contact_phone", "value": "3312345678", "quote": "Nuestro teléfono es" },
+        { "field": "institution.contact_phone", "value": "3312345679", "quote": "Nuestro teléfono es 33 1234 5678" },
+        { "field": "institution.postal_code", "value": "45000", "quote": "en Zapopan, Jalisco" }
+      ]
+    },
+    {
+      "id": "domicilio-completo",
+      "ventana": "institution.contact",
+      "dice": "Nuestro domicilio es Calle Volcanes #412, Colonia Jardines de Morelos, Ecatepec de Morelos, Estado de México, C.P. 55060.",
+      "campos": {
+        "institution.street": { "contiene": ["volcanes"] },
+        "institution.ext_number": { "valores": ["412", "#412"] },
+        "institution.neighborhood": { "contiene": ["jardines de morelos"] },
+        "institution.postal_code": { "valores": ["55060"] },
+        "institution.municipality": { "contiene": ["ecatepec"] },
+        "institution.state": { "valores": ["mex"] },
+        "institution.int_number": { "nada": true },
+        "institution.contact_phone": { "nada": true },
+        "institution.contact_email": { "nada": true }
+      },
+      "trampas": [
+        { "field": "institution.postal_code", "value": "55070", "quote": "C.P. 55060" }
+      ]
+    },
+    {
+      "id": "representante-desde-contacto",
+      "ventana": "institution.contact",
+      "no_es_personal": true,
+      "historial": [
+        { "de": "persona", "texto": "Quiero llenar contacto y ubicación" },
+        { "de": "asistente", "texto": "Cuénteme con sus palabras lo que sepa de «Contacto y ubicación»." }
+      ],
+      "dice": "Nos representa la directora, Rosa Ficticia del Ejemplo",
+      "campos": {
+        "institution.legal_rep_name": { "valores": ["Rosa Ficticia del Ejemplo"] },
+        "institution.street": { "nada": true },
+        "institution.municipality": { "nada": true }
+      }
+    },
+    {
+      "id": "ya-estaba-guardado",
+      "ventana": "institution.capacity",
+      "guardado": {
+        "institution.capacity": { "institution.capacity_total": 40, "institution.staff_volunteer_estimate": 8 }
+      },
+      "dice": "Tenemos 40 camas y viven 36 personas.",
+      "campos": {
+        "institution.capacity_total": { "nada": true },
+        "institution.served_estimate": { "valores": [36] },
+        "institution.staff_volunteer_estimate": { "nada": true },
+        "institution.modalities": { "libre": true }
+      },
+      "igual": ["institution.capacity_total"]
+    }
+  ]
+}

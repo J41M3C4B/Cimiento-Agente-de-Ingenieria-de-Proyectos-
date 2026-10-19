@@ -2,7 +2,8 @@
 //! Nothing technical reaches the person (see `docs/08-estilo-redaccion.md`).
 
 use crate::scanner::guard::GuardError;
-use crate::service::ServiceError;
+use crate::core::error::ServiceError;
+use crate::modules::projects::ProjectsError;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -46,10 +47,6 @@ impl From<ServiceError> for UiError {
                     _ => "Revise los datos de la ficha.",
                 },
             ),
-            ServiceError::InvalidBudgetItem => UiError::new("invalid_budget_item", "Revise la cantidad (debe ser mayor que cero) y el precio (no puede ser negativo)."),
-            ServiceError::BudgetIncomplete => UiError::new("budget_incomplete", "Faltan los costos de algunas partidas. Escríbalos y después confirme el presupuesto."),
-            ServiceError::InvalidActivity => UiError::new("invalid_activity", "Revise los meses: empiezan en 1 y el final no puede ser antes del inicio."),
-            ServiceError::GuideHasPersonalData => UiError::new("guide_has_personal_data", "La guía traería datos que parecen de una persona, así que no se generó. Revise los textos del proyecto."),
             ServiceError::InvalidPin => UiError::new("invalid_pin", "El PIN debe tener de 4 a 8 números, sin espacios ni letras."),
             ServiceError::WrongPin => UiError::new("wrong_pin", "Ese no es el PIN actual."),
             ServiceError::Storage(crate::storage::StorageError::WrongPassword) => {
@@ -59,7 +56,6 @@ impl From<ServiceError> for UiError {
                 UiError::new("weak_backup_password", "La contraseña debe tener al menos 8 caracteres.")
             }
             ServiceError::Storage(crate::storage::StorageError::BackupExists) => UiError::new("backup_exists", "Ya existe un archivo con ese nombre."),
-            ServiceError::InvalidYear => UiError::new("invalid_year", "El año no parece correcto. Escríbalo con cuatro cifras, por ejemplo 2026."),
             ServiceError::TextTooLarge => UiError::new(
                 "text_too_large",
                 "El texto es muy largo. Intente con una parte más corta.",
@@ -69,32 +65,53 @@ impl From<ServiceError> for UiError {
                 UiError::new("nothing_to_confirm", "No hay cambios pendientes por confirmar.")
             }
             ServiceError::NotFound => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
-            ServiceError::Hr(crate::hr::HrError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
-            ServiceError::Hr(crate::hr::HrError::DuplicateTitle) => UiError::new("duplicate_position", "Ya existe un puesto con ese nombre."),
-            ServiceError::Hr(crate::hr::HrError::PositionInUse) => {
+            ServiceError::Hr(crate::modules::hr::HrError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Hr(crate::modules::hr::HrError::DuplicateTitle) => UiError::new("duplicate_position", "Ya existe un puesto con ese nombre."),
+            ServiceError::Hr(crate::modules::hr::HrError::PositionInUse) => {
                 UiError::new("position_in_use", "Hay personas en este puesto. Cámbielas de puesto antes de archivarlo.")
             }
-            ServiceError::Hr(crate::hr::HrError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
-            ServiceError::Hr(crate::hr::HrError::UnknownModality) => UiError::new("unknown_modality", "Elija a cuál modalidad se parece."),
+            ServiceError::Hr(crate::modules::hr::HrError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
+            ServiceError::Hr(crate::modules::hr::HrError::UnknownModality) => UiError::new("unknown_modality", "Elija a cuál modalidad se parece."),
             ServiceError::Access(code) => UiError::new(code, access_message(code)),
-            ServiceError::Facilities(crate::facilities::FacilitiesError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
-            ServiceError::Care(crate::care::CareError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
-            ServiceError::Care(crate::care::CareError::DuplicateTitle) => UiError::new("duplicate_group", "Ya existe un grupo con ese nombre."),
-            ServiceError::Care(crate::care::CareError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
-            ServiceError::Care(crate::care::CareError::AgeNeeded) => {
+            ServiceError::Facilities(crate::modules::facilities::FacilitiesError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Care(crate::modules::care::CareError::NotFound) => UiError::new("not_found", "No encontramos eso. Intente de nuevo."),
+            ServiceError::Care(crate::modules::care::CareError::DuplicateTitle) => UiError::new("duplicate_group", "Ya existe un grupo con ese nombre."),
+            ServiceError::Care(crate::modules::care::CareError::EmptyTitle) => UiError::new("empty_text", "Este dato nos falta: escriba un nombre."),
+            ServiceError::Care(crate::modules::care::CareError::AgeNeeded) => {
                 UiError::new("age_needed", "Escriba la edad aproximada en la solicitud antes de darle ingreso.")
             }
             ServiceError::OnboardingIncomplete => UiError::new("onboarding_incomplete", "Todavía faltan datos de la institución. Revise los pasos marcados."),
             ServiceError::StaffMoved => UiError::new("staff_moved", "El personal ahora se lleva en su propia sección. Vuelva a abrir la pantalla."),
-            ServiceError::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
-            ServiceError::AlreadyRunning => UiError::new("already_running", "Ya lo estamos haciendo. En cuanto termine, se muestra aquí."),
-            ServiceError::Priority(_) => UiError::new("priority", "Cada calificación debe ir del 1 al 5."),
-            ServiceError::Stage(e) => {
-                let code = crate::diagnosis_service::stage_error_code(&e);
-                UiError { code, message: stage_message(code).to_string() }
-            }
             other => {
                 eprintln!("internal error: {other}");
+                UiError::internal()
+            }
+        }
+    }
+}
+
+impl From<ProjectsError> for UiError {
+    fn from(e: ProjectsError) -> Self {
+        use ProjectsError as P;
+        match e {
+            P::Core(e) => e.into(),
+            P::NotFound => ServiceError::NotFound.into(),
+            P::EmptyText => ServiceError::EmptyText.into(),
+            P::TextTooLarge => ServiceError::TextTooLarge.into(),
+            P::InvalidBudgetItem => UiError::new("invalid_budget_item", "Revise la cantidad (debe ser mayor que cero) y el precio (no puede ser negativo)."),
+            P::BudgetIncomplete => UiError::new("budget_incomplete", "Faltan los costos de algunas partidas. Escríbalos y después confirme el presupuesto."),
+            P::InvalidActivity => UiError::new("invalid_activity", "Revise los meses: empiezan en 1 y el final no puede ser antes del inicio."),
+            P::GuideHasPersonalData => UiError::new("guide_has_personal_data", "La guía traería datos que parecen de una persona, así que no se generó. Revise los textos del proyecto."),
+            P::InvalidYear => UiError::new("invalid_year", "El año no parece correcto. Escríbalo con cuatro cifras, por ejemplo 2026."),
+            P::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
+            P::AlreadyRunning => UiError::new("already_running", "Ya lo estamos haciendo. En cuanto termine, se muestra aquí."),
+            P::Priority(_) => UiError::new("priority", "Cada calificación debe ir del 1 al 5."),
+            P::Stage(e) => {
+                let code = crate::modules::projects::diagnosis::stage_error_code(&e);
+                UiError { code, message: stage_message(code).to_string() }
+            }
+            P::Internal(m) => {
+                eprintln!("internal error: {m}");
                 UiError::internal()
             }
         }

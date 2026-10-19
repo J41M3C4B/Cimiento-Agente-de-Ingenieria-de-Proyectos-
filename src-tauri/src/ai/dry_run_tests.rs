@@ -10,14 +10,15 @@
 use super::gemini::GeminiProvider;
 use super::settings::{self, AiSettings, ProviderKind, RateLimit};
 use super::{build_provider, golden, metrics, AiProvider};
-use crate::conversation_service::{conversation_view, retry, send_message, start_conversation, AnswerOutcome};
-use crate::diagnosis_service::*;
-use crate::domain::conversation::Phase;
+use crate::modules::projects::conversation::{conversation_view, retry, send_message, start_conversation, AnswerOutcome};
+use crate::modules::projects::diagnosis::*;
+use crate::modules::projects::domain::conversation::Phase;
 use crate::test_support::project_in_diagnosis;
-use crate::domain::priority::Scores;
-use crate::domain::profile::ProfileInput;
+use crate::modules::projects::domain::priority::Scores;
+use crate::core::profile::domain::ProfileInput;
 use crate::scanner::guard::Decision;
-use crate::storage::{open_encrypted, profile};
+use crate::storage::open_encrypted;
+use crate::core::profile::storage as profile;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -754,15 +755,15 @@ async fn a_model_switched_off_is_never_asked_and_switching_it_on_puts_it_first()
 
 #[tokio::test]
 async fn the_whole_path_from_the_conversation_to_the_guide_in_word_through_the_real_provider() {
-    use crate::diagnosis_service::{add_need, select_need, AddNeedOutcome};
-    use crate::domain::budget::Funder;
-    use crate::domain::sections::SectionKind;
-    use crate::drafting_service::{confirm_budget, confirm_schedule, confirm_text, draft_section, drafting_view, save_activity, save_budget_item, save_text, BudgetItemInput};
+    use crate::modules::projects::diagnosis::{add_need, select_need, AddNeedOutcome};
+    use crate::modules::projects::domain::budget::Funder;
+    use crate::modules::projects::domain::sections::SectionKind;
+    use crate::modules::projects::drafting::{confirm_budget, confirm_schedule, confirm_text, draft_section, drafting_view, save_activity, save_budget_item, save_text, BudgetItemInput};
     let h = harness(|_| {}).await;
     h.summary_confirmed().await; // the conversation, the summary and the step to the goal
     let AddNeedOutcome::Saved { view } = add_need(&h.db, &h.pid, "Un sistema de mantenimiento preventivo", "Con responsable y fondo propio", None).unwrap() else { panic!() };
     select_need(&h.db, &h.pid, &view.needs[0].id).unwrap();
-    assert_eq!(advance(&h.db, &h.pid).unwrap().stage, crate::domain::stage::Stage::Drafting);
+    assert_eq!(advance(&h.db, &h.pid).unwrap().stage, crate::modules::projects::domain::stage::Stage::Drafting);
 
     // the AI drafts one section; the person writes the others
     let out = draft_section(&h.db, h.p(), &h.pid, "what").await.unwrap();
@@ -779,12 +780,12 @@ async fn the_whole_path_from_the_conversation_to_the_guide_in_word_through_the_r
     }
     confirm_budget(&h.db, &h.pid).unwrap();
     confirm_schedule(&h.db, &h.pid).unwrap();
-    assert_eq!(advance(&h.db, &h.pid).unwrap().stage, crate::domain::stage::Stage::Review);
-    assert_eq!(advance(&h.db, &h.pid).unwrap().stage, crate::domain::stage::Stage::Ready);
+    assert_eq!(advance(&h.db, &h.pid).unwrap().stage, crate::modules::projects::domain::stage::Stage::Review);
+    assert_eq!(advance(&h.db, &h.pid).unwrap().stage, crate::modules::projects::domain::stage::Stage::Ready);
 
     // the guide is written by the code; what the AI said reaches it only because the person confirmed it
     let dir = tempfile::tempdir().unwrap();
-    let out = crate::guide_service::export_guide(&h.db, &h.pid, dir.path()).unwrap();
+    let out = crate::modules::projects::guide::export_guide(&h.db, &h.pid, dir.path()).unwrap();
     let text = crate::documents::canonical::package::read_pieces(std::path::Path::new(&out.path)).unwrap().join("\n");
     assert!(text.contains("responsable de revisarlas") && text.contains("Tubería") && text.contains("$2,320.00"), "{text}");
 

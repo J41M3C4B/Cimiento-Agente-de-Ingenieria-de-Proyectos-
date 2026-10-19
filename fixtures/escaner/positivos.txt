@@ -25,6 +25,7 @@ person_name | Atendemos a Juan Perez Garcia desde enero.
 person_name | La niña Camila llego en marzo.
 person_name | Doña Josefa Ramírez cumple años hoy.
 person_name | el residente Don Aurelio Martínez
+person_name | El señor Benito Juárez Pérez vive en la alcaldía Coyoacán.
 health_context | El señor Juan Pérez García padece diabetes.
 health_context | La señora de la cama 4 padece alzheimer.
 health_context | Una de las niñas tiene epilepsia y toma medicamento.

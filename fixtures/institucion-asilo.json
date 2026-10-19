@@ -1,18 +1,51 @@
 {
   "institution": {
-    "name": "Asilo Hogar Ejemplo, A.C.",
+    "name": "Asilo Hogar Ejemplo",
     "kind": "elderly_home",
     "mission": "Brindar un hogar digno, atención y compañía a adultos mayores en situación de vulnerabilidad.",
     "legal_rfc": "AHE200101AB1",
     "contact_phone": "55 5555 0101",
     "contact_email": "contacto@asilo-ejemplo.org",
-    "legal_rep_name": null,
+    "legal_rep_name": "Martha Ejemplo Ruiz",
     "state": "pue",
     "municipality": "Puebla",
     "founded_year": 1985,
-    "legal_form": "ac",
+    "legal_form": "iap",
     "authorized_donee": "yes",
-    "cluni": "yes"
+    "cluni": "yes",
+    "attention": {
+      "populations": [
+        "older_adults"
+      ],
+      "sex_served": "all",
+      "modalities": [
+        "residential"
+      ],
+      "care_areas": [
+        "care",
+        "health",
+        "food"
+      ]
+    },
+    "details": {
+      "institution.legal_name": "Asilo Hogar Ejemplo, I.A.P.",
+      "institution.purpose": "La asistencia social a personas adultas mayores en situación de abandono o vulnerabilidad, sin propósito de lucro.",
+      "institution.services": "Residencia permanente, comedor, enfermería y terapia física.",
+      "institution.age_min": 60,
+      "institution.admission_criteria": "Personas de 60 años o más que no pueden vivir solas y no tienen familia que las cuide.",
+      "institution.street": "Calle Ejemplo",
+      "institution.ext_number": "120",
+      "institution.neighborhood": "Centro",
+      "institution.postal_code": "72000",
+      "institution.tax_regime": "non_profit",
+      "institution.fiscal_postal_code": "72000",
+      "institution.junta_folio": "JAP-PUE-EJEMPLO-001",
+      "institution.donee_category": "assistance",
+      "institution.donee_letter_number": "OFICIO-EJEMPLO-001",
+      "institution.donee_letter_date": "2016-03-15",
+      "institution.cluni_key": "CLUNI-EJEMPLO-001",
+      "institution.legal_rep_valid_until": "2028-12-31"
+    }
   },
   "capacity_total": 25,
   "annual_budget_mxn": 1800000,
@@ -63,6 +96,81 @@
       "label": "Mantenimiento del edificio",
       "amount_mxn": 120000,
       "period": "annual"
+    }
+  ],
+  "board": [
+    {
+      "institution.board.name": "Martha Ejemplo Ruiz",
+      "institution.board.role": "president",
+      "institution.board.since": "2019-03-15"
+    },
+    {
+      "institution.board.name": "Jorge Ejemplo Soto",
+      "institution.board.role": "secretary",
+      "institution.board.since": "2019-03-15"
+    },
+    {
+      "institution.board.name": "Ana Ejemplo Díaz",
+      "institution.board.role": "treasurer",
+      "institution.board.since": "2021-06-10"
+    },
+    {
+      "institution.board.name": "Luis Ejemplo Mora",
+      "institution.board.role": "member"
+    }
+  ],
+  "bank_accounts": [
+    {
+      "institution.bank.clabe": "002010077777777771",
+      "institution.bank.purpose": [
+        "donations"
+      ],
+      "institution.bank.in_documents": true
+    }
+  ],
+  "records": [
+    {
+      "type": "articles_of_incorporation",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "1987-03-12"
+      }
+    },
+    {
+      "type": "power_of_attorney",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "2024-05-10",
+        "institution.record.valid_until": "2028-05-10"
+      }
+    },
+    {
+      "type": "tax_status_certificate",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "2026-08-01"
+      }
+    },
+    {
+      "type": "tax_compliance_opinion",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.issued_on": "2026-01-20",
+        "institution.record.valid_until": "2026-04-20"
+      }
+    },
+    {
+      "type": "junta_registration",
+      "values": {
+        "institution.record.status": "have",
+        "institution.record.reference": "JAP-EJEMPLO-REG-0001"
+      }
+    },
+    {
+      "type": "civil_protection_program",
+      "values": {
+        "institution.record.status": "in_progress"
+      }
     }
   ]
 }

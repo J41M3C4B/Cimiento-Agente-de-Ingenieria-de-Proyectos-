@@ -5,10 +5,50 @@ import type { IconName } from "../icons";
 import { IconButton } from "./Button";
 import type { Tone } from "./Tag";
 
-type FieldProps = { label: string; hint?: string; error?: string; children: ReactNode; className?: string; hideLabel?: boolean; required?: boolean };
+type FieldProps = {
+  label: string;
+  hint?: string;
+  error?: string;
+  children: ReactNode;
+  className?: string;
+  hideLabel?: boolean;
+  required?: boolean;
+  /** something small right after the label, on its line: the «?» of the manual (ADR-034) */
+  labelAside?: ReactNode;
+};
+
+/**
+ * With something after the label (a button), the label cannot wrap the field: its control would be that button. Then
+ * the label names its field by id, and the button stays out of the label.
+ */
+function useControlId(labelAside: ReactNode, own?: string) {
+  const id = useId();
+  return labelAside ? (own ?? id) : own;
+}
 
 /** The label, the help and the error of a field. Every field in the program is wrapped in this. */
-export function FieldShell({ label, hint, error, children, className = "", hideLabel, required }: FieldProps) {
+export function FieldShell({ label, hint, error, children, className = "", hideLabel, required, labelAside, controlId }: FieldProps & { controlId?: string }) {
+  if (labelAside && !hideLabel) {
+    return (
+      <div className={`block min-w-0 ${className}`}>
+        <span className="field-label">
+          <label htmlFor={controlId}>
+            {label}
+            {required && <span className="req">*</span>}
+          </label>
+          {labelAside}
+        </span>
+        {children}
+        {hint && <span className="field-hint">{hint}</span>}
+        {error && (
+          <span role="alert" className="field-error">
+            <Icon name="alert" size={15} />
+            {error}
+          </span>
+        )}
+      </div>
+    );
+  }
   return (
     <label className={`block min-w-0 ${className}`}>
       <span className={hideLabel ? "sr-only" : "field-label"}>
@@ -30,12 +70,13 @@ export function FieldShell({ label, hint, error, children, className = "", hideL
 type Adornments = { icon?: IconName; prefix?: string; suffix?: string; pill?: boolean };
 
 export const TextInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & Omit<FieldProps, "children"> & Adornments>(function TextInput(
-  { label, hint, error, className, hideLabel, required, icon, prefix, suffix, pill, ...props },
+  { label, hint, error, className, hideLabel, required, labelAside, icon, prefix, suffix, pill, ...props },
   ref,
 ) {
   const pad = `${icon ? "field--icon" : prefix ? "field--prefix" : ""} ${suffix ? "field--suffix" : ""}`;
+  const controlId = useControlId(labelAside, props.id);
   return (
-    <FieldShell label={label} hint={hint} error={error} className={className} hideLabel={hideLabel} required={required}>
+    <FieldShell label={label} hint={hint} error={error} className={className} hideLabel={hideLabel} required={required} labelAside={labelAside} controlId={controlId}>
       <span className="field-wrap block">
         {icon && (
           <span aria-hidden="true" className="field-adorn field-adorn--l">
@@ -47,7 +88,7 @@ export const TextInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLIn
             {prefix}
           </span>
         )}
-        <input ref={ref} {...props} className={`field ${pill ? "field--pill" : ""} ${pad} ${error ? "field--invalid" : ""}`} />
+        <input ref={ref} {...props} id={controlId} className={`field ${pill ? "field--pill" : ""} ${pad} ${error ? "field--invalid" : ""}`} />
         {suffix && (
           <span aria-hidden="true" className="field-adorn field-adorn--suffix">
             {suffix}
@@ -64,25 +105,27 @@ export const Search = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInput
 });
 
 export const TextArea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement> & Omit<FieldProps, "children">>(function TextArea(
-  { label, hint, error, className, hideLabel, required, ...props },
+  { label, hint, error, className, hideLabel, required, labelAside, ...props },
   ref,
 ) {
+  const controlId = useControlId(labelAside, props.id);
   return (
-    <FieldShell label={label} hint={hint} error={error} className={className} hideLabel={hideLabel} required={required}>
-      <textarea ref={ref} rows={4} {...props} className={`field field--area ${error ? "field--invalid" : ""}`} />
+    <FieldShell label={label} hint={hint} error={error} className={className} hideLabel={hideLabel} required={required} labelAside={labelAside} controlId={controlId}>
+      <textarea ref={ref} rows={4} {...props} id={controlId} className={`field field--area ${error ? "field--invalid" : ""}`} />
     </FieldShell>
   );
 });
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement> & Omit<FieldProps, "children"> & { options: [string, string][] }>(function Select(
-  { label, hint, error, className, options, hideLabel, required, ...props },
+  { label, hint, error, className, options, hideLabel, required, labelAside, ...props },
   ref,
 ) {
   const empty = props.value === "";
+  const controlId = useControlId(labelAside, props.id);
   return (
-    <FieldShell label={label} hint={hint} error={error} className={className} hideLabel={hideLabel} required={required}>
+    <FieldShell label={label} hint={hint} error={error} className={className} hideLabel={hideLabel} required={required} labelAside={labelAside} controlId={controlId}>
       <span className="field-wrap block">
-        <select ref={ref} {...props} className={`field field--select ${empty ? "text-ink-3" : ""} ${error ? "field--invalid" : ""}`}>
+        <select ref={ref} {...props} id={controlId} className={`field field--select ${empty ? "text-ink-3" : ""} ${error ? "field--invalid" : ""}`}>
           {options.map(([value, text]) => (
             <option key={value} value={value}>
               {text}

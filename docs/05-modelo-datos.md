@@ -126,6 +126,47 @@ CREATE TABLE income_source (
 --              fichas en los módulos (las fichas mandan)
 -- app_user.welcomed_at  la persona ya vio la bienvenida
 
+-- Perfil de atención (ADR-033, migración 0021).
+-- institution  populations, modalities, care_areas (listas JSON de códigos de core::institution::catalog), sex_served
+--              (women|men|all). `kind` se deduce de populations (solo personas mayores = elderly_home; solo menores =
+--              children_home; mixto = other); los datos anteriores se trasladaron desde su kind.
+
+-- Datos nuevos de «Mi institución» (ADR-033 N3a, migración 0024), cada uno un campo del catálogo de
+-- core::institution::forms; storage::DETAILS dice su columna y viajan por id en InstitutionInput.details.
+-- institution  legal_name, purpose (objeto social), services, age_min, age_max, admission_criteria;
+--              street, ext_number, int_number, neighborhood, postal_code (domicilio, nunca a la IA);
+--              tax_regime (non_profit|general|other), fiscal_postal_code, junta_folio (solo I.A.P., I.B.P., A.B.P.),
+--              donee_category (rubro), donee_letter_number, donee_letter_date, cluni_key, legal_rep_valid_until.
+--              A la IA llegan el nombre legal, el objeto social, los servicios, las edades, los criterios, el
+--              régimen y el rubro; de la Junta, solo que está registrada. Nunca el domicilio, el RFC, folios ni claves.
+
+-- Origen por dato e historial ligero (ADR-033 §4, auditoría D6; migración 0025; código en core/history.rs).
+-- core_field   field (id del catálogo) PK, origin (user|document|ai_assumption|computed), source_ref, confirmed_at,
+--              confirmed_by, updated_at. Un dato escrito sin fila es de antes de N3b: lo escribió una persona.
+-- core_change  id, field, value_json (NULL si se vació o si es institutional_private), protected (0|1), origin,
+--              changed_at, changed_by. Solo crece: triggers impiden UPDATE y DELETE. Se escribe en la misma
+--              transacción del guardado (profile::storage::save_with). value_at(field, fecha) dice cómo estaba.
+
+-- Patronato y cuentas bancarias de la institución (ADR-033 §3; migración 0026; código en core/protected/).
+-- Datos institutional_private: nunca a la IA ni a las herramientas de los agentes; los pone el código en los
+-- documentos. Quien sale o una cuenta que se cierra se marca (active = 0), no se borra; borrar sigue el ADR-028
+-- (hidden = 1 mientras la persona administradora decide). Cada cambio deja en core_change una línea sin valor
+-- (field = institution.board_member o institution.bank_account). Todas llevan origin, source_ref y confirmación.
+-- core_board_member  id, name, role (president|vice_president|secretary|treasurer|member|other), role_other,
+--                    since (YYYY-MM-DD), active, hidden, origin, source_ref, confirmed_at, confirmed_by, created_at,
+--                    updated_at. A la IA solo llega cuántas personas activas y qué cargos (protected::ai_board).
+-- core_bank_account  id, clabe (18 dígitos con su dígito verificador; única), bank (de la CLABE si se deja vacío),
+--                    purpose (JSON: donations|operations), in_documents, active, hidden, origin, source_ref,
+--                    confirmed_at, confirmed_by, created_at, updated_at. La CLABE se pide solo al agregarla; en
+--                    pantalla va tapada y mostrarla queda en la bitácora (institution.sensitive_viewed, sin el valor).
+-- access_request.kind admite además board_member y bank_account (la tabla se reconstruye en 0026, mismas filas).
+
+-- Foto mensual (ADR-033 §4; migración 0027; código en core/snapshot.rs). Solo cifras, nunca una persona.
+-- core_snapshot  month (YYYY-MM, hora de este equipo) PK, taken_at, figures_json (snapshot::Figures: people,
+--                people_approx, capacity, waiting, staff, staff_approx, spaces y por estado, balance en palabras
+--                surplus|even|deficit, percent, board). Se toma al abrir la app; la del mes en curso se actualiza y un
+--                mes pasado queda fijo (trigger); no se borra.
+
 -- Módulo de Instalaciones (ADR-030, migración 0018; elimina facility).
 -- fac_site       un inmueble (la pantalla maneja uno): name, land_m2, built_m2, floors, floor_access JSON
 --                (ramp|elevator|stair_lift|none), built_year, tenure (own|loan|rent|borrowed|other), tenure_until,
@@ -350,6 +391,7 @@ CREATE TABLE ai_usage (
 
 - Montos en pesos (`INTEGER` para totales, `REAL` solo en precio unitario). Los cálculos usan aritmética decimal en Rust (`rust_decimal`) y se redondean a 2 decimales al mostrar.
 - `population_group` y `staff_group` no tienen ni pueden tener columnas de identificación individual: desde la migración 0009 se **calculan** a partir del padrón (`roster_entry`, ADR-020), que es una tabla aparte que nunca llega a la IA. Cualquier PR que ponga nombres o contacto en ellas se rechaza.
+- Las líneas `population_group` y `staff_group` (`origin = 'computed'`) reflejan lo que tienen hoy los módulos: un cambio en Personal o Beneficiarios las reescribe en la versión vigente sin abrir otra ni quitarle la confirmación (auditoría D1). Una versión nueva solo nace cuando la persona guarda sus datos.
 - `blob` en `document` solo se usa cuando el archivo se necesita después (plantillas Word, cuestionarios Excel). Los PDF de convocatoria se guardan como texto extraído.
 
 ## Cambios posteriores a esta especificación (migraciones 0004 a 0007)
@@ -361,3 +403,41 @@ Esta especificación se escribió antes de varias decisiones; el código vive en
 - **0006:** `conversation_turn` y `conversation_root` (la conversación del diagnóstico, ADR-017) y `call_reading.confirmed_at`. Las tablas `diagnosis_answer`, `diagnosis_dimension` y `diagnosis_pending` ya no se escriben.
 - **0007:** `project.asks_for_proposal` y `budget_item.administrative` (ADR-018).
 - Las etapas de `project.stage` ahora van en el orden `PROFILE → CALL_SELECTION → DIAGNOSIS → PRIORITIZATION → DRAFTING → REVIEW → READY`.
+
+## Dueño de cada tabla (ADR-032)
+
+Cada tabla tiene un solo dueño. Solo su dueño la lee y la escribe; los demás le piden datos por su `api`.
+
+| Dueño | Tablas |
+|---|---|
+| Base | `schema_migrations`, `app_settings`, `audit_log`, `ai_usage` |
+| Núcleo | `institution`, `institution_profile`, `population_group`, `staff_group` (líneas anónimas que se calculan de los módulos), `document`, `document_chunk`, `app_user`, `access_request`, `ai_proposal`, `manual_fts`, `manual_index`, `core_field`, `core_change`, `core_board_member`, `core_bank_account`, `core_snapshot`, `core_record`, `core_record_field`, `document_chunk_vec`, `vec_model`; `roster_field` y `roster_entry` (padrón viejo del ADR-020, vacío tras los traslados) |
+| Personal (`hr_*`) | `hr_modality`, `hr_position`, `hr_person`, `hr_job`, `hr_emergency_contact`, `hr_custom_field` |
+| Beneficiarios (`care_*`) | `care_group`, `care_person`, `care_contact`, `care_custom_field`, `care_waitlist` |
+| Instalaciones (`fac_*`) | `fac_site`, `fac_space`, `fac_equipment` |
+| Finanzas (`fin_*`) | `fin_income`, `fin_expense`, `fin_settings` |
+| Proyectos | `project`, `call_reading`, `call_reading_file`, `conversation_turn`, `conversation_root`, `diagnosis_summary`, `need`, `project_section`, `budget_item`, `schedule_activity`, `drafting_plan`, y las de la primera especificación: `grant_call`, `call_template`, `requirement`, `diagnosis_answer`, `diagnosis_pending`, `diagnosis_dimension`, `questionnaire`, `questionnaire_field` (conservan su nombre) |
+
+- **0020 `fin_income`, `fin_expense`, `fin_settings`:** el dinero sale de las versiones del perfil y pasa al módulo de Finanzas (ADR-032).
+  - La migración copia las líneas de la versión vigente del perfil y su «gasto anual aproximado» (`fin_settings.annual_budget_mxn`, una sola fila).
+  - Cada línea conserva su `origin`, su `source_ref` y su confirmación.
+  - `income_source`, `expense_item` e `institution_profile.annual_budget_mxn` quedan como historia de las versiones anteriores y ya no se escriben.
+- **0022 `ai_proposal`:** lo que la IA propone cambiar (ADR-034 §2). Lleva el formulario, el registro (si es de un módulo) y el campo; el valor ya revisado por el escáner; `origin` (`ai_assumption` o `document`), `source_ref` y el agente; `status` (`pending`, `accepted`, `rejected`), quién lo resolvió y cuándo.
+  - El valor debe caber en su campo del catálogo (opción de la lista, número en su rango) o no se guarda; un campo que la IA nunca ve (`AiUse::Never`) no admite propuestas de la IA.
+  - Hay a lo más una propuesta pendiente por campo: la nueva reemplaza a la anterior.
+  - Una propuesta no es un guardado (IA4): la persona la pone en su campo con «Usar», puede corregirla, y «Guardar» corre el guardado de siempre del formulario y la marca `accepted` en la misma transacción. Si el dato se guardó tal como se sugirió, su origen en `core_field` y `core_change` es el de la propuesta (`ai_assumption`, con la cita en `source_ref`); si la persona lo corrigió, es `user`. «Descartar» la marca `rejected` y no cambia nada más.
+  - `source_ref` del Capturista: `{"from":"chat","quote":"…"}`, las palabras de la persona de donde salió.
+- **0023 `manual_fts`, `manual_index`:** el índice de búsqueda del manual del programa (`docs/manual/`), sin acentos (`unicode61 remove_diacritics 2`). `manual_index` guarda la huella del texto del manual; el índice se rehace solo cuando cambia.
+- **0028 `core_record`:** el expediente de la institución (ADR-033 §5). Una fila por documento: su tipo (`core::institution::catalog::RECORD_TYPES`, u `other` con `custom_name`), `status` (`have`, `in_progress`, `missing`, `not_applicable`), fechas de emisión y de vigencia, folio (`reference`, nunca a la IA), notas, `origin`, confirmación y `site_id` opcional para varias sedes.
+  - Un tipo sin fila está «Falta»; hay a lo más una fila por tipo y sede, y tantas `other` como la institución nombre.
+  - `document_id` apunta al texto limpio del archivo (`document`, `kind = 'internal'`, una parte por página). Del original solo se guardan `original_path` y `original_name`, nunca su contenido (principio 6).
+  - Cada cambio deja en `core_change` una línea `institution.record` sin valor.
+- **0033 `core_record_field`:** de dónde viene cada dato propio de un documento del Expediente (ADR-038): `record_id`, `field` (`institution.record.issued_on`, `.valid_until`, `.reference`), `origin` (`document`, `computed` o `user`), `source_ref` (el documento y la página; sin la línea si el dato es protegido) y cuándo.
+  - Lo que se leyó de un archivo se vuelve a leer del archivo que lo reemplaza; lo que escribió la persona (`user`), nunca. Un dato sin línea aquí (de antes de esta tabla) cuenta como de la persona.
+  - Se queda aunque se borre el archivo, como `core_field`; se va con su documento del Expediente (`ON DELETE CASCADE`).
+- **0032 `document.drawer`:** el cajón de cada documento (ADR-036): `record` (el Expediente, del núcleo) o `projects` (los archivos de una convocatoria). La migración pone `record` a los documentos que ya eran archivo de un documento del Expediente y `projects` a los de convocatorias; los demás quedan sin cajón: ningún Lector los lee ni se buscan (se vuelven a subir). Un documento nuevo siempre lleva su cajón.
+- **0031 `document.category`, `doc_type`, `doc_type_origin`:** la clase que eligió la persona al subir el documento (`legal`, `financial`, `programs`) y qué documento es, como tipo del expediente (`RECORD_TYPES`), con quién lo dijo: `computed` (una regla lo reconoció por sus palabras, IA6) o `user` (lo dijo la persona, o puso el archivo en su documento del Expediente). Una regla nunca cambia lo que dijo la persona. Las facturas no son un tipo: van en Finanzas.
+  - Las sugerencias del Lector van en `ai_proposal` con origen `document`, agente `reader` y `source_ref` `{"document_id", "page", "quote", "rank", "sha"}`; un dato protegido no lleva `quote`, y al resolverse su `value_json` queda en `null`.
+  - `rank` es la autoridad del documento sobre ese campo (`reader::authority`); `sha`, la huella SHA-256 del valor, con la que no se vuelve a sugerir lo rechazado (ADR-038). Al borrar el documento, una sugerencia rechazada se queda solo con su huella (`value_json` en `null`, `source_ref` solo con `sha`); las demás se borran con él.
+- **0030 `document_chunk_vec`, `vec_model`:** los vectores de los fragmentos de los documentos de la institución (IA5, ADR-034), uno por fragmento con el `rowid` de `document_chunk` (`sqlite-vec`, 768 números, distancia coseno), para encontrar por significado lo que se pregunta con otras palabras. Nunca los de una convocatoria. `vec_model` guarda con qué modelo se hicieron (`scope = 'records'`); si cambia, se borran y se rehacen. Se borran con su documento.
+- **0029 `document.picture_pages`, `document.doubtful_pages`:** las páginas de un archivo cuyo texto se leyó de una imagen (OCR, ADR-035) y, de ellas, las leídas con dudas (confianza menor a 70), como listas JSON de números de página. El texto mismo sigue en `document_chunk`, limpio y tras el escáner.

@@ -1,0 +1,438 @@
+//! Forms described as data (ADR-033 §1). A form says which fields it has, of what kind, with which options, when each
+//! one applies, how sensitive it is, whether it may reach the AI and who uses it. The screen draws it, this validates
+//! it, and the assistant reads the same description to explain a field (ADR-034). The words live elsewhere: the label
+//! in `src/i18n/es-MX.ts` under the field id, the long explanation in the manual of the ERP.
+//!
+//! A value is plain JSON: text, a whole number, a list of codes or yes/no. Nothing here knows the app.
+
+use serde::Serialize;
+use serde_json::Value;
+use std::collections::BTreeMap;
+
+// the forms of the core use some kinds today; the rest arrive as each form moves to the catalog (ADR-033)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FieldKind {
+    Text,
+    LongText,
+    /// A whole number (people, pieces).
+    Number,
+    /// Whole pesos.
+    Money,
+    Year,
+    /// `YYYY-MM-DD`.
+    Date,
+    /// One code of `options`.
+    Select,
+    /// Several codes of `options`.
+    MultiSelect,
+    YesNo,
+    Email,
+    Phone,
+}
+
+/// How far a value may travel.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Sensitivity {
+    /// What the institution says of itself in public (its name, what it does).
+    Public,
+    /// The institution's own, not personal (its figures, its money).
+    Internal,
+    /// The institution's own and protected: contact, board members, bank accounts. Never to the AI nor to a tool of
+    /// an agent; the code puts it in an export.
+    InstitutionalPrivate,
+    /// A datum of a person (the records of staff and people served).
+    Personal,
+}
+
+/// Whether, and how, a value reaches the AI.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AiUse {
+    AsIs,
+    /// Only counted with others (groups of three or more).
+    AggregateOnly,
+    Never,
+}
+
+/// A check of a text with a name, beyond its kind: the code says what is wrong (ADR-033 §1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Rule {
+    /// Five digits.
+    PostalCode,
+    /// The RFC of an organization (persona moral): three letters, the date it was set up and three characters.
+    RfcMoral,
+    /// A CLABE: eighteen digits and its check digit (`common::ids`).
+    Clabe,
+    /// The name of a place (a municipality): letters, spaces and the signs of a name, up to 80. Nothing else fits, so
+    /// no phone, mail or key can hide in it, and it needs no scanner: «Benito Juárez» is a place there.
+    PlaceName,
+}
+
+/// When a field applies. A field that does not apply is not shown, not asked and not kept.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(tag = "when", rename_all = "snake_case")]
+pub enum Condition {
+    Always,
+    /// Another field is filled (a text that is not blank, a list that is not empty).
+    Filled { field: &'static str },
+    /// Another field holds one of these codes (a list: any of them).
+    AnyOf { field: &'static str, values: &'static [&'static str] },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct FieldSpec {
+    /// Stable id, also the key of its value and of its words (`institution.populations`).
+    pub id: &'static str,
+    pub kind: FieldKind,
+    /// The codes of a select or a multi-select.
+    pub options: &'static [&'static str],
+    /// Needed for the data to count as complete. It never stops a save: what is missing is listed, not refused.
+    pub required: bool,
+    /// Indispensable (ADR-042): the program cannot work well without it, so the first start asks it. It is required
+    /// too.
+    pub essential: bool,
+    pub applies_when: Condition,
+    pub sensitivity: Sensitivity,
+    pub ai: AiUse,
+    /// Who uses the value (`care`, `hr`, `facilities`, `finance`, `projects`, `ai`, `documents`): the «what is it
+    /// for» of the field.
+    pub used_by: &'static [&'static str],
+    pub min: Option<i64>,
+    pub max: Option<i64>,
+    pub rule: Option<Rule>,
+}
+
+impl FieldSpec {
+    /// A field that applies always, is public, may reach the AI as it is and is not required.
+    pub const fn new(id: &'static str, kind: FieldKind) -> Self {
+        FieldSpec { id, kind, options: &[], required: false, essential: false, applies_when: Condition::Always, sensitivity: Sensitivity::Public, ai: AiUse::AsIs, used_by: &[], min: None, max: None, rule: None }
+    }
+    pub const fn options(mut self, options: &'static [&'static str]) -> Self {
+        self.options = options;
+        self
+    }
+    pub const fn required(mut self) -> Self {
+        self.required = true;
+        self
+    }
+    /// Indispensable, and so required (ADR-042).
+    pub const fn essential(mut self) -> Self {
+        self.essential = true;
+        self.required = true;
+        self
+    }
+    pub const fn when(mut self, condition: Condition) -> Self {
+        self.applies_when = condition;
+        self
+    }
+    pub const fn sensitivity(mut self, sensitivity: Sensitivity, ai: AiUse) -> Self {
+        self.sensitivity = sensitivity;
+        self.ai = ai;
+        self
+    }
+    pub const fn used_by(mut self, used_by: &'static [&'static str]) -> Self {
+        self.used_by = used_by;
+        self
+    }
+    pub const fn range(mut self, min: i64, max: i64) -> Self {
+        self.min = Some(min);
+        self.max = Some(max);
+        self
+    }
+    pub const fn rule(mut self, rule: Rule) -> Self {
+        self.rule = Some(rule);
+        self
+    }
+}
+
+/// A group of fields drawn together, in one or two columns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct SectionSpec {
+    pub id: &'static str,
+    pub columns: u8,
+    pub fields: &'static [FieldSpec],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct FormSpec {
+    pub id: &'static str,
+    pub sections: &'static [SectionSpec],
+}
+
+/// The values of a form, by field id.
+pub type Values = BTreeMap<String, Value>;
+
+/// Something wrong with a value. `blocking` stops the save; a missing value never does.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FieldIssue {
+    pub field: &'static str,
+    pub code: &'static str,
+    pub blocking: bool,
+}
+
+/// Whether a value says something: a text that is not blank, a list that is not empty, a number or a yes/no.
+pub fn is_filled(v: Option<&Value>) -> bool {
+    match v {
+        None | Some(Value::Null) => false,
+        Some(Value::String(s)) => !s.trim().is_empty(),
+        Some(Value::Array(a)) => !a.is_empty(),
+        Some(_) => true,
+    }
+}
+
+impl FormSpec {
+    pub fn fields(&self) -> impl Iterator<Item = &FieldSpec> {
+        self.sections.iter().flat_map(|s| s.fields.iter())
+    }
+
+    pub fn field(&self, id: &str) -> Option<&FieldSpec> {
+        self.fields().find(|f| f.id == id)
+    }
+
+    /// Whether a field applies with these values.
+    pub fn applies(&self, f: &FieldSpec, values: &Values) -> bool {
+        match f.applies_when {
+            Condition::Always => true,
+            Condition::Filled { field } => is_filled(values.get(field)),
+            Condition::AnyOf { field, values: wanted } => match values.get(field) {
+                Some(Value::String(s)) => wanted.contains(&s.as_str()),
+                Some(Value::Array(a)) => a.iter().any(|x| x.as_str().is_some_and(|s| wanted.contains(&s))),
+                _ => false,
+            },
+        }
+    }
+
+    /// The required fields that apply and are empty, in the order of the form.
+    pub fn missing(&self, values: &Values) -> Vec<&'static str> {
+        self.fields().filter(|f| f.required && self.applies(f, values) && !is_filled(values.get(f.id))).map(|f| f.id).collect()
+    }
+
+    /// Drops the values of fields the form does not have or that do not apply, so nothing hidden is kept.
+    pub fn clear_hidden(&self, values: &mut Values) {
+        let snapshot = values.clone();
+        values.retain(|id, _| self.field(id).is_some_and(|f| self.applies(f, &snapshot)));
+    }
+
+    /// What is wrong with the values: blocking problems (a code out of the list, a number out of range, a value of
+    /// the wrong kind) and, without blocking, what is missing.
+    pub fn validate(&self, values: &Values) -> Vec<FieldIssue> {
+        let mut out = Vec::new();
+        for f in self.fields().filter(|f| self.applies(f, values)) {
+            let v = values.get(f.id);
+            if !is_filled(v) {
+                if f.required {
+                    out.push(FieldIssue { field: f.id, code: "missing", blocking: false });
+                }
+                continue;
+            }
+            if let Some(code) = problem(f, v.unwrap_or(&Value::Null)) {
+                out.push(FieldIssue { field: f.id, code, blocking: true });
+            }
+        }
+        out
+    }
+}
+
+/// What is wrong with one filled value, if anything (a proposal of the AI is checked with it, ADR-034).
+pub fn problem(f: &FieldSpec, v: &Value) -> Option<&'static str> {
+    let known = |s: &str| f.options.contains(&s);
+    match f.kind {
+        FieldKind::Select => match v.as_str() {
+            Some(s) if known(s) => None,
+            Some(_) => Some("code_unknown"),
+            None => Some("wrong_type"),
+        },
+        FieldKind::MultiSelect => match v.as_array() {
+            Some(a) => {
+                let codes: Vec<&str> = a.iter().filter_map(Value::as_str).collect();
+                if codes.len() != a.len() {
+                    Some("wrong_type")
+                } else if !codes.iter().all(|c| known(c)) {
+                    Some("code_unknown")
+                } else if (1..codes.len()).any(|i| codes[..i].contains(&codes[i])) {
+                    Some("repeated")
+                } else {
+                    None
+                }
+            }
+            None => Some("wrong_type"),
+        },
+        FieldKind::Number | FieldKind::Money | FieldKind::Year => match v.as_i64() {
+            Some(n) if f.kind == FieldKind::Year && (f.min.is_some_and(|m| n < m) || f.max.is_some_and(|m| n > m)) => Some("year_invalid"),
+            Some(n) if n < 0 => Some("negative_number"),
+            Some(n) if f.min.is_some_and(|m| n < m) => Some("number_too_small"),
+            Some(n) if f.max.is_some_and(|m| n > m) => Some("number_too_large"),
+            Some(_) => None,
+            None => Some("wrong_type"),
+        },
+        FieldKind::YesNo => v.as_bool().map_or(Some("wrong_type"), |_| None),
+        FieldKind::Date => match v.as_str() {
+            Some(s) if is_date(s.trim()) => None,
+            Some(_) => Some("date_invalid"),
+            None => Some("wrong_type"),
+        },
+        FieldKind::Text | FieldKind::LongText | FieldKind::Email | FieldKind::Phone => match (v.as_str(), f.rule) {
+            (None, _) => Some("wrong_type"),
+            (Some(s), Some(Rule::PostalCode)) if !is_postal_code(s.trim()) => Some("postal_code_invalid"),
+            (Some(s), Some(Rule::RfcMoral)) if !is_rfc_moral(s.trim()) => Some("rfc_moral_invalid"),
+            (Some(s), Some(Rule::Clabe)) if !crate::common::ids::clabe_is_valid(s) => Some("clabe_invalid"),
+            (Some(s), Some(Rule::PlaceName)) if !is_place_name(s) => Some("place_name_invalid"),
+            _ => None,
+        },
+    }
+}
+
+/// `YYYY-MM-DD`, a day that exists.
+pub fn is_date(s: &str) -> bool {
+    let b = s.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return false;
+    }
+    let num = |r: std::ops::Range<usize>| s.get(r).filter(|x| x.bytes().all(|c| c.is_ascii_digit())).and_then(|x| x.parse::<u32>().ok());
+    let (Some(y), Some(m), Some(d)) = (num(0..4), num(5..7), num(8..10)) else { return false };
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let days = match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    y >= 1800 && (1..=days).contains(&d)
+}
+
+/// The name of a place: letters (accents and Ñ too), spaces, periods, hyphens and apostrophes, up to 80.
+pub fn is_place_name(s: &str) -> bool {
+    let s = s.trim();
+    !s.is_empty() && s.chars().count() <= 80 && s.chars().all(|c| c.is_alphabetic() || matches!(c, ' ' | '.' | '-' | '\'' | '’'))
+}
+
+pub fn is_postal_code(s: &str) -> bool {
+    s.len() == 5 && s.bytes().all(|c| c.is_ascii_digit())
+}
+
+/// Three letters (Ñ and & count), the date `YYMMDD` and a check of three letters or digits. Upper or lower case.
+pub fn is_rfc_moral(s: &str) -> bool {
+    let c: Vec<char> = s.to_uppercase().chars().collect();
+    c.len() == 12
+        && c[..3].iter().all(|x| x.is_ascii_uppercase() || *x == 'Ñ' || *x == '&')
+        && is_date(&format!("20{}-{}-{}", c[3..5].iter().collect::<String>(), c[5..7].iter().collect::<String>(), c[7..9].iter().collect::<String>()))
+        && c[9..].iter().all(|x| x.is_ascii_uppercase() || x.is_ascii_digit())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    const KINDS: &[&str] = &["a", "b", "c"];
+    const FORM: FormSpec = FormSpec {
+        id: "test",
+        sections: &[SectionSpec {
+            id: "one",
+            columns: 1,
+            fields: &[
+                FieldSpec::new("name", FieldKind::Text).required(),
+                FieldSpec::new("kinds", FieldKind::MultiSelect).options(KINDS).required(),
+                FieldSpec::new("main", FieldKind::Select).options(KINDS).when(Condition::Filled { field: "kinds" }),
+                FieldSpec::new("only_b", FieldKind::YesNo).when(Condition::AnyOf { field: "kinds", values: &["b"] }),
+                FieldSpec::new("people", FieldKind::Number).range(0, 100),
+                FieldSpec::new("year", FieldKind::Year).range(1800, 2026),
+                FieldSpec::new("secret", FieldKind::Text).sensitivity(Sensitivity::InstitutionalPrivate, AiUse::Never),
+                FieldSpec::new("zip", FieldKind::Text).rule(Rule::PostalCode),
+                FieldSpec::new("rfc", FieldKind::Text).rule(Rule::RfcMoral),
+                FieldSpec::new("since", FieldKind::Date),
+            ],
+        }],
+    };
+
+    fn values(v: serde_json::Value) -> Values {
+        serde_json::from_value(v).unwrap()
+    }
+
+    #[test]
+    fn a_field_applies_by_its_condition() {
+        let empty = values(json!({}));
+        let with_b = values(json!({ "kinds": ["a", "b"] }));
+        let main = FORM.field("main").unwrap();
+        let only_b = FORM.field("only_b").unwrap();
+        assert!(!FORM.applies(main, &empty) && FORM.applies(main, &with_b));
+        assert!(!FORM.applies(only_b, &values(json!({ "kinds": ["a"] }))) && FORM.applies(only_b, &with_b));
+        assert!(!FORM.applies(main, &values(json!({ "kinds": [] }))), "an empty list is not filled");
+    }
+
+    #[test]
+    fn missing_is_listed_and_never_blocks() {
+        let issues = FORM.validate(&values(json!({ "name": "  " })));
+        assert_eq!(issues, vec![FieldIssue { field: "name", code: "missing", blocking: false }, FieldIssue { field: "kinds", code: "missing", blocking: false }]);
+        assert_eq!(FORM.missing(&values(json!({ "name": "Casa" }))), vec!["kinds"]);
+        assert!(FORM.missing(&values(json!({ "name": "Casa", "kinds": ["a"] }))).is_empty());
+    }
+
+    #[test]
+    fn values_out_of_their_list_range_or_kind_block() {
+        let bad = values(json!({
+            "name": "Casa", "kinds": ["a", "z"], "people": 101, "year": 1700
+        }));
+        let codes: Vec<_> = FORM.validate(&bad).into_iter().map(|i| (i.field, i.code, i.blocking)).collect();
+        assert_eq!(codes, vec![("kinds", "code_unknown", true), ("people", "number_too_large", true), ("year", "year_invalid", true)]);
+        let wrong = values(json!({ "name": 3, "kinds": ["a", "a"], "people": -1, "main": "z" }));
+        let codes: Vec<_> = FORM.validate(&wrong).into_iter().map(|i| (i.field, i.code)).collect();
+        assert_eq!(codes, vec![("name", "wrong_type"), ("kinds", "repeated"), ("main", "code_unknown"), ("people", "negative_number")]);
+    }
+
+    #[test]
+    fn a_rule_and_a_date_check_the_text() {
+        let ok = values(json!({ "name": "Casa", "kinds": ["a"], "zip": "06700", "rfc": "abc010203xy9", "since": "2024-02-29" }));
+        assert!(FORM.validate(&ok).is_empty(), "{:?}", FORM.validate(&ok));
+        let bad = values(json!({ "name": "Casa", "kinds": ["a"], "zip": "0670", "rfc": "ABC0102031", "since": "2023-02-29" }));
+        let codes: Vec<_> = FORM.validate(&bad).into_iter().map(|i| (i.field, i.code)).collect();
+        assert_eq!(codes, vec![("zip", "postal_code_invalid"), ("rfc", "rfc_moral_invalid"), ("since", "date_invalid")]);
+    }
+
+    #[test]
+    fn dates_postal_codes_and_rfc_of_an_organization() {
+        for good in ["2026-10-09", "2000-02-29", "1800-01-01"] {
+            assert!(is_date(good), "{good}");
+        }
+        for bad in ["2026-13-01", "2026-04-31", "1900-02-29", "26-10-09", "2026/10/09", "2026-1-09", "1799-12-31", ""] {
+            assert!(!is_date(bad), "{bad}");
+        }
+        assert!(is_postal_code("01000") && !is_postal_code("1000") && !is_postal_code("0100A") && !is_postal_code("010000"));
+        for place in ["Benito Juárez", "San Pedro Tlaquepaque", "Dolores Hidalgo Cuna de la Independencia Nacional", "Peñón Blanco", "Gral. Escobedo", "Bahía de Banderas"] {
+            assert!(is_place_name(place), "{place}");
+        }
+        for not_a_place in ["", "   ", "Zapopan 45010", "contacto@casa.org", "Llamar al 55 1234 5678", &"a".repeat(81)] {
+            assert!(!is_place_name(not_a_place), "{not_a_place}");
+        }
+        for good in ["ABC010203XY9", "AÑ&991231AB1", "abc010203xy9"] {
+            assert!(is_rfc_moral(good), "{good}");
+        }
+        // a person's RFC has 13 characters; a wrong date or a sign does not pass
+        for bad in ["ABCD010203XY9", "ABC011303XY9", "AB1010203XY9", "ABC010203XY-", ""] {
+            assert!(!is_rfc_moral(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_value_of_a_field_that_does_not_apply_is_not_checked_nor_kept() {
+        let mut v = values(json!({ "name": "Casa", "kinds": ["a"], "only_b": "not a bool", "unknown": 1 }));
+        assert!(FORM.validate(&v).is_empty(), "only_b does not apply");
+        FORM.clear_hidden(&mut v);
+        assert_eq!(v, values(json!({ "name": "Casa", "kinds": ["a"] })));
+    }
+
+    #[test]
+    fn the_description_travels_to_the_screen_as_json() {
+        let j = serde_json::to_value(FORM.field("main").unwrap()).unwrap();
+        assert_eq!(j["kind"], "select");
+        assert_eq!(j["applies_when"], json!({ "when": "filled", "field": "kinds" }));
+        assert_eq!(serde_json::to_value(FORM.field("secret").unwrap()).unwrap()["sensitivity"], "institutional_private");
+    }
+}

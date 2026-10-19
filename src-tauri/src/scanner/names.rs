@@ -38,6 +38,8 @@ const PLACE_WORDS: &[&str] = &[
     "HOGAR", "ASILO", "FUNDACION", "COLONIA", "CALLE", "AVENIDA", "AV", "PARROQUIA", "COLEGIO",
     "ESCUELA", "HOSPITAL", "INSTITUTO", "ORGANIZACION", "ASOCIACION", "CASA", "CENTRO", "CLINICA",
     "CAPILLA", "TEMPLO", "PLAZA", "BARRIO", "MUNICIPIO", "ESTADO", "CONGREGACION", "ORDEN",
+    // the municipalities of Mexico City ("alcaldía Benito Juárez") are named after people
+    "ALCALDIA", "DELEGACION", "DEMARCACION",
 ];
 const CONNECTORS: &[&str] = &["de", "del", "la", "las", "los", "y"];
 

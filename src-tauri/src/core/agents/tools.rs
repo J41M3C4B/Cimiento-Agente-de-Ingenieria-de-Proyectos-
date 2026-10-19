@@ -1,0 +1,523 @@
+//! The read-only tools of the core (ADR-034 §2): how far the data of the institution are filled in, and one part
+//! of its sheet at a time. Each one checks the permission of whoever asks (ADR-028) and returns only what may reach
+//! the AI: what is missing goes as words and field ids, never as values, and a part of the sheet obeys the rules of
+//! the whole sheet (ADR-023). The tool is the frontier, not the prompt.
+
+use crate::ai::agent::{Tool, ToolError};
+use crate::core::access::domain::{Permission, Role};
+use crate::core::ai_sheet::{self, SECTIONS};
+use crate::ai::AiProvider;
+use crate::core::archive::search::Passage;
+use crate::core::reader::ask::{self, ReaderAnswer};
+use crate::core::overview::{self, Place};
+use crate::documents::canonical::retrieve::Embedder;
+use async_trait::async_trait;
+use rusqlite::Connection;
+use serde_json::{json, Value};
+use std::sync::{Arc, Mutex};
+
+/// What every tool of the core needs: the base and who is asking.
+#[derive(Clone)]
+struct Ctx {
+    db: Arc<Mutex<Connection>>,
+    role: Option<Role>,
+    reach: Reach,
+}
+
+impl Ctx {
+    /// May this person see the data of the institution on their screen?
+    fn allowed(&self) -> Result<(), ToolError> {
+        if self.role.is_some_and(|r| r.can(Permission::Use)) {
+            Ok(())
+        } else {
+            Err(ToolError::Denied)
+        }
+    }
+
+    /// The base, if this person may see the data of the institution on their screen.
+    fn open(&self) -> Result<std::sync::MutexGuard<'_, Connection>, ToolError> {
+        self.allowed()?;
+        self.db.lock().map_err(|_| ToolError::Failed)
+    }
+}
+
+/// What an errand brings besides the base: who makes the vector of a question (when the person chose Gemini), and
+/// where the passages the search handed to the AI are written down, so the code verifies what the answer cites.
+#[derive(Clone, Default)]
+pub struct Reach {
+    pub embedder: Option<Arc<dyn Embedder>>,
+    pub cited: Arc<Mutex<Vec<Passage>>>,
+}
+
+/// The tools of the core for one person (by the role of their session).
+pub fn toolbox(db: Arc<Mutex<Connection>>, role: Option<Role>) -> Vec<Box<dyn Tool>> {
+    toolbox_with(db, role, Reach::default())
+}
+
+/// The same, with what an errand brings besides the base.
+pub fn toolbox_with(db: Arc<Mutex<Connection>>, role: Option<Role>, reach: Reach) -> Vec<Box<dyn Tool>> {
+    let ctx = Ctx { db, role, reach };
+    vec![
+        Box::new(FillState(ctx.clone())),
+        Box::new(SheetSection(ctx.clone())),
+        Box::new(ManualSearch(ctx.clone())),
+        Box::new(ManualEntry(ctx)),
+    ]
+}
+
+/// How the AI cites a passage in `sources`: `doc:<fragment>`.
+pub fn passage_source(p: &Passage) -> String {
+    format!("doc:{}", p.chunk)
+}
+
+/// The Reader of the Expediente as a tool of the Assistant (C3, ADR-036 §6, agent as a tool): the Assistant never
+/// reads documents, it asks the agent of the drawer. The Reader looks in its drawer (or in one document of the map),
+/// answers in one call, and the code checks its quotes; what it hands back is written down so the answer can only cite
+/// those passages, with the document and page from the code. One level of delegation: the Reader asks nobody.
+struct RecordReader<'a> {
+    ctx: Ctx,
+    provider: &'a dyn AiProvider,
+}
+
+/// The Reader of the Expediente for one errand, with the provider of that errand.
+pub fn record_reader<'a>(db: Arc<Mutex<Connection>>, role: Option<Role>, reach: Reach, provider: &'a dyn AiProvider) -> Box<dyn Tool + 'a> {
+    Box::new(RecordReader { ctx: Ctx { db, role, reach }, provider })
+}
+
+#[async_trait]
+impl Tool for RecordReader<'_> {
+    fn name(&self) -> &'static str {
+        "record_reader"
+    }
+    fn description(&self) -> &'static str {
+        "Le pregunta al Lector del Expediente, que busca en los documentos de la institución (los del mapa, también los escaneos y las fotos, que ya están leídos como texto) y contesta con la frase exacta de donde lo sacó. Devuelve `found`, `answer` y `citations`, cada cita con su `source` (para ponerlo en `sources`), el documento, la página y la frase. `question`: la pregunta con las palabras de la persona y las que usaría un documento («denominación o razón social» para el nombre legal). `document`: la clave de un documento del mapa (`D3`) si la pregunta es de ese documento, o null para buscar en todo el Expediente."
+    }
+    fn args_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "question": { "type": "string" },
+                "document": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["question", "document"],
+            "additionalProperties": false
+        })
+    }
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
+        let question = args["question"].as_str().unwrap_or_default().trim().to_string();
+        if question.is_empty() {
+            return Err(ToolError::BadArgs("question".into()));
+        }
+        let document = match args["document"].as_str() {
+            None => None,
+            Some(key) => {
+                let conn = self.ctx.open()?;
+                let map = crate::core::records::map(&conn).map_err(|_| ToolError::Failed)?;
+                let d = map.into_iter().find(|d| d.key == key.trim()).ok_or_else(|| ToolError::BadArgs(format!("no document {key}")))?;
+                // a document of the map with no text to read: the Reader has nothing to look at
+                Some(d.document_id.ok_or_else(|| ToolError::BadArgs(format!("{key} has no text")))?)
+            }
+        };
+        self.ctx.allowed()?;
+        let out = ask::answer(&self.ctx.db, Some(self.provider), self.ctx.reach.embedder.clone(), &question, document.as_deref()).await.map_err(|_| ToolError::Failed)?;
+        Ok(match out {
+            ReaderAnswer::Found { text, citations } => {
+                let cited: Vec<Value> = citations
+                    .iter()
+                    .map(|c| json!({ "source": passage_source(&c.passage), "document": c.name, "page": c.passage.page, "quote": c.quote }))
+                    .collect();
+                if let Ok(mut written) = self.ctx.reach.cited.lock() {
+                    written.extend(citations.into_iter().map(|c| c.passage));
+                }
+                json!({ "found": true, "answer": text, "citations": cited })
+            }
+            ReaderAnswer::NotFound { looked, .. } => json!({ "found": false, "answer": "Ningún documento del Expediente lo dice con claridad.", "passages_read": looked, "citations": [] }),
+            ReaderAnswer::NoDocuments => json!({ "found": false, "answer": "El Expediente todavía no tiene ningún documento con texto para leer.", "citations": [] }),
+            ReaderAnswer::Unavailable { .. } => return Err(ToolError::Failed),
+        })
+    }
+}
+
+/// The most entries a search of the manual hands back.
+const MANUAL_HITS: usize = 4;
+
+/// An entry of the manual as an agent reads it: its title, its text and what uses the field.
+fn entry_json(id: &str) -> Option<Value> {
+    let e = crate::core::manual::entry(id)?;
+    Some(json!({ "id": e.entry.id, "title": e.entry.title, "text": e.entry.paragraphs.join("\n"), "used_by": e.used_by }))
+}
+
+/// Searches the manual of the program (ADR-034 §3): how the program works, never data of the institution.
+struct ManualSearch(Ctx);
+
+#[async_trait]
+impl Tool for ManualSearch {
+    fn name(&self) -> &'static str {
+        "manual_search"
+    }
+    fn description(&self) -> &'static str {
+        "Busca en el manual del programa: qué es cada pantalla y cada campo, qué poner, para qué sirve y cómo se hace cada cosa. Devuelve hasta cuatro entradas con su `id`, título y texto. `query` son dos a cinco palabras clave."
+    }
+    fn args_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"],
+            "additionalProperties": false
+        })
+    }
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
+        let conn = self.0.open()?;
+        let query = args["query"].as_str().unwrap_or_default();
+        let hits = crate::core::manual::search(&conn, query, MANUAL_HITS).map_err(|_| ToolError::Failed)?;
+        Ok(json!({ "entries": hits.iter().filter_map(|h| entry_json(&h.id)).collect::<Vec<_>>() }))
+    }
+}
+
+/// One entry of the manual by its id (a screen, a window or a field of the catalog).
+struct ManualEntry(Ctx);
+
+#[async_trait]
+impl Tool for ManualEntry {
+    fn name(&self) -> &'static str {
+        "manual_entry"
+    }
+    fn description(&self) -> &'static str {
+        "Devuelve una entrada del manual por su `id`: una pantalla (`screen.profile`), una ventana (`institution.legal`) o un campo (`institution.legal_rfc`)."
+    }
+    fn args_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": { "id": { "type": "string" } },
+            "required": ["id"],
+            "additionalProperties": false
+        })
+    }
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
+        // like every tool: only for whoever may use the app
+        drop(self.0.open()?);
+        let id = args["id"].as_str().unwrap_or_default();
+        entry_json(id).ok_or_else(|| ToolError::BadArgs(format!("no entry {id}")))
+    }
+}
+
+/// What is missing, said as the first start and «Mi institución» say it.
+fn gap_words(code: &str) -> &'static str {
+    match code {
+        "name" => "El nombre",
+        "mission" => "A qué se dedica",
+        "populations" => "A quién atienden",
+        "modalities" => "Cómo los atienden",
+        "state" => "El estado",
+        "municipality" => "El municipio",
+        "address" => "El domicilio",
+        "legal_name" => "El nombre legal",
+        "purpose" => "El objeto social",
+        "legal_rfc" => "El RFC",
+        "tax_regime" => "El régimen fiscal",
+        "junta_folio" => "El folio ante la Junta de Asistencia Privada",
+        "legal_form" => "La figura jurídica",
+        "founded_year" => "El año de fundación",
+        "authorized_donee" => "Si es donataria autorizada",
+        "cluni" => "Si tiene CLUNI",
+        "capacity_total" => "La capacidad",
+        "served" => "Cuántas personas atienden",
+        "staff" => "Cuántas personas trabajan y cuántas son voluntarias",
+        "board" => "Registrar a quienes forman el patronato u órgano de gobierno",
+        _ => "Otro dato",
+    }
+}
+
+fn place_words(p: Place) -> &'static str {
+    match p {
+        Place::Institution => "Mi institución, ventana «Su institución»",
+        Place::Contact => "Mi institución, ventana «Contacto y ubicación»",
+        Place::Legal => "Mi institución, ventana «Datos legales y fiscales»",
+        Place::Board => "Mi institución, apartado «Patronato y cuentas»",
+        Place::Capacity => "Mi institución, ventana «Capacidad y cifras rápidas»",
+    }
+}
+
+/// How far the data are and what is missing, with where it is filled in.
+struct FillState(Ctx);
+
+#[async_trait]
+impl Tool for FillState {
+    fn name(&self) -> &'static str {
+        "fill_state"
+    }
+    fn description(&self) -> &'static str {
+        "Dice qué tan completos están los datos de la institución (porcentaje), qué falta y dónde se llena cada cosa, y qué campos de cada formulario siguen vacíos. No devuelve ningún valor capturado. `form` es el id de un formulario para ver solo ese, o null para todo."
+    }
+    fn args_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": { "form": { "anyOf": [{ "type": "string" }, { "type": "null" }] } },
+            "required": ["form"],
+            "additionalProperties": false
+        })
+    }
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
+        let conn = self.0.open()?;
+        let wanted = args["form"].as_str();
+        let forms = crate::core::institution::forms::FORMS;
+        if let Some(id) = wanted {
+            if !forms.iter().any(|f| f.id == id) {
+                return Err(ToolError::BadArgs(format!("unknown form {id}")));
+            }
+        }
+        let mut per_form = Vec::new();
+        for f in forms.iter().filter(|f| wanted.is_none_or(|w| w == f.id)) {
+            let view = crate::core::profile::forms::get(&conn, f.id).map_err(|_| ToolError::Failed)?;
+            per_form.push(json!({ "form": f.id, "missing_fields": view.missing }));
+        }
+        if wanted.is_some() {
+            return Ok(json!({ "forms": per_form }));
+        }
+        let o = overview::institution_overview(&conn).map_err(|_| ToolError::Failed)?;
+        let missing: Vec<Value> = o.completion.gaps.iter().map(|g| json!({ "what": gap_words(g.code), "where": place_words(g.place) })).collect();
+        Ok(json!({ "percent": o.completion.percent, "missing": missing, "forms": per_form }))
+    }
+}
+
+/// One part of the sheet of the institution.
+struct SheetSection(Ctx);
+
+#[async_trait]
+impl Tool for SheetSection {
+    fn name(&self) -> &'static str {
+        "sheet_section"
+    }
+    fn description(&self) -> &'static str {
+        "Devuelve una parte de la ficha de la institución en palabras, ya sumada por el programa y sin datos de ninguna persona: `institution` (quién es, a quién y cómo atiende, figura jurídica, capacidad), `money` (ingresos, egresos y si alcanzan), `people` (personas atendidas en grupos), `staff` (puestos y conteos del personal) o `facilities` (inmueble, espacios y equipo)."
+    }
+    fn args_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": { "section": { "type": "string", "enum": SECTIONS } },
+            "required": ["section"],
+            "additionalProperties": false
+        })
+    }
+    async fn run(&self, args: &Value) -> Result<Value, ToolError> {
+        let conn = self.0.open()?;
+        let section = args["section"].as_str().unwrap_or_default();
+        match ai_sheet::section_context(&conn, section).map_err(|_| ToolError::Failed)? {
+            Some(text) => Ok(json!({ "section": section, "text": text })),
+            None => Err(ToolError::BadArgs(format!("unknown section {section}"))),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ai::agent::{self, Agent, Errand};
+    use crate::ai::mock::MockProvider;
+    use crate::ai::pipeline::SqliteLedger;
+    use crate::ai::{AiResponse, ModelTier, Usage};
+    use crate::core::ai_sheet::tests::{rich, rich_money, seed_rich_board, seed_rich_facilities, seed_rich_people, seed_rich_staff};
+    use crate::scanner::{RegexScanner, ScannerConfig};
+
+    const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+
+    /// A base with the rich institution of the sheet tests, confirmed.
+    fn rich_db() -> (tempfile::TempDir, Arc<Mutex<Connection>>) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut c = crate::storage::open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
+        seed_rich_staff(&mut c);
+        seed_rich_people(&mut c);
+        seed_rich_facilities(&c);
+        seed_rich_board(&mut c);
+        crate::core::profile::storage::save(&mut c, &rich()).unwrap();
+        crate::modules::finance::storage::save(&mut c, &rich_money()).unwrap();
+        crate::core::profile::storage::confirm(&mut c).unwrap();
+        (dir, Arc::new(Mutex::new(c)))
+    }
+
+    fn tool<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
+        tools.iter().find(|t| t.name() == name).unwrap().as_ref()
+    }
+
+    #[test]
+    fn every_tool_has_arguments_that_work_as_structured_output() {
+        let (_d, db) = rich_db();
+        for t in toolbox(db, Some(Role::Manager)) {
+            let s = t.args_schema();
+            assert_eq!(s["additionalProperties"], false, "{}", t.name());
+            let props = s["properties"].as_object().unwrap();
+            assert!(!props.is_empty(), "{}: at least one property", t.name());
+            let required: Vec<&str> = s["required"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
+            assert!(props.keys().all(|k| required.contains(&k.as_str())), "{}: every property required", t.name());
+            jsonschema::validator_for(&s).unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn the_fill_state_says_what_is_missing_and_where_without_any_value() {
+        let (_d, db) = rich_db();
+        let tools = toolbox(db, Some(Role::Manager));
+        let all = tool(&tools, "fill_state").run(&json!({ "form": null })).await.unwrap();
+        assert_eq!((all["percent"].as_u64(), all["missing"].as_array().map(Vec::len)), (Some(100), Some(0)), "{all}");
+        assert!(!all.to_string().contains("Asilo Ficticio"), "no values: {all}");
+
+        // an institution with nothing yet: what is missing, in words, with where it is filled in
+        let dir = tempfile::tempdir().unwrap();
+        let empty = Arc::new(Mutex::new(crate::storage::open_encrypted(&dir.path().join("e.db"), KEY).unwrap()));
+        let tools_empty = toolbox(empty, Some(Role::Manager));
+        let none = tool(&tools_empty, "fill_state").run(&json!({ "form": null })).await.unwrap();
+        assert!(none["percent"].as_u64().unwrap() < 100);
+        assert_eq!(none["missing"][0], json!({ "what": "El nombre", "where": "Mi institución, ventana «Su institución»" }));
+        assert!(none["missing"].as_array().unwrap().iter().all(|m| m["what"] != "Otro dato"), "every gap has its words: {none}");
+        assert_eq!(none["forms"][0]["form"], "institution.identity");
+        assert!(none["forms"][0]["missing_fields"].as_array().unwrap().contains(&json!("institution.mission")));
+
+        let one = tool(&tools, "fill_state").run(&json!({ "form": "institution.identity" })).await.unwrap();
+        assert!(one.get("percent").is_none() && one["forms"].as_array().unwrap().len() == 1);
+        assert!(matches!(tool(&tools, "fill_state").run(&json!({ "form": "nope" })).await, Err(ToolError::BadArgs(_))));
+    }
+
+    #[tokio::test]
+    async fn a_part_of_the_sheet_never_carries_what_must_not_reach_the_ai() {
+        let (_d, db) = rich_db();
+        let tools = toolbox(db, Some(Role::Manager));
+        for section in SECTIONS {
+            let out = tool(&tools, "sheet_section").run(&json!({ "section": section })).await.unwrap();
+            let text = out["text"].as_str().unwrap();
+            assert!(text.len() > 60, "{section}: {text}");
+            for secret in ["AFI200101AB1", "5555 0101", "Rosa Representante", "7,777", "7777", "3,333", "3333", "Secreta", "Oculta", "Reservada", "Discreto", "HEGG560427"] {
+                assert!(!text.contains(secret), "{section} leaks «{secret}»:\n{text}");
+            }
+        }
+        assert!(matches!(tool(&tools, "sheet_section").run(&json!({ "section": "salaries" })).await, Err(ToolError::BadArgs(_))));
+    }
+
+    #[tokio::test]
+    async fn without_a_session_that_may_use_the_app_nothing_is_read() {
+        let (_d, db) = rich_db();
+        for t in toolbox(db, None) {
+            let args = match t.name() {
+                "sheet_section" => json!({ "section": "money" }),
+                "manual_search" => json!({ "query": "acta" }),
+                "manual_entry" => json!({ "id": "howto.backup" }),
+                _ => json!({ "form": null }),
+            };
+            assert_eq!(t.run(&args).await, Err(ToolError::Denied), "{}", t.name());
+        }
+    }
+
+    /// The Reader of the Expediente as a tool: it hands back its answer with checked quotes, each with its source, its
+    /// type and its page (never the file name), and writes down the passages so the answer can only cite those. A
+    /// document of the map is asked by its key; one that does not exist or has no text is refused.
+    #[tokio::test]
+    async fn the_reader_answers_the_assistant_with_its_quotes() {
+        use crate::core::archive::vectors::{index_pending, tests::WordsEmbedder};
+        let (_d, db) = rich_db();
+        crate::core::archive::search::tests::load_record(&db.lock().unwrap());
+        let e = Arc::new(WordsEmbedder::new());
+        index_pending(&db, e.as_ref()).await.unwrap();
+        let q = "¿Quién paga el predial?";
+        let shown = ask::passages_for(&db, Some(e.clone()), q, None).await.unwrap();
+        let p = shown.iter().find(|s| s.passage.snippet.contains("impuesto predial")).unwrap();
+        let reply = |v: Value| Ok(AiResponse { value: json!({ "tool": null, "args": null, "answer": v }), model: "mock".into(), usage: Usage::default() });
+        let m = MockProvider::new(vec![
+            reply(json!({ "found": true, "text": "La institución paga el predial.", "citations": [{ "passage": p.id, "quote": "del pago de los servicios y del impuesto predial" }] })),
+            reply(json!({ "found": false, "text": "No lo dice.", "citations": [] })),
+        ]);
+        let reach = Reach { embedder: Some(e), ..Reach::default() };
+        let reader = record_reader(db.clone(), Some(Role::Manager), reach.clone(), &m);
+        let out = reader.run(&json!({ "question": q, "document": null })).await.unwrap();
+        assert_eq!(out["found"], true, "{out}");
+        let c = &out["citations"][0];
+        assert_eq!((c["document"].as_str(), c["page"].as_i64()), (Some("Contrato de comodato del inmueble"), Some(2)), "{out}");
+        assert_eq!(c["source"].as_str(), Some(passage_source(&p.passage).as_str()));
+        assert!(!out.to_string().contains(".txt"), "no file name: {out}");
+        assert_eq!(reach.cited.lock().unwrap().iter().map(|x| x.chunk).collect::<Vec<_>>(), vec![p.passage.chunk], "what was handed is written down");
+
+        // by the key of the map, in one document
+        let map = crate::core::records::map(&db.lock().unwrap()).unwrap();
+        let poder = map.iter().find(|d| d.name == "Poder del representante legal").unwrap();
+        let out = reader.run(&json!({ "question": "¿Hasta cuándo vale?", "document": poder.key })).await.unwrap();
+        assert_eq!(out["found"], false);
+        assert!(m.requests()[1].context.join(" ").contains("Poder del representante legal"));
+        assert!(!m.requests()[1].context.join(" ").contains("Contrato de comodato"), "only that document");
+        assert!(matches!(reader.run(&json!({ "question": q, "document": "D99" })).await, Err(ToolError::BadArgs(_))));
+        let missing = map.iter().find(|d| d.document_id.is_none()).unwrap();
+        assert!(matches!(reader.run(&json!({ "question": q, "document": missing.key })).await, Err(ToolError::BadArgs(_))), "a document with no text");
+        assert!(matches!(reader.run(&json!({ "question": " ", "document": null })).await, Err(ToolError::BadArgs(_))));
+        assert_eq!(m.requests().len(), 2, "nothing refused reached the AI");
+        // without a session that may use the app, nothing is read
+        let denied = record_reader(db, None, Reach::default(), &m);
+        assert_eq!(denied.run(&json!({ "question": q, "document": null })).await, Err(ToolError::Denied));
+    }
+
+    fn errand_agent() -> Agent {
+        Agent {
+            task: "agent.dry",
+            name: "dry",
+            tier: ModelTier::Light,
+            trade: "Usted ayuda a una directiva a saber qué le falta por llenar y cómo va la institución. Responde con usted, en dos o tres frases.",
+            tools: &["fill_state", "sheet_section"],
+            max_tool_calls: 3,
+            max_tokens: 40_000,
+            max_output_tokens: 600,
+            answer: json!({ "type": "object", "properties": { "text": { "type": "string" } }, "required": ["text"], "additionalProperties": false }),
+            knows_institution: true,
+        }
+    }
+
+    /// The real run of IA1, opt-in and capped (3 tools, so at most 4 steps): the same errand with the provider and
+    /// key saved in the app. It prints the answer, the steps and what they cost.
+    ///   cargo test agent_tools_live -- --ignored --nocapture
+    #[tokio::test]
+    #[ignore]
+    async fn agent_tools_live() {
+        let (_d, db) = rich_db();
+        let (provider, light) = {
+            let c = db.lock().unwrap();
+            let cfg = crate::ai::settings::load(&c).unwrap();
+            let key = crate::storage::get_api_key(cfg.provider.as_str()).unwrap().expect("save the key in the app first");
+            (crate::ai::build_provider(&cfg, key), cfg.model_for(ModelTier::Light))
+        };
+        println!("Proveedor: {}  modelo ligero: {light}", provider.name());
+        let ledger = SqliteLedger(db.clone());
+        let boxed = toolbox(db.clone(), Some(Role::Manager));
+        let tools: Vec<&dyn Tool> = boxed.iter().map(|t| t.as_ref()).collect();
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        let started = std::time::Instant::now();
+        let r = agent::run(provider.as_ref(), &scanner, &ledger, &errand_agent(), &tools, Errand { context: vec![], request: "¿Qué me falta por llenar y nos alcanza el dinero?".into() }).await;
+        let secs = started.elapsed().as_secs_f64();
+        let c = db.lock().unwrap();
+        let (calls, input, output, cost): (i64, i64, i64, f64) = c
+            .query_row("SELECT count(*), coalesce(sum(input_tokens),0), coalesce(sum(output_tokens),0), coalesce(sum(estimated_cost_mxn),0) FROM ai_usage", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap();
+        let audit: String = c.query_row("SELECT details_json FROM audit_log WHERE event='ai.run'", [], |r| r.get(0)).unwrap();
+        println!("Resultado: {r:#?}\nBitácora: {audit}\nLlamadas: {calls}  entrada: {input}  salida: {output}  costo: ${cost:.4} MXN  tiempo: {secs:.1} s");
+        assert!(r.is_ok(), "the errand did not end in an answer");
+    }
+
+    /// The dry run of IA1: an agent asks for the two tools of the core, gets real data of the base and answers.
+    #[tokio::test]
+    async fn an_agent_reads_the_core_with_its_tools_and_answers() {
+        let (_d, db) = rich_db();
+        let ledger = SqliteLedger(db.clone());
+        let boxed = toolbox(db.clone(), Some(Role::Manager));
+        let tools: Vec<&dyn Tool> = boxed.iter().map(|t| t.as_ref()).collect();
+        let reply = |v: Value| Ok(AiResponse { value: v, model: "mock".into(), usage: Usage { input_tokens: 800, output_tokens: 60, ..Default::default() } });
+        let p = MockProvider::new(vec![
+            reply(json!({ "tool": "fill_state", "args": { "form": null }, "answer": null })),
+            reply(json!({ "tool": "sheet_section", "args": { "section": "money" }, "answer": null })),
+            reply(json!({ "tool": null, "args": null, "answer": { "text": "Sus ingresos alcanzan; le falta completar unos datos." } })),
+        ]);
+        let a = errand_agent();
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        let run = agent::run(&p, &scanner, &ledger, &a, &tools, Errand { context: vec![], request: "¿Qué me falta y cómo vamos de dinero?".into() }).await.unwrap();
+        assert_eq!((run.model_calls, run.tool_calls), (3, 2));
+        let reqs = p.requests();
+        assert!(reqs[1].user.contains("\"percent\":"), "{}", reqs[1].user);
+        assert!(reqs[2].user.contains("Balance del año"), "{}", reqs[2].user);
+        assert!(reqs[0].system.contains("única fuente de hechos sobre la institución"), "it gets the rules about the institution");
+        let d: String = db.lock().unwrap().query_row("SELECT details_json FROM audit_log WHERE event='ai.run'", [], |r| r.get(0)).unwrap();
+        assert!(d.contains("\"fill_state\":1") && d.contains("\"sheet_section\":1") && !d.contains("Balance"), "{d}");
+    }
+}
