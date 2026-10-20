@@ -1,8 +1,12 @@
-# ADR archivados (001 a 042)
+# ADR archivados (001 a 048)
 
-Las decisiones de antes del 2026-10-18, cuando SociAI pasó a ser un ERP con la IA en el núcleo ([ADR-043](../../adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md)). **No se consultan en el trabajo diario:** lo vigente está en `docs/agents/` y en los ADR de `docs/adr/`. Se abren solo para un caso específico, por ejemplo, para saber por qué el código hace algo de cierta forma.
+Todas las decisiones de SociAI hasta el 2026-10-20. Ese día se archivó toda la documentación para empezar en limpio sobre la arquitectura nueva (ver [`../README.md`](../README.md)).
 
-Lo que de aquí sigue rigiendo ya está dicho en los principios, en los comandos y en la metodología de los Lectores. Si una decisión archivada cambia, se escribe un ADR nuevo en `docs/adr/`; los archivados no se editan.
+**No se consultan en el trabajo diario.** Se abren solo para un caso específico, por ejemplo, para saber por qué el código hace algo de cierta forma. No se editan: lo que siga rigiendo se escribe de nuevo en un ADR de `docs/adr/`.
+
+Hubo dos archivados:
+- **2026-10-18:** ADR 001 a 042, cuando SociAI pasó a ser un ERP con la IA en el núcleo (ADR-043).
+- **2026-10-20:** ADR 043 a 048, con todo lo demás.
 
 | ADR | Decisión | Estado |
 |---|---|---|
@@ -49,3 +53,8 @@ Lo que de aquí sigue rigiendo ya está dicho en los principios, en los comandos
 | 042 | Un solo camino para llenar la institución: el primer inicio pide solo lo indispensable (lo que cambia lo que el programa pide, lo que la IA necesita para saber quién es la institución y lo que muestra Inicio), sale del catálogo de formularios y tiene una sola cuenta de avance; un archivo solo se guarda en su lugar si el código confía en que es de ahí; las sugerencias llegan al subir, de lo que ese documento dice; el chat no llena con documentos | Aceptada (2026-10-16); 14 datos en el primer inicio; se aplica por fases |
 | 043 | SociAI es un ERP para organizaciones de la sociedad civil con la IA en el núcleo; el MVP es el núcleo y los proyectos; Personal, Beneficiarios, Instalaciones, Finanzas y Donantes congelados y ocultos; el núcleo genérico desde ya; la IA decide dentro de la casa con cuatro límites del código (el valor de un dato personal no sale, nada se guarda sin una persona, la IA no calcula, permisos) en lugar de reglas por caso | Aceptada (2026-10-18); se aplica por fases (MVP-0 hecha) |
 | 010 | Conversación guiada con bitácora estructurada, convocatoria primero | **Propuesta**; la convocatoria primero y la conversación progresiva se adoptaron en el ADR-017, la bitácora completa queda pendiente (ver `docs/10-metodologia-conversacion.md`) |
+| 044 | La bóveda: hacia la IA van marcas tipadas (`[NOMBRE_1]`), nunca el valor; el código resuelve la marca en el equipo según lo que acepta cada campo; sin ventana de «datos personales» en el Asistente ni en el Capturista; la salud de una sola persona, como hoy | Aceptada (2026-10-19); se construye en IA-2 |
+| 045 | Sin chats; tres patrones para todo lo que usa IA: determinista, IA acotada (operadores) y agentes; siempre el nivel más bajo que resuelve, elegido con las cuatro preguntas de `docs/agents/patrones-de-ia.md`; la capa de IA sigue siendo propia, sin framework | Aceptada (2026-10-19); se aplica en IA-4, IA-6 y cada pieza nueva |
+| 046 | Los nombres de personas los reconoce un modelo local (RoBERTa BNE capitel-plus, ONNX int8, en el equipo), no una lista; los formatos con dígito verificador siguen en el código; ninguna palabra por caso; marcar de más se acepta gracias a la bóveda | Aceptada (2026-10-19); se construye en IA-8 |
+| 047 | Un dato indispensable del primer inicio se pregunta siempre, o solo cuando lo decide otro indispensable de un paso anterior; lo que no aplica no se pregunta ni se cuenta; el primer inicio no se vuelve a abrir. Cambia en parte el ADR-042 §1 | Aceptada (2026-10-19); aplicado en ERP-2 |
+| 048 | El flujo de datos: cada dato se declara una vez en el modelo de datos (de quién es y cómo llega a la IA: tal cual, marca o no sale) y todas las piezas lo leen; el escáner inteligente marca, la IA dirige con el contexto completo y el código revisa lo verificable; nada que interprete lenguaje se escribe con listas, regex ni diccionarios; se diseña para producción, no para el plan gratis; se trabaja en orden | Aceptada (2026-10-20); se aplica en las fases F0 a F6 |
