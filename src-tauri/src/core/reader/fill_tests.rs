@@ -121,6 +121,8 @@ async fn the_code_keeps_only_what_a_passage_says() {
     // what the AI was shown: the empty fields it may see, never a protected one, and the passages with their page
     let sent: String = provider.requests().iter().map(|r| format!("{}\n{}", r.context.join("\n"), r.user)).collect();
     assert!(sent.contains("institution.purpose") && !sent.contains("`institution.legal_rfc`"), "{sent}");
+    // no value of a personal datum reached the model (ADR-044)
+    assert_eq!(provider.personal_data_sent(&[]), Vec::<String>::new());
 }
 
 /// ADR-038: a written field is not asked, and a window with every field written asks nothing (no call).

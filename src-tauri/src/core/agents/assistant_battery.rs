@@ -206,6 +206,21 @@ async fn the_page_of_each_question_is_among_the_passages_of_the_reader() {
     assert_eq!(found, asked);
 }
 
+/// ADR-044: whatever the person asks in the battery (a CURP, two people, the institution's mail, health), no value of a
+/// personal datum reaches the model, and the question is never held.
+#[tokio::test]
+async fn no_personal_value_of_the_battery_reaches_the_model() {
+    let (_d, db) = db();
+    for c in cases() {
+        let reply = Ok(AiResponse { value: json!({ "tool": null, "args": null, "answer": { "text": "Listo.", "go_to": null, "sources": [], "fill": null, "records": false } }), model: "mock".into(), usage: Usage::default() });
+        let m = MockProvider::new(vec![reply]);
+        let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(&c, &db)).await.unwrap();
+        // a follow-up («ese mismo») asks the Reader first and this mock has one answer: the manual answers then
+        assert!(matches!(out, AssistantOutcome::Answered { .. } | AssistantOutcome::Manual { .. }), "{}: {out:?}", c.q);
+        assert_eq!(m.personal_data_sent(&[]), Vec::<String>::new(), "{}", c.q);
+    }
+}
+
 /// Dry: the grading itself. A simulated run that asks the Reader and cites the expected page passes; one that cites a
 /// document no one asked for where nothing is said, or offers the wrong window, fails.
 #[tokio::test]
@@ -396,7 +411,7 @@ async fn ask_native(
     let run = crate::ai::gemini_native::run(key, settings, &ledger, &scanner, &agent(), &tools, Errand { context: told, request: a.question.clone() }).await?;
     let cited = reach.cited.lock().unwrap().clone();
     let docs = crate::core::records::map(&db.lock().unwrap()).unwrap();
-    Ok((answered(&run.answer, a.question.clone(), &cited, &a.screen, Some(Role::Manager), &docs), run))
+    Ok((answered(&run.answer, a.question.clone(), &cited, &a.screen, Some(Role::Manager), &docs, &crate::ai::vault::Vault::new()), run))
 }
 
 /// What one mode did over the battery.

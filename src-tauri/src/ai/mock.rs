@@ -62,15 +62,6 @@ impl MockProvider {
     }
 
     fn answer(&self, req: &AiRequest, model: &str) -> Result<AiResponse, AiError> {
-        if std::env::var("CIMIENTO_LEAK_PROBE").is_ok() {
-            let scanner = crate::scanner::RegexScanner::new(crate::scanner::ScannerConfig::default());
-            for text in req.context.iter().chain([&req.user]) {
-                let r = crate::scanner::SensitiveScanner::scan(&scanner, text);
-                for f in r.findings.iter().filter(|f| f.kind != crate::scanner::FindingKind::HealthContext) {
-                    eprintln!("LEAK_PROBE {} {}: {}", req.task.as_str(), f.kind.key(), &text[f.span.clone()]);
-                }
-            }
-        }
         self.seen.lock().unwrap().push(req.clone());
         self.models_used.lock().unwrap().push(model.to_string());
         self.replies
@@ -78,6 +69,32 @@ impl MockProvider {
             .unwrap()
             .pop_front()
             .unwrap_or_else(|| Err(AiError::Internal("the mock has no more replies".into())))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ai::AiTask;
+
+    /// The check of the batteries finds a value that reached the provider, and lets marks, labels and what is allowed go.
+    #[tokio::test]
+    async fn it_finds_a_personal_value_that_reached_the_provider() {
+        let p = MockProvider::new(vec![]);
+        let req = |user: &str| AiRequest {
+            task: AiTask::ConversationTurn,
+            tier: ModelTier::Light,
+            system: String::new(),
+            context: vec!["Teléfono de la casa: 33 1234 5678".into()],
+            user: user.into(),
+            output_schema: serde_json::json!({}),
+            max_output_tokens: 10,
+        };
+        let _ = p.complete(&req("La CURP es [CURP_1] y vive con [NOMBRE OCULTO]")).await;
+        assert!(p.personal_data_sent(&["33 1234 5678"]).is_empty());
+        let _ = p.complete(&req("La CURP es LOPM800101MDFRZN09")).await;
+        assert_eq!(p.personal_data_sent(&["33 1234 5678"]), vec!["curp: LOPM800101MDFRZN09"]);
+        assert_eq!(p.personal_data_sent(&[]).len(), 3, "the phone twice and the CURP");
     }
 }
 

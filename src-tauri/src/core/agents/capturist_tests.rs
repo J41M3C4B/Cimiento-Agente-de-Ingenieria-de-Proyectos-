@@ -282,11 +282,12 @@ async fn an_alcaldia_named_after_a_person_is_told_without_the_scanners_question(
         assert!(matches!(save(&mut c, "institution.contact", contact, None).unwrap(), SaveProfileOutcome::Saved { .. }));
     }
     let said = "Estamos ubicados en la alcaldia Benito Juarez";
-    let answer = json!({ "proposals": [{ "field": "institution.municipality", "value": "Benito Juarez", "quote": "la alcaldia Benito Juarez" }] });
+    // the name saved in the window goes as a mark (the scanner takes it for a person), and so does what the person says
+    let answer = json!({ "proposals": [{ "field": "institution.municipality", "value": "[NOMBRE_1]", "quote": "la alcaldia [NOMBRE_1]" }] });
     let p = MockProvider::new(vec![reply(answer)]);
     let out = capture(&db, Some(&p), told("institution.contact", said)).await.unwrap();
-    let CaptureOutcome::Proposed { fields, same, .. } = out else { panic!("the scanner asked: {out:?}") };
-    assert!(p.requests()[0].user.contains("Benito Juarez"), "{}", p.requests()[0].user);
+    let CaptureOutcome::Proposed { fields, same, .. } = out else { panic!("{out:?}") };
+    assert!(p.requests()[0].user.contains("la alcaldia [NOMBRE_1]"), "{}", p.requests()[0].user);
     assert!(fields.is_empty());
     assert_eq!(same, vec![title("institution.municipality")]);
 }

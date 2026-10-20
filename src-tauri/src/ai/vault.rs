@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn the_same_value_keeps_its_mark_and_two_people_are_two_marks() {
         let v = Vault::new();
-        let a = marked(&v, "La directora es Ana María López y la tesorera Rosa Díaz.");
+        let a = marked(&v, "La directora es Ana María López y la tesorera Rosa Ruiz.");
         assert_eq!(a, "La directora es [NOMBRE_1] y la tesorera [NOMBRE_2].");
         // in the next step of the errand, the same person is the same mark, even written in another way
         let b = marked(&v, "Escríbale a ana maría lópez al correo ana@ejemplo.mx o al 55 1234 5678.");

@@ -96,8 +96,10 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
     // a protected datum of the institution read by a rule (its RFC, a folio) is its own, not a person's: covering it
     // would lose it; it never reaches the AI and its value is forgotten once the person decides (`forget_protected`)
     let own = (p.origin == Origin::Document || told_own) && field.sensitivity == Sensitivity::InstitutionalPrivate;
+    // the name of a place is not scanned, as when the person saves it (`profile::domain`): many are named after a person
+    let place = field.rule == Some(crate::common::forms::Rule::PlaceName);
     let value = match &p.value {
-        Value::String(s) if !own => {
+        Value::String(s) if !own && !place => {
             let fields = [(p.field_id.clone(), s.clone())];
             match crate::core::screen::guard_texts(conn, "ai_proposal", &fields, Some(Decision::Redact))? {
                 Ok(mut texts) => Value::String(texts.remove(0)),

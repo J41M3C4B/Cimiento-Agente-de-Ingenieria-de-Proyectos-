@@ -113,6 +113,19 @@ fn reply(answer: Value) -> Result<AiResponse, AiError> {
     Ok(AiResponse { value: json!({ "tool": null, "args": null, "answer": answer }), model: "mock".into(), usage: Usage { input_tokens: 1_200, output_tokens: 150, ..Default::default() } })
 }
 
+/// ADR-044: whatever a person tells in the battery (phones, an RFC, a CURP, names, health), no value of a personal datum
+/// reaches the model: it goes as a mark, and nobody asks the person anything.
+#[tokio::test]
+async fn no_personal_value_of_the_battery_reaches_the_model() {
+    for c in cases() {
+        let (_d, db) = db_of(&c.guardado);
+        let p = MockProvider::new(vec![reply(json!({ "proposals": [] }))]);
+        let out = capture(&db, Some(&p), capture_of(&c)).await.unwrap();
+        assert!(matches!(out, CaptureOutcome::Proposed { .. }), "{}: {out:?}", c.id);
+        assert_eq!(p.personal_data_sent(&[]), Vec::<String>::new(), "{}", c.id);
+    }
+}
+
 /// The traps of the battery, answered by a model: a sum, a figure that is not in the words, words the person never
 /// said, a protected field, a field of another window. The code drops them all and nothing waits.
 #[tokio::test]

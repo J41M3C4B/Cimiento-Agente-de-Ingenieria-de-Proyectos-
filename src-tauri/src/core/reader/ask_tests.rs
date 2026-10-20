@@ -100,6 +100,7 @@ async fn the_reader_answers_with_the_documents_and_where() {
     let all = format!("{} {}", reqs[0].context.join(" "), reqs[0].user);
     assert!(!all.contains(".txt"), "no file name reaches the AI");
     assert!(!all.contains("CRF150310KX4"), "the RFC of the text was covered when it was saved");
+    assert_eq!(m.personal_data_sent(&[]), Vec::<String>::new(), "no value of a personal datum reached the model");
 }
 
 /// When the person names a file, the Reader reads only that document: what speaks of the question in it or, with no
