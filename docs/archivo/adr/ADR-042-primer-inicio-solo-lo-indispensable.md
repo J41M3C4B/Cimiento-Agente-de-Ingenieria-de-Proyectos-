@@ -5,6 +5,7 @@ fecha: 2026-10-16
 tema: [nucleo, documentos, ia]
 reemplaza_en_parte: ["[[ADR-031-primer-inicio-y-datos-de-la-institucion]]", "[[ADR-038-politica-unica-de-llenado-desde-documentos]]", "[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]"]
 sobre: "[[Observaciones Pruebas]]"
+reemplazado_en_parte_por: ["[[ADR-047-un-indispensable-puede-esperar-a-otro]]"]
 tags: [adr]
 ---
 # ADR-042 · Un solo camino para llenar la institución: el primer inicio pide solo lo indispensable

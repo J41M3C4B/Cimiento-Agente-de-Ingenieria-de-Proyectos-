@@ -103,8 +103,8 @@ mod tests {
     }
 
     /// ADR-042 §1: the steps ask exactly the fields the catalog marks indispensable, each one once, each step inside
-    /// one window. Each one is always asked, or hides only behind another indispensable datum asked in an earlier step
-    /// (ERP-2: the capacity, behind how it serves), so nothing hides behind an answer still to come.
+    /// one window. ADR-047: each one is always asked, or hides only behind another indispensable datum asked in an
+    /// earlier step (the capacity, behind how it serves), so nothing hides behind an answer still to come.
     #[test]
     fn the_steps_are_the_indispensable_fields_of_the_catalog() {
         let essential: Vec<&str> = FORMS.iter().flat_map(|f| f.fields()).filter(|f| f.essential).map(|f| f.id).collect();
