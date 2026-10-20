@@ -183,7 +183,7 @@ struct Scratch(std::path::PathBuf);
 
 impl Scratch {
     fn new() -> std::io::Result<Scratch> {
-        let dir = std::env::temp_dir().join(format!("cimiento-{}", ulid::Ulid::generate()));
+        let dir = std::env::temp_dir().join(format!("sociai-{}", ulid::Ulid::generate()));
         std::fs::create_dir_all(&dir)?;
         Ok(Scratch(dir))
     }

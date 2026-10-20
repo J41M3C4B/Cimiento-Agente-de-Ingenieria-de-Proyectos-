@@ -66,8 +66,8 @@ function RestoreSection() {
       <DropZone
         key={picked}
         label={t.restoreFile}
-        accept=".cimiento"
-        file={file ? { name: file.name, size: fileSize(file.size), ext: extOf(file.name) || "cimiento" } : null}
+        accept=".sociai"
+        file={file ? { name: file.name, size: fileSize(file.size), ext: extOf(file.name) || "sociai" } : null}
         changeHint={es.documents.form.change}
         onFile={setFile}
       />

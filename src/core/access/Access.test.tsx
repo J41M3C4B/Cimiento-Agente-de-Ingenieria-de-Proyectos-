@@ -163,7 +163,7 @@ describe("the menu shows what each person may use", () => {
     expect(avatar()).toHaveClass("tone-teal");
     rerender(person("staff"));
     expect(avatar()).toHaveClass("tone-teal");
-    expect(window.localStorage.getItem(`cimiento.avatar.${session.username}`)).toBe("teal");
+    expect(window.localStorage.getItem(`sociai.avatar.${session.username}`)).toBe("teal");
     window.localStorage.clear();
   });
 

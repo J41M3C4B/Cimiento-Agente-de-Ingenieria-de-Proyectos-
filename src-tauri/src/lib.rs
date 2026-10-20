@@ -36,12 +36,12 @@ pub fn run() {
             let mut dir = app.path().app_data_dir()?;
             // development only: another folder, to try the first start from zero without touching the examples
             #[cfg(debug_assertions)]
-            if let Some(other) = std::env::var_os("CIMIENTO_DATA_DIR").filter(|d| !d.is_empty()) {
+            if let Some(other) = std::env::var_os("SOCIAI_DATA_DIR").filter(|d| !d.is_empty()) {
                 dir = other.into();
             }
             std::fs::create_dir_all(&dir)?;
             let key = storage::get_or_create_db_key()?;
-            let conn = storage::open_encrypted(&dir.join("cimiento.db"), &key)?;
+            let conn = storage::open_encrypted(&dir.join("sociai.db"), &key)?;
             // a reading that was running when the program was closed waits to be resumed
             let _ = modules::projects::storage::calls::mark_interrupted(&conn);
             // the photo of this month (ADR-033 §4): taken again at each opening until the month ends

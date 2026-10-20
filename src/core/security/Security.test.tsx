@@ -39,7 +39,7 @@ describe("SecurityPage", () => {
   });
 
   it("makes a backup with a password written twice and says where it was left", async () => {
-    vi.mocked(api.backupCreate).mockResolvedValue({ file_name: "Respaldo Cimiento 2026-10-03.cimiento", path: "C:\\Users\\Ana\\Downloads\\Respaldo Cimiento 2026-10-03.cimiento" });
+    vi.mocked(api.backupCreate).mockResolvedValue({ file_name: "Respaldo SociAI 2026-10-03.sociai", path: "C:\\Users\\Ana\\Downloads\\Respaldo SociAI 2026-10-03.sociai" });
     show(<SecurityPage />);
     await userEvent.type(await screen.findByLabelText(/^Contraseña del respaldo/), "una contraseña larga");
     await userEvent.type(screen.getByLabelText(/^Repita la contraseña/), "otra distinta");
@@ -49,13 +49,13 @@ describe("SecurityPage", () => {
     await userEvent.type(screen.getByLabelText(/^Repita la contraseña/), "una contraseña larga");
     await userEvent.click(screen.getByText("Crear el respaldo"));
     await waitFor(() => expect(api.backupCreate).toHaveBeenCalledWith("una contraseña larga"));
-    expect(await screen.findByText(/quedó en su carpeta de Descargas con el nombre «Respaldo Cimiento 2026-10-03.cimiento»/)).toBeInTheDocument();
+    expect(await screen.findByText(/quedó en su carpeta de Descargas con el nombre «Respaldo SociAI 2026-10-03.sociai»/)).toBeInTheDocument();
   });
 
   it("restores a backup only after the person confirms that what is there will be replaced", async () => {
     vi.mocked(api.backupRestore).mockResolvedValue(undefined);
     show(<SecurityPage />);
-    const file = new File(["datos"], "respaldo.cimiento");
+    const file = new File(["datos"], "respaldo.sociai");
     await userEvent.upload(await screen.findByLabelText("Archivo del respaldo"), file);
     await userEvent.type(screen.getByLabelText("Contraseña de ese respaldo"), "una contraseña larga");
     await userEvent.click(screen.getByText("Restaurar el respaldo"));
@@ -67,9 +67,9 @@ describe("SecurityPage", () => {
   });
 
   it("says plainly when the password does not open the backup", async () => {
-    vi.mocked(api.backupRestore).mockRejectedValue(new Error("Esa contraseña no abre este respaldo, o el archivo no es un respaldo de Cimiento."));
+    vi.mocked(api.backupRestore).mockRejectedValue(new Error("Esa contraseña no abre este respaldo, o el archivo no es un respaldo de SociAI."));
     show(<SecurityPage />);
-    await userEvent.upload(await screen.findByLabelText("Archivo del respaldo"), new File(["x"], "r.cimiento"));
+    await userEvent.upload(await screen.findByLabelText("Archivo del respaldo"), new File(["x"], "r.sociai"));
     await userEvent.type(screen.getByLabelText("Contraseña de ese respaldo"), "mala contraseña");
     await userEvent.click(screen.getByText("Restaurar el respaldo"));
     await userEvent.click(screen.getByText("Sí, restaurar"));

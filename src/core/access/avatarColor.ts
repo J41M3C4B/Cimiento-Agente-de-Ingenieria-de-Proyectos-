@@ -5,7 +5,7 @@ import type { Tone } from "../../components/ui";
 export const AVATAR_TONES: Tone[] = ["violet", "sky", "teal", "cyan", "green", "amber", "rose"];
 export const DEFAULT_AVATAR_TONE: Tone = "violet";
 
-const key = (username: string) => `cimiento.avatar.${username}`;
+const key = (username: string) => `sociai.avatar.${username}`;
 
 const read = (username: string): Tone => {
   try {

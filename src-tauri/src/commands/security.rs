@@ -36,7 +36,7 @@ pub fn backup_create(session: State<'_, Session>, app: AppHandle, db: State<'_, 
 pub fn backup_restore(session: State<'_, Session>, app: AppHandle, db: State<'_, Db>, data: String, password: String) -> Result<(), UiError> {
     guard(&session, "backup_restore")?;
     let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|_| UiError::internal())?;
-    let path = app.path().app_data_dir().map_err(|_| UiError::internal())?.join("cimiento.db");
+    let path = app.path().app_data_dir().map_err(|_| UiError::internal())?.join("sociai.db");
     let key = crate::storage::get_or_create_db_key().map_err(|_| UiError::internal())?;
     svc::restore_backup(&shared(&db), &path, &key, &bytes, &password)?;
     // the restored data has its own accounts: everyone enters again

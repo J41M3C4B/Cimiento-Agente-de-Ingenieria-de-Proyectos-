@@ -554,7 +554,7 @@ mod tests {
 
     #[test]
     fn the_folder_of_the_resources_loses_the_long_path_prefix_of_windows() {
-        assert_eq!(plain_path(PathBuf::from(r"\\?\D:\Programas\Cimiento\ocr")), PathBuf::from(r"D:\Programas\Cimiento\ocr"));
+        assert_eq!(plain_path(PathBuf::from(r"\\?\D:\Programas\SociAI\ocr")), PathBuf::from(r"D:\Programas\SociAI\ocr"));
         assert_eq!(plain_path(PathBuf::from(r"\\?\UNC\servidor\ocr")), PathBuf::from(r"\\?\UNC\servidor\ocr"));
         assert_eq!(plain_path(PathBuf::from(r"D:\ocr")), PathBuf::from(r"D:\ocr"));
     }

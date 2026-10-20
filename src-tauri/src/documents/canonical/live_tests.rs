@@ -1,7 +1,7 @@
 //! Measuring the canonical reading on the real documents (ADR-015). Everything here is `#[ignore]`: it
 //! runs on purpose, with the key saved in the app, and writes its results to a folder.
 //!
-//! The manifest (`CIMIENTO_CANON_MANIFEST`) names the packages and the strategies:
+//! The manifest (`SOCIAI_CANON_MANIFEST`) names the packages and the strategies:
 //! ```json
 //! { "out": "D:\\...\\salida", "model": "gemini-3.5-flash-lite", "rpm": 4, "thinking": "",
 //!   "embedding_model": "gemini-embedding-001", "inline_schema": false,
@@ -58,7 +58,7 @@ struct Manifest {
 }
 
 fn manifest() -> Manifest {
-    let path = std::env::var("CIMIENTO_CANON_MANIFEST").expect("set CIMIENTO_CANON_MANIFEST to the manifest JSON");
+    let path = std::env::var("SOCIAI_CANON_MANIFEST").expect("set SOCIAI_CANON_MANIFEST to the manifest JSON");
     let v: Value = serde_json::from_str(&std::fs::read_to_string(&path).expect("the manifest can be read")).expect("the manifest is JSON");
     let out = PathBuf::from(v["out"].as_str().expect("out"));
     std::fs::create_dir_all(&out).unwrap();
@@ -249,7 +249,7 @@ impl AiProvider for Careful<'_> {
 }
 
 /// The measured run: every package with every strategy, one call after another within the allowance.
-///   $env:CIMIENTO_CANON_MANIFEST="D:\...\manifiesto.json"; cargo test canonical_live -- --ignored --nocapture
+///   $env:SOCIAI_CANON_MANIFEST="D:\...\manifiesto.json"; cargo test canonical_live -- --ignored --nocapture
 #[tokio::test]
 #[ignore]
 async fn canonical_live() {
@@ -453,7 +453,7 @@ fn canonical_summary() {
 async fn canonical_probe_live() {
     use crate::ai::{AiRequest, AiTask, ModelTier};
     let key = crate::storage::get_api_key("gemini").unwrap().expect("no Gemini key saved: save it in the app first");
-    let model = std::env::var("CIMIENTO_PROBE_MODEL").unwrap_or_else(|_| "gemini-3.5-flash-lite".into());
+    let model = std::env::var("SOCIAI_PROBE_MODEL").unwrap_or_else(|_| "gemini-3.5-flash-lite".into());
     let cfg = crate::ai::settings::AiSettings::default();
     let provider = GeminiProvider::new(key.clone(), cfg);
     let canon = canonical_schema();
@@ -511,14 +511,14 @@ fn canonical_rows() {
     }
 }
 
-/// The start of the text of some pages of a package, as the model reads them (no cost). `CIMIENTO_CANON_PAGES` is
+/// The start of the text of some pages of a package, as the model reads them (no cost). `SOCIAI_CANON_PAGES` is
 /// `paquete:3,4,5`.
-///   $env:CIMIENTO_CANON_PAGES="nmp2026:13,14"; cargo test canonical_pages -- --ignored --nocapture
+///   $env:SOCIAI_CANON_PAGES="nmp2026:13,14"; cargo test canonical_pages -- --ignored --nocapture
 #[test]
 #[ignore]
 fn canonical_pages() {
     let m = manifest();
-    let want = std::env::var("CIMIENTO_CANON_PAGES").expect("CIMIENTO_CANON_PAGES, as package:3,4,5");
+    let want = std::env::var("SOCIAI_CANON_PAGES").expect("SOCIAI_CANON_PAGES, as package:3,4,5");
     let (name, pages) = want.split_once(':').expect("package:3,4,5");
     let spec = m.packages.iter().find(|p| p.name == name).expect("a package of the manifest");
     let pkg = load(spec);

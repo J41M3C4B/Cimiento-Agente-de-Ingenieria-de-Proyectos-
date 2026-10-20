@@ -606,12 +606,12 @@ mod probe {
             .collect()
     }
 
-    /// Prints the cells of every visual line of one page of a real PDF: `CIMIENTO_ROWS_PDF`, `CIMIENTO_ROWS_PAGE`.
+    /// Prints the cells of every visual line of one page of a real PDF: `SOCIAI_ROWS_PDF`, `SOCIAI_ROWS_PAGE`.
     #[test]
     #[ignore]
     fn print_lines_of_a_page() {
-        let path = std::env::var("CIMIENTO_ROWS_PDF").expect("CIMIENTO_ROWS_PDF");
-        let page: usize = std::env::var("CIMIENTO_ROWS_PAGE").expect("CIMIENTO_ROWS_PAGE").parse().unwrap();
+        let path = std::env::var("SOCIAI_ROWS_PDF").expect("SOCIAI_ROWS_PDF");
+        let page: usize = std::env::var("SOCIAI_ROWS_PAGE").expect("SOCIAI_ROWS_PAGE").parse().unwrap();
         let pages = pages_of(&path);
         for line in visual_lines(&pages[page - 1].0) {
             println!("y{:.1} {}", line.y, line.pieces.iter().map(|c| format!("[{:.0}] {}", c.x, c.text)).collect::<Vec<_>>().join("  ||  "));
@@ -619,12 +619,12 @@ mod probe {
     }
 
     /// For every page of a real PDF: how many tables the lines give and how many rows the layout of the text gives
-    /// in what is left. `CIMIENTO_ROWS_PDF` names the file; `CIMIENTO_ROWS_SHOW=1` prints the rows of the lines.
+    /// in what is left. `SOCIAI_ROWS_PDF` names the file; `SOCIAI_ROWS_SHOW=1` prints the rows of the lines.
     #[test]
     #[ignore]
     fn count_tables_by_kind() {
-        let path = std::env::var("CIMIENTO_ROWS_PDF").expect("CIMIENTO_ROWS_PDF");
-        let show = std::env::var("CIMIENTO_ROWS_SHOW").is_ok();
+        let path = std::env::var("SOCIAI_ROWS_PDF").expect("SOCIAI_ROWS_PDF");
+        let show = std::env::var("SOCIAI_ROWS_SHOW").is_ok();
         let pages = pages_of(&path);
         let (mut grid_total, mut text_total) = (0, 0);
         for (i, (glyphs, rules, height)) in pages.iter().enumerate() {

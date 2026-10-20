@@ -8,7 +8,7 @@ $ProgressPreference = "SilentlyContinue"
 
 $root = Split-Path -Parent $PSScriptRoot
 $dest = Join-Path $root "src-tauri\resources\ocr"
-$work = Join-Path ([System.IO.Path]::GetTempPath()) ("cimiento-ocr-" + [guid]::NewGuid())
+$work = Join-Path ([System.IO.Path]::GetTempPath()) ("sociai-ocr-" + [guid]::NewGuid())
 
 $downloads = @{
     tesseract = @{ url = "https://github.com/tesseract-ocr/tesseract/releases/download/5.5.3/tesseract-ocr-w64-setup-5.5.3.20260724.exe"; sha = "bee9e3434bd94fd65387d9be28cd467a41f61b1275383b55b0f59a1331270ae4" }

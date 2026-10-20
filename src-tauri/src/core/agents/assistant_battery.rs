@@ -262,8 +262,8 @@ async fn the_battery_grades_what_it_should() {
 /// makes) and, with Gemini, the vectors of the fictitious fragments. For each one: the verdict, the tools, what it
 /// cited, the answer, calls, tokens, cost and time. Only fictitious text goes out. Its whole output goes to a file:
 ///   cargo test assistant_battery_live -- --ignored --nocapture > assistant_battery_live.txt
-/// With `CIMIENTO_ROUNDS` (1 to 5) it asks everything that many times, to see how steady the cheapest model is; with
-/// `CIMIENTO_ONLY` («Calle|correo»), only the questions with one of those words, to measure a case again without
+/// With `SOCIAI_ROUNDS` (1 to 5) it asks everything that many times, to see how steady the cheapest model is; with
+/// `SOCIAI_ONLY` («Calle|correo»), only the questions with one of those words, to measure a case again without
 /// spending on all of them.
 #[tokio::test]
 #[ignore]
@@ -294,9 +294,9 @@ async fn assistant_battery_live() {
             )
             .unwrap()
     };
-    let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
+    let rounds: usize = std::env::var("SOCIAI_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
     let recording = Recording { inner: provider.as_ref(), log: Mutex::new(Vec::new()) };
-    let only = std::env::var("CIMIENTO_ONLY").ok();
+    let only = std::env::var("SOCIAI_ONLY").ok();
     let all: Vec<Case> = cases().into_iter().filter(|c| only.as_deref().is_none_or(|o| o.split('|').any(|w| c.q.contains(w)))).collect();
     let mut right_per_case = vec![0usize; all.len()];
     let (mut passed, mut tools_ok, mut cites_ok, mut cites_asked, mut invented) = (0, 0, 0, 0, 0);
@@ -460,7 +460,7 @@ impl Tally {
 }
 
 /// The measurement of ADR-036 §7, opt-in and capped: every question of `asistente.json` once with our JSON protocol and
-/// once with the native function calling of Gemini, with the cheapest model, `CIMIENTO_ROUNDS` times (1 to 5). The
+/// once with the native function calling of Gemini, with the cheapest model, `SOCIAI_ROUNDS` times (1 to 5). The
 /// same grading; calls, tokens and cost of the Assistant (the Reader is the same one call in both) and the time of the
 /// model without the waits for the pace of the plan. Only fictitious text goes out. Its whole output goes to a file:
 ///   cargo test assistant_native_vs_json_live -- --ignored --nocapture > native_vs_json.txt
@@ -490,7 +490,7 @@ async fn assistant_native_vs_json_live() {
             )
             .unwrap()
     };
-    let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
+    let rounds: usize = std::env::var("SOCIAI_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
     let all = cases();
     let (mut json_mode, mut native) = (Tally::default(), Tally::default());
     for round in 1..=rounds {

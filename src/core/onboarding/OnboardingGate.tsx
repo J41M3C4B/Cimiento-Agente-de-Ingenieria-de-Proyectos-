@@ -11,8 +11,8 @@ import { Setup, Welcome } from "./Welcome";
 import { Wizard } from "./Wizard";
 
 const o = es.onboarding;
-const LATER = "cimiento.onboarding.later";
-const RESUME = "cimiento:onboarding-resume";
+const LATER = "sociai.onboarding.later";
+const RESUME = "sociai:onboarding-resume";
 
 /** From Inicio: the administrator who left the data to the direction takes them up again (the data steps open). */
 export function resumeOnboarding() {

@@ -292,13 +292,13 @@ fn no_new_document_is_left_without_a_drawer() {
 /// What the Reader understands of a real file, without saving anything nor printing its text: per page, how many
 /// letters were read and whether from a picture; the kind; and per datum found, its page and its length. For a real
 /// document of the institution: its text never leaves this computer, and here not even the screen.
-///   $env:CIMIENTO_READER_FILE="D:\...\acta.pdf"; cargo test reader_on_a_file -- --ignored --nocapture > salida.txt
-///   (optional: $env:CIMIENTO_READER_KIND="articles_of_incorporation", the kind of the document of the record)
+///   $env:SOCIAI_READER_FILE="D:\...\acta.pdf"; cargo test reader_on_a_file -- --ignored --nocapture > salida.txt
+///   (optional: $env:SOCIAI_READER_KIND="articles_of_incorporation", the kind of the document of the record)
 #[test]
 #[ignore]
 fn reader_on_a_file() {
-    let path = std::path::PathBuf::from(std::env::var("CIMIENTO_READER_FILE").expect("CIMIENTO_READER_FILE"));
-    let known = std::env::var("CIMIENTO_READER_KIND").ok();
+    let path = std::path::PathBuf::from(std::env::var("SOCIAI_READER_FILE").expect("SOCIAI_READER_FILE"));
+    let known = std::env::var("SOCIAI_READER_KIND").ok();
     let bytes = std::fs::read(&path).unwrap();
     let started = std::time::Instant::now();
     let read = crate::documents::reading::read_upload(&path.file_name().unwrap().to_string_lossy(), &bytes).unwrap();
@@ -331,8 +331,8 @@ fn reader_on_a_file() {
         }
     }
     // only when asked: a few words around the first place each of these appears, to see how the document writes it
-    //   $env:CIMIENTO_READER_SHOW="objeto,denominacion"
-    if let Ok(show) = std::env::var("CIMIENTO_READER_SHOW") {
+    //   $env:SOCIAI_READER_SHOW="objeto,denominacion"
+    if let Ok(show) = std::env::var("SOCIAI_READER_SHOW") {
         for w in show.split(',').map(str::trim).filter(|w| !w.is_empty()) {
             let hit = pages.iter().enumerate().find_map(|(i, p)| {
                 let folded = crate::storage::fts::fold(p);
@@ -345,8 +345,8 @@ fn reader_on_a_file() {
         }
     }
     // only the labels of a form-like document (the words before each «:»), never what follows them
-    //   $env:CIMIENTO_READER_LABELS="1"
-    if std::env::var("CIMIENTO_READER_LABELS").is_ok() {
+    //   $env:SOCIAI_READER_LABELS="1"
+    if std::env::var("SOCIAI_READER_LABELS").is_ok() {
         for (i, p) in pages.iter().enumerate() {
             let labels: Vec<String> = p
                 .split(':')

@@ -13,9 +13,9 @@ Cómo se organiza el desarrollo de SociAI desde el 2026-10-20. Lo leen todos los
 | Rol | Quién | Decide | Hace |
 |---|---|---|---|
 | **Líder** (producto, arquitectura y validación) | La persona dueña del proyecto | <ul><li>Qué entra al tablero y en qué orden.</li><li>Los ADR.</li><li>Qué cuenta como terminado.</li><li>Si un bloque pasa a «Hecho».</li><li>A qué riel va algo cuando hay duda.</li></ul> | <ul><li>Aprueba el «Terminado cuando».</li><li>Prueba en la app lo que está en «Revisión».</li><li>Escribe sus observaciones en `docs/notas/`.</li></ul> |
-| **Agente del riel IA** | Claude, en `D:\Agente Proyectos\cimiento-ia` | Cómo se construye la plataforma de inteligencia, dentro de los planos y los ADR | Los bloques `IA-n` |
-| **Agente del riel ERP** (determinista) | Claude, en `D:\Agente Proyectos\cimiento-erp` | Cómo se construyen los módulos, sus datos y sus contratos, dentro de los planos y los ADR | Los bloques `ERP-n` |
-| **Agente del riel de diseño** | Claude, en `D:\Agente Proyectos\cimiento-diseno` | Cómo se ve y cómo se usa SociAI, dentro del sistema visual y los ADR | Los bloques `DIS-n` |
+| **Agente del riel IA** | Claude, en `D:\Agente Proyectos\sociai-ia` | Cómo se construye la plataforma de inteligencia, dentro de los planos y los ADR | Los bloques `IA-n` |
+| **Agente del riel ERP** (determinista) | Claude, en `D:\Agente Proyectos\sociai-erp` | Cómo se construyen los módulos, sus datos y sus contratos, dentro de los planos y los ADR | Los bloques `ERP-n` |
+| **Agente del riel de diseño** | Claude, en `D:\Agente Proyectos\sociai-diseno` | Cómo se ve y cómo se usa SociAI, dentro del sistema visual y los ADR | Los bloques `DIS-n` |
 
 **Lo que hace cada agente con sus bloques:** propone, planea, construye, prueba, documenta, abre el PR y mueve el bloque a «Revisión».
 
@@ -91,10 +91,10 @@ Si un bloque toca dos rieles, va al de su decisión principal. Si es grande, se 
 
 | Carpeta | Rama | Para qué |
 |---|---|---|
-| `D:\Agente Proyectos\cimiento` | `main` siempre | La bóveda de Obsidian del líder y el tablero. **Nadie desarrolla aquí** |
-| `D:\Agente Proyectos\cimiento-ia` | la del bloque `IA-n` en curso | Riel IA |
-| `D:\Agente Proyectos\cimiento-erp` | la del bloque `ERP-n` en curso | Riel ERP |
-| `D:\Agente Proyectos\cimiento-diseno` | la del bloque `DIS-n` en curso | Riel de diseño |
+| `D:\Agente Proyectos\sociai` | `main` siempre | La bóveda de Obsidian del líder y el tablero. **Nadie desarrolla aquí** |
+| `D:\Agente Proyectos\sociai-ia` | la del bloque `IA-n` en curso | Riel IA |
+| `D:\Agente Proyectos\sociai-erp` | la del bloque `ERP-n` en curso | Riel ERP |
+| `D:\Agente Proyectos\sociai-diseno` | la del bloque `DIS-n` en curso | Riel de diseño |
 
 - **Cada carpeta es un `git worktree`.** Dos sesiones en la misma carpeta se cambian la rama una a la otra.
 - **Cada carpeta compila aparte:** unos 4 GB cada una.
@@ -110,7 +110,7 @@ Si un bloque toca dos rieles, va al de su decisión principal. Si es grande, se 
 
 Es la **única excepción** a «nadie trabaja sobre `main`». Las tarjetas tienen que verse igual para los tres rieles y para el líder mientras las ramas avanzan. Por eso:
 
-- El agente cambia **solo las notas de los bloques** (`docs/tablero/bloques/`) desde la carpeta `cimiento`:
+- El agente cambia **solo las notas de los bloques** (`docs/tablero/bloques/`) desde la carpeta `sociai`:
   - las de su riel;
   - un pedido nuevo para otro riel (§4).
 - Antes de cada cambio: `git pull --rebase`. Después, un commit `Board: …` y `push`.
@@ -124,8 +124,26 @@ Es la **única excepción** a «nadie trabaja sobre `main`». Las tarjetas tiene
    - la suite completa: `cargo test` desde `src-tauri/` y `pnpm test`;
    - revisar que ningún archivo cambió sus finales de línea.
 2. **Un PR por bloque,** con el «Terminado cuando» y el «Cómo probarlo». El bloque pasa a «Revisión».
-3. **El líder prueba y valida.** El agente fusiona con *squash* (`gh pr merge --squash --delete-branch`), escribe el «Resultado» y pasa el bloque a «Hecho».
-4. **Los otros dos rieles** hacen `rebase` de su rama sobre `main` antes de su siguiente PR.
+3. **El agente le dice al líder cómo correr el cambio, siempre** (ver «Cómo correr un cambio», abajo).
+4. **El líder prueba y valida.** El agente fusiona con *squash* (`gh pr merge --squash --delete-branch`), escribe el «Resultado» y pasa el bloque a «Hecho».
+5. **Los otros dos rieles** hacen `rebase` de su rama sobre `main` antes de su siguiente PR.
+
+### Cómo correr un cambio
+
+Cada rama se corre en local, en la carpeta de su riel. **Cada vez que un agente entrega un cambio** (un bloque en «Revisión», una corrección o un arreglo pedido por el líder), le da al líder los pasos exactos para correrlo. Van en el mensaje y en la sección «Cómo probarlo» del bloque, con este orden:
+
+1. **Dónde:** la carpeta del riel (`D:\Agente Proyectos\sociai-erp`, por ejemplo) y la rama.
+2. **Qué preparar antes,** solo si hace falta:
+   - `pnpm install` si cambió `package.json`;
+   - una dependencia de sistema;
+   - una variable de entorno;
+   - un ejemplo cargado;
+   - si la base cambia de forma que no se puede volver atrás.
+3. **Cómo arrancarlo:** el comando listo para copiar (normalmente `pnpm tauri dev`) y cuánto tarda la primera vez si va a recompilar mucho.
+4. **Qué hacer y qué debe pasar,** paso por paso, en la app.
+5. **Cómo dejarlo:** cerrar la app y, si quedó algo que se deba limpiar o regresar, cómo hacerlo.
+
+**Se corre un riel a la vez.** Las tres carpetas usan el mismo puerto (1430) y la misma carpeta de datos de la app. Antes de correr otro riel, se cierra el que está abierto.
 
 ### Los archivos que todos tocan
 

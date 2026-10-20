@@ -185,7 +185,7 @@ pub fn scan_database(conn: &Connection) -> Result<ScanSummary, ServiceError> {
 
 // ------------------------------------------------------------------ backup and restore
 
-/// The first name that does not exist yet: «Respaldo.cimiento», «Respaldo (2).cimiento»…
+/// The first name that does not exist yet: «Respaldo.sociai», «Respaldo (2).sociai»…
 fn unique_path(dir: &Path, stem: &str, ext: &str) -> PathBuf {
     let mut p = dir.join(format!("{stem}.{ext}"));
     let mut n = 2;
@@ -207,9 +207,9 @@ pub fn create_backup(db: &SharedDb, dir: &Path, password: &str) -> Result<Backup
     let conn = db.lock().map_err(|_| ServiceError::Internal("lock".into()))?;
     let today: String = conn.query_row("SELECT date('now')", [], |r| r.get(0))?;
     std::fs::create_dir_all(dir).map_err(|e| ServiceError::Internal(e.to_string()))?;
-    let path = unique_path(dir, &format!("Respaldo Cimiento {today}"), "cimiento");
+    let path = unique_path(dir, &format!("Respaldo SociAI {today}"), "sociai");
     backup::create(&conn, &path, password)?;
-    crate::audit::record(&conn, crate::audit::AuditKind::BackupCreated, None, None, serde_json::json!({ "format": "cimiento" }))?;
+    crate::audit::record(&conn, crate::audit::AuditKind::BackupCreated, None, None, serde_json::json!({ "format": "sociai" }))?;
     Ok(BackupFile { file_name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), path: path.to_string_lossy().into_owned() })
 }
 
@@ -363,7 +363,7 @@ mod tests {
 
     fn working_database(dir: &Path, key: &str, title: &str) -> (PathBuf, SharedDb) {
         use crate::core::profile::domain::*;
-        let path = dir.join("cimiento.db");
+        let path = dir.join("sociai.db");
         let mut c = open_encrypted(&path, key).unwrap();
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };
         crate::core::profile::storage::save(&mut c, &input).unwrap();
@@ -377,7 +377,7 @@ mod tests {
         let here = tempfile::tempdir().unwrap();
         let (_p, db) = working_database(here.path(), KEY, "Proyecto del respaldo");
         let out = create_backup(&db, here.path(), "una contraseña larga").unwrap();
-        assert!(out.file_name.starts_with("Respaldo Cimiento ") && out.file_name.ends_with(".cimiento"));
+        assert!(out.file_name.starts_with("Respaldo SociAI ") && out.file_name.ends_with(".sociai"));
         let again = create_backup(&db, here.path(), "una contraseña larga").unwrap();
         assert_ne!(out.path, again.path, "a backup never replaces another");
         let log: i64 = db.lock().unwrap().query_row("SELECT count(*) FROM audit_log WHERE event='backup.created'", [], |r| r.get(0)).unwrap();

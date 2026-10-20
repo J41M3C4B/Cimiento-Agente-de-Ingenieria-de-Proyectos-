@@ -394,7 +394,7 @@ pub(crate) mod tests {
     /// The measurement of IA5 (ADR-034): the reference questions of the fictitious record and of the manual, by
     /// words alone, by meaning alone (vectors of the embedding model) and both fused with several weights. Only
     /// fictitious text goes out: the fragments of `fixtures/expediente`, the manual and the questions (about 170 texts,
-    /// a handful of requests). With `CIMIENTO_VEC_CACHE` the vectors are kept in that file and read from it the next
+    /// a handful of requests). With `SOCIAI_VEC_CACHE` the vectors are kept in that file and read from it the next
     /// time, with no request.
     ///   cargo test search_live -- --ignored --nocapture > salida.txt
     #[tokio::test]
@@ -410,7 +410,7 @@ pub(crate) mod tests {
         let manual: Vec<(String, String)> = crate::core::manual::MANUAL.iter().map(|m| (m.id.clone(), format!("{}\n{}", m.title, m.paragraphs.join("\n")))).collect();
         let questions: Vec<String> = reference.expediente.iter().map(|q| q.q.clone()).chain(reference.manual.iter().map(|q| q.q.clone())).collect();
 
-        let cache = std::env::var("CIMIENTO_VEC_CACHE").ok().map(PathBuf::from);
+        let cache = std::env::var("SOCIAI_VEC_CACHE").ok().map(PathBuf::from);
         let v: Vectors = match cache.as_ref().filter(|p| p.exists()) {
             Some(p) => {
                 println!("Vectores leídos de {} (sin solicitudes)", p.display());

@@ -240,14 +240,14 @@ pub async fn run_measured(
     run_marked(provider, scanner, ledger, call, custom, None).await
 }
 
-/// Only in a development build (`pnpm tauri dev`) and with `CIMIENTO_AI_TRACE` naming a file: each request as it went
+/// Only in a development build (`pnpm tauri dev`) and with `SOCIAI_AI_TRACE` naming a file: each request as it went
 /// to the provider and what came back, to see what the model read in a real session of the app. It is written after
 /// the scanner and the vault, so it holds what the provider got, never a personal value; the fixed prompt is left out.
 /// The file stays on this computer, never in the repository.
 #[cfg(debug_assertions)]
 fn trace(req: &AiRequest, answer: &Value) {
     use std::io::Write;
-    let Ok(path) = std::env::var("CIMIENTO_AI_TRACE") else { return };
+    let Ok(path) = std::env::var("SOCIAI_AI_TRACE") else { return };
     let entry = format!("==== {}\n{}\n---- pide\n{}\n---- respondió\n{answer}\n\n", req.task.as_str(), req.context.join("\n\n"), req.user);
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
         let _ = f.write_all(entry.as_bytes());

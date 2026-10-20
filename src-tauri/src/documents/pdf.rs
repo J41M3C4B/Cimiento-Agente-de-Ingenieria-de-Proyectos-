@@ -251,14 +251,14 @@ mod tests {
     /// What Pdfium takes out of each PDF of a folder (ADR-037): pages, time, letters, words, accents, odd signs,
     /// glued words, words of one letter (a text cut letter by letter), pages left to read as pictures, paragraphs and
     /// rows of tables. Prints no text unless a page is asked for; only for public samples.
-    ///   $env:CIMIENTO_PDF_DIR="D:\...\pdf_pruebas"; cargo test pdf_report -- --ignored --nocapture > salida.txt
-    ///   (optional: $env:CIMIENTO_PDF_SHOW="archivo.pdf:3", the text of that page)
+    ///   $env:SOCIAI_PDF_DIR="D:\...\pdf_pruebas"; cargo test pdf_report -- --ignored --nocapture > salida.txt
+    ///   (optional: $env:SOCIAI_PDF_SHOW="archivo.pdf:3", the text of that page)
     #[test]
     #[ignore]
     fn pdf_report() {
         use std::time::Instant;
-        let dir = std::path::PathBuf::from(std::env::var("CIMIENTO_PDF_DIR").expect("CIMIENTO_PDF_DIR"));
-        let show = std::env::var("CIMIENTO_PDF_SHOW").ok();
+        let dir = std::path::PathBuf::from(std::env::var("SOCIAI_PDF_DIR").expect("SOCIAI_PDF_DIR"));
+        let show = std::env::var("SOCIAI_PDF_SHOW").ok();
         let mut files: Vec<_> = std::fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))).collect();
         files.sort();
         let block = super::super::pdf_rows::BLOCK_TITLE;
