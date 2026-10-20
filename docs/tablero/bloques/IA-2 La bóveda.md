@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-2
 carril: ia
-estado: en-curso
+estado: revision
 prioridad: alta
 fase: MVP-2
 patron: [determinista]
@@ -26,13 +26,13 @@ Hoy el escáner detiene a la persona cada vez que cree ver un dato personal, y c
 
 (Aprobado por el líder el 2026-10-19, con la aclaración del ADR-044 §2.)
 
-- [ ] **Ningún valor marcado aparece en ninguna solicitud a la IA, en todas las baterías en seco:** Asistente, Capturista, los tres Lectores y la conversación de Proyectos. Una revisión en el proveedor simulado lo comprueba en cada solicitud.
-- [ ] **El Asistente y el Capturista ya no se detienen por un dato personal:** el servicio ya no devuelve la ventana, y «No es dato personal» y `cleared` salieron del chat.
-- [ ] **Una marca se resuelve en cualquier campo, y el valor pasa por la validación del campo y por `proposals::propose`.** Pruebas: el correo y el teléfono en su campo; la representante y el RFC que cuenta la persona en «Datos legales»; «alcaldía Benito Juárez» en el municipio y «calle [NOMBRE_1] 12» en la calle, aunque el escáner los tome por persona; un nombre en la misión lo cubre `propose` como hoy; una sugerencia con una marca inventada se descarta.
-- [ ] **La persona lee sus valores:** la respuesta llega a la pantalla con cada marca resuelta.
-- [ ] **La salud de una persona sale generalizada**, sin número, y nunca se resuelve.
-- [ ] **Las baterías con casos nuevos** (dos personas distintas, el correo y la representante de la institución, la alcaldía, una CURP en la pregunta, salud de una persona), primero en seco y después en una corrida real con el modelo más barato. Asistente y Capturista no empeoran contra el v11 y el v5 en aciertos, inventados ni costo.
-- [ ] El principio 5, `04-escaner-datos-sensibles.md`, `07-ia-y-costos.md` y la metodología de los patrones dicen cómo sale un dato personal: como marca.
+- [x] **Ningún valor marcado aparece en ninguna solicitud a la IA, en todas las baterías en seco:** Asistente, Capturista, los tres Lectores y la conversación de Proyectos. Una revisión en el proveedor simulado lo comprueba en cada solicitud. *(`MockProvider::personal_data_sent`: todos los casos de las baterías del Asistente y del Capturista (`no_personal_value`) y una prueba de cada Lector y de la conversación.)*
+- [x] **El Asistente y el Capturista ya no se detienen por un dato personal:** el servicio ya no devuelve la ventana, y «No es dato personal» y `cleared` salieron del chat. *(El código de la pantalla y `ScannerConfig::cleared` quedan sin usar: ERP-4.)*
+- [x] **Una marca se resuelve en cualquier campo, y el valor pasa por la validación del campo y por `proposals::propose`.** Pruebas: el correo y el teléfono en su campo; la representante y el RFC que cuenta la persona en «Datos legales»; «alcaldía Benito Juárez» en el municipio y «calle [NOMBRE_1] 12» en la calle, aunque el escáner los tome por persona; un nombre en la misión lo cubre `propose` como hoy; una sugerencia con una marca inventada se descarta. *(En seco, todas. En real, la calle 3 de 3; el municipio con la marca sola, 0 de 5: lo resuelve IA-8. Los nombres de lugar ya no se tapan en `propose`, como al guardar.)*
+- [x] **La persona lee sus valores:** la respuesta llega a la pantalla con cada marca resuelta.
+- [x] **La salud de una persona sale generalizada**, sin número, y nunca se resuelve.
+- [x] **Las baterías con casos nuevos** (dos personas distintas, el correo y la representante de la institución, la alcaldía, una CURP en la pregunta, salud de una persona), primero en seco y después en una corrida real con el modelo más barato. Asistente y Capturista no empeoran contra el v11 y el v5 en aciertos, inventados ni costo. *(Asistente 46 de 50, las 20 de antes 39 de 40, $1.51 MXN; Capturista 39 de 44, campos 231 de 236, $1.17 MXN; nada inventado. Detalle en `07-ia-y-costos.md`.)*
+- [x] El principio 5, `04-escaner-datos-sensibles.md`, `07-ia-y-costos.md` y la metodología de los patrones dicen cómo sale un dato personal: como marca.
 
 ## Plan
 
