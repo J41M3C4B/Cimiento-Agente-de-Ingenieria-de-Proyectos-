@@ -59,12 +59,22 @@ Hoy el escáner detiene a la persona cada vez que cree ver un dato personal, y c
 
 En la app de la rama `ia/ia-2-boveda` (carpeta `D:\Agente Proyectos\cimiento-ia`, `pnpm tauri dev`), con la llave de Gemini guardada:
 
-- [ ] En Inicio, en el Asistente: «¿Dónde anoto la CURP LOPM800101MDFRZN09 de una señora que atendemos?». **No aparece la ventana de «datos personales»**; contesta que esa parte llegará después.
-- [ ] En «Mi institución», en el Asistente: «Nuestro correo es contacto@casaficticia.org, ¿dónde lo pongo?». Ofrece «Llenarlo por mí» en «Contacto y ubicación»; al usarlo, la sugerencia del correo trae **el correo tal cual lo escribió**.
-- [ ] «Llenarlo por mí» en «Datos legales y fiscales»: «Nuestra representante legal es Rosa Méndez Ruiz y nuestro RFC es CSE870512AB3». Las sugerencias traen **el nombre y el RFC tal cual**, sin preguntar nada antes.
-- [ ] «Llenarlo por mí» en «Contacto y ubicación»: «Estamos en la Calle Ana María Rodríguez 8». La calle llega como «Ana María Rodríguez» (antes se tapaba como nombre).
-- [ ] Saber que no salió nada: en las métricas de la IA o en la bitácora, cada pregunta con datos deja `scanner.leak_prevented` con **cuántos** datos de cada tipo, nunca cuáles.
+- [x] En Inicio, en el Asistente: «¿Dónde anoto la CURP LOPM800101MDFRZN09 de una señora que atendemos?». **No aparece la ventana de «datos personales»**; contesta que esa parte llegará después.
+- [x] En «Mi institución», en el Asistente: «Nuestro correo es contacto@casaficticia.org, ¿dónde lo pongo?». Ofrece «Llenarlo por mí» en «Contacto y ubicación»; al usarlo, la sugerencia del correo trae **el correo tal cual lo escribió**.
+- [x] «Llenarlo por mí» en «Datos legales y fiscales»: «Nuestra representante legal es Rosa Méndez Ruiz y nuestro RFC es CSE870512AB3». Las sugerencias traen **el nombre y el RFC tal cual**, sin preguntar nada antes.
+- [x] «Llenarlo por mí» en «Contacto y ubicación»: «Estamos en la Calle Ana María Rodríguez 8». La calle llega como «Ana María Rodríguez» (antes se tapaba como nombre).
+- [x] Saber que no salió nada: en las métricas de la IA o en la bitácora, cada pregunta con datos deja `scanner.leak_prevented` con **cuántos** datos de cada tipo, nunca cuáles.
 
 Conocido: «Estamos en Benito Juárez, Ciudad de México» en «Llenarlo por mí» no llena el municipio (el modelo más barato no pone la marca ahí). Lo resuelve IA-8.
 
 ## Resultado
+La ventana de datos personales ya no frena, lo que si noto es que hay mas latencia o tiempo de espera para una respuesta y es demasiado, no se precisamente si sea por que el proveedor tiene mucha demanda, tenemos segun los logs de ayuda automatica 24s de media por respuesta, sin embargo con el involucramiento de un nuevo modelo para interceptar los datos y todo eso no se a cuanto sume el tiempo o si el contador de la IA tambien cuenta todo el proceso en general. 
+
+En la prueba 3 volvimos a tener el mismo problema de 2 llamadas, cuando en una sola se pudo haber omitido la sugerencia de llenarlo por mi y solo mostrar un texto indicando que lo sabemos y el boton de ir a la venta correspondiente.
+![[{0E768A3D-8016-4880-9AEB-17DC311EC1AF}.png]]
+
+Tenemos otro comportamiento extraño, en la prueba 4 lo hice directo en el chat ninguna la estoy haciendo directo del formulario por que ese es el comportamiento esperado, pero en este caso se quedo con el contexto anterior, la converssacion no se ha cortado ni nada cada prueba una tras otra en el chat para cuasar este tipo de problemas, se quedo en el contexto de la ventana de legales, no eligio correctamente contacto y ubicacion
+![[{F0380711-147B-4BAE-83F9-BE4C0257371F}.png]]
+
+Resultados de la bitacora:
+![[{3D4DC67A-763F-4609-9622-17A8A5B106E9}.png]]
