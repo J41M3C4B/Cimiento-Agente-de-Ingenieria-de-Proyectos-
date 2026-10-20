@@ -174,6 +174,8 @@ fn the_records_of_the_modules_count_instead_of_the_quick_figures() {
     let (_d, mut c) = conn();
     let rosa = user(&c, "rosa", Role::Manager);
     saved(save(&mut c, &rosa, "who", values(serde_json::json!({ "institution.name": "Asilo Ficticio" })), None).unwrap());
+    // a residence: the people there today are asked (ERP-2)
+    saved(save(&mut c, &rosa, "attention", values(serde_json::json!({ "institution.populations": ["older_adults"], "institution.modalities": ["residential"] })), None).unwrap());
     for i in 0..3 {
         let p = crate::modules::care::domain::person::BeneficiaryData { first_names: format!("Persona {i}"), approx_age: Some(80), status: "active".into(), ..Default::default() };
         crate::modules::care::service::save_person(&mut c, crate::modules::care::domain::catalog::Flavor::ElderlyHome, None, p).unwrap();

@@ -18,6 +18,9 @@ use serde_json::{json, Value};
 pub struct FormView {
     pub spec: &'static FormSpec,
     pub values: Values,
+    /// The saved values of other windows its conditions and words look at (the ways it serves, for the capacity):
+    /// the screen reads them, it does not save them.
+    pub context: Values,
     pub origins: std::collections::BTreeMap<String, crate::core::history::FieldOrigin>,
     pub missing: Vec<&'static str>,
     /// The suggestions of the AI waiting in this form (IA4), but the ones that say what is already saved.
@@ -95,6 +98,23 @@ fn values_of(id: &str, p: &ProfileInput) -> Values {
     v
 }
 
+/// The saved values of the fields of other windows a form looks at (`FormSpec::looks_outside`).
+fn context_of(spec: &FormSpec, p: &ProfileInput) -> Values {
+    let outside = spec.looks_outside();
+    if outside.is_empty() {
+        return Values::new();
+    }
+    catalog_values(p).into_iter().filter(|(id, _)| outside.contains(&id.as_str())).collect()
+}
+
+/// A form's values with the context its conditions look at: what decides whether each field applies. The context
+/// holds only fields of other windows, and what is saved there wins over whatever came with the form for them.
+pub fn with_context(values: &Values, context: &Values) -> Values {
+    let mut all = values.clone();
+    all.extend(context.iter().map(|(k, v)| (k.clone(), v.clone())));
+    all
+}
+
 /// Writes the values of a form into the profile. A field of the form left empty is emptied; the fields of the other
 /// forms stay as they are.
 fn apply(id: &str, v: &Values, p: &mut ProfileInput) {
@@ -160,14 +180,22 @@ pub fn get(conn: &Connection, id: &str) -> Result<FormView, ServiceError> {
         .collect();
     // a quick figure the records of a module already answer is not missing (ADR-031 §3: the records win)
     let answered = crate::core::onboarding::service::answered(conn)?;
-    let missing = spec.missing(&values).into_iter().filter(|f| !answered.contains(f)).collect();
-    Ok(FormView { spec, missing, origins, values, proposals, fill: crate::core::agents::capturist::fill_of_form(id) })
+    let context = context_of(spec, &profile);
+    let missing = spec.missing(&with_context(&values, &context)).into_iter().filter(|f| !answered.contains(f)).collect();
+    Ok(FormView { spec, missing, origins, values, context, proposals, fill: crate::core::agents::capturist::fill_of_form(id) })
 }
 
 /// The values of a form as saved now, by field id: what the Capturist must not propose again.
 pub fn saved_values(conn: &Connection, id: &str) -> Result<Values, ServiceError> {
     let profile = store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
     Ok(values_of(id, &profile))
+}
+
+/// The saved values of other windows a form looks at, by field id (`FormView::context`).
+pub fn context(conn: &Connection, id: &str) -> Result<Values, ServiceError> {
+    let spec = form(id).ok_or(ServiceError::NotFound)?;
+    let profile = store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
+    Ok(context_of(spec, &profile))
 }
 
 /// Saves a form. A value out of its list or range is refused with the field it belongs to; what is missing never
@@ -181,6 +209,9 @@ pub fn save(conn: &mut Connection, id: &str, values: Values, decision: Option<De
 /// person corrected is the person's.
 pub fn save_using(conn: &mut Connection, id: &str, mut values: Values, decision: Option<Decision>, used: &[String]) -> Result<SaveProfileOutcome, ServiceError> {
     let spec = form(id).ok_or(ServiceError::NotFound)?;
+    let mut profile = store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
+    // a field may apply by what another window says; `clear_hidden` keeps only the fields of this one
+    values = with_context(&values, &context_of(spec, &profile));
     spec.clear_hidden(&mut values);
     let blocking: Vec<ProfileIssue> = spec
         .validate(&values)
@@ -191,7 +222,6 @@ pub fn save_using(conn: &mut Connection, id: &str, mut values: Values, decision:
     if !blocking.is_empty() {
         return Ok(SaveProfileOutcome::Invalid { issues: blocking });
     }
-    let mut profile = store::load_current(conn)?.map(|p| p.input).unwrap_or_default();
     apply(id, &values, &mut profile);
     let taken = crate::core::agents::proposals::waiting(conn, id, used)?;
     let sources = taken
@@ -342,6 +372,46 @@ mod tests {
         assert_eq!(get(&c, "institution.contact").unwrap().missing, vec!["institution.postal_code"]);
         assert_eq!(get(&c, "institution.legal").unwrap().values["institution.junta_folio"], json!("JAP-0001"));
         assert_eq!(get(&c, "institution.identity").unwrap().values["institution.age_min"], json!(60));
+    }
+
+    /// ERP-2 (A1, A2, A3): «Capacidad y cifras» reads how it serves from «Su institución». Where people stay it asks
+    /// the places and how many are there today; where they come and go, how many it served in the last year; a mix,
+    /// both. A number never changes its meaning: the count that stops applying is kept, neither asked nor shown.
+    #[test]
+    fn the_capacity_window_reads_how_it_serves_from_another_window() {
+        let (_d, mut c) = conn();
+        let identity = |modalities: Value| values(json!({ "institution.name": "Red Ficticia", "institution.populations": ["general_public"], "institution.modalities": modalities, "institution.sex_served": "all", "institution.age_min": 5 }));
+        let p = saved(save(&mut c, "institution.identity", identity(json!(["community", "support"])), None).unwrap());
+        assert_eq!(p.input.institution.attention.as_ref().unwrap().sex_served, None, "the public at large has no sex nor ages to say");
+        assert!(p.input.institution.details.as_ref().is_none_or(|d| !d.contains_key("institution.age_min")));
+
+        let view = get(&c, "institution.capacity").unwrap();
+        assert_eq!(view.context, values(json!({ "institution.modalities": ["community", "support"] })), "only what decides a field here");
+        assert_eq!(view.missing, vec!["institution.served_last_year", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);
+        let figures = values(json!({ "institution.capacity_total": 40, "institution.served_estimate": 18, "institution.served_last_year": 350, "institution.modalities": ["residential"] }));
+        let p = saved(save(&mut c, "institution.capacity", figures.clone(), None).unwrap());
+        let last_year = |p: &ProfileInput| p.institution.details.as_ref().and_then(|d| d.get("institution.served_last_year").cloned());
+        assert_eq!((p.input.capacity_total, p.input.served_estimate, last_year(&p.input)), (None, None, Some(json!(350))), "what the window sends of another one does not decide");
+        let o = crate::core::overview::institution_overview(&c).unwrap();
+        assert_eq!((o.people.value, o.people_period, o.capacity), (350, "last_year", None));
+
+        // a residence with its community programs: the places and both counts
+        saved(save(&mut c, "institution.identity", identity(json!(["residential", "community"])), None).unwrap());
+        assert_eq!(get(&c, "institution.capacity").unwrap().missing, vec!["institution.capacity_total", "institution.served_estimate", "institution.staff_paid_estimate", "institution.staff_volunteer_estimate"]);
+        let p = saved(save(&mut c, "institution.capacity", figures.clone(), None).unwrap());
+        assert_eq!((p.input.capacity_total, p.input.served_estimate, last_year(&p.input)), (Some(40), Some(18), Some(json!(350))));
+        let o = crate::core::overview::institution_overview(&c).unwrap();
+        assert_eq!((o.people.value, o.people_period, o.occupied_percent), (18, "today", Some(45)));
+
+        // only a residence: the 18 of today is never read as the people of a year, and the 350 is kept unseen
+        saved(save(&mut c, "institution.identity", identity(json!(["residential"])), None).unwrap());
+        assert!(!get(&c, "institution.capacity").unwrap().missing.contains(&"institution.served_last_year"));
+        // only the community again: the 350 is back, not the 18
+        saved(save(&mut c, "institution.identity", identity(json!(["community"])), None).unwrap());
+        let o = crate::core::overview::institution_overview(&c).unwrap();
+        assert_eq!((o.people.value, o.people_period, o.capacity, o.occupied_percent), (350, "last_year", None, None));
+        let kept = store::load_current(&c).unwrap().unwrap().input;
+        assert_eq!((kept.capacity_total, kept.served_estimate), (Some(40), Some(18)), "kept, neither asked nor shown");
     }
 
     #[test]

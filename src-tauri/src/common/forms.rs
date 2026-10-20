@@ -79,10 +79,36 @@ pub enum Rule {
 #[serde(tag = "when", rename_all = "snake_case")]
 pub enum Condition {
     Always,
-    /// Another field is filled (a text that is not blank, a list that is not empty).
+    /// Another field is filled (a text that is not blank, a list that is not empty). No field of the core waits for
+    /// one today; the forms of the modules will.
+    #[allow(dead_code)]
     Filled { field: &'static str },
     /// Another field holds one of these codes (a list: any of them).
     AnyOf { field: &'static str, values: &'static [&'static str] },
+}
+
+impl Condition {
+    /// Whether it holds with these values. The field it looks at may belong to another form: whoever asks passes the
+    /// values of that form too (`profile::forms`).
+    pub fn holds(&self, values: &Values) -> bool {
+        match *self {
+            Condition::Always => true,
+            Condition::Filled { field } => is_filled(values.get(field)),
+            Condition::AnyOf { field, values: wanted } => match values.get(field) {
+                Some(Value::String(s)) => wanted.contains(&s.as_str()),
+                Some(Value::Array(a)) => a.iter().any(|x| x.as_str().is_some_and(|s| wanted.contains(&s))),
+                _ => false,
+            },
+        }
+    }
+
+    /// The field it looks at, if any.
+    pub const fn field(&self) -> Option<&'static str> {
+        match *self {
+            Condition::Always => None,
+            Condition::Filled { field } | Condition::AnyOf { field, .. } => Some(field),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -149,6 +175,10 @@ impl FieldSpec {
         self.rule = Some(rule);
         self
     }
+    /// The field its condition looks at, if any.
+    pub fn looks_at(&self) -> Option<&'static str> {
+        self.applies_when.field()
+    }
 }
 
 /// A group of fields drawn together, in one or two columns.
@@ -197,15 +227,18 @@ impl FormSpec {
 
     /// Whether a field applies with these values.
     pub fn applies(&self, f: &FieldSpec, values: &Values) -> bool {
-        match f.applies_when {
-            Condition::Always => true,
-            Condition::Filled { field } => is_filled(values.get(field)),
-            Condition::AnyOf { field, values: wanted } => match values.get(field) {
-                Some(Value::String(s)) => wanted.contains(&s.as_str()),
-                Some(Value::Array(a)) => a.iter().any(|x| x.as_str().is_some_and(|s| wanted.contains(&s))),
-                _ => false,
-            },
+        f.applies_when.holds(values)
+    }
+
+    /// The fields of other forms its conditions look at, each once: their values travel with the form.
+    pub fn looks_outside(&self) -> Vec<&'static str> {
+        let mut out: Vec<&'static str> = Vec::new();
+        for id in self.fields().flat_map(FieldSpec::looks_at) {
+            if self.field(id).is_none() && !out.contains(&id) {
+                out.push(id);
+            }
         }
+        out
     }
 
     /// The required fields that apply and are empty, in the order of the form.
@@ -365,6 +398,27 @@ mod tests {
         assert!(!FORM.applies(main, &empty) && FORM.applies(main, &with_b));
         assert!(!FORM.applies(only_b, &values(json!({ "kinds": ["a"] }))) && FORM.applies(only_b, &with_b));
         assert!(!FORM.applies(main, &values(json!({ "kinds": [] }))), "an empty list is not filled");
+    }
+
+    /// A condition may look at a field of another form; that form's values travel with this one.
+    #[test]
+    fn a_form_says_which_fields_of_other_forms_it_looks_at() {
+        const OUTSIDE: FormSpec = FormSpec {
+            id: "outside",
+            sections: &[SectionSpec {
+                id: "one",
+                columns: 1,
+                fields: &[
+                    FieldSpec::new("seats", FieldKind::Number).when(Condition::AnyOf { field: "kinds", values: &["b"] }),
+                    FieldSpec::new("people", FieldKind::Number).when(Condition::AnyOf { field: "kinds", values: &["a"] }),
+                    FieldSpec::new("note", FieldKind::Text).when(Condition::Filled { field: "people" }),
+                ],
+            }],
+        };
+        assert_eq!(OUTSIDE.looks_outside(), vec!["kinds"], "each once, and not its own fields");
+        assert!(FORM.looks_outside().is_empty());
+        let seats = OUTSIDE.field("seats").unwrap();
+        assert!(OUTSIDE.applies(seats, &values(json!({ "kinds": ["a", "b"] }))) && !OUTSIDE.applies(seats, &values(json!({ "kinds": ["a"] }))));
     }
 
     #[test]

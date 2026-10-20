@@ -6,6 +6,7 @@ Todo lo que hay en esta carpeta es **inventado**. Sirve para desarrollar y proba
 |---|---|
 | `institucion-asilo.json` | Perfil ficticio de un asilo, I.A.P., con todos los datos de «Mi institución», su patronato (`board`) y su cuenta (`bank_accounts`) |
 | `institucion-casa-hogar.json` | Perfil ficticio de una casa hogar de niñas, I.A.P., con los mismos datos |
+| `institucion-red-comunitaria.json` | Perfil ficticio de una A.C. que no es residencia (talleres, despensas y becas en su colonia; sin Junta ni capacidad), con los mismos datos. Con ella se prueba que el núcleo sirve a cualquier organización (ERP-2) |
 | `caso-dorado-bano.md` | Caso de referencia del diagnóstico: entrada y resultado esperado |
 | `escaner/positivos.txt` | Textos que el escáner debe detectar (formato `tipo ¦ texto` con barra vertical) |
 | `escaner/negativos.txt` | Textos que el escáner NO debe detectar |
@@ -22,5 +23,5 @@ Pendientes (crear en las fases indicadas):
 
 Reglas: nunca agregar datos reales aquí, ni "de prueba". Las CURP, CLABE y NSS de los casos de prueba tienen formato válido pero son inventadas.
 
-- `instalaciones-asilo.json` e `instalaciones-casa-hogar.json`: inmueble, espacios y equipo ficticios (ADR-030) que cargan los mismos botones de ejemplo. El perfil de `institucion-*.json` ya no trae instalaciones.
-- `padron-asilo.json` y `padron-casa-hogar.json`: personas ficticias (personal y beneficiarios) que cargan los botones de ejemplo de «Mi institución» (solo en desarrollo). El perfil de `institucion-*.json` ya no trae personal ni grupos: se calculan desde el padrón (ADR-020).
+- `instalaciones-asilo.json`, `instalaciones-casa-hogar.json` e `instalaciones-red-comunitaria.json` (solo una oficina rentada): inmueble, espacios y equipo ficticios (ADR-030) que cargan los mismos botones de ejemplo. El perfil de `institucion-*.json` ya no trae instalaciones.
+- `padron-asilo.json` y `padron-casa-hogar.json` (el de la red comunitaria va vacío): personas ficticias (personal y beneficiarios) que cargan los botones de ejemplo de «Mi institución» (solo en desarrollo). El perfil de `institucion-*.json` ya no trae personal ni grupos: se calculan desde el padrón (ADR-020).

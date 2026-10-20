@@ -38,6 +38,8 @@ type Props = {
   notes?: Record<string, string>;
   /** Without the titles of the sections: a step of the first start already says what it asks (ADR-042). */
   bare?: boolean;
+  /** What other windows say that decides a field here (`FormView.context`): read, never saved. */
+  context?: FormValues;
 };
 
 /** A value in the words of its field: the names of its options, or the value as it is. */
@@ -76,13 +78,15 @@ function Suggestion({ f, p, onUse, onDiscard }: { f: FieldSpec; p: Proposal; onU
  * per field the input its kind asks for. The words come from `es.forms` under the id of each field; the «?» next to
  * each label opens what the manual says of it (ADR-034), one at a time.
  */
-export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard, notes = {}, bare = false }: Props) {
+export function FormRenderer({ spec, values, onChange, errors = {}, suggestions = [], onUse, onDiscard, notes = {}, bare = false, context = {} }: Props) {
   const set = (id: string, v: FormValue) => onChange({ ...values, [id]: v });
+  // what decides each field: this window and, for the fields of others, what is saved there (as Rust does)
+  const seen = { ...values, ...context };
   const [help, setHelp] = useState<string | null>(null);
   return (
     <div className="space-y-6">
       {spec.sections.map((s) => {
-        const shown = s.fields.filter((f) => applies(f, values));
+        const shown = s.fields.filter((f) => applies(f, seen));
         if (shown.length === 0) return null;
         const grid = (
           <div className={`grid grid-cols-1 gap-4 ${s.columns > 1 ? "sm:grid-cols-2" : ""}`}>

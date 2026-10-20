@@ -1,7 +1,7 @@
-//! The fictitious institutions of `fixtures/` (development only): an asilo and a casa hogar, both I.A.P. like the
-//! institutions the app is made for (audit D8). Loading one replaces the records with the example: the institution
-//! with every datum of «Mi institución», its people, its building, its money, its board, its bank account and part of
-//! its record (N4).
+//! The fictitious institutions of `fixtures/` (development only): an asilo and a casa hogar, both I.A.P. (audit D8),
+//! and a community A.C. where nobody stays (ERP-2: the core serves any civil organization). Loading one replaces the
+//! records with the example: the institution with every datum of «Mi institución», its people, its building, its
+//! money, its board, its bank account and part of its record (N4).
 
 use crate::core::error::ServiceError;
 use crate::core::profile::domain::ProfileInput;
@@ -22,6 +22,11 @@ fn files(name: &str) -> Option<(&'static str, &'static str, &'static str)> {
             include_str!("../../../fixtures/institucion-casa-hogar.json"),
             include_str!("../../../fixtures/padron-casa-hogar.json"),
             include_str!("../../../fixtures/instalaciones-casa-hogar.json"),
+        ),
+        "red-comunitaria" => (
+            include_str!("../../../fixtures/institucion-red-comunitaria.json"),
+            include_str!("../../../fixtures/padron-red-comunitaria.json"),
+            include_str!("../../../fixtures/instalaciones-red-comunitaria.json"),
         ),
         _ => return None,
     })
@@ -66,6 +71,8 @@ fn seed_lists(conn: &mut Connection, raw: &str) -> Result<(), ServiceError> {
             }
         }
     }
+    // the record of the example replaces the one there is: another example's documents would stay listed
+    crate::core::records::clear_for_example(conn)?;
     for r in lists.records {
         if !matches!(crate::core::records::save(conn, &r.r#type, None, r.values, None)?, crate::core::records::RecordOutcome::Saved { .. }) {
             return Err(bad("document of the record"));
@@ -74,7 +81,7 @@ fn seed_lists(conn: &mut Connection, raw: &str) -> Result<(), ServiceError> {
     Ok(())
 }
 
-/// Loads an example by name (`asilo`, `casa-hogar`). `None` when there is no such example.
+/// Loads an example by name (`asilo`, `casa-hogar`, `red-comunitaria`). `None` when there is no such example.
 pub fn load(conn: &mut Connection, name: &str) -> Result<Option<ProfileView>, ServiceError> {
     let Some((raw, padron, facilities)) = files(name) else { return Ok(None) };
     let input: ProfileInput = serde_json::from_str(raw).map_err(|_| bad("profile"))?;
@@ -139,6 +146,56 @@ mod tests {
         assert!(load(&mut c, "nope").unwrap().is_none());
     }
 
+    /// ERP-2: a community A.C. is complete without anything of a residence. Nothing asks its places, it counts the
+    /// people of the last year, and its Expediente asks only what it has: no Junta, no registry of the centers where
+    /// children live, no sanitary notice, no land use nor civil protection.
+    #[test]
+    fn a_community_organization_is_complete_without_anything_of_a_residence() {
+        let (_d, mut c) = conn();
+        let profile = load(&mut c, "red-comunitaria").unwrap().unwrap();
+        assert_eq!((profile.input.institution.legal_form.as_deref(), profile.input.capacity_total), (Some("ac"), None));
+        let o = crate::core::overview::institution_overview(&c).unwrap();
+        assert!(o.completion.gaps.is_empty() && o.completion.percent == 100, "still missing {:?}", o.completion.gaps);
+        assert_eq!((o.capacity, o.occupied_percent, o.vacant, o.people.value), (None, None, None, 340));
+
+        // the first start would have asked nothing of a residence either
+        let all = crate::core::profile::forms::catalog_values(&profile.input);
+        assert!(crate::core::onboarding::domain::complete(&crate::core::onboarding::domain::steps(&all, &[])));
+        let figures = crate::core::profile::forms::get(&c, "institution.capacity").unwrap();
+        assert!(figures.missing.is_empty() && !figures.values.contains_key("institution.capacity_total"));
+
+        let kinds: Vec<String> = crate::core::records::expediente(&c).unwrap().records.into_iter().map(|r| r.kind).collect();
+        for k in ["junta_registration", "junta_budget", "social_care_registry", "sanitary_notice", "land_use_license", "civil_protection_program"] {
+            assert!(!kinds.contains(&k.to_string()), "{k} is asked of it: {kinds:?}");
+        }
+        for k in ["articles_of_incorporation", "cluni_certificate", "donee_authorization", "internal_rules"] {
+            assert!(kinds.contains(&k.to_string()), "{k} is not asked: {kinds:?}");
+        }
+
+        let sheet = crate::core::ai_sheet::profile_context(&c).unwrap();
+        assert!(!sheet.contains("Junta de Asistencia Privada"), "{sheet}");
+        for secret in ["Ejemplo Vega", "CLUNI-EJEMPLO", "014180", "Avenida Ejemplo", "RCE120615"] {
+            assert!(!sheet.contains(secret), "«{secret}» reached the AI:
+{sheet}");
+        }
+    }
+
+    /// One example after another leaves nothing of the first: its board, its accounts and its record go (ERP-2: the
+    /// community A.C. showed the Junta of the asilo loaded before).
+    #[test]
+    fn an_example_replaces_the_one_before_it() {
+        let (_d, mut c) = conn();
+        load(&mut c, "asilo").unwrap().unwrap();
+        load(&mut c, "red-comunitaria").unwrap().unwrap();
+        let had: Vec<(String, String)> =
+            crate::core::records::expediente(&c).unwrap().records.into_iter().filter(|r| r.status != "missing").map(|r| (r.kind, r.status)).collect();
+        let kinds: Vec<&str> = had.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(kinds, ["articles_of_incorporation", "power_of_attorney", "tax_status_certificate", "donee_authorization", "cluni_certificate"], "{had:?}");
+        let lists = protected::lists(&c).unwrap();
+        assert!(lists.board.iter().all(|m| m.name.contains("Ejemplo")) && lists.board.iter().any(|m| m.name == "Elena Ejemplo Vega") && lists.board.iter().all(|m| m.name != "Martha Ejemplo Ruiz"));
+        assert_eq!(lists.accounts.len(), 1);
+    }
+
     /// The casa hogar is read as one: girls and adolescents, so its forms ask what fits them.
     #[test]
     fn the_casa_hogar_is_read_as_a_home_for_girls() {
@@ -148,3 +205,4 @@ mod tests {
         assert_eq!(p.input.institution.attention.unwrap().sex_served.as_deref(), Some("women"));
     }
 }
+

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../lib/tauri", () => ({ manualEntry: vi.fn() }));
 
 import { manualEntry } from "../lib/tauri";
-import type { FieldSpec, FormSpec, FormValues } from "../lib/types";
+import type { Condition, FieldSpec, FormSpec, FormValues } from "../lib/types";
 import { applies, FormRenderer } from "./FormRenderer";
 
 const field = (id: string, more: Partial<FieldSpec>): FieldSpec => ({
@@ -111,5 +111,36 @@ describe("FormRenderer", () => {
     // one at a time, and the same «?» closes it
     fireEvent.click(toggles[0]!);
     expect(screen.queryByText("Qué poner:")).toBeNull();
+  });
+
+  it("a field of another window decides what applies here (ERP-2)", () => {
+    const lodges: Condition = { when: "any_of", field: "institution.modalities", values: ["residential", "day_care"] };
+    const byProgram: Condition = { when: "any_of", field: "institution.modalities", values: ["outpatient", "community", "home_care", "remote", "support"] };
+    const capacity: FormSpec = {
+      id: "institution.capacity",
+      sections: [
+        {
+          id: "capacity_people",
+          columns: 2,
+          fields: [
+            field("institution.capacity_total", { kind: "number", applies_when: lodges }),
+            field("institution.served_estimate", { kind: "number", applies_when: lodges }),
+            field("institution.served_last_year", { kind: "number", applies_when: byProgram }),
+          ],
+        },
+      ],
+    };
+    const draw = (context: FormValues) => render(<FormRenderer spec={capacity} values={{}} context={context} onChange={() => {}} />);
+    const community = draw({ "institution.modalities": ["community"] });
+    expect(screen.queryByText("Capacidad total (personas)")).toBeNull();
+    expect(screen.queryByText("¿Cuántas personas atienden hoy?")).toBeNull();
+    expect(screen.getByLabelText(/¿A cuántas personas atendieron en el último año\?/)).toBeInTheDocument();
+    community.unmount();
+
+    // a residence with community programs: its places and both counts
+    draw({ "institution.modalities": ["community", "residential"] });
+    expect(screen.getByLabelText(/Capacidad total \(personas\)/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/¿Cuántas personas atienden hoy\?/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/¿A cuántas personas atendieron en el último año\?/)).toBeInTheDocument();
   });
 });

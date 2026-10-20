@@ -29,6 +29,7 @@
   "institution.capacity": {
     "institution.capacity_total": { "nada": true },
     "institution.served_estimate": { "nada": true, "aceptables": [48] },
+    "institution.served_last_year": { "nada": true, "aceptables": [48] },
     "institution.staff_paid_estimate": { "valores": [31], "paginas": [["informe-anual-2025.txt", 1]] },
     "institution.staff_volunteer_estimate": { "valores": [18], "paginas": [["informe-anual-2025.txt", 1]] },
     "institution.notes": { "libre": true }

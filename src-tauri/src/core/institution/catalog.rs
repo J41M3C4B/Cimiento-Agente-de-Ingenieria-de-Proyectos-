@@ -82,23 +82,27 @@ pub enum Applies {
     Cluni,
     /// Watched over by a Junta de Asistencia (o Beneficencia) Privada (`UNDER_A_JUNTA`).
     Junta,
-    /// It serves girls, boys or teenagers (the Registro Nacional de Centros de Asistencia Social).
-    Minors,
+    /// Girls, boys or teenagers live there (the Registro Nacional de Centros de Asistencia Social is of the centers
+    /// where they live; an afternoon tutoring does not need it).
+    MinorsLiving,
     /// People live or spend the day there (the sanitary notice).
     Housing,
+    /// People are served in a building of its own: they live, spend the day or come for a consultation there (the land
+    /// use license and the civil protection program). Another institution may still keep them as an «other».
+    Premises,
 }
 
 impl Applies {
-    /// The datum of the institution it depends on: that datum is indispensable (ADR-042), or the Expediente would ask
-    /// for the wrong documents.
-    pub const fn field(self) -> Option<&'static str> {
+    /// The data of the institution it depends on: they are indispensable (ADR-042), or the Expediente would ask for
+    /// the wrong documents.
+    pub const fn fields(self) -> &'static [&'static str] {
         match self {
-            Applies::Always => None,
-            Applies::Donee => Some("institution.authorized_donee"),
-            Applies::Cluni => Some("institution.cluni"),
-            Applies::Junta => Some("institution.legal_form"),
-            Applies::Minors => Some("institution.populations"),
-            Applies::Housing => Some("institution.modalities"),
+            Applies::Always => &[],
+            Applies::Donee => &["institution.authorized_donee"],
+            Applies::Cluni => &["institution.cluni"],
+            Applies::Junta => &["institution.legal_form"],
+            Applies::MinorsLiving => &["institution.populations", "institution.modalities"],
+            Applies::Housing | Applies::Premises => &["institution.modalities"],
         }
     }
 }
@@ -114,10 +118,10 @@ pub const RECORD_TYPES: &[(&str, Applies)] = &[
     ("donee_authorization", Applies::Donee),
     ("cluni_certificate", Applies::Cluni),
     ("junta_registration", Applies::Junta),
-    ("social_care_registry", Applies::Minors),
+    ("social_care_registry", Applies::MinorsLiving),
     ("sanitary_notice", Applies::Housing),
-    ("land_use_license", Applies::Always),
-    ("civil_protection_program", Applies::Always),
+    ("land_use_license", Applies::Premises),
+    ("civil_protection_program", Applies::Premises),
     ("privacy_notice", Applies::Always),
     ("internal_rules", Applies::Always),
     ("org_chart", Applies::Always),
@@ -174,17 +178,29 @@ pub fn state_name(code: &str) -> Option<&'static str> {
 
 // ------------------------------------------------------------------ the attention profile (ADR-033 §2)
 
-/// Whom the institution serves, by stage of life. Several may be marked.
-pub const POPULATIONS: &[&str] = &["early_childhood", "childhood", "adolescence", "youth", "adults", "older_adults"];
+/// Whom the institution serves: by stage of life, the public at large (no group of age), or other organizations.
+/// Several may be marked.
+pub const POPULATIONS: &[&str] = &["early_childhood", "childhood", "adolescence", "youth", "adults", "older_adults", "general_public", "organizations"];
+/// The stages of life: with one of them, the sex and the ages served are asked.
+pub const AGE_GROUPS: &[&str] = &["early_childhood", "childhood", "adolescence", "youth", "adults", "older_adults"];
 /// The stages of life under 18.
 pub const MINORS: &[&str] = &["early_childhood", "childhood", "adolescence"];
 /// Whether it serves women, men or both.
 pub const SEXES_SERVED: &[&str] = &["women", "men", "all"];
 /// How it serves them. Several may be marked.
-pub const MODALITIES: &[&str] = &["residential", "day_care", "outpatient", "community", "home_care"];
+pub const MODALITIES: &[&str] = &["residential", "day_care", "outpatient", "community", "home_care", "remote", "support"];
+/// The ways where people stay in the institution, so it has places: its capacity and occupancy, and a count of
+/// people served today.
+pub const LODGING: &[&str] = &["residential", "day_care"];
+/// The ways where people come and go: how many it served in the last year is asked (`served_last_year`). With
+/// `LODGING` they are every way, each in one of the two.
+pub const BY_PROGRAM: &[&str] = &["outpatient", "community", "home_care", "remote", "support"];
+/// The ways that need a building where people are served: its land use license and civil protection program.
+pub const PREMISES: &[&str] = &["residential", "day_care", "outpatient"];
 /// What it attends to. Several may be marked.
 pub const CARE_AREAS: &[&str] = &[
-    "care", "health", "disability", "education", "food", "violence", "addictions", "street", "migration", "mental_health", "other",
+    "care", "health", "disability", "education", "food", "violence", "addictions", "street", "migration", "mental_health", "environment", "culture",
+    "human_rights", "community_development", "employment", "other",
 ];
 
 /// The kind of institution the modules still go by (`elderly_home`, `children_home`, `other`), from whom it serves:
@@ -231,6 +247,15 @@ mod tests {
         assert_eq!(kind_of(&v(&["childhood", "older_adults"])), "other", "mixed");
         assert_eq!(kind_of(&v(&["adults"])), "other");
         assert_eq!(kind_of(&[]), "other");
+    }
+
+    /// Every way it serves asks one count of people or the other: today where they stay, the last year elsewhere.
+    #[test]
+    fn every_way_of_serving_asks_one_count_of_people() {
+        for m in MODALITIES {
+            assert!(LODGING.contains(m) != BY_PROGRAM.contains(m), "{m}");
+        }
+        assert_eq!(LODGING.len() + BY_PROGRAM.len(), MODALITIES.len());
     }
 
     #[test]

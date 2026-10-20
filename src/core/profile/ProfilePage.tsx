@@ -55,7 +55,8 @@ const memberDetail = (m: BoardMember) =>
 /** An account in a line: what it is for and whether it goes in the documents. */
 const accountDetail = (a: BankAccount) => [codesText("institution.bank.purpose", a.purpose), a.in_documents ? t.lists.inDocuments : t.lists.notInDocuments].filter(Boolean).join(" · ");
 
-/** A document of the record in a line: until when it is valid (or since when it is not) and its file. */
+/** A document of the record in a line: until when it is valid (or since when it is not) and its file, or that it has
+ * none: one they have on paper counts without it (ADR-033 §5), and the list says so. */
 const recordDetail = (r: InstitutionRecord) =>
   [
     r.validity === "expired" && r.valid_until
@@ -65,6 +66,7 @@ const recordDetail = (r: InstitutionRecord) =>
         : r.validity === "valid" && r.valid_until
           ? t.records.validUntil(dateText(r.valid_until))
           : null,
+    r.status === "have" && !r.file && t.records.withoutFile,
     r.file &&
       (!r.file.readable
         ? `${r.file.name}, ${t.records.noText}`
@@ -159,7 +161,7 @@ export function ProfilePage({
     return () => window.clearTimeout(id);
   }, [toast]);
 
-  async function loadExample(name: "asilo" | "casa-hogar") {
+  async function loadExample(name: "asilo" | "casa-hogar" | "red-comunitaria") {
     setBusy(true);
     try {
       qc.setQueryData(["profile"], await devLoadFixture(name));
@@ -236,7 +238,11 @@ export function ProfilePage({
       page: "people",
       title: es.nav.people,
       figure: shown(people),
-      label: o?.capacity ? t.kpi.peopleOf(count(o.capacity)) : t.modules.unit.people(people.value),
+      label: o?.capacity
+        ? t.kpi.peopleOf(count(o.capacity))
+        : o?.people_period === "last_year"
+          ? t.kpi.peopleLastYear(people.value)
+          : t.modules.unit.people(people.value),
       approx: people.approx,
       core: t.modules.core.people,
     },
@@ -491,6 +497,9 @@ export function ProfilePage({
           </Button>
           <Button size="sm" variant="plain" onClick={() => loadExample("casa-hogar")} disabled={busy}>
             {t.devCasaHogar}
+          </Button>
+          <Button size="sm" variant="plain" onClick={() => loadExample("red-comunitaria")} disabled={busy}>
+            {t.devRedComunitaria}
           </Button>
         </p>
       )}

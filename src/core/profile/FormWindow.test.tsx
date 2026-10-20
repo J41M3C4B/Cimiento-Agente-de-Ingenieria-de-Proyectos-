@@ -24,6 +24,7 @@ const view: FormView = {
     sections: [{ id: "who", columns: 1, fields: [field("institution.name", "text"), field("institution.populations", "multi_select", ["childhood", "older_adults"]), field("institution.age_min", "number")] }],
   },
   values: { "institution.name": "Asilo Ficticio" },
+  context: {},
   origins: {},
   missing: [],
   proposals: [
@@ -41,7 +42,7 @@ vi.mock("../../lib/tauri", () => ({
   toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
 }));
 
-import { formSave, institutionFillFromDocuments, proposalsReject } from "../../lib/tauri";
+import { formGet, formSave, institutionFillFromDocuments, proposalsReject } from "../../lib/tauri";
 import { fillAllNotice } from "./fromDocuments";
 import { FormWindow } from "./FormWindow";
 
@@ -125,5 +126,27 @@ describe("«Llenar con mis documentos» (C2)", () => {
     );
     expect(fillAllNotice([{ status: "nothing", form: "f", place: "p", reason: "no_documents" }]).text).toMatch(/todavía no tiene documentos/);
     expect(fillAllNotice([proposed(1), { status: "unavailable", form: "f", place: "p", reason: "budget" }]).tone).toBe("error");
+  });
+});
+
+describe("FormWindow opened again", () => {
+  // ERP-2: the asilo loaded, its window opened and closed, then the A.C. loaded; the window showed the asilo
+  it("starts from what is saved now, never from what it read before", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const open = () =>
+      render(
+        <QueryClientProvider client={qc}>
+          <FormWindow id="institution.identity" title="Su institución" onSaved={() => {}} onClose={() => {}} />
+        </QueryClientProvider>,
+      );
+    const first = open();
+    expect(await screen.findByDisplayValue("Asilo Ficticio")).toBeInTheDocument();
+    first.unmount();
+    await new Promise((r) => setTimeout(r, 10));
+
+    vi.mocked(formGet).mockResolvedValue({ ...view, values: { "institution.name": "Red Ficticia" }, proposals: [] });
+    open();
+    expect(await screen.findByDisplayValue("Red Ficticia")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Asilo Ficticio")).toBeNull();
   });
 });

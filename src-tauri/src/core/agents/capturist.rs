@@ -443,7 +443,8 @@ pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Captur
 /// The titles of the fields of a window the person may still tell: the AI may suggest them, they apply (with what is
 /// saved and what waits), nothing is saved in them and no suggestion waits for them.
 fn still_to_tell(conn: &rusqlite::Connection, spec: &FormSpec, saved: &Values) -> Result<Vec<String>, ServiceError> {
-    let mut known = saved.clone();
+    // a field may apply by what another window says (the capacity, by how it serves; ERP-2)
+    let mut known = crate::core::profile::forms::with_context(saved, &crate::core::profile::forms::context(conn, spec.id)?);
     for p in proposals::pending(conn, spec.id, None)? {
         known.entry(p.field_id).or_insert(p.value);
     }

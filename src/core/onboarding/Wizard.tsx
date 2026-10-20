@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../../components/icons";
 import { Alert, Button, Facts, StepNav, Status, TextButton } from "../../components/ui";
-import { FormRenderer, shownValue } from "../../components/FormRenderer";
+import { FormRenderer, applies, shownValue } from "../../components/FormRenderer";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
 import { es } from "../../i18n/es-MX";
 import { toAppError } from "../../lib/tauri";
@@ -152,12 +152,16 @@ export function Wizard({ status, onStatus, onFinished, onBack }: { status: Onboa
 function Review({ status, onEdit }: { status: OnboardingStatus; onEdit: (i: number) => void }) {
   const none = o.reviewEmpty;
   const pending = status.steps.filter((s) => !s.complete).length;
+  // what does not apply with the answers is not asked, so it is not reviewed either (the capacity, where nobody stays)
   const rows = (s: StepStatus): [string, React.ReactNode][] =>
-    s.form.sections.flatMap((sec) => sec.fields).map((f) => {
-      const v = status.values[f.id];
-      const shown = v === undefined || (Array.isArray(v) && v.length === 0) ? <span className="font-medium text-ink-3">{none}</span> : shownValue(f, v);
-      return [fieldName(f.id), shown];
-    });
+    s.form.sections
+      .flatMap((sec) => sec.fields)
+      .filter((f) => applies(f, status.values))
+      .map((f) => {
+        const v = status.values[f.id];
+        const shown = v === undefined || (Array.isArray(v) && v.length === 0) ? <span className="font-medium text-ink-3">{none}</span> : shownValue(f, v);
+        return [fieldName(f.id), shown];
+      });
   return (
     <div className="space-y-4">
       <Alert tone={pending === 0 ? "ok" : "pending"}>{pending === 0 ? o.reviewReady : o.reviewPending(pending)}</Alert>

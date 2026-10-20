@@ -68,6 +68,8 @@ export interface Figure {
   approx: boolean;
 }
 export interface InstitutionOverview {
+  /** what `people` counts: today where people stay, the last year where they come and go (ERP-2) */
+  people_period: "today" | "last_year";
   people: Figure;
   capacity: number | null;
   occupied_percent: number | null;
@@ -82,6 +84,8 @@ export interface InstitutionOverview {
 export interface FormView {
   spec: FormSpec;
   values: FormValues;
+  /** what other windows saved that decides a field here (how it serves, for the capacity): read, never saved */
+  context: FormValues;
   /** Where each saved datum comes from (ADR-033 §4): `user`, `document`, `ai_assumption` or `computed`. */
   origins: Record<string, FieldOrigin>;
   missing: string[];

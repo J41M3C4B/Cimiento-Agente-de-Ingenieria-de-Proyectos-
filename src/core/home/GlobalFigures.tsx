@@ -66,6 +66,11 @@ export function GlobalFigures({ onGo, onOpenFigures, aside }: { onGo: (page: "pe
           <div className="fig-main">
             <div className="tabular whitespace-nowrap text-display font-normal tracking-tight">{approx ? `≈ ${count(served)}` : count(served)}</div>
             <div className="fig-cols">
+              {o?.people_period === "last_year" && (
+                <span className="fig-col">
+                  <span>{t.lastYear}</span>
+                </span>
+              )}
               {capacity !== null && (
                 <span className="fig-col">
                   <ChartDot tone="off" />

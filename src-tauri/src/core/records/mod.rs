@@ -28,7 +28,7 @@ use crate::core::archive::storage::PageMarks;
 use crate::core::error::ServiceError;
 use crate::documents::reading::{self, ReadError};
 use crate::core::history::{self, Source};
-use crate::core::institution::catalog::{Applies, MINORS, RECORD_OTHER, RECORD_TYPES, UNDER_A_JUNTA};
+use crate::core::institution::catalog::{Applies, LODGING, MINORS, PREMISES, RECORD_OTHER, RECORD_TYPES, UNDER_A_JUNTA};
 use crate::core::institution::forms::{RECORD, RECORD_KNOWN};
 use crate::core::profile::domain::ProfileIssue;
 use crate::core::reader::kinds::Placement;
@@ -192,13 +192,15 @@ fn list(v: &Values, field: &str) -> Vec<String> {
 /// Whether a type applies to the institution, from what it says of itself now.
 fn applies(a: Applies, identity: &Values, legal: &Values) -> bool {
     let one_of = |field: &str, codes: &[&str]| text(legal, field).is_some_and(|v| codes.contains(&v.as_str()));
+    let serves_by = |ways: &[&str]| list(identity, "institution.modalities").iter().any(|m| ways.contains(&m.as_str()));
     match a {
         Applies::Always => true,
         Applies::Donee => one_of("institution.authorized_donee", &["yes", "in_progress"]),
         Applies::Cluni => one_of("institution.cluni", &["yes", "in_progress"]),
         Applies::Junta => one_of("institution.legal_form", UNDER_A_JUNTA),
-        Applies::Minors => list(identity, "institution.populations").iter().any(|p| MINORS.contains(&p.as_str())),
-        Applies::Housing => list(identity, "institution.modalities").iter().any(|m| m == "residential" || m == "day_care"),
+        Applies::MinorsLiving => list(identity, "institution.populations").iter().any(|p| MINORS.contains(&p.as_str())) && serves_by(&["residential"]),
+        Applies::Housing => serves_by(LODGING),
+        Applies::Premises => serves_by(PREMISES),
     }
 }
 
@@ -594,6 +596,11 @@ fn write_own(tx: &Connection, id: &str, document_id: &str, found: &[crate::core:
 /// The document in the drawer that holds the text of a document's file, if it has one.
 pub fn document_of(conn: &Connection, id: &str) -> Result<Option<String>, ServiceError> {
     Ok(store::by_id(conn, id)?.and_then(|r| r.document_id))
+}
+
+/// Development only: an example of `fixtures/` brings its own record, so the one there is goes first.
+pub fn clear_for_example(conn: &Connection) -> Result<(), ServiceError> {
+    Ok(store::clear_all(conn)?)
 }
 
 /// Takes the file off a document, and its clean text out of the drawer (ADR-036): there is no document without a

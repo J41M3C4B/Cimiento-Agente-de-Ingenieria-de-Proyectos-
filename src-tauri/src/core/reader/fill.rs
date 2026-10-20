@@ -61,6 +61,8 @@ pub const SEARCH: &[(&str, &str)] = &[
     ("institution.donee_category", "rubro asistencial autorización donativos actividad"),
     ("institution.capacity_total", "capacidad camas lugares plazas espacios cupo"),
     ("institution.served_estimate", "atend viven personas residentes estancia de día beneficiarias"),
+    // ERP-2: first words, for the AI lane to measure (IA-7)
+    ("institution.served_last_year", "atend año anual personas beneficiarias programas talleres"),
     ("institution.staff_paid_estimate", "personas contratadas personal equipo nómina empleados"),
     ("institution.staff_volunteer_estimate", "personas voluntarias voluntario voluntariado"),
     ("institution.notes", "retos necesidades lista de espera"),

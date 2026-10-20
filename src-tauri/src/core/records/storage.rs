@@ -169,6 +169,14 @@ pub fn set_field_origin(conn: &Connection, id: &str, field: &str, origin: &str, 
     Ok(())
 }
 
+/// Every document of the record and where each datum came from (development only: an example replaces the record).
+/// The files stay in the archive.
+pub fn clear_all(conn: &Connection) -> Result<(), StorageError> {
+    conn.execute("DELETE FROM core_record_field", [])?;
+    conn.execute("DELETE FROM core_record", [])?;
+    Ok(())
+}
+
 /// Forgets where a datum came from, once it is emptied: the next file may fill it again.
 pub fn clear_field_origin(conn: &Connection, id: &str, field: &str) -> Result<(), StorageError> {
     conn.execute("DELETE FROM core_record_field WHERE record_id = ?1 AND field = ?2", params![id, field])?;
