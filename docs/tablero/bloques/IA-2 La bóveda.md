@@ -2,14 +2,14 @@
 tipo: bloque
 id: IA-2
 carril: ia
-estado: revision
+estado: hecho
 prioridad: alta
 fase: MVP-2
 patron: [determinista]
 rama: ia/ia-2-boveda
 adr: "[[ADR-044-la-boveda]]"
 creado: 2026-10-18
-cerrado:
+cerrado: 2026-10-20
 ---
 
 ## Qué y por qué
@@ -90,4 +90,9 @@ Resultados de la bitacora:
   - Ahora cada turno lleva las palabras del Asistente y, aparte, la ventana que ofreció; lo que dijo el programa va como del programa.
   - La secuencia entró a la batería. Corrida real con el modelo más barato, 5 rondas: la calle fue a «Contacto y ubicación» 5 de 5, y el correo desde «Mi institución» y desde Inicio, 9 de 10 (la otra, «servicio ocupado»); $0.28 MXN.
   - **Ojo:** el control, la misma secuencia con la conversación como se mandaba antes, también salió 4 de 4 (la quinta, «ocupado»). El arreglo quita una confusión real, pero la medición no reprodujo la falla; se confirma en la app con el paso de arriba.
-- **Las dos llamadas (prueba 3)** son la deuda de IA-4. Con el líder se decidió hacerlas en IA-4, sobre esta rama, y fusionar los dos juntos.
+- **Las dos llamadas (prueba 3)** son la deuda de IA-4, que pasa a ser la fase F3 del [[ADR-048-el-flujo-de-datos|ADR-048]].
+
+**Cierre (2026-10-20, decisión del líder en el ADR-048):** se fusiona con lo que funciona. La ventana de «datos personales» ya no aparece, y ningún valor marcado sale hacia la IA en ninguna batería. Lo que no pasó en la app queda para las fases siguientes:
+- **La representante y la calle ofrecidas en otra ventana:** el mapa del Asistente no listaba los campos protegidos de cada ventana. Va a **F1 · El modelo de datos**.
+- **«Calle Ana María Rodríguez» marcada entera como un nombre, y un nombre sin marcar:** va a **F2 · El escáner inteligente**.
+- **Las dos llamadas al contar datos:** va a **F3**.
