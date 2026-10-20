@@ -27,13 +27,63 @@ Hoy los usan `src/core/assistant/Assistant.tsx`, `src/core/profile/FormWindow.ts
 
 Se necesita que **las pantallas dejen de usarlos** antes de que se retiren. Lo que hacían lo sustituyen el chat global (DIS-1) y las capacidades nuevas; no se conserva.
 
+**Alcance acordado con el líder (2026-10-20):**
+- Este bloque cubre **Mi institución, el Asistente y la lectura al adjuntar**, que es la lista de arriba.
+- Las pantallas de **Proyectos** pasan a [[DIS-4 Proyectos sin la IA vieja|DIS-4]], porque el ERP-4 todavía no dice qué comandos retira.
+- La revisión de sugerencias por campo («Usar», «Descartar») **se conserva** hasta el DIS-2: la lectura con reglas, que no usa IA, sigue dejándolas al adjuntar un documento. Por eso `proposals_reject` no debe retirarse (ver «Hallazgos»).
+
 ## Terminado cuando
 
-(Lo escribe el riel de diseño con el líder.)
+Propuesta del riel de diseño; la aprueba el líder. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] 
+- [ ] **Ninguna pantalla usa la IA vieja de Mi institución.** En `src/`, fuera de `lib/tauri.ts` y `lib/types.ts` (que cambia quien retira el comando), nada llama a `assistant_ask`, `capture_ask`, `institution_fill_from_documents` ni `institution_fill_all_from_documents`, nada escucha `record-suggested` y nada lee el dato `fill` de la vista de un formulario. Una búsqueda en `src/` lo demuestra.
+- [ ] **La app se usa sin el Asistente.** No hay botón ✨ en la barra, ni panel, ni «Preguntar más». La ayuda de cada campo sigue mostrando el manual, sin internet y sin gasto.
+- [ ] **Las ventanas de Mi institución y su página no ofrecen llenar con IA:** ni «Llenarlo por mí», ni «Llenar con mis documentos», ni «Llenar todo con mis documentos».
+- [ ] **Lo que no usa IA sigue como está:**
+  - revisar sugerencias por campo («Usar», «Descartar», «Descartar todas») y el aviso «Hay N sugerencias» de Mi institución;
+  - los avisos al adjuntar un documento (lo que se llenó y las sugerencias de la lectura con reglas);
+  - «Ir a…» desde Inicio y la cuarentena de datos personales al guardar.
+- [ ] **No quedan textos ni componentes huérfanos:** lo que solo usaba el Asistente o la lectura con IA sale de `es-MX.ts` y de `src/`.
+- [ ] **Pruebas:** se retiran las del Asistente y de la lectura con IA; las de lo que se queda pasan; hay una prueba nueva por cada punto que cambia (barra, ayuda de campo, ventana, página). `pnpm test` y `pnpm build` pasan.
+- [ ] **Revisado en la app real (WebView2),** en tema claro y oscuro: Inicio, una ventana de Mi institución, adjuntar un archivo al Expediente y la ayuda de un campo.
+- [ ] **Se fusiona antes que el ERP-4, el ERP-5 y el IA-1.** Con los comandos aún en Rust, la app compila y funciona sin llamarlos.
 
 ## Plan
+
+**Rama:** `diseno/dis-3-pantallas-sin-la-ia-vieja`, de `main` al día, en la carpeta `sociai-diseno`. Solo se toca `src/` y este bloque; nada de Rust, de `lib/tauri.ts`, de `lib/types.ts` ni de `docs/manual/`.
+
+**Qué se retira y qué cambia** (lo que hoy usa los comandos, visto en el código):
+
+1. **El Asistente** (`src/core/assistant/`): se borran `Assistant.tsx` y `Assistant.test.tsx`. No se conserva ningún cascarón: el DIS-1 dibuja el chat desde cero sobre el contrato común de resultados del IA-2.
+   - `App.tsx`: sale `AssistantProvider`. `goTo` se queda, porque Inicio lo usa.
+   - `components/Shell.tsx`: sale el botón ✨ y `useAssistant`.
+   - `components/ManualHelp.tsx`: sale «Preguntar más»; el manual de cada campo sigue.
+2. **`core/profile/FormWindow.tsx`:** salen `useAssistant`, `windowClosed`, los botones «Llenarlo por mí» y «Llenar con mis documentos», su estado (`searching`, `fromDocs`) y el bloque `form.data?.fill`. Se quedan «Usar», «Descartar» y «Descartar todas».
+3. **`core/profile/ProfilePage.tsx`:** sale «Llenar todo con mis documentos» y su estado. Se quedan el aviso de sugerencias y «Revisarlas». Se borra `core/profile/fromDocuments.ts`.
+4. **`core/profile/recordReading.tsx`:** sale la escucha de `record-suggested` y `suggestedText`; se borra `recordSuggested.test.ts`. Se queda `record-read` y los avisos de «lo que se llenó» y «sugerencias» al adjuntar (`attachedNotice`), que salen de la lectura con reglas.
+5. **`i18n/es-MX.ts`:** sale el bloque `assistant` entero, `manual.askMore`, y de `suggestions` lo de llenar con documentos (`fillFromDocuments`, `fillAllFromDocuments`, `searchingDocuments`, `fromDocuments`, `fromDocumentsAll`, `nothingFromDocuments`); de `profile.records`, `suggestedFromFile` y `suggestFailed`. Antes de borrar cada llave se comprueba que nadie más la use.
+6. **Pruebas:** `FormWindow.test.tsx` pierde el grupo «Llenar con mis documentos» y conserva el de las sugerencias; `ProfilePage.test.tsx` y `RecordWindow.test.tsx` se ajustan; se agregan las pruebas nuevas de la barra (sin ✨), la ayuda de campo (sin «Preguntar más»), la ventana (sin botones de llenar) y la página (sin «Llenar todo»).
+
+**Los pasos:**
+1. La rama, y la lista exacta de importaciones y llaves a retirar (búsqueda en `src/`).
+2. Retirar el Asistente y lo que lo abre (1).
+3. Retirar los botones y la lectura con IA (2, 3 y 4).
+4. Limpiar textos (5) y pruebas (6).
+5. `pnpm test`, `pnpm build` y la búsqueda del primer punto del «Terminado cuando».
+6. Revisar en WebView2 real (CDP, con una carpeta de datos aparte), en claro y en oscuro.
+7. `rebase` sobre `main`, revisar finales de línea, PR con «Cómo probarlo», y el bloque a «Revisión».
+
+**Orden para fusionar:** DIS-3 primero (lo pide el IA-1). Después ERP-4 y ERP-5, y al final IA-1.
+
+**Lo que no entra aquí:**
+- Las pantallas de Proyectos: DIS-4.
+- `lib/tauri.ts` y `lib/types.ts`: las líneas de los comandos retirados y sus tipos (`AssistantOutcome`, `CaptureOutcome`, `FillOutcome`, `RecordSuggested`, `Fill`, el campo `fill`) los quita el IA-1 y el ERP-5 con el comando. Se quedan sin uso, y TypeScript no se queja.
+- La interfaz de revisión de sugerencias: la rediseña el DIS-2.
+- El texto «asistente» de la bienvenida y del arranque (`onboarding`, `help`): habla del asistente de Proyectos, y va en DIS-4 o DIS-1.
+
+**Riesgos:**
+- Hasta el DIS-1 y el IA-4, la app no tiene chat. El líder ya lo aceptó (ver IA-1, «Riesgos»).
+- Sugerencias que ya estén guardadas en la base con origen de la IA (`ai_assumption`) siguen apareciendo en la ventana con la revisión de siempre; es lo correcto, y las retira el ERP con las propuestas.
 
 ## Cómo probarlo
 
@@ -48,5 +98,9 @@ Se necesita que **las pantallas dejen de usarlos** antes de que se retiren. Lo q
 - [ ] 
 
 ## Hallazgos
+
+- **`proposals_reject` no debería retirarse con el Asistente** (para el IA-1 y el ERP-5). El bloque lo lista entre los comandos que desaparecen, pero vive en `commands/assistant.rs`, que el IA-1 borra entero. Las propuestas por campo no llaman a la IA (hallazgo del IA-1) y la lectura con reglas del Lector sigue produciéndolas al adjuntar un documento. Sin ese comando no hay forma de descartarlas. Se necesita que el comando se mueva a un archivo que se quede (el de Mi institución o el de Expediente) antes de que el IA-1 borre `commands/assistant.rs`. Es del riel ERP; el líder decide si va en el ERP-5 o en un bloque aparte.
+- **`docs/manual/` habla del Asistente** (`programa.md`, `README.md`) y se compila dentro de la app. Es del riel ERP: queda para cuando el chat nuevo exista, o antes si el líder prefiere.
+- **El IA-1 debería depender también del DIS-4** (hoy depende del DIS-3, el ERP-4 y el ERP-5). Lo ajusta su riel.
 
 ## Resultado
