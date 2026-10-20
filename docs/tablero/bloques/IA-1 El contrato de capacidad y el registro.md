@@ -76,7 +76,8 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
    - la lectura del proveedor en `onboarding`.
 
    Los comandos que solo envuelven eso (`commands/assistant.rs` y la llamada de `records.rs`) salen con ellos, junto con sus líneas en `src/lib/tauri.ts` y `src/lib/types.ts`. Los vectores (la búsqueda por significado) no se borran: salen de `core` hacia la plataforma, como herramienta de la capa 4.
-6. La suite completa, y el PR.
+6. **Sacar la IA de los servicios deterministas.** `documents/canonical/run.rs` llama a la IA: es la lectura de convocatorias, que es un operador de IA (capa 4, riel IA). Se mueve a la plataforma, y `documents` se queda solo con lo determinista (el contrato, la recuperación y el paquete). La prueba estricta también impide que un servicio determinista use la IA: solo la plataforma y los comandos la usan.
+7. La suite completa, y el PR.
 
 **Lo que se pide a otros rieles:**
 - **ERP-4:** Proyectos sin IA propia.
@@ -92,7 +93,7 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 - La configuración de la IA (proveedor, clave, tope) es de la plataforma y se queda.
 
 **Riesgos:**
-- `linkme` en Windows. Se prueba primero; si falla, un registro por módulo con un solo punto de entrada, y se dice en el ADR.
+- ~~`linkme` en Windows.~~ Probado el 2026-10-20 en un proyecto aparte con la misma forma de crate (`staticlib`, `cdylib` y `rlib`, más el binario). Junta las capacidades de dos módulos sin lista, en desarrollo, en pruebas y con el perfil de *release* real (LTO, `codegen-units = 1`, `strip`).
 - Hasta el IA-4 y la migración de capacidades, la app queda sin el Asistente, sin la lectura con IA y sin la IA de Proyectos. Lo viejo no se conserva por existir.
 
 ## Cómo probarlo
