@@ -2,14 +2,14 @@
 tipo: bloque
 id: IA-6
 carril: ia
-estado: backlog
+estado: cerrado
 prioridad: media
-fase: MVP-2
+fase: —
 patron: [acotada, agente]
 rama:
 adr: "[[ADR-045-tres-patrones-de-la-ia]]"
 creado: 2026-10-19
-cerrado:
+cerrado: 2026-10-20
 ---
 
 ## Qué y por qué
@@ -37,3 +37,6 @@ Conviene hacerlo junto con IA-4 o justo antes, porque IA-4 agrega un operador qu
 ## Cómo probarlo
 
 ## Resultado
+
+**Se cerró sin hacerse (decisión del líder del 2026-10-20, [[ADR-048-el-flujo-de-datos|ADR-048]]):** son solo nombres, y F3 y F4 rehacen esas piezas.
+

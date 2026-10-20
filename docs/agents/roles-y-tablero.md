@@ -58,13 +58,13 @@ Un bloque que toca los dos va al carril de su decisión principal. Si es grande,
 
 | Columna | Entra cuando | Quién lo mueve |
 |---|---|---|
-| **Backlog** | Hay una idea, un hallazgo o un pendiente («Qué y por qué») | Cualquiera |
+| **Backlog** | El líder lo pide o aprueba un hallazgo («Qué y por qué»). **A lo más 5 bloques por carril:** para agregar uno, se junta o se cierra otro | El líder |
 | **Listo** | «Terminado cuando» está escrito y aprobado | El líder |
 | **En curso** | El CTO lo toma, crea su rama y escribe el «Plan». **A lo más un bloque por carril** | El CTO |
 | **Revisión** | Las pruebas pasan, el PR está abierto y «Cómo probarlo» está escrito | El CTO |
 | **Hecho** | El líder lo probó, se fusionó a `main` y el «Resultado» está escrito | El líder valida; el CTO fusiona y cierra |
 
-- **Lo que se descubre a medio bloque no se mete en él:** va a un bloque nuevo en el Backlog. Solo entra si sin eso el bloque no cumple su «Terminado cuando».
+- **Lo que se descubre a medio bloque no abre un bloque nuevo:** si viene del bloque, se resuelve en él; si no, va a su sección «Hallazgos» y el líder decide al validar (ver [flujo de trabajo](flujo-de-trabajo.md), punto 10).
 - **Un bloque que vuelve de «Revisión»** regresa a «En curso» con lo que faltó anotado en «Cómo probarlo».
 - **El roadmap** (`09-roadmap.md`) dice las fases y sus criterios; **el tablero** dice qué se hace ahora. Al cerrar un bloque se marca su avance en el roadmap y en el mapa.
 - **Las notas** (`docs/notas/`) siguen siendo las observaciones del líder. Una nota que pide trabajo se vuelve un bloque y se enlaza desde él.

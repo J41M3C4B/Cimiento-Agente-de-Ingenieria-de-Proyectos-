@@ -4,7 +4,7 @@ id: IA-4
 carril: ia
 estado: backlog
 prioridad: alta
-fase: MVP-2
+fase: F3
 patron: [acotada, agente]
 rama:
 adr: "[[ADR-045-tres-patrones-de-la-ia]]"
@@ -60,3 +60,6 @@ Conviene hacerlo después de la bóveda (IA-2), o junto con ella, porque los dos
 ## Cómo probarlo
 
 ## Resultado
+
+**Es la fase F3 del [[ADR-048-el-flujo-de-datos|ADR-048]]** (2026-10-20): contar datos da una sola respuesta, y el Asistente recibe el modelo de datos completo. Su «Terminado cuando» se escribe al terminar F2.
+

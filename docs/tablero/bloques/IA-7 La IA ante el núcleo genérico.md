@@ -2,13 +2,13 @@
 tipo: bloque
 id: IA-7
 carril: ia
-estado: backlog
+estado: cerrado
 prioridad: media
-fase: MVP-3
+fase: F1
 rama:
 adr: "[[ADR-043-un-erp-con-la-ia-en-el-nucleo]]"
 creado: 2026-10-19
-cerrado:
+cerrado: 2026-10-20
 ---
 
 ## Qué y por qué
@@ -57,3 +57,6 @@ cerrado:
 ## Cómo probarlo
 
 ## Resultado
+
+**Se juntó con [[IA-9 El modelo de datos|IA-9]] (F1, [[ADR-048-el-flujo-de-datos|ADR-048]], decisión del líder del 2026-10-20):** con el modelo de datos, lo nuevo del núcleo genérico llega solo a la IA.
+

@@ -32,6 +32,10 @@ cerrado:
 
 - [ ] 
 
+## Hallazgos
+
+(Lo que se descubre a medio bloque y no viene de él, una línea cada uno, con su causa. No abre un bloque nuevo: al validar, el líder decide cuál entra, cuál se junta con otro y cuál se descarta.)
+
 ## Resultado
 
-(Para pasar a «Hecho» · qué quedó, mediciones, el PR o los commits, y lo que se descubrió. Lo descubierto que pide trabajo nuevo va a un bloque nuevo en el Backlog.)
+(Para pasar a «Hecho» · qué quedó, mediciones, el PR o los commits.)

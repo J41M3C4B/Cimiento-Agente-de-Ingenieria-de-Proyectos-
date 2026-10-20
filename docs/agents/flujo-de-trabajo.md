@@ -10,3 +10,8 @@
 7. Los cambios de modelo, de prompt o de arquitectura se justifican con una medición, no con una opinión: primero en seco, después una corrida real acotada.
 8. **Observaciones de la persona dueña del proyecto:** al empezar un bloque, lee las notas con `estado: abierta` en `docs/notas/` y los bloques `> [!nota]` de los ADR; responde en cada nota y márcala `resuelta` cuando quede atendida. Al cerrar un bloque, actualiza `docs/00-mapa-del-proyecto.md` (hoy, qué sigue, lo que espera respuesta y lo último que se hizo) y, si un ADR es nuevo o cambia de estado, sus propiedades (`estado`, `fecha`, `reemplaza…`).
 9. **Un cajón que lee archivos** (Expediente, Personal, Beneficiarios, Instalaciones, Finanzas, Donantes) sigue la [metodología de los Lectores](metodologia-lectores.md): el mismo camino del archivo, la misma política de llenado (ADR-038) y su batería con pruebas de ciclo de vida.
+10. **Se trabaja en orden (ADR-048 §7).**
+    - **Lo abierto se termina antes de empezar algo nuevo.** Un carril tiene a lo más un bloque en curso. Mientras su bloque está en «Revisión», no toma otro: atiende lo que el líder encuentre en él.
+    - **Al empezar cada sesión**, el CTO dice en pocas líneas qué está abierto en su carril y qué espera al líder, y sigue con eso.
+    - **Antes de arreglar una falla se dice su causa:** el modelo de datos, el contexto que recibió la IA, el escáner, el proveedor o el código. Si el arreglo es una frase, una palabra, un regex o un caso más, no es el arreglo (ADR-048 §4).
+    - **Lo que se descubre a medio bloque no crece el tablero.** Si viene del bloque, se resuelve en él. Si no, va a «Hallazgos» del mismo bloque, con su causa. Al validar, el líder decide cuál entra, cuál se junta con otro y cuál se descarta.
