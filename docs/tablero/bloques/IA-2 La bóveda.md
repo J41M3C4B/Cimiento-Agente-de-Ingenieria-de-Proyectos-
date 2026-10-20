@@ -65,6 +65,8 @@ En la app de la rama `ia/ia-2-boveda` (carpeta `D:\Agente Proyectos\cimiento-ia`
 - [x] «Llenarlo por mí» en «Contacto y ubicación»: «Estamos en la Calle Ana María Rodríguez 8». La calle llega como «Ana María Rodríguez» (antes se tapaba como nombre).
 - [x] Saber que no salió nada: en las métricas de la IA o en la bitácora, cada pregunta con datos deja `scanner.leak_prevented` con **cuántos** datos de cada tipo, nunca cuáles.
 
+- [ ] **Segunda vuelta (2026-10-20), en una sola conversación y sin reiniciarla, desde «Mi institución»:** el correo, luego la representante y el RFC, luego «Estamos en la Calle Ana María Rodríguez 8». La calle se ofrece en **«Contacto y ubicación»**, no en «Datos legales y fiscales».
+
 Conocido: «Estamos en Benito Juárez, Ciudad de México» en «Llenarlo por mí» no llena el municipio (el modelo más barato no pone la marca ahí). Lo resuelve IA-8.
 
 ## Resultado
@@ -78,3 +80,14 @@ Tenemos otro comportamiento extraño, en la prueba 4 lo hice directo en el chat 
 
 Resultados de la bitacora:
 ![[{3D4DC67A-763F-4609-9622-17A8A5B106E9}.png]]
+
+**Respuesta del CTO de la IA (2026-10-20):**
+
+- **La ventana de datos personales** ya no sale en la rama correcta. La primera vuelta se hizo con la app de `main`, abierta desde la carpeta `cimiento`.
+- **La latencia no es de la bóveda.** La bóveda es código, no un modelo, y tarda milisegundos. Una sola llamada de prueba, fuera de la app, con 1,500 tokens de entrada y sin razonamiento, tardó 28.5 s, y la red a Gemini responde en 0.3 s. Ese día `gemini-3.5-flash-lite` tardó de 21 a 31 s por llamada, contra 1 a 4 s el día anterior en la misma batería: es el servicio.
+- **La ventana equivocada (prueba 4):**
+  - La pantalla le mandaba al modelo, como si fuera del Asistente, la frase del botón («…empezando por «Datos legales y fiscales»»).
+  - Ahora cada turno lleva las palabras del Asistente y, aparte, la ventana que ofreció; lo que dijo el programa va como del programa.
+  - La secuencia entró a la batería. Corrida real con el modelo más barato, 5 rondas: la calle fue a «Contacto y ubicación» 5 de 5, y el correo desde «Mi institución» y desde Inicio, 9 de 10 (la otra, «servicio ocupado»); $0.28 MXN.
+  - **Ojo:** el control, la misma secuencia con la conversación como se mandaba antes, también salió 4 de 4 (la quinta, «ocupado»). El arreglo quita una confusión real, pero la medición no reprodujo la falla; se confirma en la app con el paso de arriba.
+- **Las dos llamadas (prueba 3)** son la deuda de IA-4. Con el líder se decidió hacerlas en IA-4, sobre esta rama, y fusionar los dos juntos.
