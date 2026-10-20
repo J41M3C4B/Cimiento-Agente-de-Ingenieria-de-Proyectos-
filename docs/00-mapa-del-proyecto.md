@@ -16,6 +16,7 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - Un tercer ejemplo ficticio: «Red Comunitaria Ejemplo, A.C.».
 > - Lo que le toca a la IA (la ficha, los oficios y las baterías) quedó en [[IA-7 La IA ante el núcleo genérico|IA-7]].
 > - **De tu primera prueba salieron cuatro observaciones, atendidas en la vuelta 2.** Las dos cifras de personas («hoy» y «en el último año», y la mixta da las dos). Un ejemplo ya no deja su Expediente en otro, y las ventanas ya no muestran lo que leyeron antes. La fila del Expediente dice «Sin archivo».
+> - El cambio a la regla del primer inicio quedó en el [ADR-047](adr/ADR-047-un-indispensable-puede-esperar-a-otro.md): un dato indispensable se pregunta siempre, o cuando lo decide otro de un paso anterior.
 > - **En el carril del ERP no hay bloque en curso.** El que sigue es [[ERP-3 Proyectos sobre la base nueva|ERP-3]], cuando lo pases a «Listo».
 >
 > **Antes, el mismo día: [[ERP-1 Ocultar los módulos congelados|ERP-1]] está hecho (MVP-1).** Lo probaste y se fusionó a `main` en el PR #7.
@@ -182,7 +183,6 @@ Las fases y sus criterios están en el [Roadmap](09-roadmap.md), «Fase 11». Pe
 
 ## Lo que espera tu respuesta
 
-- **Para el ADR-042 (primer inicio):** con ERP-2 su regla cambió a «se pregunta siempre, o lo decide otro indispensable preguntado antes». ¿La escribo como un ADR nuevo que lo reemplaza? Recomiendo que sí, corto.
 - **Para el ADR-044 (la bóveda):** si lo de salud de una sola persona puede llegar a la IA ligado a una marca («[NOMBRE_1] tiene diabetes»), o se generaliza como hoy. Recomiendo generalizarlo.
 - **Dos decisiones que salieron de la prueba completa** (sección 7 de la guía):
   - cómo detectar una copia desteñida que el lector de imágenes da por buena;
