@@ -41,7 +41,36 @@ impl MockProvider {
         self.models_used.lock().unwrap().clone()
     }
 
+    /// What the scanner still finds in the requests sent: the values of personal data that reached the provider
+    /// (ADR-044: none should). The labels and marks of the vault are not data. `allowed` are the institution's own
+    /// (its phone, its mail), which may go (ADR-040).
+    pub fn personal_data_sent(&self, allowed: &[&str]) -> Vec<String> {
+        use crate::scanner::{RegexScanner, ScannerConfig, SensitiveScanner};
+        let scanner = RegexScanner::new(ScannerConfig::default());
+        let mut out = Vec::new();
+        for r in self.seen.lock().unwrap().iter() {
+            for text in r.context.iter().chain([&r.user, &r.system]) {
+                for f in scanner.scan(text).findings {
+                    let found = &text[f.span.clone()];
+                    if f.kind != crate::scanner::FindingKind::HealthContext && !allowed.iter().any(|a| found.contains(a) || a.contains(found)) {
+                        out.push(format!("{}: {found}", f.kind.key()));
+                    }
+                }
+            }
+        }
+        out
+    }
+
     fn answer(&self, req: &AiRequest, model: &str) -> Result<AiResponse, AiError> {
+        if std::env::var("CIMIENTO_LEAK_PROBE").is_ok() {
+            let scanner = crate::scanner::RegexScanner::new(crate::scanner::ScannerConfig::default());
+            for text in req.context.iter().chain([&req.user]) {
+                let r = crate::scanner::SensitiveScanner::scan(&scanner, text);
+                for f in r.findings.iter().filter(|f| f.kind != crate::scanner::FindingKind::HealthContext) {
+                    eprintln!("LEAK_PROBE {} {}: {}", req.task.as_str(), f.kind.key(), &text[f.span.clone()]);
+                }
+            }
+        }
         self.seen.lock().unwrap().push(req.clone());
         self.models_used.lock().unwrap().push(model.to_string());
         self.replies

@@ -5,6 +5,7 @@
 use super::metrics;
 use super::prompts;
 use super::settings::{self, AiSettings};
+use super::vault::Vault;
 use super::{AiError, AiProvider, AiRequest, AiResponse, AiTask, ModelTier};
 use crate::audit::{self, AuditKind};
 use crate::scanner::SensitiveScanner;
@@ -236,6 +237,19 @@ pub async fn run_measured(
     call: AiCall,
     custom: Option<Custom>,
 ) -> Result<Measured, AiError> {
+    run_marked(provider, scanner, ledger, call, custom, None).await
+}
+
+/// Like `run_measured`; with the vault of an errand (ADR-044), what the scanner finds goes as its marks instead of its
+/// label, and the legend of the marks goes last in the context.
+pub async fn run_marked(
+    provider: &dyn AiProvider,
+    scanner: &dyn SensitiveScanner,
+    ledger: &dyn Ledger,
+    call: AiCall,
+    custom: Option<Custom>,
+    vault: Option<&Vault>,
+) -> Result<Measured, AiError> {
     let settings = ledger.settings()?;
 
     // 1. Budget: at the cap, AI is paused and everything else keeps working.
@@ -243,20 +257,25 @@ pub async fn run_measured(
         return Err(AiError::BudgetExhausted);
     }
 
-    // 2. Second barrier of the scanner over the whole prompt: cover anything found.
+    // 2. Second barrier of the scanner over the whole prompt: cover anything found, with its label or with its mark.
     let mut leaks: BTreeMap<&'static str, usize> = BTreeMap::new();
     let mut clean = |text: &str| -> String {
         let report = scanner.scan(text);
-        if report.is_clean() {
-            return text.to_string();
-        }
         for (k, v) in report.counts() {
             *leaks.entry(k).or_insert(0) += v;
         }
-        scanner.redact(text, &report)
+        match vault {
+            // a value marked earlier in the errand is marked again even where the scanner does not see it now
+            Some(v) => v.mark(text, &report),
+            None if report.is_clean() => text.to_string(),
+            None => scanner.redact(text, &report),
+        }
     };
-    let context: Vec<String> = call.context.iter().map(|c| clean(c)).collect();
+    let mut context: Vec<String> = call.context.iter().map(|c| clean(c)).collect();
     let user = clean(&call.user);
+    if let Some(legend) = vault.and_then(Vault::legend) {
+        context.push(legend);
+    }
     if !leaks.is_empty() {
         ledger.record_leak_prevented(call.task, &leaks)?;
     }

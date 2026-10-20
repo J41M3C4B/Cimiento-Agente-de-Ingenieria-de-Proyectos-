@@ -26,10 +26,6 @@ struct Case {
     campos: serde_json::Map<String, Value>,
     #[serde(default)]
     trampas: Vec<Value>,
-    /// The person answered «No es dato personal» to the scanner (the institution's own phone or RFC): what they wrote
-    /// goes as it is. Otherwise, covered.
-    #[serde(default)]
-    no_es_personal: bool,
     /// What the institution has saved already, by window.
     #[serde(default)]
     guardado: serde_json::Map<String, Value>,
@@ -72,15 +68,6 @@ fn db_of(saved: &serde_json::Map<String, Value>) -> (tempfile::TempDir, SharedDb
         assert!(matches!(save(&mut c, form, v, None).unwrap(), SaveProfileOutcome::Saved { .. }), "{form}");
     }
     (dir, Arc::new(Mutex::new(c)))
-}
-
-/// What the person decided before the scanner.
-fn decision_of(c: &Case) -> Decision {
-    if c.no_es_personal {
-        Decision::NotPersonal
-    } else {
-        Decision::Redact
-    }
 }
 
 fn capture_of(c: &Case) -> Capture {
@@ -134,7 +121,7 @@ async fn the_code_drops_every_trap_of_the_battery() {
     for c in cases().iter().filter(|c| !c.trampas.is_empty()) {
         let (_d, db) = db();
         let p = MockProvider::new(vec![reply(json!({ "proposals": c.trampas }))]);
-        let out = capture(&db, Some(&p), capture_of(c), Some(decision_of(c))).await.unwrap();
+        let out = capture(&db, Some(&p), capture_of(c)).await.unwrap();
         let CaptureOutcome::Proposed { fields, dropped, .. } = out else { panic!("{}: {out:?}", c.id) };
         assert_eq!((fields, dropped), (Vec::<String>::new(), c.trampas.len()), "{}", c.id);
         assert!(proposals::pending_counts(&db.lock().unwrap()).unwrap().is_empty(), "{}", c.id);
@@ -229,7 +216,7 @@ async fn capturist_battery_live() {
             let (_d, db) = db_of(&c.guardado);
             recording.log.lock().unwrap().clear();
             let started = std::time::Instant::now();
-            let out = capture(&db, Some(&recording), capture_of(c), Some(decision_of(c))).await.unwrap();
+            let out = capture(&db, Some(&recording), capture_of(c)).await.unwrap();
             let secs = started.elapsed().as_secs_f64();
             let conn = db.lock().unwrap();
             let used: (i64, i64, i64, f64) = conn

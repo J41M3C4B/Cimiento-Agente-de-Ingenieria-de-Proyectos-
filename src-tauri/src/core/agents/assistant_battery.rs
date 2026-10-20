@@ -222,7 +222,7 @@ async fn the_battery_grades_what_it_should() {
         reply(json!({ "tool": null, "args": null, "answer": { "found": true, "text": "La comodataria paga el predial.", "citations": [{ "passage": p.id, "quote": "del impuesto predial" }] } })),
         reply(json!({ "tool": null, "args": null, "answer": { "text": "Lo paga la institución, como comodataria.", "go_to": null, "sources": [source], "fill": null, "records": false } })),
     ]);
-    let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(predial, &db), None).await.unwrap();
+    let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(predial, &db)).await.unwrap();
     let tools = last_tools(&db);
     assert_eq!(grade(predial, &out, &tools), Vec::<String>::new(), "{out:?}");
 
@@ -280,7 +280,7 @@ async fn assistant_battery_live() {
             let before = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
             recording.log.lock().unwrap().clear();
             let started = std::time::Instant::now();
-            let out = ask(&db, Some(&recording), embedder.clone(), Some(Role::Manager), ask_of(c, &db), None).await.unwrap();
+            let out = ask(&db, Some(&recording), embedder.clone(), Some(Role::Manager), ask_of(c, &db)).await.unwrap();
             let secs = started.elapsed().as_secs_f64();
             let after = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
             let mut tools = last_tools(&db);
@@ -471,7 +471,7 @@ async fn assistant_native_vs_json_live() {
         println!("\n######## Ronda {round} de {rounds}");
         for c in &all {
             let before = assistant(&db);
-            let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), ask_of(c, &db), None).await.unwrap();
+            let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), ask_of(c, &db)).await.unwrap();
             let after = assistant(&db);
             let bad = grade(c, &out, &last_tools(&db));
             json_mode.add(c, &bad);

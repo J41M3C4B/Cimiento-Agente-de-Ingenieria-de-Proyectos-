@@ -7,7 +7,7 @@ tags: [adr]
 ---
 # ADR-046 · Los nombres de personas los reconoce un modelo local, no una lista
 
-**Estado:** aceptada (2026-10-19; el líder la aprobó el mismo día, con el reconocimiento de nombres en el carril `ia`). Aplica el ADR-043 §5 (ninguna regla por caso) y la prueba de la lista del [ADR-045](ADR-045-tres-patrones-de-la-ia.md). Trabaja con la bóveda ([ADR-044](ADR-044-la-boveda.md)): este ADR decide **qué** se marca, y la bóveda decide **cómo** viaja. Se construye en el bloque IA-7.
+**Estado:** aceptada (2026-10-19; el líder la aprobó el mismo día, con el reconocimiento de nombres en el carril `ia`). Aplica el ADR-043 §5 (ninguna regla por caso) y la prueba de la lista del [ADR-045](ADR-045-tres-patrones-de-la-ia.md). Trabaja con la bóveda ([ADR-044](ADR-044-la-boveda.md)): este ADR decide **qué** se marca, y la bóveda decide **cómo** viaja. Se construye en el bloque IA-8.
 
 ## Contexto
 

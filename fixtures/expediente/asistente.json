@@ -26,6 +26,11 @@
     { "q": "Nos representa la directora, Rosa Ficticia del Ejemplo", "pantalla": "profile", "historial": [{ "de": "persona", "texto": "Quiero llenar contacto y ubicación" }], "no_usa": ["record_reader"], "llenar": "cualquiera" },
     { "q": "Oye, ¿dónde registro los ingresos?", "pantalla": "home", "sin_ir": true, "alguno": ["todavia", "aun no", "despues", "mas adelante", "proximamente"], "no_contiene": ["capacidad"] },
     { "q": "¿Dónde anoto lo que gastamos cada mes en luz y comida?", "pantalla": "profile", "sin_ir": true, "alguno": ["todavia", "aun no", "despues", "mas adelante", "proximamente"] },
-    { "q": "¿Dónde anoto cuántos cuartos y baños tiene la casa y en qué estado están?", "pantalla": "home", "sin_ir": true, "alguno": ["todavia", "aun no", "despues", "mas adelante", "proximamente"] }
+    { "q": "¿Dónde anoto cuántos cuartos y baños tiene la casa y en qué estado están?", "pantalla": "home", "sin_ir": true, "alguno": ["todavia", "aun no", "despues", "mas adelante", "proximamente"] },
+    { "q": "¿Dónde anoto la CURP LOPM800101MDFRZN09 de una señora que atendemos?", "pantalla": "home", "no_usa": ["record_reader"], "sin_ir": true, "alguno": ["todavia", "aun no", "despues", "mas adelante", "proximamente"] },
+    { "q": "La presidenta del patronato es Ana María López y la representante legal es Rosa Méndez Ruiz. ¿Dónde lo anoto?", "pantalla": "profile", "no_usa": ["record_reader"], "llenar": "cualquiera" },
+    { "q": "Nuestro correo es contacto@casaficticia.org, ¿dónde lo pongo?", "pantalla": "profile", "no_usa": ["record_reader"], "llenar": "profile.contact" },
+    { "q": "Estamos en Benito Juárez, Ciudad de México. ¿Dónde lo pongo?", "pantalla": "home", "no_usa": ["record_reader"], "llenar": "profile.contact" },
+    { "q": "La señora Rosa tiene diabetes, ¿dónde anoto su tratamiento?", "pantalla": "home", "no_usa": ["record_reader"], "sin_ir": true, "no_contiene": ["diabetes"], "alguno": ["todavia", "aun no", "despues", "mas adelante", "proximamente"] }
   ]
 }
