@@ -4,7 +4,7 @@ id: IA-8
 carril: ia
 estado: listo
 prioridad: alta
-fase: MVP-2
+fase: F2
 patron: [determinista]
 rama:
 adr: "[[ADR-046-nombres-con-un-modelo-local]]"
@@ -41,3 +41,6 @@ Un modelo local de reconocimiento de nombres (RoBERTa BNE capitel-plus, ONNX int
 - [ ] 
 
 ## Resultado
+
+**Es la fase F2 del [[ADR-048-el-flujo-de-datos|ADR-048]]** (2026-10-20). Va después de [[IA-9 El modelo de datos|IA-9]].
+

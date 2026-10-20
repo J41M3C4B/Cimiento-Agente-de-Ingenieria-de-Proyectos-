@@ -2,14 +2,14 @@
 tipo: bloque
 id: IA-3
 carril: ia
-estado: backlog
+estado: cerrado
 prioridad: media
-fase: MVP-2
+fase: F1
 patron: [determinista]
 rama:
 adr: "[[ADR-043-un-erp-con-la-ia-en-el-nucleo]]"
 creado: 2026-10-18
-cerrado:
+cerrado: 2026-10-20
 ---
 
 ## Qué y por qué
@@ -30,3 +30,6 @@ Hay que decidir qué lleva la ficha mientras los módulos están congelados (las
 ## Cómo probarlo
 
 ## Resultado
+
+**Se juntó con [[IA-9 El modelo de datos|IA-9]] (F1, [[ADR-048-el-flujo-de-datos|ADR-048]], decisión del líder del 2026-10-20):** la ficha de la IA lee el modelo de datos, sin lo de los módulos ocultos.
+
