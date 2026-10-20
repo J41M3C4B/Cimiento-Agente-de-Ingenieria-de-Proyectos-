@@ -6,7 +6,7 @@ estado: en-curso
 prioridad: alta
 caja: Registro común de capacidades; Contratos de capacidades
 pedido_por:
-depende_de: ERP-4, ERP-5, DIS-3
+depende_de: ERP-4, ERP-5, DIS-3, DIS-4
 rama: ia/ia-1-contrato-de-capacidad
 adr: ADR-001
 creado: 2026-10-20
@@ -31,10 +31,10 @@ El contrato declara:
 Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto queda hecho.
 
 - [ ] El ADR-001 describe el contrato y el registro, y el líder lo aprueba.
-- [ ] Un módulo de prueba declara capacidades, y el registro las descubre sin que nadie las escriba en una lista.
-- [ ] La clase de datos es un campo obligatorio del contrato. Las clases de IA-1 son provisionales: el ADR del IA-3 fija las definitivas y su política sin cambiar la forma del contrato.
-- [ ] El registro rechaza un contrato incompleto, como uno sin permiso, sin efecto o sin clase de datos, y una prueba lo demuestra.
-- [ ] Una prueba de arquitectura impide que un módulo llame a la IA por su cuenta. Es estricta y no tiene excepciones: la nueva arquitectura manda, y el código viejo que la viole no se acomoda, se retira.
+- [x] Un módulo de prueba declara capacidades, y el registro las descubre sin que nadie las escriba en una lista. *(En la rama: `the_registry_finds_what_a_module_declares_without_a_list`.)*
+- [x] La clase de datos es un campo obligatorio del contrato. Las clases de IA-1 son provisionales: el ADR del IA-3 fija las definitivas y su política sin cambiar la forma del contrato. *(En la rama.)*
+- [x] El registro rechaza un contrato incompleto, como uno sin permiso, sin efecto o sin clase de datos, y una prueba lo demuestra. *(En la rama: sin permiso o sin efecto no compila, y lo prueban los doctests `compile_fail`; sin clase de datos y las demás reglas, `registry_tests`.)*
+- [ ] Una prueba de arquitectura impide que un módulo llame a la IA por su cuenta. Es estricta y no tiene excepciones: la nueva arquitectura manda, y el código viejo que la viole no se acomoda, se retira. *(La prueba ya está en la rama, `no_module_nor_service_uses_the_ai`. Falla con los 15 archivos que faltan por retirar; pasa cuando terminen el ERP-4, el ERP-5 y la retirada del IA-1.)*
 
 ## Plan
 
@@ -73,7 +73,7 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
    - `core/agents`: el Asistente, el Capturista y sus herramientas, con sus oficios y baterías;
    - la IA del Lector: `reader/ask`, `reader/fill` y la lectura con IA de `reader/upload`.
 
-   Los comandos que solo envuelven eso (`commands/assistant.rs`) salen con ellos, junto con sus líneas en `src/lib/tauri.ts` y `src/lib/types.ts`. Los vectores (la búsqueda por significado) no se borran: salen de `core` hacia la plataforma, como herramienta de la capa 4. Lo que Mi institución usa de esas piezas lo quita antes el ERP-5.
+   Los comandos que solo envuelven eso salen con ellos: `assistant_ask`, `capture_ask`, `institution_fill_from_documents` e `institution_fill_all_from_documents`, de `commands/assistant.rs`. `proposals_reject` se queda en ese archivo, porque las propuestas no se retiran en este bloque (hallazgo del DIS-3). Salen también, junto con sus líneas en `src/lib/tauri.ts` y `src/lib/types.ts`. Los vectores (la búsqueda por significado) no se borran: salen de `core` hacia la plataforma, como herramienta de la capa 4. Lo que Mi institución usa de esas piezas lo quita antes el ERP-5.
 6. **Sacar la IA de los servicios deterministas.** `documents/canonical/run.rs` llama a la IA: es la lectura de convocatorias, que es un operador de IA (capa 4, riel IA). Se mueve a la plataforma, y `documents` se queda solo con lo determinista (el contrato, la recuperación y el paquete). La prueba estricta también impide que un servicio determinista use la IA: solo la plataforma y los comandos la usan.
 7. La suite completa, y el PR.
 
@@ -81,10 +81,11 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 - **ERP-4:** Proyectos sin IA propia.
 - **ERP-5:** Mi institución sin la IA vieja: la parte del ERP que usa el Capturista, la lectura con IA, la configuración de la IA y los vectores.
 - **DIS-3:** las pantallas sin la IA vieja.
+- **DIS-4:** las pantallas de Proyectos sin la IA vieja (lo abrió el riel de diseño, porque depende de lo que retire el ERP-4).
 
 **El orden para fusionar:**
 1. DIS-3: si va después, las pantallas no compilan sin los comandos.
-2. ERP-4 y ERP-5.
+2. ERP-5, y ERP-4 con DIS-4 (las pantallas de Proyectos primero).
 3. IA-1: su prueba estricta necesita que ya no quede IA en los módulos.
 
 Mientras tanto, el contrato, el registro y la prueba se construyen en la rama. La prueba estricta falla y enumera lo que falta retirar.
