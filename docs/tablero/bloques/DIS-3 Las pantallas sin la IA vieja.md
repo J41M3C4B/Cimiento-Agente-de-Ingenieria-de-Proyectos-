@@ -2,12 +2,12 @@
 tipo: bloque
 id: DIS-3
 carril: diseno
-estado: backlog
+estado: en-curso
 prioridad: alta
 caja: Chat global; Interfaces de los módulos
 pedido_por: IA-1
 depende_de:
-rama:
+rama: diseno/dis-3-pantallas-sin-la-ia-vieja
 adr:
 creado: 2026-10-20
 cerrado:
@@ -34,7 +34,7 @@ Se necesita que **las pantallas dejen de usarlos** antes de que se retiren. Lo q
 
 ## Terminado cuando
 
-Propuesta del riel de diseño; la aprueba el líder. Las casillas se marcan cuando cada punto queda hecho.
+Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto queda hecho.
 
 - [ ] **Ninguna pantalla usa la IA vieja de Mi institución.** En `src/`, fuera de `lib/tauri.ts` y `lib/types.ts` (que cambia quien retira el comando), nada llama a `assistant_ask`, `capture_ask`, `institution_fill_from_documents` ni `institution_fill_all_from_documents`, nada escucha `record-suggested` y nada lee el dato `fill` de la vista de un formulario. Una búsqueda en `src/` lo demuestra.
 - [ ] **La app se usa sin el Asistente.** No hay botón ✨ en la barra, ni panel, ni «Preguntar más». La ayuda de cada campo sigue mostrando el manual, sin internet y sin gasto.
