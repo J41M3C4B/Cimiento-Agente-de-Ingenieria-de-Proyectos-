@@ -2,11 +2,11 @@
 tipo: bloque
 id: IA-2
 carril: ia
-estado: backlog
+estado: en-curso
 prioridad: alta
 fase: MVP-2
 patron: [determinista]
-rama:
+rama: ia/ia-2-boveda
 adr: "[[ADR-044-la-boveda]]"
 creado: 2026-10-18
 cerrado:
@@ -24,11 +24,11 @@ Hoy el escáner detiene a la persona cada vez que cree ver un dato personal, y c
 
 ## Terminado cuando
 
-(Propuesto por el CTO de la IA el 2026-10-19; falta la aprobación del líder.)
+(Aprobado por el líder el 2026-10-19, con la aclaración del ADR-044 §2.)
 
 - [ ] **Ningún valor marcado aparece en ninguna solicitud a la IA, en todas las baterías en seco:** Asistente, Capturista, los tres Lectores y la conversación de Proyectos. Una revisión en el proveedor simulado lo comprueba en cada solicitud.
 - [ ] **El Asistente y el Capturista ya no se detienen por un dato personal:** el servicio ya no devuelve la ventana, y «No es dato personal» y `cleared` salieron del chat.
-- [ ] **Una marca se resuelve solo donde el campo la acepta.** Pruebas: el correo y el teléfono en su campo; la representante y el RFC que cuenta la persona en «Datos legales»; «alcaldía Benito Juárez» en el municipio aunque el escáner lo tome por persona; un nombre en la misión vuelve a `[NOMBRE OCULTO]`; una marca inventada se descarta.
+- [ ] **Una marca se resuelve en cualquier campo, y el valor pasa por la validación del campo y por `proposals::propose`.** Pruebas: el correo y el teléfono en su campo; la representante y el RFC que cuenta la persona en «Datos legales»; «alcaldía Benito Juárez» en el municipio y «calle [NOMBRE_1] 12» en la calle, aunque el escáner los tome por persona; un nombre en la misión lo cubre `propose` como hoy; una sugerencia con una marca inventada se descarta.
 - [ ] **La persona lee sus valores:** la respuesta llega a la pantalla con cada marca resuelta.
 - [ ] **La salud de una persona sale generalizada**, sin número, y nunca se resuelve.
 - [ ] **Las baterías con casos nuevos** (dos personas distintas, el correo y la representante de la institución, la alcaldía, una CURP en la pregunta, salud de una persona), primero en seco y después en una corrida real con el modelo más barato. Asistente y Capturista no empeoran contra el v11 y el v5 en aciertos, inventados ni costo.
@@ -36,11 +36,20 @@ Hoy el escáner detiene a la persona cada vez que cree ver un dato personal, y c
 
 ## Plan
 
-(Se detalla al pasar a «En curso».)
+**Ficha (patrón 1, determinista):**
+
+| | |
+|---|---|
+| **Regla** | Entran un texto y lo que halló el escáner. Sale el texto con marcas `[TIPO_n]`. El mismo valor lleva la misma marca en todo el encargo; se compara sin mayúsculas, acentos ni espacios, y un teléfono por sus 10 dígitos. Lo de salud lleva su etiqueta de hoy y nunca se resuelve. `reveal` cambia cada marca por su valor, también las mal escritas (`[NOMBRE 1]`, `NOMBRE_1`), y nunca inventa uno |
+| **Dónde vive** | `ai/vault.rs`, en la base. Una bóveda por encargo, solo en memoria |
+| **Pruebas** | Mismo valor, misma marca; dos personas, dos marcas; la salud sin número; marcas mal escritas; una marca que no existe no se resuelve; ningún valor llega al proveedor simulado; nada va al disco ni a la bitácora |
+| **Uso por la IA** | No es herramienta. El pipeline marca todo lo que sale; el agente resuelve los argumentos de las herramientas; el Asistente resuelve su respuesta y el Capturista sus sugerencias |
+
+**Pasos:**
 
 1. `ai/vault.rs`: marcar y resolver, con sus pruebas (mismo valor, misma marca; la salud sin número; marcas mal escritas; nada en disco).
 2. `ai::pipeline` y `ai::agent` con una bóveda por encargo; herramientas con sus argumentos resueltos y su resultado marcado.
-3. En `core/agents`: qué acepta cada campo, la leyenda, la respuesta resuelta para la pantalla. El Asistente y el Capturista sin la ventana.
+3. En `core/agents`: la sugerencia resuelta antes de `proposals::propose` (en cualquier campo, con su validación), la leyenda y la respuesta resuelta para la pantalla. El Asistente y el Capturista sin la ventana.
 4. Oficios v12 (Asistente) y v6 (Capturista), con los casos nuevos de las baterías en seco.
 5. La revisión «ningún valor en ninguna solicitud» en el proveedor simulado, para todas las baterías.
 6. Corrida real: Asistente y Capturista, dos rondas, a 14 por minuto, salida a archivo.

@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-7
 carril: ia
-estado: backlog
+estado: listo
 prioridad: alta
 fase: MVP-2
 patron: [determinista]
@@ -18,11 +18,11 @@ El escáner reconoce a una persona con listas de nombres y de palabras de lugar,
 
 Un modelo local de reconocimiento de nombres (RoBERTa BNE capitel-plus, ONNX int8, 125 MB, Apache 2.0) cubre el 98.4 %, entiende el contexto y quita las listas. La medición y la decisión están en el ADR-046.
 
-**Patrón:** determinista (1). El modelo no genera texto ni llama a un servicio: con la misma entrada da la misma salida, en el equipo. Necesita un modelo y su batería, y por eso se propone en el carril `ia`. **La frontera la decide el líder:** los formatos del escáner (CURP, RFC, CLABE…) siguen siendo del ERP.
+**Patrón:** determinista (1). El modelo no genera texto ni llama a un servicio: con la misma entrada da la misma salida, en el equipo. Necesita un modelo y su batería: el líder lo puso en el carril `ia` (2026-10-19). Los formatos del escáner (CURP, RFC, CLABE…) siguen siendo del ERP.
 
 ## Terminado cuando
 
-(Propuesta del CTO de la IA; falta la aprobación del líder.)
+(Aprobado por el líder el 2026-10-19.)
 
 - [ ] El escáner reconoce a las personas con el modelo local, en Rust, sin red; las listas de nombres, apellidos, palabras de lugar, títulos y santos ya no existen
 - [ ] El examen (generador y lo esperado, solo ficticios) está en `fixtures/` y su prueba en seco pasa: personas cubiertas completas ≥ 98 % y no vistas ≤ 1.5 %

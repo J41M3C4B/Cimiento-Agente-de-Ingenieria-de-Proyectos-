@@ -1,13 +1,13 @@
 ---
 adr: 46
-estado: propuesta
+estado: aceptada
 fecha: 2026-10-19
 tema: [ia, privacidad, escaner]
 tags: [adr]
 ---
 # ADR-046 · Los nombres de personas los reconoce un modelo local, no una lista
 
-**Estado:** propuesta (2026-10-19). Aplica el ADR-043 §5 (ninguna regla por caso) y la prueba de la lista del [ADR-045](ADR-045-tres-patrones-de-la-ia.md). Trabaja con la bóveda ([ADR-044](ADR-044-la-boveda.md)): este ADR decide **qué** se marca, y la bóveda decide **cómo** viaja. Se construye en el bloque IA-7.
+**Estado:** aceptada (2026-10-19; el líder la aprobó el mismo día, con el reconocimiento de nombres en el carril `ia`). Aplica el ADR-043 §5 (ninguna regla por caso) y la prueba de la lista del [ADR-045](ADR-045-tres-patrones-de-la-ia.md). Trabaja con la bóveda ([ADR-044](ADR-044-la-boveda.md)): este ADR decide **qué** se marca, y la bóveda decide **cómo** viaja. Se construye en el bloque IA-7.
 
 ## Contexto
 
@@ -129,6 +129,6 @@ Lo que todavía se le escapa a capitel-plus con el paso 2:
   - los formatos siguen siendo código del ERP;
   - el reconocimiento de nombres es un modelo con su batería.
 
-  Quién es dueño de cada parte lo decide el líder (`roles-y-tablero.md`).
+  El reconocimiento de nombres es del carril `ia` (decisión del líder, 2026-10-19).
 - **La bóveda (IA-2) no depende de este ADR:** marca lo que el escáner encuentre, con listas o con el modelo. Los dos bloques pueden avanzar a la vez.
 - **Los documentos del Expediente:** los nombres de la institución siguen sin taparse (ADR-040). Con el modelo, ese criterio se aplica a lo que el modelo reconoce.

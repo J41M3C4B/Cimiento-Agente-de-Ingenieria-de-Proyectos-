@@ -49,12 +49,12 @@ Todo texto que va a la IA pasa por la bóveda, en el único camino de toda llama
 
 La IA trabaja con la marca y el código la cambia por su valor, nunca la IA:
 
-- **En una sugerencia.** La IA propone `"value": "[CORREO_1]"`. El código pone el valor si el campo acepta ese tipo de dato:
-  - un campo de correo acepta `CORREO`, y uno de teléfono, `TELEFONO`;
-  - un dato propio de la institución (su RFC, su representante, una CLABE o un folio; `Sensitivity::InstitutionalPrivate`) acepta la marca de su tipo;
-  - un campo con opciones cerradas (como el municipio) acepta una marca cuyo valor es una de sus opciones: un valor del catálogo no es un dato personal.
+- **En una sugerencia, en cualquier campo** (aclaración aprobada por el líder el 2026-10-19). La IA propone `"value": "[NOMBRE_1] 12"` para la calle, y el código pone el valor. Lo que se escribe en el campo lo decide la IA por el contexto, y lo que cabe lo decide el campo:
+  - **la validación del campo:** un municipio debe ser del catálogo, un RFC debe tener su forma y un correo, la suya;
+  - **el único punto de guardado** (`proposals::propose`), con su escáner, como hoy: un texto libre que no es dato propio, como la misión, se sigue cubriendo ahí;
+  - **la persona ve el valor real** antes de aceptarlo.
 
-  En cualquier otro campo, la marca vuelve a su etiqueta de hoy (`[NOMBRE OCULTO]`), y una marca que no existe en el encargo se descarta. Después, la sugerencia pasa por el único punto de guardado (`proposals::propose`), con su validación y su escáner, como hoy. **Cada campo ya dice qué acepta** (su clase y su sensibilidad en el catálogo): no hay listas nuevas.
+  Una marca que no existe en el encargo hace que se descarte la sugerencia. No hay una regla de «qué tipo de marca acepta cada campo»: esa regla habría sido otra lista. Así un lugar que el escáner tomó por persona («calle [NOMBRE_1]») no se pierde.
 - **En la respuesta a la persona.** Antes de llegar a la pantalla, cada marca se cambia por su valor: la persona lee «Su representante es Ana…», que nunca salió del equipo.
 - **En los argumentos de una herramienta.** Una marca se resuelve antes de que la herramienta corra en el equipo, y lo que devuelve se marca otra vez antes de volver a la IA.
 
@@ -82,13 +82,13 @@ Lo que la persona escribe va con sus marcas, y nada la detiene. Con eso se van, 
 ### 6. Dónde vive
 
 - **`ai/vault.rs`, en la base:** marca y resuelve a partir de los hallazgos del escáner, sin saber nada de la institución. `ai::pipeline` y `ai::agent` crean una bóveda por encargo.
-- **En `core/agents`:** qué marca acepta cada campo (con el catálogo de formularios) y la leyenda.
+- **En `core/agents`:** la sugerencia resuelta antes de `proposals::propose`, la leyenda y la respuesta resuelta para la pantalla.
 - **El escáner no cambia en este ADR.** La bóveda usa sus hallazgos tal como son.
 
 ## Consecuencias
 
-- **Un falso positivo deja de costar:** la persona no se detiene y el dato vuelve a su lugar. Eso abre la puerta a quitar reglas por caso del escáner, como las palabras de lugar, y a marcar de más antes que de menos. Lo decide el carril `erp` en su propio bloque, con una medición.
-- **Un falso negativo sigue siendo el riesgo:** un nombre que el escáner no reconoce sale igual que hoy. La bóveda no lo empeora.
+- **Un falso positivo deja de costar** en el chat y en los datos propios: la persona no se detiene y el dato vuelve a su lugar. En un texto libre que no es dato propio, como la misión, lo sigue cubriendo `proposals::propose`.
+- **Un falso negativo sigue siendo el riesgo:** un nombre que el escáner no reconoce sale igual que hoy. La bóveda no lo empeora. Eso lo resuelve el [ADR-046](ADR-046-nombres-con-un-modelo-local.md): los nombres los reconoce un modelo local y se quitan las listas.
 - **Los datos propios que cuenta la persona** (su teléfono, su RFC, su representante) ya no necesitan «No es dato personal»: viajan como marca y el código pone el valor.
 - **Los oficios cambian:** el del Asistente (v12) y el del Capturista (v6) dicen qué es una marca y que se usa tal cual. Se miden contra los de hoy con el modelo más barato.
 - **El principio 5** (`docs/agents/principios-de-ingenieria.md`) y `docs/04-escaner-datos-sensibles.md` dicen cómo sale un dato personal hacia la IA: como marca. Personal y Beneficiarios siguen sin mandar sus fichas.
