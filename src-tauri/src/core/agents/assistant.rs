@@ -2,8 +2,9 @@
 //! (the screen and, when the «?» of a field opened it, the field), reads the manual and the parts of the sheet it
 //! needs with its tools, and answers in plain words with the manual entries it used and, maybe, a place to go.
 //!
-//! - **What the person writes goes through the scanner first,** as every text; with findings, nothing is asked
-//!   until the person decides (quarantine).
+//! - **What the person writes goes with the marks of the vault** (ADR-044): the AI sees `[NOMBRE_1]`, never the
+//!   name, in every step of the errand and in what its tools return; the code puts the values back in the answer the
+//!   person reads. Nothing stops the person (no quarantine in the chat).
 //! - **Without the AI** (no key, no internet, no budget, or the errand did not end) the manual still answers: the
 //!   entries that match the question, found with no AI and no cost.
 //! - **The conversation lives only on the screen** and is gone when the app closes: the last turns come with each
@@ -39,7 +40,7 @@ use crate::core::error::ServiceError;
 use crate::core::places;
 use crate::core::records::MapDocument;
 use crate::documents::canonical::retrieve::Embedder;
-use crate::scanner::guard::{Decision, QuarantineReport};
+use crate::ai::vault::Vault;
 use crate::storage::SharedDb;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -106,15 +107,42 @@ pub fn agent() -> Agent {
 }
 
 /// One turn of the conversation, as the screen keeps it.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Turn {
-    /// `person` or `assistant`.
+    /// `person`, `assistant` (the words of the AI) or `program` (what the program said happened: the suggestions the
+    /// Capturist left, what was saved already).
     pub from: String,
     pub text: String,
     /// The documents of the Expediente an answer was based on (their ids, from its citations): the next question may
     /// speak of them («ese mismo»).
     #[serde(default)]
     pub documents: Vec<String>,
+    /// The window an answer offered to fill («Llenarlo por mí»), by its place.
+    #[serde(default)]
+    pub fill: Option<String>,
+}
+
+impl Turn {
+    /// The turn as the AI reads it. An answer goes with its own words and what it offered, never with the sentence of
+    /// the program under it: given that sentence as the Assistant's, the cheapest model answered «Estamos en la Calle
+    /// … 8» by copying the last answer, with its window (measured by the leader, 2026-10-20).
+    pub fn line(&self) -> String {
+        let who = match self.from.as_str() {
+            "assistant" => "Asistente",
+            "program" => "Programa",
+            _ => "Persona",
+        };
+        let mut s = format!("{who}: {}", self.text.trim());
+        if let Some(name) = self.fill.as_deref().and_then(places::place).map(|p| p.label.as_str()) {
+            s.push_str(&format!(" [ofreció llenar «{name}» con lo que contó la persona]"));
+        }
+        s
+    }
+}
+
+/// The last turns of the conversation, oldest first.
+pub fn last_turns(history: &[Turn]) -> Vec<&Turn> {
+    history.iter().rev().take(HISTORY_TURNS).collect::<Vec<_>>().into_iter().rev().collect()
 }
 
 /// What the screen sends with a question.
@@ -162,8 +190,6 @@ pub enum AssistantOutcome {
     },
     /// The AI could not answer (`reason`): the manual answers instead.
     Manual { asked: String, reason: &'static str, hits: Vec<Source> },
-    /// The question has data of a person: nothing was asked.
-    Quarantine { report: QuarantineReport },
 }
 
 /// The documents of the Expediente by how they are, by their names: what the program writes under «¿qué documentos
@@ -256,7 +282,7 @@ pub fn context(ask: &Ask, docs: &[MapDocument]) -> Vec<String> {
         s.push_str(&format!(" El manual dice de él:\n{}", e.entry.paragraphs.join("\n")));
         out.push(s);
     }
-    let turns: Vec<&Turn> = ask.history.iter().rev().take(HISTORY_TURNS).collect::<Vec<_>>().into_iter().rev().collect();
+    let turns = last_turns(&ask.history);
     if !turns.is_empty() {
         let lines: String = turns
             .iter()
@@ -264,7 +290,7 @@ pub fn context(ask: &Ask, docs: &[MapDocument]) -> Vec<String> {
                 let used: Vec<String> =
                     t.documents.iter().filter_map(|id| docs.iter().find(|d| d.document_id.as_deref() == Some(id.as_str()))).map(|d| format!("{} {}", d.key, d.name)).collect();
                 let used = if used.is_empty() { String::new() } else { format!(" (lo tomó de {})", used.join(", ")) };
-                format!("{}: {}{used}\n", if t.from == "assistant" { "Asistente" } else { "Persona" }, t.text.trim())
+                format!("{}{used}\n", t.line())
             })
             .collect();
         out.push(format!("La conversación hasta ahora:\n{lines}"));
@@ -370,7 +396,6 @@ pub async fn ask(
     embedder: Option<Arc<dyn Embedder>>,
     role: Option<Role>,
     ask: Ask,
-    decision: Option<Decision>,
 ) -> Result<AssistantOutcome, ServiceError> {
     let question = ask.question.trim();
     if question.is_empty() {
@@ -379,13 +404,14 @@ pub async fn ask(
     if question.chars().count() > MAX_QUESTION_CHARS {
         return Err(ServiceError::TextTooLarge);
     }
-    let (asked, scanner) = {
+    let asked = question.to_string();
+    let (scanner, vault) = {
         let conn = lock(db)?;
-        let fields = vec![("question".to_string(), question.to_string())];
-        match crate::core::screen::guard_texts(&conn, "assistant_question", &fields, decision)? {
-            Ok(mut t) => (t.remove(0), crate::core::screen::scanner_for(&conn)?),
-            Err(report) => return Ok(AssistantOutcome::Quarantine { report }),
+        let mut saved: crate::core::agents::capturist::Saved = Vec::new();
+        for (f, _, _) in crate::core::agents::capturist::FILLABLE {
+            saved.push((*f, crate::core::profile::forms::saved_values(&conn, f)?));
         }
+        (crate::core::screen::scanner_for(&conn)?, crate::core::agents::capturist::vault_of(&saved))
     };
     let Some(provider) = provider else { return manual(db, &ask, &asked, "not_configured") };
 
@@ -413,8 +439,8 @@ pub async fn ask(
         }
     }
     let errand = Errand { context: told, request: asked.clone() };
-    match agent::run(provider, &scanner, &ledger, &agent(), &tools, errand).await {
-        Ok(run) => Ok(answered(&run.answer, asked, &reach.cited.lock().map(|c| c.clone()).unwrap_or_default(), &ask.screen, role, &docs)),
+    match agent::run_in(provider, &scanner, &ledger, &agent(), &tools, errand, Some(&vault)).await {
+        Ok(run) => Ok(answered(&run.answer, asked, &reach.cited.lock().map(|c| c.clone()).unwrap_or_default(), &ask.screen, role, &docs, &vault)),
         Err(e) => manual(db, &ask, &asked, reason(&e)),
     }
 }
@@ -431,10 +457,11 @@ fn claims_done(text: &str) -> bool {
 /// by the code from the entries it used and the place the AI said (`places::choose`, for the person on the page
 /// `here` with `role`); a window to fill only if the Capturist may fill it, and then the program says what the button
 /// does, and words of the AI that say it did it go.
-fn answered(a: &Value, asked: String, cited: &[Passage], here: &str, role: Option<Role>, docs: &[MapDocument]) -> AssistantOutcome {
+fn answered(a: &Value, asked: String, cited: &[Passage], here: &str, role: Option<Role>, docs: &[MapDocument], vault: &Vault) -> AssistantOutcome {
     let fill = a["fill"].as_str().and_then(crate::core::agents::capturist::fill_of_place);
     let written = crate::core::reader::quote::unescape(a["text"].as_str().unwrap_or_default().trim());
-    let text = crate::core::reader::quote::mend_digits(&written, |w| KNOWN_WORDS.contains(w));
+    // the marks are revealed last, so mending a word never touches a value of the person
+    let text = vault.reveal(&crate::core::reader::quote::mend_digits(&written, |w| KNOWN_WORDS.contains(w)));
     // with «Llenarlo por mí» the program says what the button does; words of the AI that say it did it go
     let text = if fill.is_some() && claims_done(&text) { String::new() } else { text };
     let mut sources: Vec<Source> = Vec::new();
@@ -550,7 +577,7 @@ mod tests {
         for case in cases {
             let (_d, db) = rich_db();
             let p = MockProvider::new(case.steps);
-            let out = ask(&db, Some(&p), None, Some(Role::Manager), case.ask.clone(), None).await.unwrap();
+            let out = ask(&db, Some(&p), None, Some(Role::Manager), case.ask.clone()).await.unwrap();
             let AssistantOutcome::Answered { go_to, sources, text, .. } = out else { panic!("{:?}: {out:?}", case.ask.question) };
             assert!(!text.is_empty());
             assert_eq!(go_to.as_deref(), case.go_to, "{}", case.ask.question);
@@ -596,7 +623,7 @@ mod tests {
             // the Assistant answers with what the Reader said
             answer("Según el contrato de comodato, la institución paga el predial.", None, &[&source, "doc:99999"]),
         ]);
-        let out = ask(&db, Some(&p), Some(e), Some(Role::Manager), question("documents", None, q), None).await.unwrap();
+        let out = ask(&db, Some(&p), Some(e), Some(Role::Manager), question("documents", None, q)).await.unwrap();
         let AssistantOutcome::Answered { documents, sources, .. } = out else { panic!("{out:?}") };
         assert_eq!(documents.iter().map(|d| (d.document.as_str(), d.page)).collect::<Vec<_>>(), vec![("contrato-comodato.txt", Some(2))], "an invented passage is dropped");
         assert!(sources.is_empty());
@@ -642,7 +669,7 @@ mod tests {
     #[test]
     fn the_context_says_where_the_person_is_and_what_was_said() {
         let mut a = question("documents", None, "¿Y eso?");
-        a.history = (0..10).map(|i| Turn { from: if i % 2 == 0 { "person".into() } else { "assistant".into() }, text: format!("turno {i}"), documents: vec![] }).collect();
+        a.history = (0..10).map(|i| Turn { from: if i % 2 == 0 { "person".into() } else { "assistant".into() }, text: format!("turno {i}"), documents: vec![], ..Default::default() }).collect();
         let c = context(&a, &[]);
         assert!(c[0].contains("«Documentos»") && c[0].contains("`screen.documents`"), "{c:?}");
         let said = c.iter().find(|l| l.starts_with("La conversación")).unwrap();
@@ -657,8 +684,8 @@ mod tests {
         let junta = docs.iter().find(|d| d.name == "Registro ante la Junta").unwrap();
         let mut a = question("profile", None, "¿Y con base en ese mismo qué pongo?");
         a.history = vec![
-            Turn { from: "person".into(), text: "¿Qué dice mi registro?".into(), documents: vec![] },
-            Turn { from: "assistant".into(), text: "Dice su objeto.".into(), documents: vec![junta.document_id.clone().unwrap(), "doc_gone".into()] },
+            Turn { from: "person".into(), text: "¿Qué dice mi registro?".into(), documents: vec![], ..Default::default() },
+            Turn { from: "assistant".into(), text: "Dice su objeto.".into(), documents: vec![junta.document_id.clone().unwrap(), "doc_gone".into()], ..Default::default() },
         ];
         let told = context(&a, &docs).join("\n");
         assert!(told.contains(&format!("Asistente: Dice su objeto. (lo tomó de {} Registro ante la Junta)", junta.key)), "{told}");
@@ -674,8 +701,28 @@ mod tests {
             assert!(back_to(&other, &docs).is_some(), "{words}");
         }
         // an answer with no documents after it: nothing to go back to
-        a.history.push(Turn { from: "assistant".into(), text: "Vaya a Seguridad.".into(), documents: vec![] });
+        a.history.push(Turn { from: "assistant".into(), text: "Vaya a Seguridad.".into(), documents: vec![], ..Default::default() });
         assert!(back_to(&a, &docs).is_none());
+    }
+
+    /// The leader's test (2026-10-20): after an answer that offered «Datos legales y fiscales», «Estamos en la Calle …»
+    /// was answered with that same window. The AI reads the words of each answer and the window it offered, and what
+    /// the program said, as the program's; never the sentence of the button as the Assistant's.
+    #[test]
+    fn the_conversation_says_what_was_offered_and_who_said_what() {
+        let mut a = question("profile", None, "Estamos en la Calle Ana María Rodríguez 8");
+        a.history = vec![
+            Turn { from: "person".into(), text: "Nuestra representante legal es Rosa Méndez Ruiz".into(), ..Default::default() },
+            Turn { from: "assistant".into(), text: "Va en «Datos legales y fiscales».".into(), fill: Some("profile.legal".into()), ..Default::default() },
+            Turn { from: "program".into(), text: "Ya estaba guardado igual: «Nombre de quien la representa legalmente».".into(), ..Default::default() },
+        ];
+        let told = context(&a, &[]).join("\n");
+        assert!(told.contains("Asistente: Va en «Datos legales y fiscales». [ofreció llenar «Datos legales y fiscales» con lo que contó la persona]"), "{told}");
+        assert!(told.contains("Programa: Ya estaba guardado igual"), "{told}");
+        assert!(!told.contains("Con el botón de abajo"), "{told}");
+        // the Capturist reads it the same way
+        let told = crate::core::agents::capturist::context("institution.contact", &vec![], &a.history).join("\n");
+        assert!(told.contains("Programa: Ya estaba guardado igual") && told.contains("[ofreció llenar «Datos legales y fiscales»"), "{told}");
     }
 
     /// «Y con base en ese mismo…» (C4): the code asks the Reader with the document of the last answer before the AI
@@ -699,10 +746,10 @@ mod tests {
         ]);
         let mut a = question("profile", None, q);
         a.history = vec![
-            Turn { from: "person".into(), text: "¿Cuál es el plazo del comodato?".into(), documents: vec![] },
-            Turn { from: "assistant".into(), text: "Veinte años.".into(), documents: vec![id.clone()] },
+            Turn { from: "person".into(), text: "¿Cuál es el plazo del comodato?".into(), documents: vec![], ..Default::default() },
+            Turn { from: "assistant".into(), text: "Veinte años.".into(), documents: vec![id.clone()], ..Default::default() },
         ];
-        let out = ask(&db, Some(&p), None, Some(Role::Manager), a, None).await.unwrap();
+        let out = ask(&db, Some(&p), None, Some(Role::Manager), a).await.unwrap();
         let AssistantOutcome::Answered { documents, .. } = out else { panic!("{out:?}") };
         assert_eq!(documents.iter().map(|d| (d.document.as_str(), d.page)).collect::<Vec<_>>(), vec![("contrato-comodato.txt", Some(2))]);
         let reqs = p.requests();
@@ -720,7 +767,7 @@ mod tests {
         let list = records_list(&docs);
         assert!(list.have.iter().any(|n| n == "Registro ante la Junta") && list.have.iter().any(|n| n == "Constancia de situación fiscal"), "{list:?}");
         assert_eq!(list.have.len() + list.missing.len() + list.in_progress.len(), docs.iter().filter(|d| d.status != "not_applicable").count());
-        let asked = |records: bool| match answered(&json!({ "text": "Esto tiene en su Expediente.", "records": records }), "q".into(), &[], "home", None, &docs) {
+        let asked = |records: bool| match answered(&json!({ "text": "Esto tiene en su Expediente.", "records": records }), "q".into(), &[], "home", None, &docs, &Vault::new()) {
             AssistantOutcome::Answered { records, .. } => records,
             o => panic!("{o:?}"),
         };
@@ -732,7 +779,7 @@ mod tests {
     #[tokio::test]
     async fn without_the_ai_the_manual_answers_and_personal_data_waits() {
         let (_d, db) = rich_db();
-        let out = ask(&db, None, None, Some(Role::Manager), question("profile", Some("institution.legal_rfc"), "¿Cómo hago un respaldo?"), None).await.unwrap();
+        let out = ask(&db, None, None, Some(Role::Manager), question("profile", Some("institution.legal_rfc"), "¿Cómo hago un respaldo?")).await.unwrap();
         let AssistantOutcome::Manual { reason, hits, .. } = out else { panic!("{out:?}") };
         assert_eq!(reason, "not_configured");
         assert_eq!(hits[0].id, "institution.legal_rfc", "the field first");
@@ -740,19 +787,19 @@ mod tests {
 
         // the AI fails: the manual answers, and the reason says why
         let p = MockProvider::new(vec![Err(AiError::Offline), Err(AiError::Offline)]);
-        let out = ask(&db, Some(&p), None, Some(Role::Manager), question("home", None, "respaldo"), None).await.unwrap();
+        let out = ask(&db, Some(&p), None, Some(Role::Manager), question("home", None, "respaldo")).await.unwrap();
         assert!(matches!(out, AssistantOutcome::Manual { reason: "offline", .. }), "{out:?}");
 
-        // a question with a CURP is held; covered, it goes on without it
-        let held = question("home", None, "¿Dónde pongo la CURP LOPM800101MDFRZN09?");
-        let p = MockProvider::new(vec![answer("En la ficha de la persona.", None, &[])]);
-        assert!(matches!(ask(&db, Some(&p), None, Some(Role::Manager), held.clone(), None).await.unwrap(), AssistantOutcome::Quarantine { .. }));
-        assert!(p.requests().is_empty(), "nothing went to the AI");
-        let out = ask(&db, Some(&p), None, Some(Role::Manager), held, Some(Decision::Redact)).await.unwrap();
-        let AssistantOutcome::Answered { asked, .. } = out else { panic!("{out:?}") };
-        assert!(!asked.contains("LOPM800101") && !p.requests()[0].user.contains("LOPM800101"));
+        // a question with a CURP is not held (ADR-044): the AI sees its mark, and the person reads the answer with it
+        let p = MockProvider::new(vec![answer("La CURP [CURP_1] va en la ficha de la persona.", None, &[])]);
+        let out = ask(&db, Some(&p), None, Some(Role::Manager), question("home", None, "¿Dónde pongo la CURP LOPM800101MDFRZN09?")).await.unwrap();
+        let AssistantOutcome::Answered { asked, text, .. } = out else { panic!("{out:?}") };
+        assert_eq!(asked, "¿Dónde pongo la CURP LOPM800101MDFRZN09?", "the question is the person's");
+        assert_eq!(text, "La CURP LOPM800101MDFRZN09 va en la ficha de la persona.");
+        let sent = &p.requests()[0];
+        assert!(!sent.user.contains("LOPM800101") && sent.user.contains("[CURP_1]"), "{}", sent.user);
 
-        assert!(matches!(ask(&db, None, None, Some(Role::Manager), question("home", None, "  "), None).await, Err(ServiceError::EmptyText)));
+        assert!(matches!(ask(&db, None, None, Some(Role::Manager), question("home", None, "  ")).await, Err(ServiceError::EmptyText)));
     }
 
     /// Each failure of the AI says why in a word the screen explains: a key, the connection, a busy service…
@@ -774,22 +821,22 @@ mod tests {
     #[test]
     fn a_place_or_a_source_the_code_does_not_know_is_dropped() {
         let a = json!({ "text": " Hola ", "go_to": "somewhere", "sources": ["institution.name", "invented.entry", "institution.name"], "fill": "profile.board" });
-        let AssistantOutcome::Answered { text, go_to, sources, fill, .. } = answered(&a, "q".into(), &[], "home", Some(Role::Manager), &[]) else { panic!() };
+        let AssistantOutcome::Answered { text, go_to, sources, fill, .. } = answered(&a, "q".into(), &[], "home", Some(Role::Manager), &[], &Vault::new()) else { panic!() };
         // a place it does not know is dropped; the button follows the entry the answer used
         assert_eq!((text.as_str(), go_to.as_deref(), fill), ("Hola", Some("profile.institution"), None), "the board is never filled by the AI");
-        let AssistantOutcome::Answered { fill, text: offer, .. } = answered(&json!({ "text": "Ya le dejé sugerencias.", "fill": "profile.capacity" }), "q".into(), &[], "home", None, &[]) else { panic!() };
+        let AssistantOutcome::Answered { fill, text: offer, .. } = answered(&json!({ "text": "Ya le dejé sugerencias.", "fill": "profile.capacity" }), "q".into(), &[], "home", None, &[], &Vault::new()) else { panic!() };
         assert_eq!(offer, "", "with «Llenarlo por mí» the program says what it does; the AI never says it did it");
-        let AssistantOutcome::Answered { text: answer, .. } = answered(&json!({ "text": "Atienden a personas adultas mayores.", "fill": "profile.institution" }), "q".into(), &[], "home", None, &[]) else { panic!() };
+        let AssistantOutcome::Answered { text: answer, .. } = answered(&json!({ "text": "Atienden a personas adultas mayores.", "fill": "profile.institution" }), "q".into(), &[], "home", None, &[], &Vault::new()) else { panic!() };
         assert_eq!(answer, "Atienden a personas adultas mayores.", "what it answered stays");
         // a passage is cited only if the search handed it; its name and page come from the code
         let cited = vec![Passage { chunk: 7, document_id: "doc_1".into(), document: "Contrato de comodato".into(), page: Some(2), snippet: "…".into() }];
-        let AssistantOutcome::Answered { documents, sources: manual_sources, .. } = answered(&json!({ "text": "x", "sources": ["doc:7", "doc:8", "doc:7", "howto.backup"] }), "q".into(), &cited, "home", None, &[]) else { panic!() };
+        let AssistantOutcome::Answered { documents, sources: manual_sources, .. } = answered(&json!({ "text": "x", "sources": ["doc:7", "doc:8", "doc:7", "howto.backup"] }), "q".into(), &cited, "home", None, &[], &Vault::new()) else { panic!() };
         assert_eq!(documents, vec![DocumentSource { document_id: "doc_1".into(), document: "Contrato de comodato".into(), page: Some(2) }]);
         assert_eq!(manual_sources.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec!["howto.backup"]);
         assert_eq!(fill.map(|f| f.form), Some("institution.capacity"));
         assert_eq!(sources, vec![Source { id: "institution.name".into(), title: "Nombre de la institución".into() }]);
         // a word with a digit for a letter is mended with the words of the program
-        let AssistantOutcome::Answered { text, .. } = answered(&json!({ "text": "Puede revisarlas con el bot3n de abajo." }), "q".into(), &[], "home", None, &[]) else { panic!() };
+        let AssistantOutcome::Answered { text, .. } = answered(&json!({ "text": "Puede revisarlas con el bot3n de abajo." }), "q".into(), &[], "home", None, &[], &Vault::new()) else { panic!() };
         assert_eq!(text, "Puede revisarlas con el botón de abajo.");
         // «Llenar con mis documentos» is not offered in the chat (ADR-042 §6): its place is the window
         assert!(agent().answer["properties"].get("from_documents").is_none());
@@ -860,7 +907,7 @@ mod tests {
         for q in questions {
             let before = spend(&db);
             let started = std::time::Instant::now();
-            let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), q.clone(), None).await.unwrap();
+            let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), q.clone()).await.unwrap();
             let after = spend(&db);
             println!(
                 "\n«{}» ({}): {out:#?}\nLlamadas: {}  entrada: {}  salida: {}  costo: ${:.4} MXN  tiempo: {:.1} s",
@@ -911,11 +958,11 @@ mod tests {
             screen: "profile".into(),
             field: None,
             question: "Nos representa la directora, Rosa Ficticia del Ejemplo".into(),
-            history: vec![Turn { from: "person".into(), text: "Quiero llenar contacto y ubicación".into(), documents: vec![] }],
+            history: vec![Turn { from: "person".into(), text: "Quiero llenar contacto y ubicación".into(), documents: vec![], ..Default::default() }],
         };
         let mut bad = 0;
         for round in 1..=rounds {
-            let out = ask(&db, Some(provider.as_ref()), None, Some(Role::Manager), q.clone(), Some(Decision::NotPersonal)).await.unwrap();
+            let out = ask(&db, Some(provider.as_ref()), None, Some(Role::Manager), q.clone()).await.unwrap();
             let text = match &out {
                 AssistantOutcome::Answered { text, .. } => text.clone(),
                 other => format!("{other:?}"),

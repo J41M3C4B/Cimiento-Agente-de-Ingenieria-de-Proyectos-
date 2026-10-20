@@ -245,10 +245,13 @@ export interface ListForm {
 export type ListOutcome = { status: "saved"; lists: InstitutionLists } | { status: "invalid"; issues: ProfileIssue[] };
 // The Assistant (ADR-034 §4, core/agents/assistant.rs): the conversation lives only on the screen.
 export interface AssistantTurn {
-  from: "person" | "assistant";
+  /** `assistant`: the words of the AI; `program`: what the program said happened (the Capturist's suggestions) */
+  from: "person" | "assistant" | "program";
   text: string;
   /** the documents of the Expediente the answer was based on (ids, from its citations): «ese mismo» has a document */
   documents?: string[];
+  /** the window the answer offered to fill («Llenarlo por mí»), by its place */
+  fill?: string;
 }
 /** A place of the program a button may take the person to, with its name (core/places.rs). */
 export interface AppPlace {

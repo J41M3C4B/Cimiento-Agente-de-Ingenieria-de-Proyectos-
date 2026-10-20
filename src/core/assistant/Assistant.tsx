@@ -39,15 +39,25 @@ type Message =
   | { from: "capture"; target: Fill; outcome: Exclude<CaptureOutcome, { status: "quarantine" }> }
   | { from: "error"; text: string };
 
-/** The turns that go with a question: what the person asked and what was answered, in words. */
+/**
+ * The turns that go with a question: what the person asked and what was answered, in words. An answer goes with the
+ * words of the AI and the window it offered, never with the program's sentence under it: Rust says what was offered.
+ */
 function turns(messages: Message[], name: (place: string) => string): AssistantTurn[] {
   return messages.flatMap((m): AssistantTurn[] => {
     if (m.from === "person") return [{ from: "person", text: m.text }];
-    if (m.from === "capture") return m.outcome.status === "proposed" ? [{ from: "assistant", text: captured(m.outcome, name).join(" ") }] : [];
+    if (m.from === "capture") return m.outcome.status === "proposed" ? [{ from: "program", text: captured(m.outcome, name).join(" ") }] : [];
     if (m.from !== "assistant") return [];
     const o = m.outcome;
     if (o.status === "answered")
-      return [{ from: "assistant", text: [said(o, name), ...(o.records ? listed(o.records) : [])].join(" "), documents: [...new Set(o.documents.map((d) => d.document_id))] }];
+      return [
+        {
+          from: "assistant",
+          text: [o.text, ...(o.records ? listed(o.records) : [])].filter(Boolean).join(" "),
+          documents: [...new Set(o.documents.map((d) => d.document_id))],
+          ...(o.fill ? { fill: o.fill.place } : {}),
+        },
+      ];
     return [{ from: "assistant", text: `(${t.manualIntro} ${o.hits.map((h) => h.title).join("; ")})` }];
   });
 }

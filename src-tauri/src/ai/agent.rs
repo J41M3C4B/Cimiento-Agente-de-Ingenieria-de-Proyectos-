@@ -10,6 +10,7 @@
 
 use super::pipeline::{self, AiCall, Custom, Ledger, RunRecord};
 use super::{prompts, AiError, AiProvider, AiTask, ModelTier};
+use super::vault::Vault;
 use crate::scanner::SensitiveScanner;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -171,6 +172,21 @@ pub async fn run(
     toolbox: &[&dyn Tool],
     errand: Errand,
 ) -> Result<AgentRun, AgentError> {
+    run_in(provider, scanner, ledger, agent, toolbox, errand, None).await
+}
+
+/// Like `run`, with the vault of the errand (ADR-044): every step goes with marks, a tool runs with its arguments
+/// revealed on this computer and what it returns is marked again in the next step. The answer keeps its marks: whoever
+/// asked reveals what goes to the screen or to a field.
+pub async fn run_in(
+    provider: &dyn AiProvider,
+    scanner: &dyn SensitiveScanner,
+    ledger: &dyn Ledger,
+    agent: &Agent,
+    toolbox: &[&dyn Tool],
+    errand: Errand,
+    vault: Option<&Vault>,
+) -> Result<AgentRun, AgentError> {
     let task = AiTask::Agent { name: agent.task, tier: agent.tier };
     let system = system(agent, toolbox);
     let schema = step_schema(agent, toolbox);
@@ -183,7 +199,7 @@ pub async fn run(
         let call = AiCall { task, context: errand.context.clone(), user: step_text(&errand, &done, left), project_id: None };
         let custom = Custom { schema: schema.clone(), max_output_tokens: agent.max_output_tokens, system: Some(system.clone()) };
         record.model_calls += 1;
-        let step = match pipeline::run_measured(provider, scanner, ledger, call, Some(custom)).await {
+        let step = match pipeline::run_marked(provider, scanner, ledger, call, Some(custom), vault).await {
             Ok(m) => {
                 tokens += m.tokens;
                 m.value
@@ -216,7 +232,7 @@ pub async fn run(
             None => Err("se rechazó: no es una de sus herramientas.".to_string()),
             Some(t) => match validate_args(&t.args_schema(), &args) {
                 Err(_) => Err("se rechazó: los argumentos no tienen la forma pedida.".to_string()),
-                Ok(()) => match t.run(&args).await {
+                Ok(()) => match t.run(&vault.map_or_else(|| args.clone(), |v| v.reveal_json(&args))).await {
                     Ok(v) => {
                         *record.tools.entry(t.name()).or_insert(0) += 1;
                         Ok(v)
@@ -463,6 +479,59 @@ mod tests {
         assert!(!second.contains("LOPM8") && second.contains("[CURP OCULTA]"), "{second}");
         let n: i64 = conn.lock().unwrap().query_row("SELECT count(*) FROM audit_log WHERE event='scanner.leak_prevented'", [], |r| r.get(0)).unwrap();
         assert_eq!(n, 1);
+    }
+
+    /// What a tool was given, to see it ran with the values and not the marks.
+    struct Keeps {
+        got: Mutex<Vec<Value>>,
+        result: Value,
+    }
+
+    #[async_trait::async_trait]
+    impl Tool for Keeps {
+        fn name(&self) -> &'static str {
+            "first"
+        }
+        fn description(&self) -> &'static str {
+            "Devuelve un dato de prueba."
+        }
+        fn args_schema(&self) -> Value {
+            json!({ "type": "object", "properties": { "what": { "type": "string" } }, "required": ["what"], "additionalProperties": false })
+        }
+        async fn run(&self, args: &Value) -> Result<Value, ToolError> {
+            self.got.lock().unwrap().push(args.clone());
+            Ok(self.result.clone())
+        }
+    }
+
+    /// The vault of an errand (ADR-044): the model sees marks in every step, the tool runs with the values on this
+    /// computer and what it returns is marked again with the same mark; the answer keeps its marks for the caller.
+    #[tokio::test]
+    async fn with_a_vault_the_model_sees_marks_and_the_tool_the_values() {
+        let (_d, l, conn) = ledger();
+        let tool = Keeps { got: Mutex::new(vec![]), result: json!({ "dice": "Firmó Ana María López; su correo es ana@ejemplo.mx" }) };
+        let p = MockProvider::new(vec![
+            reply(json!({ "tool": "first", "args": { "what": "¿Qué firmó [NOMBRE_1]?" }, "answer": null }), 100),
+            answer("[NOMBRE_1] firmó; escríbale a [CORREO_1]."),
+        ]);
+        let vault = Vault::new();
+        let errand = Errand { context: vec!["Pantalla: Mi institución".into()], request: "¿Qué firmó Ana María López?".into() };
+        let done = run_in(&p, &scanner(), &l, &agent(4), &[&tool], errand, Some(&vault)).await.unwrap();
+        // the tool ran with the value, never with the mark
+        assert_eq!(tool.got.lock().unwrap()[0], json!({ "what": "¿Qué firmó Ana María López?" }));
+        // no request carried a value; the result of the tool came back with the same marks, and the legend says what they are
+        for r in p.requests() {
+            let sent = format!("{} {} {}", r.system, r.context.join(" "), r.user);
+            assert!(!sent.contains("López") && !sent.contains("ana@ejemplo"), "{sent}");
+        }
+        let second = &p.requests()[1];
+        assert!(second.user.contains("Firmó [NOMBRE_1]; su correo es [CORREO_1]"), "{}", second.user);
+        assert!(second.context.last().unwrap().contains("- [CORREO_1]: un correo."), "{:?}", second.context);
+        // the caller reveals the answer
+        assert_eq!(vault.reveal(done.answer["text"].as_str().unwrap()), "Ana María López firmó; escríbale a ana@ejemplo.mx.");
+        // the audit log has counts, never the values
+        let all: String = conn.lock().unwrap().query_row("SELECT group_concat(details_json) FROM audit_log", [], |r| r.get(0)).unwrap();
+        assert!(!all.contains("López") && !all.contains("ejemplo"), "{all}");
     }
 
     #[tokio::test]

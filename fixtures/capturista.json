@@ -1,5 +1,5 @@
 {
-  "_nota": "Batería del Capturista (IA4, C4): lo que una persona cuenta en el chat de su institución y lo que debe quedar sugerido en la ventana. «campos»: por campo, «valores» (uno de estos, sin acentos ni mayúsculas), «contiene» (el texto lleva estas palabras), «incluye» (la lista lleva estos códigos), «nada» (la persona no lo dijo: no debe sugerirse) o «libre» (no se califica). Un campo que no está en «campos» y se sugiere cuenta como «de más». «trampas»: respuestas que un modelo podría dar y que el código debe tirar todas (en seco). «historial»: la conversación antes de lo que dice ahora. «no_es_personal»: ante el escáner la persona contestó «No es dato personal» (el teléfono o el RFC de la institución); si no, se tapa. «ventana»: donde está la persona; cada dato puede quedar en la ventana a la que pertenece (ADR-042 §6), y un campo de otra ventana se califica igual. «guardado»: lo que ya tiene guardado la institución, por ventana; lo que la persona cuenta igual no se sugiere. Los datos propios de la institución se copian de sus palabras (ADR-041). Todo es ficticio.",
+  "_nota": "Batería del Capturista (IA4, C4): lo que una persona cuenta en el chat de su institución y lo que debe quedar sugerido en la ventana. «campos»: por campo, «valores» (uno de estos, sin acentos ni mayúsculas), «contiene» (el texto lleva estas palabras), «incluye» (la lista lleva estos códigos), «nada» (la persona no lo dijo: no debe sugerirse) o «libre» (no se califica). Un campo que no está en «campos» y se sugiere cuenta como «de más». «trampas»: respuestas que un modelo podría dar y que el código debe tirar todas (en seco). «historial»: la conversación antes de lo que dice ahora. Lo que el escáner halla va a la IA como marca (`[TELEFONO_1]`, ADR-044) y el código pone el valor en la sugerencia: nadie le pregunta nada a la persona. «ventana»: donde está la persona; cada dato puede quedar en la ventana a la que pertenece (ADR-042 §6), y un campo de otra ventana se califica igual. «guardado»: lo que ya tiene guardado la institución, por ventana; lo que la persona cuenta igual no se sugiere. Los datos propios de la institución se copian de sus palabras (ADR-041). Todo es ficticio.",
   "casos": [
     {
       "id": "asilo-mixto",
@@ -190,7 +190,6 @@
     {
       "id": "legal-iap",
       "ventana": "institution.legal",
-      "no_es_personal": true,
       "dice": "Somos una I.A.P. fundada en 1987. Somos donataria autorizada en el rubro asistencial y la CLUNI todavía está en trámite. Nuestro RFC es CSE870512AB3.",
       "campos": {
         "institution.legal_rfc": { "valores": ["CSE870512AB3"] },
@@ -228,7 +227,6 @@
     {
       "id": "contacto",
       "ventana": "institution.contact",
-      "no_es_personal": true,
       "dice": "Estamos en la calle Hidalgo 45, colonia Centro, en Zapopan, Jalisco. Nuestro teléfono es 33 1234 5678.",
       "campos": {
         "institution.capacity_total": { "nada": true },
@@ -270,7 +268,6 @@
     {
       "id": "representante-desde-contacto",
       "ventana": "institution.contact",
-      "no_es_personal": true,
       "historial": [
         { "de": "persona", "texto": "Quiero llenar contacto y ubicación" },
         { "de": "asistente", "texto": "Cuénteme con sus palabras lo que sepa de «Contacto y ubicación»." }
@@ -286,6 +283,7 @@
       "id": "ya-estaba-guardado",
       "ventana": "institution.capacity",
       "guardado": {
+        "institution.identity": { "institution.name": "Casa Ficticia", "institution.modalities": ["residential"] },
         "institution.capacity": { "institution.capacity_total": 40, "institution.staff_volunteer_estimate": 8 }
       },
       "dice": "Tenemos 40 camas y viven 36 personas.",
@@ -296,6 +294,72 @@
         "institution.modalities": { "libre": true }
       },
       "igual": ["institution.capacity_total"]
+    },
+    {
+      "id": "dos-personas",
+      "ventana": "institution.legal",
+      "dice": "La presidenta del patronato es Ana María López y nuestra representante legal es Rosa Méndez Ruiz.",
+      "campos": {
+        "institution.legal_rep_name": { "valores": ["Rosa Méndez Ruiz"] },
+        "institution.legal_name": { "nada": true }
+      },
+      "trampas": [
+        { "field": "institution.legal_rep_name", "value": "[NOMBRE_3]", "quote": "nuestra representante legal es [NOMBRE_3]" }
+      ]
+    },
+    {
+      "id": "correo-de-la-institucion",
+      "ventana": "institution.contact",
+      "dice": "Nuestro correo es contacto@casaficticia.org y el teléfono 55 4321 8765.",
+      "campos": {
+        "institution.contact_email": { "valores": ["contacto@casaficticia.org"] },
+        "institution.contact_phone": { "valores": ["5543218765", "55 4321 8765"] },
+        "institution.street": { "nada": true }
+      }
+    },
+    {
+      "id": "alcaldia-con-nombre-de-persona",
+      "ventana": "institution.contact",
+      "dice": "Estamos en Benito Juárez, Ciudad de México, en la calle Ana María Rodríguez 8.",
+      "campos": {
+        "institution.municipality": { "valores": ["Benito Juárez"] },
+        "institution.state": { "valores": ["cdmx"] },
+        "institution.street": { "contiene": ["rodriguez"] },
+        "institution.ext_number": { "valores": ["8"] },
+        "institution.neighborhood": { "nada": true }
+      }
+    },
+    {
+      "id": "curp-en-lo-que-cuenta",
+      "ventana": "institution.capacity",
+      "dice": "La CURP de nuestra directora es LOPM800101MDFRZN09 y tenemos 40 camas.",
+      "campos": {
+        "institution.capacity_total": { "valores": [40] },
+        "institution.served_estimate": { "nada": true },
+        "institution.staff_paid_estimate": { "nada": true },
+        "institution.notes": { "nada": true }
+      }
+    },
+    {
+      "id": "salud-de-una-persona",
+      "ventana": "institution.capacity",
+      "dice": "La señora Rosa tiene diabetes; en total atendemos a 30 personas.",
+      "campos": {
+        "institution.served_estimate": { "valores": [30] },
+        "institution.capacity_total": { "nada": true },
+        "institution.notes": { "nada": true }
+      }
+    },
+    {
+      "id": "calle-con-nombre-de-persona",
+      "ventana": "institution.contact",
+      "dice": "Estamos en la Calle Ana María Rodríguez 8, colonia Centro.",
+      "campos": {
+        "institution.street": { "contiene": ["ana maria rodriguez"] },
+        "institution.ext_number": { "valores": ["8"] },
+        "institution.neighborhood": { "contiene": ["centro"] },
+        "institution.legal_rep_name": { "nada": true }
+      }
     }
   ]
 }

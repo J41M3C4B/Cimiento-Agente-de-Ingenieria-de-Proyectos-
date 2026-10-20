@@ -170,6 +170,7 @@ async fn a_file_kept_is_asked_once_about_the_empty_fields_it_speaks_of() {
     assert_eq!(provider.requests().len(), 1, "one call per file");
     let sent: String = provider.requests().iter().map(|r| r.context.join("\n")).collect();
     assert!(!sent.contains("informe-anual-2025.txt"), "the AI sees the type of the document, never the name of its file");
+    assert_eq!(provider.personal_data_sent(&[]), Vec::<String>::new(), "no value of a personal datum reached the model");
     let conn = db.lock().unwrap();
     let waiting = proposals::pending(&conn, "institution.capacity", None).unwrap();
     let paid = waiting.iter().find(|p| p.field_id == "institution.staff_paid_estimate").unwrap();

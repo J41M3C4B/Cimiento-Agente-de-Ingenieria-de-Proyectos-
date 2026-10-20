@@ -17,6 +17,7 @@ pub(crate) mod paced;
 pub mod pipeline;
 pub mod prompts;
 pub mod settings;
+pub mod vault;
 
 #[cfg(test)]
 pub mod golden;

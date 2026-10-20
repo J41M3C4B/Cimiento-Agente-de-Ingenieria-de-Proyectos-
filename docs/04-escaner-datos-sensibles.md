@@ -71,6 +71,20 @@ Los hallazgos `Block` **no se pueden ignorar**. Solo se tapan o se cancela.
 
 Formato de tapado: `[CURP OCULTA]`, `[TELÉFONO OCULTO]`, `[NOMBRE OCULTO]`, etc. El texto mantiene sentido para la IA y para el usuario.
 
+La cuarentena es para **lo que se guarda**: las ventanas de «Mi institución», los documentos y Proyectos. **El chat ya no la usa** (ADR-044).
+
+## Hacia la IA: la bóveda (ADR-044)
+
+Lo que va a la IA desde el Asistente y el Capturista no se detiene ni se tapa con una etiqueta fija:
+- cada hallazgo va como una **marca con su tipo y su número**: `[NOMBRE_1]`, `[CORREO_1]`, `[TELEFONO_1]`, `[RFC_1]`, `[CURP_1]`, `[CLABE_1]`, `[TARJETA_1]`, `[NSS_1]`, `[CLAVE_ELECTOR_1]`;
+- **el mismo valor lleva la misma marca** en todo el encargo, también en lo que devuelven las herramientas, y un valor ya marcado se vuelve a marcar aunque el escáner no lo vea esa vez;
+- **el código pone el valor en el equipo:** en la respuesta que lee la persona, en los argumentos de una herramienta y en una sugerencia, en cualquier campo. El valor pasa por la validación del campo y por `proposals::propose`;
+- una sugerencia con una marca que el encargo no hizo se descarta;
+- **la salud de una sola persona** va con su etiqueta de hoy, `[DATO DE SALUD OCULTO]`, y nunca se resuelve;
+- la tabla de valores y marcas **vive solo en memoria** mientras dura el encargo. La bitácora guarda cuántos datos de cada tipo se marcaron.
+
+Los demás operadores (los Lectores, Proyectos) siguen con la etiqueta fija. Código: `src-tauri/src/ai/vault.rs`.
+
 ## Documentos de tipo "expediente"
 
 Si un archivo tiene más de N hallazgos `Block` (inicial: 5) o un patrón de tabla con columnas tipo "Nombre / Edad / Diagnóstico", la app lo rechaza completo con el mensaje: *"Este archivo parece una lista de personas. Para cuidarlas, no lo guardamos. Si necesitas esos datos para el proyecto, mejor escribe solo los totales."*
@@ -106,4 +120,4 @@ Puede escapar todavía una CURP o un RFC con más de dos letras en lugar de díg
 - Rendimiento: ~520 KB (unas 100 páginas) en menos de 1 s incluso en compilación de desarrollo.
 - Los datos de contacto institucionales (teléfono, correo, RFC, representante) no se escanean y su teléfono/correo no se marcan en otros textos.
 - Las cuentas de la institución y los nombres de su patronato (ADR-033 §3) tampoco: `ScannerConfig.institutional_clabes` deja pasar una CLABE solo si es exactamente una de sus cuentas, escrita con o sin espacios o guiones (nada de lo que se encuentre dentro de ella cuenta). Cualquier otra CLABE, aunque difiera en un dígito, sigue bloqueada. Los nombres del patronato van en `safe_phrases`; por eso tampoco se tapan en el texto del Expediente y llegan a la IA en los pasajes del Lector (ADR-040).
-- **Lo que la persona aclaró** (`ScannerConfig::cleared`, ADR-041): cuando contesta «No es dato personal» en «Llenarlo por mí», la última revisión antes de la IA no vuelve a tapar ese texto exacto en ese encargo. Solo se aplica a advertencias: una CURP o el RFC de una persona se tapan siempre.
+- **Lo que la persona aclaró** (`ScannerConfig::cleared`, ADR-041) ya no se usa: desde la bóveda (ADR-044), lo que cuenta la persona en el chat va como marca y nadie le pregunta. Lo quita el carril `erp`.

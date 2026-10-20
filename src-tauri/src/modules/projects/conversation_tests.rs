@@ -82,6 +82,7 @@ async fn the_happy_path_finds_the_root_in_the_third_why_and_only_the_person_conf
     // with the root confirmed the diagnosis waits only for the summary
     let facts = store::facts(&db.lock().unwrap(), &pid).unwrap();
     assert!(facts.root_cause_confirmed && !facts.diagnosis_summary_confirmed);
+    assert_eq!(p.personal_data_sent(&[]), Vec::<String>::new(), "no value of a personal datum reached the model");
 }
 
 #[tokio::test]

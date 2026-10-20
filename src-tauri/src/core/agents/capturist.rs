@@ -11,18 +11,20 @@
 //!   and a date is one the person wrote. What is saved of them is never shown to the AI.
 //! - **What is saved already the same is not suggested** (ADR-042 §6): compared as a person reads it, and the
 //!   program says it was there.
-//! - **What the person writes goes through the scanner first,** as every text (quarantine).
+//! - **What the person writes goes with the marks of the vault** (ADR-044): the AI sees `[TELEFONO_1]`, never the
+//!   number, and the code puts the value back in the suggestion, in whatever field the AI chose; the field validates
+//!   it and the person sees it before accepting. Nothing stops the person (no quarantine in the chat).
 //! - The person asks for it from the Assistant («Llenarlo por mí») or from the window; the code runs it, never
 //!   another model (one level of delegation).
 
 use crate::ai::agent::{self, Agent};
+use crate::ai::vault::Vault;
 use crate::ai::pipeline::SqliteLedger;
 use crate::ai::{AiProvider, ModelTier};
 use crate::common::forms::{is_filled, AiUse, FieldKind, FieldSpec, FormSpec, Sensitivity, Values};
-use crate::core::agents::assistant::{reason, Turn, HISTORY_TURNS};
+use crate::core::agents::assistant::{last_turns, reason, Turn};
 use crate::core::agents::proposals::{self, NewProposal, Origin, ProposeOutcome};
 use crate::core::error::ServiceError;
-use crate::scanner::guard::{Decision, QuarantineReport};
 use crate::storage::SharedDb;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -133,8 +135,6 @@ pub enum CaptureOutcome {
     },
     /// The AI could not do it (`reason`, as in the Assistant): nothing was suggested.
     Unavailable { asked: String, reason: &'static str },
-    /// What the person wrote has data of a person: nothing was asked.
-    Quarantine { report: QuarantineReport },
 }
 
 fn lock(db: &SharedDb) -> Result<std::sync::MutexGuard<'_, rusqlite::Connection>, ServiceError> {
@@ -260,12 +260,9 @@ pub fn context(here: &str, saved: &Saved, history: &[Turn]) -> Vec<String> {
     if !by_hand.is_empty() {
         out.push(format!("Campos que la persona escribe a mano (no los sugiera): {}.", by_hand.join(", ")));
     }
-    let turns: Vec<&Turn> = history.iter().rev().take(HISTORY_TURNS).collect::<Vec<_>>().into_iter().rev().collect();
+    let turns = last_turns(history);
     if !turns.is_empty() {
-        let lines: String = turns
-            .iter()
-            .map(|t| format!("{}: {}\n", if t.from == "assistant" { "Asistente" } else { "Persona" }, t.text.trim()))
-            .collect();
+        let lines: String = turns.iter().map(|t| format!("{}\n", t.line())).collect();
         out.push(format!("La conversación hasta ahora:\n{lines}"));
     }
     out
@@ -314,8 +311,9 @@ pub struct Kept {
 }
 
 /// Keeps the suggestions the code accepts: a field of a window it fills, a value that fits it and is not what is
-/// saved, and words the person said. Each goes to the window of its field.
-pub fn keep(conn: &rusqlite::Connection, saved: &Saved, told: &str, answer: &Value) -> Result<Kept, ServiceError> {
+/// saved, and words the person said. Each goes to the window of its field. The marks of the vault are revealed first,
+/// in any field (ADR-044 §2); a suggestion with a mark the errand never made is dropped.
+pub fn keep(conn: &rusqlite::Connection, saved: &Saved, told: &str, answer: &Value, vault: &Vault) -> Result<Kept, ServiceError> {
     let mut out = Kept::default();
     let empty = Values::new();
     let mut checked: Vec<(&'static str, &str, Value, String, bool)> = Vec::new();
@@ -331,7 +329,13 @@ pub fn keep(conn: &rusqlite::Connection, saved: &Saved, told: &str, answer: &Val
             out.dropped += 1;
             continue;
         };
-        let value = fit(f, &p["value"]);
+        if vault.has_unknown(&p["value"]) || vault.has_unknown(&p["quote"]) {
+            out.dropped += 1;
+            continue;
+        }
+        let value = fit(f, &vault.reveal_json(&p["value"]));
+        let quote = vault.reveal(quote);
+        let quote = quote.as_str();
         if same(f, saved_in(saved, form).unwrap_or(&empty).get(field), &value) {
             // already so: nothing to suggest, and the person is told it was there
             if !out.same.iter().any(|s| s == field) {
@@ -390,7 +394,7 @@ pub fn keep(conn: &rusqlite::Connection, saved: &Saved, told: &str, answer: &Val
 
 /// Turns what the person tells into suggestions for «Mi institución», from the window the person is in. Nothing of the
 /// institution changes.
-pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Capture, decision: Option<Decision>) -> Result<CaptureOutcome, ServiceError> {
+pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Capture) -> Result<CaptureOutcome, ServiceError> {
     let Some(&(form, place, _)) = FILLABLE.iter().find(|f| f.0 == c.form) else { return Err(ServiceError::NotFound) };
     let spec = crate::core::institution::forms::form(form).ok_or(ServiceError::NotFound)?;
     let said = c.said.trim();
@@ -400,33 +404,28 @@ pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Captur
     if said.chars().count() > MAX_TOLD_CHARS {
         return Err(ServiceError::TextTooLarge);
     }
-    let (asked, scanner, saved) = {
+    let asked = said.to_string();
+    let (scanner, saved) = {
         let conn = lock(db)?;
-        let fields = vec![("said".to_string(), said.to_string())];
-        match crate::core::screen::guard_texts(&conn, "capturist_said", &fields, decision)? {
-            // «No es dato personal» (the institution's own phone or RFC): what the person cleared reaches the AI
-            Ok(mut t) => {
-                let mut saved: Saved = Vec::new();
-                for (f, _, _) in FILLABLE {
-                    saved.push((*f, crate::core::profile::forms::saved_values(&conn, f)?));
-                }
-                (t.remove(0), crate::core::screen::scanner_clearing(&conn, &[said], decision)?, saved)
-            }
-            Err(report) => return Ok(CaptureOutcome::Quarantine { report }),
+        let mut saved: Saved = Vec::new();
+        for (f, _, _) in FILLABLE {
+            saved.push((*f, crate::core::profile::forms::saved_values(&conn, f)?));
         }
+        (crate::core::screen::scanner_for(&conn)?, saved)
     };
     let Some(provider) = provider else { return Ok(CaptureOutcome::Unavailable { asked, reason: "not_configured" }) };
 
     let ledger = SqliteLedger(db.clone());
+    let vault = vault_of(&saved);
     let errand = agent::Errand { context: context(form, &saved, &c.history), request: asked.clone() };
-    let run = match agent::run(provider, &scanner, &ledger, &agent(), &[], errand).await {
+    let run = match agent::run_in(provider, &scanner, &ledger, &agent(), &[], errand, Some(&vault)).await {
         Ok(run) => run,
         Err(e) => return Ok(CaptureOutcome::Unavailable { asked, reason: reason(&e) }),
     };
     // what the person said: now and in their earlier turns
-    let told = c.history.iter().filter(|t| t.from != "assistant").map(|t| t.text.as_str()).chain([asked.as_str()]).collect::<Vec<_>>().join("\n");
+    let told = c.history.iter().filter(|t| t.from == "person").map(|t| t.text.as_str()).chain([asked.as_str()]).collect::<Vec<_>>().join("\n");
     let conn = lock(db)?;
-    let kept = keep(&conn, &saved, &told, &run.answer)?;
+    let kept = keep(&conn, &saved, &told, &run.answer, &vault)?;
     let left = kept.fields.iter().filter(|(f, _)| *f == form).map(|(_, id)| title(id)).collect();
     let others = FILLABLE
         .iter()
@@ -438,6 +437,20 @@ pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Captur
     let still = still_to_tell(&conn, spec, saved_in(&saved, form).unwrap_or(&Values::new()))?;
     let fields = kept.fields.into_iter().map(|(_, id)| id).collect();
     Ok(CaptureOutcome::Proposed { asked, form, place, fields, left, others, same, still, dropped: kept.dropped })
+}
+
+/// The vault of an errand that knows what is saved in the windows (only in memory): the legend tells the AI that a
+/// phone the person said is the one saved in «Teléfono», never the number (ADR-044 §4).
+pub(crate) fn vault_of(saved: &Saved) -> Vault {
+    let vault = Vault::new();
+    for (_, values) in saved {
+        for (field, value) in values {
+            if let Value::String(s) = value {
+                vault.know(s, &format!("«{}»", title(field)));
+            }
+        }
+    }
+    vault
 }
 
 /// The titles of the fields of a window the person may still tell: the AI may suggest them, they apply (with what is

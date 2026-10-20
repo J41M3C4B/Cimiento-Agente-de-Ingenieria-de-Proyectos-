@@ -57,13 +57,16 @@ pub struct Case {
     pub historial: Vec<Said>,
 }
 
-/// A turn before the question: who said it (`persona` or `asistente`), what, and the files its answer was based on.
+/// A turn before the question: who said it (`persona`, `asistente` or `programa`), what, the files its answer was
+/// based on and the window it offered to fill.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Said {
     pub de: String,
     pub texto: String,
     #[serde(default)]
     pub documentos: Vec<String>,
+    #[serde(default)]
+    pub llenar: Option<String>,
 }
 
 pub fn cases() -> Vec<Case> {
@@ -94,9 +97,14 @@ pub fn ask_of(c: &Case, db: &SharedDb) -> Ask {
         .historial
         .iter()
         .map(|t| Turn {
-            from: if t.de == "asistente" { "assistant".into() } else { "person".into() },
+            from: match t.de.as_str() {
+                "asistente" => "assistant".into(),
+                "programa" => "program".into(),
+                _ => "person".into(),
+            },
             text: t.texto.clone(),
             documents: t.documentos.iter().map(|f| crate::core::records::named_in(&map, f).and_then(|d| d.document_id.clone()).unwrap_or_else(|| panic!("{f} is not in the Expediente"))).collect(),
+            fill: t.llenar.clone(),
         })
         .collect();
     Ask { screen: c.pantalla.clone(), field: c.campo.clone(), question: c.q.clone(), history }
@@ -206,6 +214,21 @@ async fn the_page_of_each_question_is_among_the_passages_of_the_reader() {
     assert_eq!(found, asked);
 }
 
+/// ADR-044: whatever the person asks in the battery (a CURP, two people, the institution's mail, health), no value of a
+/// personal datum reaches the model, and the question is never held.
+#[tokio::test]
+async fn no_personal_value_of_the_battery_reaches_the_model() {
+    let (_d, db) = db();
+    for c in cases() {
+        let reply = Ok(AiResponse { value: json!({ "tool": null, "args": null, "answer": { "text": "Listo.", "go_to": null, "sources": [], "fill": null, "records": false } }), model: "mock".into(), usage: Usage::default() });
+        let m = MockProvider::new(vec![reply]);
+        let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(&c, &db)).await.unwrap();
+        // a follow-up («ese mismo») asks the Reader first and this mock has one answer: the manual answers then
+        assert!(matches!(out, AssistantOutcome::Answered { .. } | AssistantOutcome::Manual { .. }), "{}: {out:?}", c.q);
+        assert_eq!(m.personal_data_sent(&[]), Vec::<String>::new(), "{}", c.q);
+    }
+}
+
 /// Dry: the grading itself. A simulated run that asks the Reader and cites the expected page passes; one that cites a
 /// document no one asked for where nothing is said, or offers the wrong window, fails.
 #[tokio::test]
@@ -222,7 +245,7 @@ async fn the_battery_grades_what_it_should() {
         reply(json!({ "tool": null, "args": null, "answer": { "found": true, "text": "La comodataria paga el predial.", "citations": [{ "passage": p.id, "quote": "del impuesto predial" }] } })),
         reply(json!({ "tool": null, "args": null, "answer": { "text": "Lo paga la institución, como comodataria.", "go_to": null, "sources": [source], "fill": null, "records": false } })),
     ]);
-    let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(predial, &db), None).await.unwrap();
+    let out = ask(&db, Some(&m), None, Some(Role::Manager), ask_of(predial, &db)).await.unwrap();
     let tools = last_tools(&db);
     assert_eq!(grade(predial, &out, &tools), Vec::<String>::new(), "{out:?}");
 
@@ -239,7 +262,9 @@ async fn the_battery_grades_what_it_should() {
 /// makes) and, with Gemini, the vectors of the fictitious fragments. For each one: the verdict, the tools, what it
 /// cited, the answer, calls, tokens, cost and time. Only fictitious text goes out. Its whole output goes to a file:
 ///   cargo test assistant_battery_live -- --ignored --nocapture > assistant_battery_live.txt
-/// With `CIMIENTO_ROUNDS` (1 to 5) it asks everything that many times, to see how steady the cheapest model is.
+/// With `CIMIENTO_ROUNDS` (1 to 5) it asks everything that many times, to see how steady the cheapest model is; with
+/// `CIMIENTO_ONLY` («Calle|correo»), only the questions with one of those words, to measure a case again without
+/// spending on all of them.
 #[tokio::test]
 #[ignore]
 async fn assistant_battery_live() {
@@ -271,7 +296,8 @@ async fn assistant_battery_live() {
     };
     let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
     let recording = Recording { inner: provider.as_ref(), log: Mutex::new(Vec::new()) };
-    let all = cases();
+    let only = std::env::var("CIMIENTO_ONLY").ok();
+    let all: Vec<Case> = cases().into_iter().filter(|c| only.as_deref().is_none_or(|o| o.split('|').any(|w| c.q.contains(w)))).collect();
     let mut right_per_case = vec![0usize; all.len()];
     let (mut passed, mut tools_ok, mut cites_ok, mut cites_asked, mut invented) = (0, 0, 0, 0, 0);
     for round in 1..=rounds {
@@ -280,7 +306,7 @@ async fn assistant_battery_live() {
             let before = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
             recording.log.lock().unwrap().clear();
             let started = std::time::Instant::now();
-            let out = ask(&db, Some(&recording), embedder.clone(), Some(Role::Manager), ask_of(c, &db), None).await.unwrap();
+            let out = ask(&db, Some(&recording), embedder.clone(), Some(Role::Manager), ask_of(c, &db)).await.unwrap();
             let secs = started.elapsed().as_secs_f64();
             let after = (usage(&db, "agent.assistant"), usage(&db, "agent.reader_answer"));
             let mut tools = last_tools(&db);
@@ -396,7 +422,7 @@ async fn ask_native(
     let run = crate::ai::gemini_native::run(key, settings, &ledger, &scanner, &agent(), &tools, Errand { context: told, request: a.question.clone() }).await?;
     let cited = reach.cited.lock().unwrap().clone();
     let docs = crate::core::records::map(&db.lock().unwrap()).unwrap();
-    Ok((answered(&run.answer, a.question.clone(), &cited, &a.screen, Some(Role::Manager), &docs), run))
+    Ok((answered(&run.answer, a.question.clone(), &cited, &a.screen, Some(Role::Manager), &docs, &crate::ai::vault::Vault::new()), run))
 }
 
 /// What one mode did over the battery.
@@ -471,7 +497,7 @@ async fn assistant_native_vs_json_live() {
         println!("\n######## Ronda {round} de {rounds}");
         for c in &all {
             let before = assistant(&db);
-            let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), ask_of(c, &db), None).await.unwrap();
+            let out = ask(&db, Some(provider.as_ref()), embedder.clone(), Some(Role::Manager), ask_of(c, &db)).await.unwrap();
             let after = assistant(&db);
             let bad = grade(c, &out, &last_tools(&db));
             json_mode.add(c, &bad);

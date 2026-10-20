@@ -7,28 +7,27 @@ use crate::core::agents::assistant::{self, Ask, AssistantOutcome};
 use crate::core::agents::capturist::{self, Capture, CaptureOutcome};
 use crate::core::reader::fill::{self, FillOutcome};
 use crate::error::UiError;
-use crate::scanner::guard::Decision;
 use crate::Db;
 use tauri::State;
 
 /// A question from any screen. The tools give only what the person who asks may see (ADR-028).
 #[tauri::command]
-pub async fn assistant_ask(session: State<'_, Session>, db: State<'_, Db>, ask: Ask, decision: Option<Decision>) -> Result<AssistantOutcome, UiError> {
+pub async fn assistant_ask(session: State<'_, Session>, db: State<'_, Db>, ask: Ask) -> Result<AssistantOutcome, UiError> {
     let gate = guard(&session, "assistant_ask")?;
     let role = gate.user.as_ref().map(|u| u.role);
     let db = shared(&db);
     let provider = make_provider(&db);
     let embedder = crate::core::archive::vectors::embedder(&db, true);
-    Ok(assistant::ask(&db, provider.as_deref(), embedder, role, ask, decision).await?)
+    Ok(assistant::ask(&db, provider.as_deref(), embedder, role, ask).await?)
 }
 
 /// «Llenarlo por mí»: what the person tells becomes suggestions in a window of «Mi institución». Nothing is saved.
 #[tauri::command]
-pub async fn capture_ask(session: State<'_, Session>, db: State<'_, Db>, capture: Capture, decision: Option<Decision>) -> Result<CaptureOutcome, UiError> {
+pub async fn capture_ask(session: State<'_, Session>, db: State<'_, Db>, capture: Capture) -> Result<CaptureOutcome, UiError> {
     guard(&session, "capture_ask")?;
     let db = shared(&db);
     let provider = make_provider(&db);
-    Ok(capturist::capture(&db, provider.as_deref(), capture, decision).await?)
+    Ok(capturist::capture(&db, provider.as_deref(), capture).await?)
 }
 
 /// «Llenar con mis documentos» (C2): the empty fields of a window of «Mi institución» as suggestions from the

@@ -45,7 +45,7 @@ Los cuatro límites del ADR-043 no dependen del patrón:
 - la IA no calcula;
 - permisos: cada pieza tiene sus herramientas y cada campo dice qué acepta.
 
-Además, toda llamada pasa por el mismo camino (`ai::pipeline`): presupuesto → escáner → ritmo → proveedor → esquema → `ai_usage`. No hay otro.
+Además, toda llamada pasa por el mismo camino (`ai::pipeline`): presupuesto → escáner → ritmo → proveedor → esquema → `ai_usage`. No hay otro. En un encargo con bóveda (el Asistente y el Capturista, ADR-044), lo que halla el escáner va como marca (`[NOMBRE_1]`) y el código pone el valor en el equipo.
 
 ## 3. Señales de un patrón equivocado
 
@@ -138,5 +138,5 @@ Lleva la ficha del operador y además:
 | `BACK_TO_IT` («ese mismo», «con base en eso») | Lista de frases | Lo decide el operador que enruta | IA-4 |
 | `claims_done` (borra un «guardé» del modelo) | Remiendo | El código confirma lo que se afirma | IA-4 |
 | `mend_digits` («dej3») | Remiendo del modelo más barato | Se queda medido; se revisa con IA-4 | IA-4 |
-| Palabras del escáner para nombres (`scanner/names.rs`) | Lista que crece por caso | La bóveda | IA-2 |
+| Palabras del escáner para nombres (`scanner/names.rs`) | Lista que crece por caso | Un modelo local de nombres (ADR-046); la bóveda (ADR-044, IA-2) ya hace que marcar de más no cueste | IA-8 |
 | El Capturista, los Lectores y el Asistente se llaman todos «agent» en el código (`ai::agent::run`, `fn agent()`) | Nombres que no dicen el patrón | Operador y agente separados en el código | IA-6 |

@@ -26,10 +26,6 @@ struct Case {
     campos: serde_json::Map<String, Value>,
     #[serde(default)]
     trampas: Vec<Value>,
-    /// The person answered «No es dato personal» to the scanner (the institution's own phone or RFC): what they wrote
-    /// goes as it is. Otherwise, covered.
-    #[serde(default)]
-    no_es_personal: bool,
     /// What the institution has saved already, by window.
     #[serde(default)]
     guardado: serde_json::Map<String, Value>,
@@ -67,27 +63,21 @@ fn db_of(saved: &serde_json::Map<String, Value>) -> (tempfile::TempDir, SharedDb
     let mut c = crate::storage::open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
     let identity: Values = serde_json::from_value(json!({ "institution.name": "Casa Ficticia" })).unwrap();
     assert!(matches!(save(&mut c, "institution.identity", identity, None).unwrap(), SaveProfileOutcome::Saved { .. }));
-    for (form, values) in saved {
+    // «Su institución» first: what applies in the other windows may depend on it (the capacity, on how they attend)
+    let mut forms: Vec<_> = saved.iter().collect();
+    forms.sort_by_key(|(form, _)| *form != "institution.identity");
+    for (form, values) in forms {
         let v: Values = serde_json::from_value(values.clone()).unwrap();
         assert!(matches!(save(&mut c, form, v, None).unwrap(), SaveProfileOutcome::Saved { .. }), "{form}");
     }
     (dir, Arc::new(Mutex::new(c)))
 }
 
-/// What the person decided before the scanner.
-fn decision_of(c: &Case) -> Decision {
-    if c.no_es_personal {
-        Decision::NotPersonal
-    } else {
-        Decision::Redact
-    }
-}
-
 fn capture_of(c: &Case) -> Capture {
     let history = c
         .historial
         .iter()
-        .map(|s| Turn { from: if s.de == "asistente" { "assistant".into() } else { "person".into() }, text: s.texto.clone(), documents: vec![] })
+        .map(|s| Turn { from: if s.de == "asistente" { "assistant".into() } else { "person".into() }, text: s.texto.clone(), documents: vec![], ..Default::default() })
         .collect();
     Capture { form: c.ventana.clone(), said: c.dice.clone(), history }
 }
@@ -126,6 +116,19 @@ fn reply(answer: Value) -> Result<AiResponse, AiError> {
     Ok(AiResponse { value: json!({ "tool": null, "args": null, "answer": answer }), model: "mock".into(), usage: Usage { input_tokens: 1_200, output_tokens: 150, ..Default::default() } })
 }
 
+/// ADR-044: whatever a person tells in the battery (phones, an RFC, a CURP, names, health), no value of a personal datum
+/// reaches the model: it goes as a mark, and nobody asks the person anything.
+#[tokio::test]
+async fn no_personal_value_of_the_battery_reaches_the_model() {
+    for c in cases() {
+        let (_d, db) = db_of(&c.guardado);
+        let p = MockProvider::new(vec![reply(json!({ "proposals": [] }))]);
+        let out = capture(&db, Some(&p), capture_of(&c)).await.unwrap();
+        assert!(matches!(out, CaptureOutcome::Proposed { .. }), "{}: {out:?}", c.id);
+        assert_eq!(p.personal_data_sent(&[]), Vec::<String>::new(), "{}", c.id);
+    }
+}
+
 /// The traps of the battery, answered by a model: a sum, a figure that is not in the words, words the person never
 /// said, a protected field, a field of another window. The code drops them all and nothing waits.
 #[tokio::test]
@@ -134,7 +137,7 @@ async fn the_code_drops_every_trap_of_the_battery() {
     for c in cases().iter().filter(|c| !c.trampas.is_empty()) {
         let (_d, db) = db();
         let p = MockProvider::new(vec![reply(json!({ "proposals": c.trampas }))]);
-        let out = capture(&db, Some(&p), capture_of(c), Some(decision_of(c))).await.unwrap();
+        let out = capture(&db, Some(&p), capture_of(c)).await.unwrap();
         let CaptureOutcome::Proposed { fields, dropped, .. } = out else { panic!("{}: {out:?}", c.id) };
         assert_eq!((fields, dropped), (Vec::<String>::new(), c.trampas.len()), "{}", c.id);
         assert!(proposals::pending_counts(&db.lock().unwrap()).unwrap().is_empty(), "{}", c.id);
@@ -217,7 +220,9 @@ async fn capturist_battery_live() {
     let provider = crate::ai::paced::provider(crate::ai::build_provider(&cfg, key));
     let recording = Recording { inner: provider.as_ref(), log: Mutex::new(Vec::new()) };
     let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
-    let all = cases();
+    // `CIMIENTO_CASES=alcaldia-con-nombre-de-persona,ya-estaba-guardado` runs only those cases
+    let only: Vec<String> = std::env::var("CIMIENTO_CASES").map(|s| s.split(',').map(|c| c.trim().to_string()).collect()).unwrap_or_default();
+    let all: Vec<Case> = cases().into_iter().filter(|c| only.is_empty() || only.contains(&c.id)).collect();
     let mut right_per_case = vec![0usize; all.len()];
     let (mut passed, mut fields_right, mut fields_graded, mut invented, mut extra, mut dropped_all) = (0, 0, 0, 0, 0, 0);
     let (mut calls, mut input, mut output, mut cost) = (0i64, 0i64, 0i64, 0f64);
@@ -229,7 +234,7 @@ async fn capturist_battery_live() {
             let (_d, db) = db_of(&c.guardado);
             recording.log.lock().unwrap().clear();
             let started = std::time::Instant::now();
-            let out = capture(&db, Some(&recording), capture_of(c), Some(decision_of(c))).await.unwrap();
+            let out = capture(&db, Some(&recording), capture_of(c)).await.unwrap();
             let secs = started.elapsed().as_secs_f64();
             let conn = db.lock().unwrap();
             let used: (i64, i64, i64, f64) = conn
