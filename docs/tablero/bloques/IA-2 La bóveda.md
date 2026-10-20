@@ -60,12 +60,12 @@ Hoy el escáner detiene a la persona cada vez que cree ver un dato personal, y c
 En la app de la rama `ia/ia-2-boveda` (carpeta `D:\Agente Proyectos\cimiento-ia`, `pnpm tauri dev`), con la llave de Gemini guardada:
 
 - [x] En Inicio, en el Asistente: «¿Dónde anoto la CURP LOPM800101MDFRZN09 de una señora que atendemos?». **No aparece la ventana de «datos personales»**; contesta que esa parte llegará después.
-- [x] En «Mi institución», en el Asistente: «Nuestro correo es contacto@casaficticia.org, ¿dónde lo pongo?». Ofrece «Llenarlo por mí» en «Contacto y ubicación»; al usarlo, la sugerencia del correo trae **el correo tal cual lo escribió**.
-- [x] «Llenarlo por mí» en «Datos legales y fiscales»: «Nuestra representante legal es Rosa Méndez Ruiz y nuestro RFC es CSE870512AB3». Las sugerencias traen **el nombre y el RFC tal cual**, sin preguntar nada antes.
+- [ ] En «Mi institución», en el Asistente: «Nuestro correo es contacto@casaficticia.org, ¿dónde lo pongo?». Ofrece «Llenarlo por mí» en «Contacto y ubicación»; al usarlo, la sugerencia del correo trae **el correo tal cual lo escribió**.
+- [ ] «Llenarlo por mí» en «Datos legales y fiscales»: «Nuestra representante legal es Rosa Méndez Ruiz y nuestro RFC es CSE870512AB3». Las sugerencias traen **el nombre y el RFC tal cual**, sin preguntar nada antes.
 - [x] «Llenarlo por mí» en «Contacto y ubicación»: «Estamos en la Calle Ana María Rodríguez 8». La calle llega como «Ana María Rodríguez» (antes se tapaba como nombre).
 - [x] Saber que no salió nada: en las métricas de la IA o en la bitácora, cada pregunta con datos deja `scanner.leak_prevented` con **cuántos** datos de cada tipo, nunca cuáles.
 
-- [x] **Segunda vuelta (2026-10-20), en una sola conversación y sin reiniciarla, desde «Mi institución»:** el correo, luego la representante y el RFC, luego «Estamos en la Calle Ana María Rodríguez 8». La calle se ofrece en **«Contacto y ubicación»**, no en «Datos legales y fiscales».
+- [ ] **Segunda vuelta (2026-10-20), en una sola conversación y sin reiniciarla, desde «Mi institución»:** el correo, luego la representante y el RFC, luego «Estamos en la Calle Ana María Rodríguez 8». La calle se ofrece en **«Contacto y ubicación»**, no en «Datos legales y fiscales».
 
 Conocido: «Estamos en Benito Juárez, Ciudad de México» en «Llenarlo por mí» no llena el municipio (el modelo más barato no pone la marca ahí). Lo resuelve IA-8.
 
