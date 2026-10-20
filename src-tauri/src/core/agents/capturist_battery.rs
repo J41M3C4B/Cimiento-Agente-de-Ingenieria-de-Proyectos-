@@ -77,7 +77,7 @@ fn capture_of(c: &Case) -> Capture {
     let history = c
         .historial
         .iter()
-        .map(|s| Turn { from: if s.de == "asistente" { "assistant".into() } else { "person".into() }, text: s.texto.clone(), documents: vec![] })
+        .map(|s| Turn { from: if s.de == "asistente" { "assistant".into() } else { "person".into() }, text: s.texto.clone(), documents: vec![], ..Default::default() })
         .collect();
     Capture { form: c.ventana.clone(), said: c.dice.clone(), history }
 }

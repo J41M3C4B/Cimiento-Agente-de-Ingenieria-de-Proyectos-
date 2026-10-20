@@ -22,7 +22,7 @@ use crate::ai::vault::Vault;
 use crate::ai::pipeline::SqliteLedger;
 use crate::ai::{AiProvider, ModelTier};
 use crate::common::forms::{is_filled, AiUse, FieldKind, FieldSpec, FormSpec, Sensitivity, Values};
-use crate::core::agents::assistant::{reason, Turn, HISTORY_TURNS};
+use crate::core::agents::assistant::{last_turns, reason, Turn};
 use crate::core::agents::proposals::{self, NewProposal, Origin, ProposeOutcome};
 use crate::core::error::ServiceError;
 use crate::storage::SharedDb;
@@ -260,12 +260,9 @@ pub fn context(here: &str, saved: &Saved, history: &[Turn]) -> Vec<String> {
     if !by_hand.is_empty() {
         out.push(format!("Campos que la persona escribe a mano (no los sugiera): {}.", by_hand.join(", ")));
     }
-    let turns: Vec<&Turn> = history.iter().rev().take(HISTORY_TURNS).collect::<Vec<_>>().into_iter().rev().collect();
+    let turns = last_turns(history);
     if !turns.is_empty() {
-        let lines: String = turns
-            .iter()
-            .map(|t| format!("{}: {}\n", if t.from == "assistant" { "Asistente" } else { "Persona" }, t.text.trim()))
-            .collect();
+        let lines: String = turns.iter().map(|t| format!("{}\n", t.line())).collect();
         out.push(format!("La conversación hasta ahora:\n{lines}"));
     }
     out
@@ -426,7 +423,7 @@ pub async fn capture(db: &SharedDb, provider: Option<&dyn AiProvider>, c: Captur
         Err(e) => return Ok(CaptureOutcome::Unavailable { asked, reason: reason(&e) }),
     };
     // what the person said: now and in their earlier turns
-    let told = c.history.iter().filter(|t| t.from != "assistant").map(|t| t.text.as_str()).chain([asked.as_str()]).collect::<Vec<_>>().join("\n");
+    let told = c.history.iter().filter(|t| t.from == "person").map(|t| t.text.as_str()).chain([asked.as_str()]).collect::<Vec<_>>().join("\n");
     let conn = lock(db)?;
     let kept = keep(&conn, &saved, &told, &run.answer, &vault)?;
     let left = kept.fields.iter().filter(|(f, _)| *f == form).map(|(_, id)| title(id)).collect();

@@ -57,13 +57,16 @@ pub struct Case {
     pub historial: Vec<Said>,
 }
 
-/// A turn before the question: who said it (`persona` or `asistente`), what, and the files its answer was based on.
+/// A turn before the question: who said it (`persona`, `asistente` or `programa`), what, the files its answer was
+/// based on and the window it offered to fill.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Said {
     pub de: String,
     pub texto: String,
     #[serde(default)]
     pub documentos: Vec<String>,
+    #[serde(default)]
+    pub llenar: Option<String>,
 }
 
 pub fn cases() -> Vec<Case> {
@@ -94,9 +97,14 @@ pub fn ask_of(c: &Case, db: &SharedDb) -> Ask {
         .historial
         .iter()
         .map(|t| Turn {
-            from: if t.de == "asistente" { "assistant".into() } else { "person".into() },
+            from: match t.de.as_str() {
+                "asistente" => "assistant".into(),
+                "programa" => "program".into(),
+                _ => "person".into(),
+            },
             text: t.texto.clone(),
             documents: t.documentos.iter().map(|f| crate::core::records::named_in(&map, f).and_then(|d| d.document_id.clone()).unwrap_or_else(|| panic!("{f} is not in the Expediente"))).collect(),
+            fill: t.llenar.clone(),
         })
         .collect();
     Ask { screen: c.pantalla.clone(), field: c.campo.clone(), question: c.q.clone(), history }
@@ -254,7 +262,9 @@ async fn the_battery_grades_what_it_should() {
 /// makes) and, with Gemini, the vectors of the fictitious fragments. For each one: the verdict, the tools, what it
 /// cited, the answer, calls, tokens, cost and time. Only fictitious text goes out. Its whole output goes to a file:
 ///   cargo test assistant_battery_live -- --ignored --nocapture > assistant_battery_live.txt
-/// With `CIMIENTO_ROUNDS` (1 to 5) it asks everything that many times, to see how steady the cheapest model is.
+/// With `CIMIENTO_ROUNDS` (1 to 5) it asks everything that many times, to see how steady the cheapest model is; with
+/// `CIMIENTO_ONLY` («Calle|correo»), only the questions with one of those words, to measure a case again without
+/// spending on all of them.
 #[tokio::test]
 #[ignore]
 async fn assistant_battery_live() {
@@ -286,7 +296,8 @@ async fn assistant_battery_live() {
     };
     let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
     let recording = Recording { inner: provider.as_ref(), log: Mutex::new(Vec::new()) };
-    let all = cases();
+    let only = std::env::var("CIMIENTO_ONLY").ok();
+    let all: Vec<Case> = cases().into_iter().filter(|c| only.as_deref().is_none_or(|o| o.split('|').any(|w| c.q.contains(w)))).collect();
     let mut right_per_case = vec![0usize; all.len()];
     let (mut passed, mut tools_ok, mut cites_ok, mut cites_asked, mut invented) = (0, 0, 0, 0, 0);
     for round in 1..=rounds {

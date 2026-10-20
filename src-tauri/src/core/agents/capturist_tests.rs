@@ -227,7 +227,7 @@ fn the_context_names_the_fields_of_every_window_and_never_a_protected_value() {
     let c = db.lock().unwrap();
     let saved = saved_all(&c);
     assert!(saved.iter().any(|(_, v)| v.contains_key("institution.legal_rfc")));
-    let history = vec![Turn { from: "person".into(), text: "Somos I.A.P. desde 1950".into(), documents: vec![] }];
+    let history = vec![Turn { from: "person".into(), text: "Somos I.A.P. desde 1950".into(), documents: vec![], ..Default::default() }];
     let ctx = context("institution.legal", &saved, &history).join("\n");
     assert!(ctx.starts_with("La persona está en la ventana «Datos legales y fiscales»"), "{ctx}");
     assert!(ctx.contains("`institution.legal_form`") && ctx.contains("iap") && ctx.contains("Solo aplica si `institution.authorized_donee` es yes"), "{ctx}");

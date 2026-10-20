@@ -107,15 +107,42 @@ pub fn agent() -> Agent {
 }
 
 /// One turn of the conversation, as the screen keeps it.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Turn {
-    /// `person` or `assistant`.
+    /// `person`, `assistant` (the words of the AI) or `program` (what the program said happened: the suggestions the
+    /// Capturist left, what was saved already).
     pub from: String,
     pub text: String,
     /// The documents of the Expediente an answer was based on (their ids, from its citations): the next question may
     /// speak of them («ese mismo»).
     #[serde(default)]
     pub documents: Vec<String>,
+    /// The window an answer offered to fill («Llenarlo por mí»), by its place.
+    #[serde(default)]
+    pub fill: Option<String>,
+}
+
+impl Turn {
+    /// The turn as the AI reads it. An answer goes with its own words and what it offered, never with the sentence of
+    /// the program under it: given that sentence as the Assistant's, the cheapest model answered «Estamos en la Calle
+    /// … 8» by copying the last answer, with its window (measured by the leader, 2026-10-20).
+    pub fn line(&self) -> String {
+        let who = match self.from.as_str() {
+            "assistant" => "Asistente",
+            "program" => "Programa",
+            _ => "Persona",
+        };
+        let mut s = format!("{who}: {}", self.text.trim());
+        if let Some(name) = self.fill.as_deref().and_then(places::place).map(|p| p.label.as_str()) {
+            s.push_str(&format!(" [ofreció llenar «{name}» con lo que contó la persona]"));
+        }
+        s
+    }
+}
+
+/// The last turns of the conversation, oldest first.
+pub fn last_turns(history: &[Turn]) -> Vec<&Turn> {
+    history.iter().rev().take(HISTORY_TURNS).collect::<Vec<_>>().into_iter().rev().collect()
 }
 
 /// What the screen sends with a question.
@@ -255,7 +282,7 @@ pub fn context(ask: &Ask, docs: &[MapDocument]) -> Vec<String> {
         s.push_str(&format!(" El manual dice de él:\n{}", e.entry.paragraphs.join("\n")));
         out.push(s);
     }
-    let turns: Vec<&Turn> = ask.history.iter().rev().take(HISTORY_TURNS).collect::<Vec<_>>().into_iter().rev().collect();
+    let turns = last_turns(&ask.history);
     if !turns.is_empty() {
         let lines: String = turns
             .iter()
@@ -263,7 +290,7 @@ pub fn context(ask: &Ask, docs: &[MapDocument]) -> Vec<String> {
                 let used: Vec<String> =
                     t.documents.iter().filter_map(|id| docs.iter().find(|d| d.document_id.as_deref() == Some(id.as_str()))).map(|d| format!("{} {}", d.key, d.name)).collect();
                 let used = if used.is_empty() { String::new() } else { format!(" (lo tomó de {})", used.join(", ")) };
-                format!("{}: {}{used}\n", if t.from == "assistant" { "Asistente" } else { "Persona" }, t.text.trim())
+                format!("{}{used}\n", t.line())
             })
             .collect();
         out.push(format!("La conversación hasta ahora:\n{lines}"));
@@ -642,7 +669,7 @@ mod tests {
     #[test]
     fn the_context_says_where_the_person_is_and_what_was_said() {
         let mut a = question("documents", None, "¿Y eso?");
-        a.history = (0..10).map(|i| Turn { from: if i % 2 == 0 { "person".into() } else { "assistant".into() }, text: format!("turno {i}"), documents: vec![] }).collect();
+        a.history = (0..10).map(|i| Turn { from: if i % 2 == 0 { "person".into() } else { "assistant".into() }, text: format!("turno {i}"), documents: vec![], ..Default::default() }).collect();
         let c = context(&a, &[]);
         assert!(c[0].contains("«Documentos»") && c[0].contains("`screen.documents`"), "{c:?}");
         let said = c.iter().find(|l| l.starts_with("La conversación")).unwrap();
@@ -657,8 +684,8 @@ mod tests {
         let junta = docs.iter().find(|d| d.name == "Registro ante la Junta").unwrap();
         let mut a = question("profile", None, "¿Y con base en ese mismo qué pongo?");
         a.history = vec![
-            Turn { from: "person".into(), text: "¿Qué dice mi registro?".into(), documents: vec![] },
-            Turn { from: "assistant".into(), text: "Dice su objeto.".into(), documents: vec![junta.document_id.clone().unwrap(), "doc_gone".into()] },
+            Turn { from: "person".into(), text: "¿Qué dice mi registro?".into(), documents: vec![], ..Default::default() },
+            Turn { from: "assistant".into(), text: "Dice su objeto.".into(), documents: vec![junta.document_id.clone().unwrap(), "doc_gone".into()], ..Default::default() },
         ];
         let told = context(&a, &docs).join("\n");
         assert!(told.contains(&format!("Asistente: Dice su objeto. (lo tomó de {} Registro ante la Junta)", junta.key)), "{told}");
@@ -674,8 +701,28 @@ mod tests {
             assert!(back_to(&other, &docs).is_some(), "{words}");
         }
         // an answer with no documents after it: nothing to go back to
-        a.history.push(Turn { from: "assistant".into(), text: "Vaya a Seguridad.".into(), documents: vec![] });
+        a.history.push(Turn { from: "assistant".into(), text: "Vaya a Seguridad.".into(), documents: vec![], ..Default::default() });
         assert!(back_to(&a, &docs).is_none());
+    }
+
+    /// The leader's test (2026-10-20): after an answer that offered «Datos legales y fiscales», «Estamos en la Calle …»
+    /// was answered with that same window. The AI reads the words of each answer and the window it offered, and what
+    /// the program said, as the program's; never the sentence of the button as the Assistant's.
+    #[test]
+    fn the_conversation_says_what_was_offered_and_who_said_what() {
+        let mut a = question("profile", None, "Estamos en la Calle Ana María Rodríguez 8");
+        a.history = vec![
+            Turn { from: "person".into(), text: "Nuestra representante legal es Rosa Méndez Ruiz".into(), ..Default::default() },
+            Turn { from: "assistant".into(), text: "Va en «Datos legales y fiscales».".into(), fill: Some("profile.legal".into()), ..Default::default() },
+            Turn { from: "program".into(), text: "Ya estaba guardado igual: «Nombre de quien la representa legalmente».".into(), ..Default::default() },
+        ];
+        let told = context(&a, &[]).join("\n");
+        assert!(told.contains("Asistente: Va en «Datos legales y fiscales». [ofreció llenar «Datos legales y fiscales» con lo que contó la persona]"), "{told}");
+        assert!(told.contains("Programa: Ya estaba guardado igual"), "{told}");
+        assert!(!told.contains("Con el botón de abajo"), "{told}");
+        // the Capturist reads it the same way
+        let told = crate::core::agents::capturist::context("institution.contact", &vec![], &a.history).join("\n");
+        assert!(told.contains("Programa: Ya estaba guardado igual") && told.contains("[ofreció llenar «Datos legales y fiscales»"), "{told}");
     }
 
     /// «Y con base en ese mismo…» (C4): the code asks the Reader with the document of the last answer before the AI
@@ -699,8 +746,8 @@ mod tests {
         ]);
         let mut a = question("profile", None, q);
         a.history = vec![
-            Turn { from: "person".into(), text: "¿Cuál es el plazo del comodato?".into(), documents: vec![] },
-            Turn { from: "assistant".into(), text: "Veinte años.".into(), documents: vec![id.clone()] },
+            Turn { from: "person".into(), text: "¿Cuál es el plazo del comodato?".into(), documents: vec![], ..Default::default() },
+            Turn { from: "assistant".into(), text: "Veinte años.".into(), documents: vec![id.clone()], ..Default::default() },
         ];
         let out = ask(&db, Some(&p), None, Some(Role::Manager), a).await.unwrap();
         let AssistantOutcome::Answered { documents, .. } = out else { panic!("{out:?}") };
@@ -911,7 +958,7 @@ mod tests {
             screen: "profile".into(),
             field: None,
             question: "Nos representa la directora, Rosa Ficticia del Ejemplo".into(),
-            history: vec![Turn { from: "person".into(), text: "Quiero llenar contacto y ubicación".into(), documents: vec![] }],
+            history: vec![Turn { from: "person".into(), text: "Quiero llenar contacto y ubicación".into(), documents: vec![], ..Default::default() }],
         };
         let mut bad = 0;
         for round in 1..=rounds {

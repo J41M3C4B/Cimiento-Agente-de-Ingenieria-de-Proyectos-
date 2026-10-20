@@ -188,7 +188,13 @@ describe("Assistant", () => {
     expect(screen.queryByText("Mientras tanto, le respondo con el manual:")).toBeNull();
     const last = vi.mocked(captureAsk).mock.calls[1]![0];
     expect(last.said).toBe("Somos I.A.P.");
-    expect(last.history.map((h) => h.text)).toEqual([asked, expect.stringMatching(/^En «Su institución»\.\n\nEsos datos van en «Mi institución»/),expect.stringMatching(/^Dejé 2 sugerencias en «Su institución»: .*Todavía puede contarme: «¿A qué se dedica\?»\.$/)]);
+    // the answer goes with the AI's words and the window it offered, not with the program's sentence; what the
+    // Capturist left, as the program's
+    expect(last.history).toEqual([
+      { from: "person", text: asked },
+      { from: "assistant", text: "En «Su institución».", documents: [], fill: "profile.institution" },
+      { from: "program", text: expect.stringMatching(/^Dejé 2 sugerencias en «Su institución»: .*Todavía puede contarme: «¿A qué se dedica\?»\.$/) },
+    ]);
 
     // back to questions
     fireEvent.click(screen.getByRole("button", { name: "Dejar de llenar" }));
