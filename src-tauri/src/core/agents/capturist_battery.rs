@@ -63,7 +63,10 @@ fn db_of(saved: &serde_json::Map<String, Value>) -> (tempfile::TempDir, SharedDb
     let mut c = crate::storage::open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
     let identity: Values = serde_json::from_value(json!({ "institution.name": "Casa Ficticia" })).unwrap();
     assert!(matches!(save(&mut c, "institution.identity", identity, None).unwrap(), SaveProfileOutcome::Saved { .. }));
-    for (form, values) in saved {
+    // «Su institución» first: what applies in the other windows may depend on it (the capacity, on how they attend)
+    let mut forms: Vec<_> = saved.iter().collect();
+    forms.sort_by_key(|(form, _)| *form != "institution.identity");
+    for (form, values) in forms {
         let v: Values = serde_json::from_value(values.clone()).unwrap();
         assert!(matches!(save(&mut c, form, v, None).unwrap(), SaveProfileOutcome::Saved { .. }), "{form}");
     }
@@ -217,7 +220,9 @@ async fn capturist_battery_live() {
     let provider = crate::ai::paced::provider(crate::ai::build_provider(&cfg, key));
     let recording = Recording { inner: provider.as_ref(), log: Mutex::new(Vec::new()) };
     let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
-    let all = cases();
+    // `CIMIENTO_CASES=alcaldia-con-nombre-de-persona,ya-estaba-guardado` runs only those cases
+    let only: Vec<String> = std::env::var("CIMIENTO_CASES").map(|s| s.split(',').map(|c| c.trim().to_string()).collect()).unwrap_or_default();
+    let all: Vec<Case> = cases().into_iter().filter(|c| only.is_empty() || only.contains(&c.id)).collect();
     let mut right_per_case = vec![0usize; all.len()];
     let (mut passed, mut fields_right, mut fields_graded, mut invented, mut extra, mut dropped_all) = (0, 0, 0, 0, 0, 0);
     let (mut calls, mut input, mut output, mut cost) = (0i64, 0i64, 0i64, 0f64);

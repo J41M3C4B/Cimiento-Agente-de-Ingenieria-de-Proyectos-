@@ -57,4 +57,14 @@ Hoy el escáner detiene a la persona cada vez que cree ver un dato personal, y c
 
 ## Cómo probarlo
 
+En la app de la rama `ia/ia-2-boveda` (carpeta `D:\Agente Proyectos\cimiento-ia`, `pnpm tauri dev`), con la llave de Gemini guardada:
+
+- [ ] En Inicio, en el Asistente: «¿Dónde anoto la CURP LOPM800101MDFRZN09 de una señora que atendemos?». **No aparece la ventana de «datos personales»**; contesta que esa parte llegará después.
+- [ ] En «Mi institución», en el Asistente: «Nuestro correo es contacto@casaficticia.org, ¿dónde lo pongo?». Ofrece «Llenarlo por mí» en «Contacto y ubicación»; al usarlo, la sugerencia del correo trae **el correo tal cual lo escribió**.
+- [ ] «Llenarlo por mí» en «Datos legales y fiscales»: «Nuestra representante legal es Rosa Méndez Ruiz y nuestro RFC es CSE870512AB3». Las sugerencias traen **el nombre y el RFC tal cual**, sin preguntar nada antes.
+- [ ] «Llenarlo por mí» en «Contacto y ubicación»: «Estamos en la Calle Ana María Rodríguez 8». La calle llega como «Ana María Rodríguez» (antes se tapaba como nombre).
+- [ ] Saber que no salió nada: en las métricas de la IA o en la bitácora, cada pregunta con datos deja `scanner.leak_prevented` con **cuántos** datos de cada tipo, nunca cuáles.
+
+Conocido: «Estamos en Benito Juárez, Ciudad de México» en «Llenarlo por mí» no llena el municipio (el modelo más barato no pone la marca ahí). Lo resuelve IA-8.
+
 ## Resultado

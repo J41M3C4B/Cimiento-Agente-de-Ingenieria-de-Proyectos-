@@ -31,7 +31,8 @@ fn word(kind: FindingKind) -> Option<&'static str> {
 /// What a kind is, in the words of the legend.
 fn what(word: &str) -> &'static str {
     match word {
-        "NOMBRE" => "un nombre",
+        // the scanner does not know a person from a place named after one: the context says it
+        "NOMBRE" => "un nombre propio, de una persona o de un lugar (el contexto dice cuál)",
         "CORREO" => "un correo",
         "TELEFONO" => "un teléfono",
         "RFC" => "un RFC",
@@ -228,7 +229,7 @@ impl Vault {
         }
         let known = self.known.lock().unwrap_or_else(|e| e.into_inner());
         let mut s = String::from(
-            "Marcas: cada una es un dato personal que se queda en este equipo. Escríbala tal cual donde iría el dato, en su respuesta o en un valor, y el programa pone el dato; no la cambie, no la explique y no invente otras.\n",
+            "Marcas: cada una es un dato que se queda en este equipo. Escribir una marca no es escribir el dato: úsela tal cual donde iría ese dato, en su respuesta o en el valor de cualquier campo, y el programa pone el dato. No la cambie, no la explique y no invente otras.\n",
         );
         for e in entries.iter() {
             let plain: String = fold_str(&e.value).chars().filter(|c| c.is_alphanumeric()).collect();
@@ -316,7 +317,7 @@ mod tests {
         v.know("33 1234 5678", "«Teléfono»");
         marked(&v, "Soy Ana María López, mi correo es CONTACTO@ejemplo.org y el teléfono +52 33 1234 5678.");
         let legend = v.legend().unwrap();
-        assert!(legend.contains("- [NOMBRE_1]: un nombre.\n"), "{legend}");
+        assert!(legend.contains("- [NOMBRE_1]: un nombre propio, de una persona o de un lugar (el contexto dice cuál).\n"), "{legend}");
         assert!(legend.contains("- [CORREO_1]: un correo; es el mismo que está guardado en «Correo de contacto»."), "{legend}");
         assert!(legend.contains("- [TELEFONO_1]: un teléfono; es el mismo que está guardado en «Teléfono»."), "{legend}");
         assert!(!legend.contains("López") && !legend.contains("ejemplo") && !legend.contains("1234"), "{legend}");

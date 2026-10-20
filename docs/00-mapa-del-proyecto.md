@@ -24,7 +24,12 @@ La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dó
 > - El Asistente sabe qué partes todavía no existen: a «¿Dónde registro los ingresos?» contesta que llegará después, sin ningún botón. Corrida real de su batería: **40 de 40**, nada inventado, $1.40 MXN.
 > - Tu nota sobre «puede revisar en sus instalaciones» quedó en [[IA-4 El Asistente decide y habla natural|IA-4]].
 >
-> **Carril `ia`: [[IA-5 Los tres patrones de la IA|IA-5]] está hecho.** Aprobaste el [ADR-045](adr/ADR-045-tres-patrones-de-la-ia.md): sin chats y tres patrones (determinista, IA acotada con operadores, agentes), siempre el nivel más bajo. La metodología está en [[patrones-de-ia|docs/agents/patrones-de-ia.md]].
+> **Carril `ia`: [[IA-2 La bóveda|IA-2]], la bóveda, está en «Revisión».** El Asistente y el Capturista ya no detienen a la persona por un dato personal: hacia la IA va una marca (`[NOMBRE_1]`) y el código pone el valor en el equipo, en la respuesta y en cualquier campo. Aprobaste el [ADR-044](adr/ADR-044-la-boveda.md) con su aclaración y el [ADR-046](adr/ADR-046-nombres-con-un-modelo-local.md) (los nombres con un modelo local, bloque [[IA-8 Nombres con un modelo local|IA-8]], en «Listo»).
+> - **Espera tu prueba:** los pasos están en la tarjeta de IA-2.
+> - **Medición:** Asistente 46 de 50 y Capturista 39 de 44, nada inventado, unos $2.70 MXN las dos baterías en dos rondas. Lo que falta («Estamos en Benito Juárez» no llega al municipio) lo resuelve IA-8.
+> - **Para el carril `erp`:** [[ERP-4 Quitar la ventana de datos personales del chat|ERP-4]] (la ventana del chat quedó sin usar) y una línea en `proposals::propose` para revisar.
+>
+> **Antes: [[IA-5 Los tres patrones de la IA|IA-5]] está hecho.** Aprobaste el [ADR-045](adr/ADR-045-tres-patrones-de-la-ia.md): sin chats y tres patrones (determinista, IA acotada con operadores, agentes), siempre el nivel más bajo. La metodología está en [[patrones-de-ia|docs/agents/patrones-de-ia.md]].
 > - El carril `ia` trabaja en su propia carpeta, `D:\Agente Proyectos\cimiento-ia`: es el mismo repositorio, con otra rama.
 > - **Espera tu respuesta:** la pregunta del botón «Llenarlo por mí» en [[IA-4 El Asistente decide y habla natural|IA-4]].
 > - **Siguiente en el carril `ia`:** [[IA-2 La bóveda|IA-2]], la bóveda: el ADR-044 y su «Terminado cuando», para que los apruebes antes de programarla.

@@ -283,6 +283,7 @@
       "id": "ya-estaba-guardado",
       "ventana": "institution.capacity",
       "guardado": {
+        "institution.identity": { "institution.name": "Casa Ficticia", "institution.modalities": ["residential"] },
         "institution.capacity": { "institution.capacity_total": 40, "institution.staff_volunteer_estimate": 8 }
       },
       "dice": "Tenemos 40 camas y viven 36 personas.",
@@ -347,6 +348,17 @@
         "institution.served_estimate": { "valores": [30] },
         "institution.capacity_total": { "nada": true },
         "institution.notes": { "nada": true }
+      }
+    },
+    {
+      "id": "calle-con-nombre-de-persona",
+      "ventana": "institution.contact",
+      "dice": "Estamos en la Calle Ana María Rodríguez 8, colonia Centro.",
+      "campos": {
+        "institution.street": { "contiene": ["ana maria rodriguez"] },
+        "institution.ext_number": { "valores": ["8"] },
+        "institution.neighborhood": { "contiene": ["centro"] },
+        "institution.legal_rep_name": { "nada": true }
       }
     }
   ]
