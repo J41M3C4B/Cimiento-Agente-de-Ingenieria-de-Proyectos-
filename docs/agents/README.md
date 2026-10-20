@@ -1,21 +1,9 @@
-# Guía operativa para agentes de desarrollo
+# Guía para los agentes de desarrollo
 
-SociAI se desarrolla con apoyo de agentes de código (el repositorio y el código se llaman `cimiento`). Esta carpeta es el **manual de operación** que esos agentes leen antes de tocar el proyecto: qué reglas no se negocian, cómo se llaman las cosas, cómo se prueba y en qué orden se trabaja.
+Lo que leen los agentes de código antes de tocar SociAI:
 
-La idea es la misma que rige el producto: **el agente propone, y las pruebas, los ADR y el criterio del autor deciden.** Las especificaciones de `docs/` son la fuente de verdad; esta carpeta solo les dice a los agentes cómo respetarlas.
+1. [Modelo de trabajo](modelo-de-trabajo.md): los tres rieles, el tablero, las ramas y cómo se piden cosas entre rieles.
+2. [Los planos de SociAI](../planos-de-sociai.md): qué se construye.
+3. [El código frente a los planos](../codigo-frente-a-los-planos.md): de dónde partimos.
 
-| Documento | Contenido |
-|---|---|
-| [`principios-de-ingenieria.md`](principios-de-ingenieria.md) | Qué es el proyecto, los principios que no se negocian, stack, estructura de carpetas y reglas de código |
-| [`glosario-dominio.md`](glosario-dominio.md) | Vocabulario del dominio (español) y su nombre en el código (inglés) |
-| [`comandos-y-pruebas.md`](comandos-y-pruebas.md) | Cómo correr, probar y empaquetar; pruebas en seco y pruebas con IA real (opt-in, con tope de llamadas) |
-| [`flujo-de-trabajo.md`](flujo-de-trabajo.md) | Orden de trabajo, cuándo preguntar, cómo cerrar una tarea y qué datos se pueden usar |
-| [`patrones-de-ia.md`](patrones-de-ia.md) | Los tres patrones (determinista, IA acotada, agentes): cómo se elige, la ficha de cada uno y lo que hay hoy (ADR-045) |
-
-## Controles que hacen confiable el trabajo asistido
-
-- **Especificación primero:** cada fase empieza leyendo su sección del roadmap y los documentos que referencia.
-- **Pruebas obligatorias** para escáner, cálculos, transiciones de etapa y lectura/escritura de Office; la suite completa corre sin red y sin costo con una IA simulada.
-- **Decisiones registradas:** si una librería o un enfoque no funciona, se documenta en un ADR nuevo; los ADR no se reescriben.
-- **Medición antes que opinión:** los cambios de modelo, de prompt o de arquitectura se justifican con una corrida medida y su costo.
-- **Datos reales fuera del repositorio:** solo `fixtures/` (ficticios) entra al código y a las pruebas.
+Las instrucciones anteriores están en [`docs/archivo/agents/`](../archivo/agents/).

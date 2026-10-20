@@ -1,6 +1,6 @@
 ---
 tipo: observacion
-sobre: "[[ADR-036-cajones-de-documentos-y-un-agente-por-cajon]]"
+sobre:
 estado: abierta
 fecha: {{date:YYYY-MM-DD}}
 ---
@@ -11,4 +11,4 @@ fecha: {{date:YYYY-MM-DD}}
 
 ## Respuesta
 
-(Aquí responde Claude al empezar el siguiente bloque: qué se decidió y qué cambió. Al resolverla, `estado` pasa a `resuelta`.)
+(Aquí responde el agente del riel que la atiende: qué se decidió y qué cambió. Al resolverla, `estado` pasa a `resuelta`.)

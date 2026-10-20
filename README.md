@@ -18,7 +18,7 @@ SociAI nació como una herramienta para ese último problema y creció hacia lo 
 
 ## El MVP
 
-El MVP es lo que se valida primero, con dos instituciones reales ([ADR-043](docs/adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md)).
+El MVP es lo que se valida primero, con dos instituciones reales ([ADR-043](docs/archivo/adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md)).
 
 1. **Centralizar y digitalizar la institución (el núcleo).**
    - **«Mi institución»:** sus datos en formularios descritos como datos en Rust, con el origen de cada dato y un historial ligero.
@@ -116,7 +116,7 @@ En el ensayo con una convocatoria real, la causa de fondo apareció en la tercer
 - **Dos capas** ([ADR-024](docs/archivo/adr/ADR-024-dos-capas-ia-y-persona.md)): lo que consume la IA no es lo que ve la persona. Ella ve una ficha corta en sus palabras.
 - **Lo que dice el programa lo escribe el programa.** Lo que quedó sugerido y lo que falta lo compone el código, nunca la IA, que podría prometer lo que el código descartó.
 - **Cuando la IA falla, no se inventa nada:** el Asistente responde con el manual sin conexión, y lo que no es IA sigue funcionando.
-- **Lenguaje sencillo** con una guía de estilo ([`docs/08-estilo-redaccion.md`](docs/08-estilo-redaccion.md)) y una prueba automática de jerga.
+- **Lenguaje sencillo** con una guía de estilo ([`docs/08-estilo-redaccion.md`](docs/archivo/documentos/08-estilo-redaccion.md)) y una prueba automática de jerga.
 
 ## Arquitectura
 
@@ -142,13 +142,13 @@ flowchart TB
 
 ## Validación con instituciones
 
-Dos instituciones de asistencia privada probaron una primera versión con información real suya y con siete convocatorias de la **JAP** y la **JAPEM**. Es retroalimentación cualitativa, reportada por el autor ([`docs/12-validacion-con-instituciones.md`](docs/12-validacion-con-instituciones.md)):
+Dos instituciones de asistencia privada probaron una primera versión con información real suya y con siete convocatorias de la **JAP** y la **JAPEM**. Es retroalimentación cualitativa, reportada por el autor ([`docs/12-validacion-con-instituciones.md`](docs/archivo/documentos/12-validacion-con-instituciones.md)):
 
 - **Menos carga de trabajo** al armar proyectos. Es una percepción: no se midieron tiempos.
 - **Un proceso sencillo** que no imaginaban: una herramienta que las acompaña a pensar sus proyectos.
 - **Pidieron más:** digitalizar sus procesos, empezando por su institución, sus empleados y sus beneficiarios. De ahí salió el giro hacia un ERP.
 
-El núcleo se probó después con una institución inventada y 24 archivos con fallas a propósito (escaneos, fotos, una hoja girada, una copia desteñida, un archivo con contraseña): 33 de 39 datos quedaron bien a la primera, y de lo que falló salió el [ADR-042](docs/archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) ([`docs/16-institucion-de-prueba.md`](docs/16-institucion-de-prueba.md)).
+El núcleo se probó después con una institución inventada y 24 archivos con fallas a propósito (escaneos, fotos, una hoja girada, una copia desteñida, un archivo con contraseña): 33 de 39 datos quedaron bien a la primera, y de lo que falló salió el [ADR-042](docs/archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) ([`docs/16-institucion-de-prueba.md`](docs/archivo/documentos/16-institucion-de-prueba.md)).
 
 ## Estado
 
@@ -162,7 +162,7 @@ El núcleo se probó después con una institución inventada y 24 archivos con f
 | MVP-3 · El núcleo genérico para cualquier organización civil | Pendiente |
 | MVP-4 · Proyectos sobre la base nueva, validados con las dos instituciones | Pendiente |
 
-Roadmap completo en [`docs/09-roadmap.md`](docs/09-roadmap.md) (Fase 11) y estado del día en [`docs/00-mapa-del-proyecto.md`](docs/00-mapa-del-proyecto.md).
+Roadmap completo en [`docs/09-roadmap.md`](docs/archivo/documentos/09-roadmap.md) (Fase 11) y estado del día en [`docs/00-mapa-del-proyecto.md`](docs/archivo/documentos/00-mapa-del-proyecto.md).
 
 ### Limitaciones conocidas
 
@@ -185,31 +185,31 @@ cd src-tauri && cargo test     # 767 pruebas de Rust: sin red ni costo, con IA s
 pnpm tauri build --bundles nsis   # instalador de Windows
 ```
 
-Para usar la IA real hace falta una llave de API de Gemini, que se captura dentro de la app («Ayuda automática») y se guarda en el llavero del sistema. Sin llave, la app guarda todo, y el Asistente responde con el manual. Las pruebas con IA real están en [`docs/agents/comandos-y-pruebas.md`](docs/agents/comandos-y-pruebas.md).
+Para usar la IA real hace falta una llave de API de Gemini, que se captura dentro de la app («Ayuda automática») y se guarda en el llavero del sistema. Sin llave, la app guarda todo, y el Asistente responde con el manual. Las pruebas con IA real están en [`docs/agents/comandos-y-pruebas.md`](docs/archivo/agents/comandos-y-pruebas.md).
 
 ## Documentación
 
 | Documento | Contenido |
 |---|---|
-| [`docs/00-vision.md`](docs/00-vision.md) | Qué es, el MVP y para quién |
-| [`docs/00-mapa-del-proyecto.md`](docs/00-mapa-del-proyecto.md) | Dónde estamos, qué sigue y qué espera respuesta |
-| [`docs/01-arquitectura.md`](docs/01-arquitectura.md) | Stack, capas y flujos |
-| [`docs/03-gobernanza-datos.md`](docs/03-gobernanza-datos.md) | Niveles de datos, reglas, borrado, bitácora |
-| [`docs/04-escaner-datos-sensibles.md`](docs/04-escaner-datos-sensibles.md) | Detección de datos personales |
-| [`docs/05-modelo-datos.md`](docs/05-modelo-datos.md) | Esquema de la base de datos |
-| [`docs/07-ia-y-costos.md`](docs/07-ia-y-costos.md) | Reparto código/IA, modelos, mediciones y control de gasto |
-| [`docs/08-estilo-redaccion.md`](docs/08-estilo-redaccion.md) | Cómo le habla la app a la persona |
-| [`docs/09-roadmap.md`](docs/09-roadmap.md) | Fases, criterios de terminado y avance |
-| [`docs/10-metodologia-conversacion.md`](docs/10-metodologia-conversacion.md) | Método del diagnóstico conversacional |
-| [`docs/13-sistema-visual.md`](docs/13-sistema-visual.md) | Sistema visual y componentes |
-| [`docs/15-guion-pruebas-nucleo.md`](docs/15-guion-pruebas-nucleo.md) | Guion de pruebas del núcleo, pantalla por pantalla |
-| [`docs/agents/`](docs/agents/) | Guía para los agentes de desarrollo: principios, glosario, comandos, flujo y metodología de los Lectores |
-| [`docs/adr/`](docs/adr/) | 43 decisiones de arquitectura con contexto, mediciones y consecuencias |
+| [`docs/00-vision.md`](docs/archivo/documentos/00-vision.md) | Qué es, el MVP y para quién |
+| [`docs/00-mapa-del-proyecto.md`](docs/archivo/documentos/00-mapa-del-proyecto.md) | Dónde estamos, qué sigue y qué espera respuesta |
+| [`docs/01-arquitectura.md`](docs/archivo/documentos/01-arquitectura.md) | Stack, capas y flujos |
+| [`docs/03-gobernanza-datos.md`](docs/archivo/documentos/03-gobernanza-datos.md) | Niveles de datos, reglas, borrado, bitácora |
+| [`docs/04-escaner-datos-sensibles.md`](docs/archivo/documentos/04-escaner-datos-sensibles.md) | Detección de datos personales |
+| [`docs/05-modelo-datos.md`](docs/archivo/documentos/05-modelo-datos.md) | Esquema de la base de datos |
+| [`docs/07-ia-y-costos.md`](docs/archivo/documentos/07-ia-y-costos.md) | Reparto código/IA, modelos, mediciones y control de gasto |
+| [`docs/08-estilo-redaccion.md`](docs/archivo/documentos/08-estilo-redaccion.md) | Cómo le habla la app a la persona |
+| [`docs/09-roadmap.md`](docs/archivo/documentos/09-roadmap.md) | Fases, criterios de terminado y avance |
+| [`docs/10-metodologia-conversacion.md`](docs/archivo/documentos/10-metodologia-conversacion.md) | Método del diagnóstico conversacional |
+| [`docs/13-sistema-visual.md`](docs/archivo/documentos/13-sistema-visual.md) | Sistema visual y componentes |
+| [`docs/15-guion-pruebas-nucleo.md`](docs/archivo/documentos/15-guion-pruebas-nucleo.md) | Guion de pruebas del núcleo, pantalla por pantalla |
+| [`docs/agents/`](docs/archivo/agents/) | Guía para los agentes de desarrollo: principios, glosario, comandos, flujo y metodología de los Lectores |
+| [`docs/adr/`](docs/archivo/adr/) | 43 decisiones de arquitectura con contexto, mediciones y consecuencias |
 | [`schemas/`](schemas/) | Esquema canónico de convocatorias (JSON Schema) |
 | [`fixtures/`](fixtures/) | Datos **ficticios** para desarrollo y pruebas |
 
 **Por dónde empezar a leer:**
-- [ADR-043](docs/adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md): el ERP con la IA en el núcleo;
+- [ADR-043](docs/archivo/adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md): el ERP con la IA en el núcleo;
 - [ADR-036](docs/archivo/adr/ADR-036-cajones-de-documentos-y-un-agente-por-cajon.md): un agente por cajón de documentos;
 - [ADR-038](docs/archivo/adr/ADR-038-politica-unica-de-llenado-desde-documentos.md): una sola política de llenado;
 - [ADR-015](docs/archivo/adr/ADR-015-schema-canonico-de-convocatorias.md): de las reglas al contrato con citas verificadas;
@@ -217,7 +217,7 @@ Para usar la IA real hace falta una llave de API de Gemini, que se captura dentr
 
 ## Método de trabajo
 
-Proyecto individual, dirigido por especificación. `docs/` es la fuente de verdad, cada decisión y cada medición quedan en un ADR, y las reglas de trabajo viven en [`docs/agents/`](docs/agents/). El desarrollo se apoya en agentes de código bajo el mismo principio que el producto: **la IA propone, y las pruebas, los ADR y el criterio del autor deciden**. El problema, el alcance, el análisis y la validación con las instituciones son del autor.
+Proyecto individual, dirigido por especificación. `docs/` es la fuente de verdad, cada decisión y cada medición quedan en un ADR, y las reglas de trabajo viven en [`docs/agents/`](docs/archivo/agents/). El desarrollo se apoya en agentes de código bajo el mismo principio que el producto: **la IA propone, y las pruebas, los ADR y el criterio del autor deciden**. El problema, el alcance, el análisis y la validación con las instituciones son del autor.
 
 ## Datos y privacidad del repositorio
 

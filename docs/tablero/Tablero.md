@@ -4,16 +4,19 @@ tipo: tablero
 
 # Tablero
 
-Cada bloque de trabajo es una nota en `tablero/bloques/` hecha con la plantilla «bloque». Para moverlo de columna se cambia su propiedad `estado`. Las reglas, los roles y las ramas están en [[roles-y-tablero|Roles y tablero]].
+Cada bloque es una nota en `tablero/bloques/` hecha con la plantilla «bloque». Para moverlo de columna se cambia su propiedad `estado`. Las reglas están en el [[modelo-de-trabajo|modelo de trabajo]].
 
-**Carriles:** `erp` (el producto y su arquitectura: pantallas, datos, formularios, flujos, proyectos) e `ia` (la arquitectura de la IA: agentes, bóveda, oficios, herramientas, modelos y baterías).
+**Rieles:**
+- `ia`: la plataforma de inteligencia;
+- `erp`: los módulos, sus datos y sus contratos, todo determinista;
+- `diseno`: las pantallas y el sistema visual.
 
-**En curso:** a lo más un bloque por carril.
+**Límites:** a lo más un bloque en curso por riel, y a lo más 5 en Backlog por riel.
 
 ## En curso
 
 ```dataview
-TABLE WITHOUT ID file.link AS "Bloque", carril AS "Carril", rama AS "Rama", fase AS "Fase"
+TABLE WITHOUT ID file.link AS "Bloque", carril AS "Riel", rama AS "Rama", depende_de AS "Depende de"
 FROM "tablero/bloques"
 WHERE estado = "en-curso"
 SORT carril ASC
@@ -21,21 +24,30 @@ SORT carril ASC
 
 ## Revisión
 
-Hecho por el CTO; espera que el validador lo pruebe.
+Hecho por el agente; espera que el líder lo pruebe.
 
 ```dataview
-TABLE WITHOUT ID file.link AS "Bloque", carril AS "Carril", rama AS "Rama"
+TABLE WITHOUT ID file.link AS "Bloque", carril AS "Riel", rama AS "Rama"
 FROM "tablero/bloques"
 WHERE estado = "revision"
 SORT carril ASC
 ```
 
-## Listo
-
-Definido, con «Terminado cuando» aprobado; el siguiente se toma de aquí.
+## Esperando a otro riel
 
 ```dataview
-TABLE WITHOUT ID file.link AS "Bloque", carril AS "Carril", prioridad AS "Prioridad", fase AS "Fase"
+TABLE WITHOUT ID file.link AS "Bloque", carril AS "Riel", depende_de AS "Espera a", estado AS "Estado"
+FROM "tablero/bloques"
+WHERE depende_de AND estado != "hecho"
+SORT carril ASC
+```
+
+## Listo
+
+Definido y con «Terminado cuando» aprobado; el siguiente de cada riel se toma de aquí.
+
+```dataview
+TABLE WITHOUT ID file.link AS "Bloque", carril AS "Riel", prioridad AS "Prioridad", pedido_por AS "Pedido por"
 FROM "tablero/bloques"
 WHERE estado = "listo"
 SORT choice(prioridad = "alta", 1, choice(prioridad = "media", 2, 3)) ASC
@@ -43,21 +55,18 @@ SORT choice(prioridad = "alta", 1, choice(prioridad = "media", 2, 3)) ASC
 
 ## Backlog
 
-Ideas, hallazgos y pendientes sin definir todavía.
-
 ```dataview
-TABLE WITHOUT ID file.link AS "Bloque", carril AS "Carril", prioridad AS "Prioridad", fase AS "Fase"
+TABLE WITHOUT ID file.link AS "Bloque", carril AS "Riel", prioridad AS "Prioridad", pedido_por AS "Pedido por"
 FROM "tablero/bloques"
 WHERE estado = "backlog"
-SORT choice(prioridad = "alta", 1, choice(prioridad = "media", 2, 3)) ASC
+SORT carril ASC, choice(prioridad = "alta", 1, choice(prioridad = "media", 2, 3)) ASC
 ```
 
 ## Hecho
 
 ```dataview
-TABLE WITHOUT ID file.link AS "Bloque", carril AS "Carril", cerrado AS "Cerrado"
+TABLE WITHOUT ID file.link AS "Bloque", carril AS "Riel", cerrado AS "Cerrado"
 FROM "tablero/bloques"
 WHERE estado = "hecho"
 SORT cerrado DESC
-LIMIT 15
 ```
