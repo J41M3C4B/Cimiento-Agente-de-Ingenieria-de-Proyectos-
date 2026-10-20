@@ -109,7 +109,7 @@ Revisión del 2026-10-20, caja por caja, del código de `main` contra [los plano
 
 Primero la columna vertebral, probada de punta a punta con una sola capacidad. Después se migra el resto.
 
-1. **El contrato de capacidad y el registro** (ADR-049). Qué declara cada capacidad:
+1. **El contrato de capacidad y el registro** (ADR-001). Qué declara cada capacidad:
    - nombre y módulo;
    - entrada y salida;
    - efecto (consulta, transformación, modificación, sensible o externa);
