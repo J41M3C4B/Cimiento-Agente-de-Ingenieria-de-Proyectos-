@@ -2,6 +2,10 @@
 //! looks down: the base knows no business; a module (staff, people served, facilities, finances) uses only the base;
 //! the core uses the base and the `api`, `service` and `domain` of the modules; the commands use anything.
 //!
+//! Three layers of ADR-001 sit across them: the capability contract and the control plane are for everyone, and the
+//! platform (the AI) is only for the commands and itself. No module, nor the core, nor a deterministic service of the
+//! base uses the AI, and that rule has no debt list: what breaks it is retired, not written down.
+//!
 //! What breaks the rule today is written down in `DEBT`, block by block of ADR-032, and the list may only shrink:
 //! the test also fails when a line of it is no longer needed.
 
@@ -14,6 +18,12 @@ enum Layer {
     Module(&'static str),
     Core,
     Shell,
+    /// The capability contract and the registry (ADR-001).
+    Contract,
+    /// The intelligence platform: the AI (ADR-001).
+    Platform,
+    /// The vocabulary of permissions, of the control plane.
+    Control,
 }
 
 use Layer::*;
@@ -21,8 +31,11 @@ use Layer::*;
 /// Where each piece lives, by module path; the longest prefix wins. As the blocks of ADR-032 move files into
 /// `core/` and `modules/`, the lines of the old places go away.
 const PLACES: &[(&str, Layer)] = &[
+    // the three layers of ADR-001
+    ("ai", Platform),
+    ("capability", Contract),
+    ("core::access::domain", Control),
     // base
-    ("ai", Base),
     ("audit", Base),
     ("common", Base),
     ("documents", Base),
@@ -81,6 +94,8 @@ fn allowed(from_path: &str, from: Layer, to: Layer, rest: &[String]) -> bool {
     let a_type = first.starts_with(|c: char| c.is_ascii_uppercase());
     match (from, to) {
         (Shell, _) => true,
+        // the contract and the control plane are for everyone; the platform reaches the business only through them
+        (_, Contract | Control) => true,
         (_, Base) => true,
         // a move of old data into a module is a migration (ADR-027, 029, 030)
         (Base, Module(_)) => from_path.starts_with("storage::migrations") && (first == "legacy" || a_type),
@@ -224,6 +239,14 @@ fn every_layer_only_looks_down() {
     assert!(paid.is_empty(), "this debt is paid, take it out of DEBT: {paid:#?}");
 }
 
+/// Only the platform and the commands use the AI (ADR-001). Apart from `DEBT`, so that it can never be excused there.
+#[test]
+fn no_module_nor_service_uses_the_ai() {
+    let (found, _) = violations();
+    let uses: Vec<_> = found.iter().filter(|(_, target)| place(target).is_some_and(|(to, _)| to == Platform)).collect();
+    assert!(uses.is_empty(), "only the platform and the commands use the AI (ADR-001); retire or move these: {uses:#?}");
+}
+
 /// The tables of the core and of each module (`docs/05-modelo-datos.md`, «Dueño de cada tabla»). Only their owner
 /// writes SQL on them; the rest ask through its `api` (audit D2: the projects read the profile with SQL and no `use`
 /// showed it). The tables of a module go by their prefix.
@@ -325,6 +348,20 @@ fn the_layer_rules() {
     assert!(allowed("storage::migrations", Base, Module("hr"), &rest("legacy")));
     assert!(!allowed("storage::backup", Base, Module("hr"), &rest("legacy")));
     assert!(allowed("commands::hr", Shell, Module("hr"), &rest("storage")));
+    // ADR-001: the AI is the platform's, the contract and the permissions are everyone's
+    assert!(!allowed("core::agents::assistant", Core, Platform, &rest("pipeline")));
+    assert!(!allowed("modules::projects::calls", Projects, Platform, &rest("pipeline")));
+    assert!(!allowed("hr::service", Module("hr"), Platform, &rest("")));
+    assert!(!allowed("documents::canonical::run", Base, Platform, &rest("pipeline")));
+    assert!(!allowed("capability::contract", Contract, Platform, &rest("")));
+    assert!(!allowed("ai::pipeline", Platform, Core, &rest("profile")));
+    assert!(allowed("commands::diagnosis", Shell, Platform, &rest("settings")));
+    assert!(allowed("core::profile::service", Core, Contract, &rest("Call")));
+    assert!(allowed("modules::hr::service", Module("hr"), Contract, &rest("Limits")));
+    assert!(allowed("capability::contract", Contract, Control, &rest("Permission")));
+    assert!(allowed("ai::pipeline", Platform, Contract, &rest("Registry")));
+    assert_eq!(place("core::access::domain::Permission").map(|p| p.0), Some(Control));
+    assert_eq!(place("core::access::service").map(|p| p.0), Some(Core));
     assert_eq!(place("core::profile::storage::load_current").map(|p| p.0), Some(Core));
     assert_eq!(place("storage::open_encrypted").map(|p| p.0), Some(Base));
     assert_eq!(place("modules::finance::api").map(|p| p.0), Some(Module("finance")));

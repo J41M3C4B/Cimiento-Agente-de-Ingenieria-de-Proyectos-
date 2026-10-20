@@ -63,7 +63,7 @@ Los planos dicen que una modificación **primero se prepara** y que la aprobaci�
   - quién la pide;
   - el id de la tarea.
 
-  Es `#[non_exhaustive]`: la plataforma le puede agregar campos sin tocar el código de ningún módulo.
+  Solo la plataforma la arma, con `Call::new`; los módulos solo la leen. Por eso la plataforma le puede agregar campos sin tocar el código de ningún módulo.
 - **Los errores** dicen qué hacer, según la §3.2 de los planos:
   - `Invalid { field, reason }`: un argumento corregible. Se puede reintentar con la entrada corregida.
   - `NeedsPerson { what }`: falta información de la persona. La tarea se pausa y se le pide.
@@ -83,7 +83,7 @@ capability! {
         permission: Use,
         data: [Internal],
         approval: Never,
-        limits: Limits::QUICK,
+        limits: Limits::READ,
         run: read(missing_fields),
     }
 }
@@ -102,7 +102,7 @@ fn missing_fields(call: &Call, input: MissingInput) -> Result<MissingFields, Cap
 - **Descubre** todas las capacidades enlazadas y revisa cada contrato con las reglas de la §2: un id bien formado y único, al menos una clase de datos, la aprobación que exige una acción sensible, los reintentos y la idempotencia, una entrada que es objeto, y la forma de ejecutar que corresponde al efecto.
 - **Si un contrato no cumple, no hay registro.** La app no arranca con un contrato inválido.
 - **Una prueba revisa el registro real en `cargo test`.** Así, un contrato inválido se detecta antes de llegar a `main`, no al abrir la app.
-- **Lo que ofrece a la plataforma:** buscar por id, listar todo, y listar por módulo y por efecto. Filtrar por permiso, por finalidad y por política es del ejecutor y del enrutador (IA-2 al IA-4), no del registro.
+- **Lo que ofrece a la plataforma:** buscar por id, listar todo, y listar por módulo y por efecto. La app lo arma al arrancar y lo guarda para toda la sesión. Filtrar por permiso, por finalidad y por política es del ejecutor y del enrutador (IA-2 al IA-4), no del registro.
 
 ### 7. La frontera, comprobada por una prueba
 
@@ -119,7 +119,8 @@ fn missing_fields(call: &Call, input: MissingInput) -> Result<MissingFields, Cap
 
 - **Un módulo nuevo es el módulo más sus capacidades.** La plataforma no cambia, y no hay lista que actualizar.
 - **La IA vieja que vive dentro de los módulos se va:**
-  - el Asistente, el Capturista, las propuestas por campo, la hoja de la IA y la IA del Lector, en el IA-1;
+  - el Asistente, el Capturista y la IA del Lector, en el IA-1. Los vectores pasan a la plataforma;
+  - lo que Mi institución usaba de eso, en el ERP-5;
   - las tareas de IA de Proyectos, en el ERP-4;
   - sus pantallas, en el DIS-3.
 

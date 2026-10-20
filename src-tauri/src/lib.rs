@@ -1,5 +1,7 @@
 mod ai;
 mod audit;
+// public for the examples of its documentation, which are compiled from outside the crate (ADR-001)
+pub mod capability;
 mod commands;
 mod common;
 mod core;
@@ -23,6 +25,10 @@ pub fn run() {
         // the native window to choose a file: the record keeps where its original is (N4)
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // every capability of the program, checked once (ADR-001): with an invalid contract the app does not start
+            let registry = capability::Registry::discover()
+                .map_err(|errors| errors.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n"))?;
+            app.manage(registry);
             // what reads scanned pages and photos (OCR, ADR-035) ships with the program; the screen hears how many
             // pages are read
             documents::ocr::set_home(app.path().resource_dir()?.join("ocr"));
