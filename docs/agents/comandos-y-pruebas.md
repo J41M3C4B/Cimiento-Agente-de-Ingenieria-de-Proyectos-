@@ -8,6 +8,8 @@ powershell -ExecutionPolicy Bypass -File scripts/fetch-ocr.ps1   # una vez: Tess
 pnpm tauri dev        # desarrollo
 # probar el primer inicio desde cero sin tocar los datos ni los ejemplos (solo en desarrollo):
 #   $env:CIMIENTO_DATA_DIR="D:\Agente Proyectos\cimiento-vacio"; pnpm tauri dev
+# ver qué recibió la IA en una sesión real de la app (solo en desarrollo): cada solicitud tal como salió, ya con las marcas de la bóveda (nunca un valor personal), y lo que contestó; el archivo se queda en el equipo, nunca en el repositorio:
+#   $env:CIMIENTO_AI_TRACE="D:\...\traza.txt"; pnpm tauri dev
 pnpm build            # compila el frontend (tsc + vite)
 pnpm test             # pruebas del frontend (Vitest)
 cargo test            # pruebas Rust (desde src-tauri/)

@@ -65,7 +65,7 @@ En la app de la rama `ia/ia-2-boveda` (carpeta `D:\Agente Proyectos\cimiento-ia`
 - [x] «Llenarlo por mí» en «Contacto y ubicación»: «Estamos en la Calle Ana María Rodríguez 8». La calle llega como «Ana María Rodríguez» (antes se tapaba como nombre).
 - [x] Saber que no salió nada: en las métricas de la IA o en la bitácora, cada pregunta con datos deja `scanner.leak_prevented` con **cuántos** datos de cada tipo, nunca cuáles.
 
-- [ ] **Segunda vuelta (2026-10-20), en una sola conversación y sin reiniciarla, desde «Mi institución»:** el correo, luego la representante y el RFC, luego «Estamos en la Calle Ana María Rodríguez 8». La calle se ofrece en **«Contacto y ubicación»**, no en «Datos legales y fiscales».
+- [x] **Segunda vuelta (2026-10-20), en una sola conversación y sin reiniciarla, desde «Mi institución»:** el correo, luego la representante y el RFC, luego «Estamos en la Calle Ana María Rodríguez 8». La calle se ofrece en **«Contacto y ubicación»**, no en «Datos legales y fiscales».
 
 Conocido: «Estamos en Benito Juárez, Ciudad de México» en «Llenarlo por mí» no llena el municipio (el modelo más barato no pone la marca ahí). Lo resuelve IA-8.
 
