@@ -1,6 +1,6 @@
 ---
 adr: 48
-estado: propuesta
+estado: aceptada
 fecha: 2026-10-20
 tema: [ia, datos, seguridad, proceso]
 reemplaza_en_parte: ["[[ADR-043-un-erp-con-la-ia-en-el-nucleo]]", "[[ADR-045-tres-patrones-de-la-ia]]"]
@@ -8,7 +8,7 @@ tags: [adr]
 ---
 # ADR-048 · El flujo de datos: un modelo de datos, la IA dirige y la casa se cuida hacia afuera
 
-**Estado:** propuesta (2026-10-20). La pidió el líder al detener el desarrollo durante la prueba de IA-2. Mientras no se acepte, no se escribe código nuevo en ningún carril de la IA.
+**Estado:** aceptada (2026-10-20). La pidió el líder al detener el desarrollo durante la prueba de IA-2, y tomó sus cinco decisiones el mismo día (al final).
 
 ## Contexto
 
@@ -30,18 +30,18 @@ El ADR-043 ya decía «la IA decide dentro de la casa, con pocos límites que no
 
 **El inventario del camino hacia la IA** (código del 2026-10-20) muestra el patrón:
 
-| Qué | Dónde | Qué es en realidad |
-|---|---|---|
-| Nombres, títulos, santos, palabras de lugar y conectores | `scanner/names.rs` | Interpretación con listas (17 % de las personas cubiertas, ADR-046) |
-| Qué campos ve la IA: `open_fields`, `told_fields`, `own`, `told_own`, `allowed` | `core/agents/capturist.rs`, `proposals.rs`, `ai_sheet.rs`, `assistant.rs` | Un dato del modelo de datos repetido en cuatro reglas |
-| `Sensitivity::InstitutionalPrivate`: «nunca a la IA ni a una herramienta» | `common/forms.rs` | Una declaración que ya no dice la verdad |
-| `BACK_TO_IT` («ese mismo», «con base en eso»…) | `core/agents/assistant.rs` | Interpretación con una lista de frases |
-| `claims_done` («dejé», «guardé»…) y `mend_digits` / `KNOWN_WORDS` | `core/agents/assistant.rs`, `core/reader/quote.rs` | Remiendos de lo que escribe el modelo barato |
-| Frases que reconocen cada tipo de documento (`KINDS`) | `core/reader/kinds.rs` | Interpretación con listas por tipo |
-| Palabras por campo para buscar pasajes (`SEARCH`) y «el archivo habla del campo» (`SPEAKS_OF`) | `core/reader/fill.rs`, `upload.rs` | Interpretación con listas por campo |
-| Reglas por tipo de documento (fechas, folios, vigencias) | `core/reader/rules.rs`, `dates.rs` | Lectura con regex; parte es formato fijo, parte es interpretación |
-| Oficios con «si la persona hace X…» (Asistente v11) | `core/agents/assistant.v11.md` | Reglamento en el prompt (ADR-045 §3) |
-| Modelo más barato, 14 por minuto, 4 herramientas, 40,000 tokens | `ai/settings.rs`, `ai/paced.rs`, cada agente | Supuestos del plan gratis |
+| Qué                                                                                            | Dónde                                                                     | Qué es en realidad                                                  |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Nombres, títulos, santos, palabras de lugar y conectores                                       | `scanner/names.rs`                                                        | Interpretación con listas (17 % de las personas cubiertas, ADR-046) |
+| Qué campos ve la IA: `open_fields`, `told_fields`, `own`, `told_own`, `allowed`                | `core/agents/capturist.rs`, `proposals.rs`, `ai_sheet.rs`, `assistant.rs` | Un dato del modelo de datos repetido en cuatro reglas               |
+| `Sensitivity::InstitutionalPrivate`: «nunca a la IA ni a una herramienta»                      | `common/forms.rs`                                                         | Una declaración que ya no dice la verdad                            |
+| `BACK_TO_IT` («ese mismo», «con base en eso»…)                                                 | `core/agents/assistant.rs`                                                | Interpretación con una lista de frases                              |
+| `claims_done` («dejé», «guardé»…) y `mend_digits` / `KNOWN_WORDS`                              | `core/agents/assistant.rs`, `core/reader/quote.rs`                        | Remiendos de lo que escribe el modelo barato                        |
+| Frases que reconocen cada tipo de documento (`KINDS`)                                          | `core/reader/kinds.rs`                                                    | Interpretación con listas por tipo                                  |
+| Palabras por campo para buscar pasajes (`SEARCH`) y «el archivo habla del campo» (`SPEAKS_OF`) | `core/reader/fill.rs`, `upload.rs`                                        | Interpretación con listas por campo                                 |
+| Reglas por tipo de documento (fechas, folios, vigencias)                                       | `core/reader/rules.rs`, `dates.rs`                                        | Lectura con regex; parte es formato fijo, parte es interpretación   |
+| Oficios con «si la persona hace X…» (Asistente v11)                                            | `core/agents/assistant.v11.md`                                            | Reglamento en el prompt (ADR-045 §3)                                |
+| Modelo más barato, 14 por minuto, 4 herramientas, 40,000 tokens                                | `ai/settings.rs`, `ai/paced.rs`, cada agente                              | Supuestos del plan gratis                                           |
 
 El catálogo de opciones (los 32 estados, las figuras jurídicas, los regímenes fiscales) **no está en esta tabla**: no interpreta nada, es la forma del dato.
 
@@ -157,8 +157,8 @@ Una a la vez. Cada una termina cuando el líder la prueba en la app.
 
 ## Lo que decide el líder
 
-1. **La clase de cada dato de «Mi institución»:** sobre todo el teléfono y el correo institucionales, el domicilio y el RFC de la institución (propuesta: tal cual), y el nombre de la representante (propuesta: marca).
-2. **El presupuesto mensual de IA por institución,** para elegir el modelo de F5.
-3. **Si F1 se hace con el ERP o en un solo bloque.**
-4. **Qué pasa con IA-3, IA-6 e IA-7.**
-5. **Si IA-2 se fusiona ya**, con sus pendientes anotados para F1 y F2, **o espera** a esas fases.
+1. **La clase de cada dato de «Mi institución»:** sobre todo el teléfono y el correo institucionales, el domicilio y el RFC de la institución (propuesta: tal cual), y el nombre de la representante (propuesta: marca). **Decidido (2026-10-20): la propuesta.** Tal cual lo de la institución (RFC, domicilio, teléfono, correo); marca los nombres de personas, también la representante; no salen cuentas de banco, contraseñas ni salud.
+2. **El presupuesto mensual de IA por institución,** para elegir el modelo de F5. **Decidido (2026-10-20): $500 MXN al mes**, para empezar; se mide el gasto real y se ajusta.
+3. **Si F1 se hace con el ERP o en un solo bloque.** **Decidido (2026-10-20): en un solo bloque del carril `ia`**, catálogo incluido; se le avisa al ERP.
+4. **Qué pasa con IA-3, IA-6 e IA-7.** **Decidido (2026-10-20): IA-3 e IA-7 se juntan con F1** (la IA lee el modelo de datos real, sin los módulos ocultos y con el núcleo genérico); **IA-6 se cierra.**
+5. **Si IA-2 se fusiona ya**, con sus pendientes anotados para F1 y F2, **o espera** a esas fases. **Decidido (2026-10-20): se fusiona ya**, con sus pendientes para F1 y F2.
