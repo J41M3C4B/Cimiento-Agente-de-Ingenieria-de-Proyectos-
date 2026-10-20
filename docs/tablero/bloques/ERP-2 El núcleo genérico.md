@@ -2,13 +2,13 @@
 tipo: bloque
 id: ERP-2
 carril: erp
-estado: revision
+estado: hecho
 prioridad: media
 fase: MVP-3
-rama: erp/erp-2-nucleo-generico
+rama: erp/erp-2-nucleo-generico (fusionada en el PR #8 y borrada)
 adr: "[[ADR-043-un-erp-con-la-ia-en-el-nucleo]]"
 creado: 2026-10-18
-cerrado:
+cerrado: 2026-10-19
 ---
 
 ## Qué y por qué
@@ -87,12 +87,12 @@ Agregar opciones no borra ni cambia nada de lo guardado; no hace falta migració
 
 (Se ajusta con tus decisiones.)
 
-- [ ] Con el ejemplo nuevo (una A.C. que no es residencia), el primer inicio y las cuatro ventanas de «Mi institución» se llenan sin una opción, pregunta ni texto ajeno a ella.
-- [ ] Su Expediente pide solo los documentos que le tocan: sin Junta, sin el registro de centros de asistencia social, sin aviso sanitario, sin uso de suelo ni protección civil.
-- [ ] Los dos ejemplos de residencia piden y muestran lo mismo que hoy: capacidad, ocupación, Junta y sus documentos.
-- [ ] Ningún texto del núcleo (pantallas y manual) habla de asilo, casa hogar, residentes o abuelitos, salvo lo que escribió la institución.
-- [ ] Lo que una institución ya guardó no cambia ni se pierde.
-- [ ] Todas las pruebas pasan (`cargo test`, `pnpm test`), y el bloque `ia` con lo que le toca a la IA está en su Backlog.
+- [x] Con el ejemplo nuevo (una A.C. que no es residencia), el primer inicio y las cuatro ventanas de «Mi institución» se llenan sin una opción, pregunta ni texto ajeno a ella.
+- [x] Su Expediente pide solo los documentos que le tocan: sin Junta, sin el registro de centros de asistencia social, sin aviso sanitario, sin uso de suelo ni protección civil.
+- [x] Los dos ejemplos de residencia piden y muestran lo mismo que hoy: capacidad, ocupación, Junta y sus documentos.
+- [x] Ningún texto del núcleo (pantallas y manual) habla de asilo, casa hogar, residentes o abuelitos, salvo lo que escribió la institución.
+- [x] Lo que una institución ya guardó no cambia ni se pierde.
+- [x] Todas las pruebas pasan (`cargo test`, `pnpm test`), y el bloque `ia` con lo que le toca a la IA está en su Backlog.
 
 ## Plan
 
@@ -147,10 +147,10 @@ Agregar opciones no borra ni cambia nada de lo guardado; no hace falta migració
 - [x] En el manual («?» de cada campo), «A quién atienden» explica las dos opciones nuevas, sin «abuelitos».
 
 **Vuelta 2 (tus observaciones):**
-- [ ] Asilo de ejemplo: en «Su institución» marca también **En la comunidad**. «Capacidad y cifras» pide la capacidad, «hoy» **y** «en el último año».
-- [ ] Llena el del año y quita «Viven en la institución»: Inicio muestra la cifra del año con «En el último año», sin lugares. Regresa «Viven en la institución»: vuelve «18 de 25 lugares».
-- [ ] Carga el asilo, abre «Su institución» y ciérrala, y carga la red comunitaria: al abrirla otra vez se ve la red, sin nada del asilo. Su Expediente no muestra la Junta.
-- [ ] En el Expediente, un documento «Lo tenemos» sin archivo dice «Sin archivo».
+- [x] Asilo de ejemplo: en «Su institución» marca también **En la comunidad**. «Capacidad y cifras» pide la capacidad, «hoy» **y** «en el último año».
+- [x] Llena el del año y quita «Viven en la institución»: Inicio muestra la cifra del año con «En el último año», sin lugares. Regresa «Viven en la institución»: vuelve «18 de 25 lugares».
+- [x] Carga el asilo, abre «Su institución» y ciérrala, y carga la red comunitaria: al abrirla otra vez se ve la red, sin nada del asilo. Su Expediente no muestra la Junta.
+- [x] En el Expediente, un documento «Lo tenemos» sin archivo dice «Sin archivo».
 
 Lo probé así en la app real, con una base aparte: la A.C. desde el primer inicio y el asilo de ejemplo. La vuelta 2 también: los dos ejemplos seguidos con la ventana abierta en medio, y el asilo como mixta, solo comunidad y de regreso.
 
@@ -172,3 +172,8 @@ Si cambio como los atienden de "Viven en las institucion a Comunidad funciona", 
   - al cargar un ejemplo se quedaba el Expediente del anterior: la A.C. mostraba la Junta del asilo. Ahora se reemplaza;
   - las ventanas de «Mi institución» guardaban lo que habían leído antes y al reabrirlas mostraban esos datos viejos. Si guardabas, se escribían. Ahora empiezan siempre de lo guardado, como ya lo hacían las de listas y documentos.
 - **Expediente con estados y sin archivos:** así lo permite la regla (se tiene el papel sin subirlo), y los ejemplos la usan. Con tu decisión, la fila de un documento que tienen sin archivo ahora dice **«Sin archivo»**.
+
+**Validado por el líder (2026-10-19):** probó la vuelta 2 en la app y marcó todas las casillas de «Terminado cuando» y de «Cómo probarlo». Se fusionó a `main` en el PR #8.
+- El núcleo sirve a cualquier organización civil: opciones nuevas en «a quién», «cómo» y «en qué»; capacidad y cifra de «hoy» solo donde las personas viven o pasan el día; cifra «en el último año» con las demás formas (una mixta da las dos); Expediente según cómo atiende; textos y manual sin asilo, casa hogar ni abuelitos; un tercer ejemplo, «Red Comunitaria Ejemplo, A.C.».
+- Lo que le toca a la IA (la ficha con el periodo de la cifra, los oficios, las palabras de búsqueda y las baterías) sigue en [[IA-7 La IA ante el núcleo genérico|IA-7]].
+- Queda una pregunta para el líder: la regla del primer inicio del ADR-042 cambió («se pregunta siempre, o lo decide otro indispensable preguntado antes»). Si se quiere como un ADR nuevo, lo escribe el CTO del ERP.

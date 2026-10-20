@@ -8,15 +8,15 @@ actualizado: 2026-10-19
 La página de inicio: dónde estamos, qué sigue, qué espera tu respuesta y dónde está cada cosa. **Claude la actualiza al cerrar cada bloque.**
 
 > [!info] Hoy (2026-10-19)
-> **[[ERP-2 El núcleo genérico|ERP-2]] está en «Revisión» (MVP-3): el núcleo sirve a cualquier organización civil.** Con tus decisiones de la revisión:
+> **[[ERP-2 El núcleo genérico|ERP-2]] está hecho (MVP-3): el núcleo sirve a cualquier organización civil.** Probaste la vuelta 2 y se fusionó a `main` en el PR #8. Con tus decisiones de la revisión:
 > - «A quién», «cómo» y «en qué» tienen opciones para organizaciones que no son residencia: población en general, otras organizaciones, a distancia, con apoyos, medio ambiente, cultura, derechos humanos, desarrollo comunitario y empleo.
 > - La capacidad solo se pide donde las personas viven o pasan el día. La cifra de personas es «hoy» ahí y «en el último año» en las demás.
 > - El Expediente pide el registro de centros solo donde viven menores, y el uso de suelo y protección civil solo con un inmueble donde se atiende.
 > - Pantallas y manual sin asilo, casa hogar ni abuelitos. La bienvenida ya no promete fichas.
 > - Un tercer ejemplo ficticio: «Red Comunitaria Ejemplo, A.C.».
 > - Lo que le toca a la IA (la ficha, los oficios y las baterías) quedó en [[IA-7 La IA ante el núcleo genérico|IA-7]].
-> - **Lo probaste y volvió con cuatro observaciones; ya están atendidas.** Las dos cifras de personas («hoy» y «en el último año», y la mixta da las dos). Un ejemplo ya no deja su Expediente en otro, y las ventanas ya no muestran lo que leyeron antes. La fila del Expediente dice «Sin archivo».
-> - **Espera:** que pruebes la vuelta 2 (pasos en la tarjeta). PR #8.
+> - **De tu primera prueba salieron cuatro observaciones, atendidas en la vuelta 2.** Las dos cifras de personas («hoy» y «en el último año», y la mixta da las dos). Un ejemplo ya no deja su Expediente en otro, y las ventanas ya no muestran lo que leyeron antes. La fila del Expediente dice «Sin archivo».
+> - **En el carril del ERP no hay bloque en curso.** El que sigue es [[ERP-3 Proyectos sobre la base nueva|ERP-3]], cuando lo pases a «Listo».
 >
 > **Antes, el mismo día: [[ERP-1 Ocultar los módulos congelados|ERP-1]] está hecho (MVP-1).** Lo probaste y se fusionó a `main` en el PR #7.
 > - La app solo muestra el núcleo y Proyectos, con un solo interruptor (`core/modules.rs`).
@@ -177,6 +177,7 @@ Las fases y sus criterios están en el [Roadmap](09-roadmap.md), «Fase 11». Pe
 
 ## Lo que espera tu respuesta
 
+- **Para el ADR-042 (primer inicio):** con ERP-2 su regla cambió a «se pregunta siempre, o lo decide otro indispensable preguntado antes». ¿La escribo como un ADR nuevo que lo reemplaza? Recomiendo que sí, corto.
 - **Para el ADR-044 (la bóveda):** si lo de salud de una sola persona puede llegar a la IA ligado a una marca («[NOMBRE_1] tiene diabetes»), o se generaliza como hoy. Recomiendo generalizarlo.
 - **Dos decisiones que salieron de la prueba completa** (sección 7 de la guía):
   - cómo detectar una copia desteñida que el lector de imágenes da por buena;
@@ -193,6 +194,8 @@ Todo lo que hay que probar del núcleo está en el [15 · Guion de pruebas del n
 
 | Fecha | Qué | Dónde leerlo |
 |---|---|---|
+| 2026-10-19 | **ERP-2 · el núcleo genérico (MVP-3):** opciones para cualquier organización civil; capacidad y cifra de «hoy» solo donde las personas viven o pasan el día, cifra «en el último año» con las demás formas; el Expediente según cómo atiende; textos y manual sin asilo ni casa hogar; tercer ejemplo, una A.C. comunitaria. Lo de la IA en IA-7 | [[ERP-2 El núcleo genérico\|ERP-2]], PR #8 |
+| 2026-10-19 | **ERP-1 · ocultar los módulos congelados (MVP-1):** un solo interruptor (`core/modules.rs`); el Asistente sabe qué partes todavía no existen (oficio v11, 40 de 40) | [[ERP-1 Ocultar los módulos congelados\|ERP-1]], PR #7 |
 | 2026-10-18 | **ADR-043 · SociAI es un ERP con la IA en el núcleo:** el MVP es el núcleo y los proyectos; módulos congelados y ocultos; núcleo genérico; la IA decide dentro de la casa con cuatro límites del código. Reescritos la visión, los principios y el roadmap (Fase 11). Antes, tres arreglos del chat: la frase no se repite tras el escáner, «Llenando…» solo si dejó sugerencias, «alcaldía Benito Juárez» no es una persona | [ADR-043](adr/ADR-043-un-erp-con-la-ia-en-el-nucleo.md) |
 | 2026-10-18 | **ADR-042, fase 5 · detalles de lectura:** el municipio con su nombre del catálogo del INEGI (2,478, con acentos), la calle sin «Calle», los servicios desde el informe. El ADR-042 queda aplicado completo | [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
 | 2026-10-18 | **ADR-042, fase 4 · el chat:** sin «Llenar con mis documentos»; «Llenarlo por mí» reparte entre las cuatro ventanas; lo igual no se sugiere y el programa lo dice; la frase del botón la escribe el programa; las palabras con una cifra por letra se componen; una cifra va al campo del que hablan sus palabras. Capturista 33 de 34, Asistente 33 de 34, nada inventado | [ADR-042](archivo/adr/ADR-042-primer-inicio-solo-lo-indispensable.md) |
