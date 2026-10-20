@@ -12,7 +12,7 @@
 | Control de etapas, bitácora, cifrado | Responder preguntas abiertas de cuestionarios |
 | Mapeo de campos al perfil | Explicar en lenguaje sencillo por qué algo no cumple |
 
-Prueba para decidir: *¿se puede escribir como regla?* → código.
+Prueba para decidir: *¿se puede escribir como regla?* → código. Es la primera de las cuatro preguntas de [`agents/patrones-de-ia.md`](agents/patrones-de-ia.md) (ADR-045), que eligen entre determinista, IA acotada (un operador) y agente.
 
 ## Proveedor intercambiable
 
@@ -54,6 +54,8 @@ Implementaciones: `AnthropicProvider` y `GeminiProvider` (APIs en la nube, ADR-0
 Si la calidad de una tarea Light no alcanza en pruebas, se sube a Strong y se documenta.
 
 ## Agentes y herramientas (ADR-034)
+
+> Desde el ADR-045, «agente» es solo el patrón 3: hoy, el Asistente. El Capturista y los Lectores son **operadores** (IA acotada), aunque en el código todavía corren por `ai::agent` (bloque IA-6). Lo que sigue usa los nombres de antes.
 
 - Un agente lo define el código (`ai::agent::Agent`): su oficio, su nivel, la lista cerrada de herramientas, el tope de pedidos de herramientas, el tope de texto por encargo y el esquema de su respuesta. Su tarea en `ai_usage` es `agent.<nombre>`.
 - **Protocolo en JSON sobre el recorrido de siempre** (`prompts/agent_protocol.v1.md`): en cada paso el modelo responde `{"tool", "args", "answer"}`. Cada paso pasa por presupuesto, escáner, ritmo, validación del esquema y `ai_usage`, igual con Gemini, Anthropic u Ollama.

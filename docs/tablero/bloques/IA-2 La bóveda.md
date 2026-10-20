@@ -5,6 +5,7 @@ carril: ia
 estado: backlog
 prioridad: alta
 fase: MVP-2
+patron: [determinista]
 rama:
 adr: "[[ADR-043-un-erp-con-la-ia-en-el-nucleo]]"
 creado: 2026-10-18

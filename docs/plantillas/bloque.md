@@ -5,6 +5,7 @@ carril: erp
 estado: backlog
 prioridad: media
 fase:
+patron:
 rama:
 adr:
 creado: {{date:YYYY-MM-DD}}
