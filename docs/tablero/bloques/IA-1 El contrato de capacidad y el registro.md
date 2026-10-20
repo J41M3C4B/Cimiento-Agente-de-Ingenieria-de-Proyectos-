@@ -6,7 +6,7 @@ estado: en-curso
 prioridad: alta
 caja: Registro común de capacidades; Contratos de capacidades
 pedido_por:
-depende_de: ERP-4, DIS-3
+depende_de: ERP-4, ERP-5, DIS-3
 rama: ia/ia-1-contrato-de-capacidad
 adr: ADR-001
 creado: 2026-10-20
@@ -70,23 +70,24 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 3. `capability/`: el contrato, el registro, la validación y un módulo de prueba que declara capacidades.
 4. La prueba de arquitectura estricta.
 5. **Retirar la IA que vive dentro de Mi institución** (riel IA):
-   - `core/agents`: el Asistente, el Capturista y las propuestas por campo;
-   - `core/ai_sheet.rs`;
-   - la IA del Lector: `reader/ask`, `reader/fill` y la lectura con IA de `reader/upload`;
-   - la lectura del proveedor en `onboarding`.
+   - `core/agents`: el Asistente, el Capturista y sus herramientas, con sus oficios y baterías;
+   - la IA del Lector: `reader/ask`, `reader/fill` y la lectura con IA de `reader/upload`.
 
-   Los comandos que solo envuelven eso (`commands/assistant.rs` y la llamada de `records.rs`) salen con ellos, junto con sus líneas en `src/lib/tauri.ts` y `src/lib/types.ts`. Los vectores (la búsqueda por significado) no se borran: salen de `core` hacia la plataforma, como herramienta de la capa 4.
+   Los comandos que solo envuelven eso (`commands/assistant.rs`) salen con ellos, junto con sus líneas en `src/lib/tauri.ts` y `src/lib/types.ts`. Los vectores (la búsqueda por significado) no se borran: salen de `core` hacia la plataforma, como herramienta de la capa 4. Lo que Mi institución usa de esas piezas lo quita antes el ERP-5.
 6. **Sacar la IA de los servicios deterministas.** `documents/canonical/run.rs` llama a la IA: es la lectura de convocatorias, que es un operador de IA (capa 4, riel IA). Se mueve a la plataforma, y `documents` se queda solo con lo determinista (el contrato, la recuperación y el paquete). La prueba estricta también impide que un servicio determinista use la IA: solo la plataforma y los comandos la usan.
 7. La suite completa, y el PR.
 
 **Lo que se pide a otros rieles:**
 - **ERP-4:** Proyectos sin IA propia.
+- **ERP-5:** Mi institución sin la IA vieja: la parte del ERP que usa el Capturista, la lectura con IA, la configuración de la IA y los vectores.
 - **DIS-3:** las pantallas sin la IA vieja.
 
 **El orden para fusionar:**
 1. DIS-3: si va después, las pantallas no compilan sin los comandos.
-2. ERP-4.
+2. ERP-4 y ERP-5.
 3. IA-1: su prueba estricta necesita que ya no quede IA en los módulos.
+
+Mientras tanto, el contrato, el registro y la prueba se construyen en la rama. La prueba estricta falla y enumera lo que falta retirar.
 
 **Lo que no entra en este bloque:**
 - Que Mi institución use el escáner de datos personales (`scanner::guard`, en unos 20 archivos) no es llamar a la IA. Es política de datos repartida, y la resuelve el IA-3.
@@ -109,5 +110,8 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 - [ ] 
 
 ## Hallazgos
+
+- **La hoja de la IA (`core/ai_sheet.rs`) no llama a la IA:** solo la usa en sus pruebas. Por eso no rompe la regla del IA-1, y se quitó del Plan. Se retira cuando el gestor de contexto la sustituya. Hoy también la usan `core::api` y Proyectos (la guía exportada).
+- **Las propuestas por campo (`core/agents/proposals.rs`) tampoco llaman a la IA.** Son la forma vieja de la confirmación, y se retiran cuando el IA-2 traiga la aprobación atada a los parámetros. Las usan los formularios y la lectura con reglas.
 
 ## Resultado

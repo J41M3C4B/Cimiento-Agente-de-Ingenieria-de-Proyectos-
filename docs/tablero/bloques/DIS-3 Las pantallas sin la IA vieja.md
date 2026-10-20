@@ -20,7 +20,8 @@ El IA-1 retira la IA vieja que vive dentro de Mi institución, porque ningún m�
 - `capture_ask`: el Capturista;
 - `institution_fill_from_documents` e `institution_fill_all_from_documents`: llenar desde documentos;
 - `proposals_reject`: las propuestas por campo;
-- la lectura con IA que sigue a adjuntar un documento.
+- la lectura con IA que sigue a adjuntar un documento: el evento `record-suggested`;
+- en la vista de un formulario, el dato `fill` (qué ventana llena el Capturista), que el ERP-5 quita.
 
 Hoy los usan `src/core/assistant/Assistant.tsx`, `src/core/profile/FormWindow.tsx` y `src/core/profile/ProfilePage.tsx`, con sus pruebas. También desaparecen los comandos de IA de Proyectos que retire el ERP-4.
 
