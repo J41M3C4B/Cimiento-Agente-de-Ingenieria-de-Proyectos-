@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-1
 carril: ia
-estado: backlog
+estado: listo
 prioridad: alta
 caja: Registro común de capacidades; Contratos de capacidades
 pedido_por:
@@ -28,12 +28,13 @@ El contrato declara:
 
 ## Terminado cuando
 
-(Propuesta; la aprueba el líder.)
+Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto queda hecho.
 
 - [ ] El ADR-001 describe el contrato y el registro, y el líder lo aprueba.
 - [ ] Un módulo de prueba declara capacidades, y el registro las descubre sin que nadie las escriba en una lista.
-- [ ] El registro rechaza un contrato incompleto, como uno sin permiso o sin efecto, y una prueba lo demuestra.
-- [ ] Una prueba de arquitectura impide que un módulo llame a la IA por su cuenta.
+- [ ] La clase de datos es un campo obligatorio del contrato. Las clases de IA-1 son provisionales: el ADR del IA-3 fija las definitivas y su política sin cambiar la forma del contrato.
+- [ ] El registro rechaza un contrato incompleto, como uno sin permiso, sin efecto o sin clase de datos, y una prueba lo demuestra.
+- [ ] Una prueba de arquitectura impide que un módulo llame a la IA por su cuenta. Es estricta y no tiene excepciones: la nueva arquitectura manda, y el código viejo que la viole no se acomoda, se retira.
 
 ## Plan
 
