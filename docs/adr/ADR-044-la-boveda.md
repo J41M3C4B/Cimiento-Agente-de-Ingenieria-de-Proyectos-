@@ -1,13 +1,17 @@
 ---
 adr: 44
-estado: propuesta
+estado: aceptada
 fecha: 2026-10-19
-tema: [ia, privacidad, escaner]
-tags: [adr]
+tema:
+  - ia
+  - privacidad
+  - escaner
+tags:
+  - adr
 ---
 # ADR-044 · La bóveda: hacia la IA van marcas, nunca el valor de un dato personal
 
-**Estado:** propuesta (2026-10-19). Aplica el primer límite del [ADR-043](ADR-043-un-erp-con-la-ia-en-el-nucleo.md) §5: «el valor de un dato personal no sale del equipo; hacia la IA va una marca». Se construye en el bloque IA-2 (fase MVP-2). La decisión sobre la salud ya la tomó el líder el 2026-10-18 (§3).
+**Estado:** aceptada (2026-10-19; el líder la aprobó el mismo día). Aplica el primer límite del [ADR-043](ADR-043-un-erp-con-la-ia-en-el-nucleo.md) §5: «el valor de un dato personal no sale del equipo; hacia la IA va una marca». Se construye en el bloque IA-2 (fase MVP-2). La decisión sobre la salud ya la tomó el líder el 2026-10-18 (§3).
 
 ## Contexto
 
