@@ -9,6 +9,7 @@ Cómo se organiza el trabajo desde 2026-10-18. El tablero es [[Tablero]] (`docs/
 | **Líder de producto, arquitectura y validador** | La persona dueña del proyecto | Qué entra y en qué orden; los ADR; qué cuenta como terminado; si un bloque pasa a «Hecho» | Aprueba «Terminado cuando», prueba en la app lo que está en «Revisión» y deja observaciones en `docs/notas/` |
 | **CTO del ERP** | Claude, en `D:\Agente Proyectos\cimiento` | Cómo se construye el ERP determinista y su arquitectura, dentro de los ADR | Los bloques del carril `erp`: propone, planea, implementa, prueba, documenta, abre el PR y mueve el bloque a «Revisión». Avisa antes de lo que no se puede deshacer |
 | **CTO de la IA** | Claude, en `D:\Agente Proyectos\cimiento-ia` | Cómo se construye la IA: operadores, agentes, oficios, modelos y baterías, dentro de los ADR | Lo mismo, con los bloques del carril `ia` |
+| **Agente de diseño** | Claude, en su propia carpeta (un `git worktree`, como el carril `ia`) | Cómo se ve y cómo se recorre cada pantalla, dentro del [sistema visual](../13-sistema-visual.md) | Lo mismo, con los bloques del carril `diseno` |
 
 Ningún CTO mueve un bloque a «Hecho» ni fusiona a `main` sin la validación del líder. Una decisión de arquitectura la propone el CTO de su carril y la aprueba el líder en un ADR.
 
@@ -47,10 +48,24 @@ Cada CTO trabaja solo en su carril, en su carpeta y con su rama. **Lo que es del
 
 Esa vez se hizo todo en este espacio. Desde ahora, no.
 
+## El carril de diseño
+
+Desde 2026-10-20 hay un tercer carril, `diseno`, para el agente de diseño. Ahí se van juntando los bloques de cómo se ve y cómo se recorre la app.
+
+| | CTO del ERP | Agente de diseño |
+|---|---|---|
+| **La prueba** | Se prueba sin ningún modelo, con `cargo test` y `pnpm test` | Se prueba mirando la app en el WebView real, en Inicio, «Mi institución» y la pantalla que cambió |
+| **Es suyo** | Qué datos muestra cada pantalla y de dónde salen (las fichas `…Card` se componen en Rust), los comandos, las reglas, la validación de los formularios y las palabras de cada campo en `es-MX.ts` | El [sistema visual](../13-sistema-visual.md); los componentes y su estilo; cómo se parte una ventana larga; cómo se ven una sugerencia, un aviso y un error, y dónde quedan para que se vean sin bajar |
+| **Sus documentos** | Los del ERP (arriba) | `13-sistema-visual.md` |
+
+- **El ERP ofrece y el diseño acomoda.** Si un diseño necesita un dato que la pantalla no recibe, o partir un formulario cambia sus reglas, se pide al ERP con un bloque `erp`.
+- Un cambio del ERP que pone algo nuevo en una pantalla usa los componentes que ya existen. Si ninguno sirve, se pide un bloque `diseno`.
+
 ## Carriles
 
 - **`erp`:** el producto y su arquitectura (pantallas, datos, formularios, flujos, Proyectos).
 - **`ia`:** la arquitectura de la IA (agentes, bóveda, oficios, herramientas, modelos, baterías).
+- **`diseno`:** cómo se ve y cómo se recorre la app (sistema visual, componentes, ventanas, sugerencias, avisos y errores). Sus bloques se llaman `DIS-n`.
 
 Un bloque que toca los dos va al carril de su decisión principal. Si es grande, se parte en uno de cada carril, y el de `ia` va primero cuando el de `erp` depende de él.
 
@@ -73,7 +88,7 @@ Un bloque que toca los dos va al carril de su decisión principal. Si es grande,
 
 - **`main` es lo validado.** Siempre compila y sus pruebas pasan, y nadie trabaja directo sobre ella.
 - **Una rama por bloque,** nacida de `main` y con el carril y el id en el nombre:
-  - `erp/erp-1-ocultar-modulos` o `ia/ia-1-boveda` para los bloques;
+  - `erp/erp-1-ocultar-modulos`, `ia/ia-1-boveda` o `diseno/dis-1-sugerencias-y-avisos` para los bloques;
   - `fix/<lo-que-arregla>` para un arreglo urgente fuera del tablero.
 - **Commits** cortos, en inglés, que empiezan con el id del bloque: `ERP-1: hide the frozen modules from the rail`.
 - **Del bloque a `main`:** un PR por bloque con «Terminado cuando» y «Cómo probarlo». Cuando el líder lo valida, se fusiona con *squash* (un commit por bloque en `main`) y la rama se borra.
