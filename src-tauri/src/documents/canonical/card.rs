@@ -446,9 +446,9 @@ mod tests {
 
     /// Prints the card of a real call's canonical document, to look at it by eye. No calls are made.
     #[test]
-    #[ignore = "reads a file named by CIMIENTO_CANON_FILE; prints, asserts nothing"]
+    #[ignore = "reads a file named by SOCIAI_CANON_FILE; prints, asserts nothing"]
     fn print_card_of_a_real_call() {
-        let path = std::env::var("CIMIENTO_CANON_FILE").expect("CIMIENTO_CANON_FILE names a .canonico.json");
+        let path = std::env::var("SOCIAI_CANON_FILE").expect("SOCIAI_CANON_FILE names a .canonico.json");
         let doc: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
         let c = card(&doc, None);
         eprintln!("{}", serde_json::to_string_pretty(&c).unwrap());

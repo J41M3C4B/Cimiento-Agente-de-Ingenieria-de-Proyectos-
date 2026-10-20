@@ -204,7 +204,7 @@ impl AiProvider for Recording<'_> {
 /// the person, tokens, cost
 /// and time. Only fictitious text goes out. Its whole output goes to a file:
 ///   cargo test capturist_battery_live -- --ignored --nocapture > capturist_battery_live.txt
-/// With `CIMIENTO_ROUNDS` (1 to 5) it tells everything that many times, to see how steady the cheapest model is.
+/// With `SOCIAI_ROUNDS` (1 to 5) it tells everything that many times, to see how steady the cheapest model is.
 #[tokio::test]
 #[ignore]
 async fn capturist_battery_live() {
@@ -219,9 +219,9 @@ async fn capturist_battery_live() {
     // at most 14 calls a minute, over all the cases (the free plan allows 15)
     let provider = crate::ai::paced::provider(crate::ai::build_provider(&cfg, key));
     let recording = Recording { inner: provider.as_ref(), log: Mutex::new(Vec::new()) };
-    let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
-    // `CIMIENTO_CASES=alcaldia-con-nombre-de-persona,ya-estaba-guardado` runs only those cases
-    let only: Vec<String> = std::env::var("CIMIENTO_CASES").map(|s| s.split(',').map(|c| c.trim().to_string()).collect()).unwrap_or_default();
+    let rounds: usize = std::env::var("SOCIAI_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
+    // `SOCIAI_CASES=alcaldia-con-nombre-de-persona,ya-estaba-guardado` runs only those cases
+    let only: Vec<String> = std::env::var("SOCIAI_CASES").map(|s| s.split(',').map(|c| c.trim().to_string()).collect()).unwrap_or_default();
     let all: Vec<Case> = cases().into_iter().filter(|c| only.is_empty() || only.contains(&c.id)).collect();
     let mut right_per_case = vec![0usize; all.len()];
     let (mut passed, mut fields_right, mut fields_graded, mut invented, mut extra, mut dropped_all) = (0, 0, 0, 0, 0, 0);

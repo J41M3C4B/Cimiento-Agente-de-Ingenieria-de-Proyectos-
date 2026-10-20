@@ -29,7 +29,15 @@ cerrado:
 
 ## Cómo probarlo
 
-(Para pasar a «Revisión» · lo escribe el agente para el líder: qué abrir, qué hacer y qué debe pasar.)
+(Para pasar a «Revisión» · lo escribe el agente para el líder.)
+
+**Cómo correrlo:**
+- Carpeta y rama:
+- Antes (solo si hace falta: `pnpm install`, variables, ejemplo cargado):
+- Arrancar:
+- Al terminar:
+
+**Qué hacer y qué debe pasar:**
 
 - [ ] 
 

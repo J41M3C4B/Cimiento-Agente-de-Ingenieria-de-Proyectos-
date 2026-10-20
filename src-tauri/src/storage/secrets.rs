@@ -4,7 +4,7 @@ use super::StorageError;
 use keyring_core::{Entry, Error as KeyringError};
 use std::sync::Once;
 
-const SERVICE: &str = "mx.cimiento.app";
+const SERVICE: &str = "mx.sociai.app";
 const DB_KEY_USER: &str = "database-key";
 
 static INIT: Once = Once::new();
@@ -81,11 +81,11 @@ mod tests {
     #[test]
     fn key_is_created_once_and_then_reused() {
         let user = "test-database-key";
-        let first = get_or_create("mx.cimiento.app.test", user).unwrap();
-        let second = get_or_create("mx.cimiento.app.test", user).unwrap();
+        let first = get_or_create("mx.sociai.app.test", user).unwrap();
+        let second = get_or_create("mx.sociai.app.test", user).unwrap();
         assert_eq!(first.len(), 64);
         assert_eq!(first, second);
-        Entry::new("mx.cimiento.app.test", user)
+        Entry::new("mx.sociai.app.test", user)
             .unwrap()
             .delete_credential()
             .unwrap();

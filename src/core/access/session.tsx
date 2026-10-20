@@ -17,7 +17,7 @@ export function useSession(): SessionApi | null {
 
 /** The codes with which Rust says the session is not usable: the gate shows the entry screen again. */
 export const ACCESS_LOST = new Set(["not_signed_in", "session_locked", "must_change_password"]);
-const EVENT = "cimiento:access-lost";
+const EVENT = "sociai:access-lost";
 
 export function notifyIfAccessLost(error: unknown) {
   const code = error && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";

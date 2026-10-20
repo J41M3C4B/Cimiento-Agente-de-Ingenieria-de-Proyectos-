@@ -36,7 +36,7 @@ pub struct AppInfo {
 #[tauri::command]
 pub fn app_info(session: State<'_, Session>) -> AppInfo {
     let _ = guard(&session, "app_info"); // open: the name and version of the app
-    AppInfo { name: "Cimiento", version: env!("CARGO_PKG_VERSION") }
+    AppInfo { name: "SociAI", version: env!("CARGO_PKG_VERSION") }
 }
 
 /// What a command may do once it passed its check: who is acting, and whether they may delete for good.

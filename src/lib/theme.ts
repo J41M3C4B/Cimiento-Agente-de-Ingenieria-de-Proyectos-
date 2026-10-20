@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 export type Theme = "light" | "dark";
-const KEY = "cimiento.theme";
+const KEY = "sociai.theme";
 
 const stored = (): Theme | null => {
   try {

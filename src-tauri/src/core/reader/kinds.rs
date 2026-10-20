@@ -217,7 +217,7 @@ mod tests {
     /// The measurement of ADR-042 §4: every file of the full test (read as the screen reads it, scans and photos with
     /// OCR, about a minute) and of the battery, put on its own document and on every other one, with each name weight
     /// and threshold; how many end on a wrong document and how many are asked on their own. Prints the table.
-    ///   cargo test kind_confidence_measure -- --ignored --nocapture   (with $env:CIMIENTO_KIND_SHOW="08" it shows what file 08 says)
+    ///   cargo test kind_confidence_measure -- --ignored --nocapture   (with $env:SOCIAI_KIND_SHOW="08" it shows what file 08 says)
     #[test]
     #[ignore]
     fn kind_confidence_measure() {
@@ -242,7 +242,7 @@ mod tests {
             let (words, by_name) = truth.map_or((0, false), |t| evidence(pages.as_deref(), name, t));
             println!("{name:<48} {:<26} {words:>6} {by_name:>6}  {s:?}", truth.unwrap_or("—"));
             // what a file of the test says, to see why a rule does not recognize it (fictitious files only)
-            if std::env::var("CIMIENTO_KIND_SHOW").is_ok_and(|v| name.starts_with(&v)) {
+            if std::env::var("SOCIAI_KIND_SHOW").is_ok_and(|v| name.starts_with(&v)) {
                 println!("{}", fold(&pages.as_deref().unwrap_or_default().join("
 ")).chars().take(HEAD_CHARS * 2).collect::<String>());
             }

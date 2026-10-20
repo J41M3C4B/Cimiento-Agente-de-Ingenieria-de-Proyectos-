@@ -983,12 +983,12 @@ mod tests {
     }
 
     /// Uploads the packages of a measurement manifest as a person would, without calling any service:
-    /// how long it takes, how many pages and how much was covered. `CIMIENTO_CANON_MANIFEST` names the manifest.
+    /// how long it takes, how many pages and how much was covered. `SOCIAI_CANON_MANIFEST` names the manifest.
     ///   cargo test call_ingest_real -- --ignored --nocapture
     #[test]
     #[ignore]
     fn call_ingest_real() {
-        let path = std::env::var("CIMIENTO_CANON_MANIFEST").expect("CIMIENTO_CANON_MANIFEST");
+        let path = std::env::var("SOCIAI_CANON_MANIFEST").expect("SOCIAI_CANON_MANIFEST");
         let m: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
         let (_d, db) = setup();
         for p in m["packages"].as_array().unwrap() {

@@ -50,7 +50,7 @@ impl From<ServiceError> for UiError {
             ServiceError::InvalidPin => UiError::new("invalid_pin", "El PIN debe tener de 4 a 8 números, sin espacios ni letras."),
             ServiceError::WrongPin => UiError::new("wrong_pin", "Ese no es el PIN actual."),
             ServiceError::Storage(crate::storage::StorageError::WrongPassword) => {
-                UiError::new("wrong_backup_password", "Esa contraseña no abre este respaldo, o el archivo no es un respaldo de Cimiento.")
+                UiError::new("wrong_backup_password", "Esa contraseña no abre este respaldo, o el archivo no es un respaldo de SociAI.")
             }
             ServiceError::Storage(crate::storage::StorageError::WeakPassword) => {
                 UiError::new("weak_backup_password", "La contraseña debe tener al menos 8 caracteres.")

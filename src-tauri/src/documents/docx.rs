@@ -218,7 +218,7 @@ pub fn build(blocks: &[Block], title: &str, author: &str, created_iso: &str) -> 
         a = escape(author),
         c = escape(created_iso)
     );
-    let app = format!(r#"{XML_HEAD}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Cimiento</Application></Properties>"#);
+    let app = format!(r#"{XML_HEAD}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>SociAI</Application></Properties>"#);
     let styles = format!("{XML_HEAD}{STYLES}");
 
     let mut zout = zip::ZipWriter::new(Cursor::new(Vec::new()));
@@ -495,7 +495,7 @@ mod tests {
             Block::Paragraph("Primer párrafo.\n\nSegundo párrafo\ncon salto de línea.".into()),
             Block::Note("Documento de apoyo.".into()),
         ];
-        let bytes = build(&blocks, "Guía", "Cimiento", "2026-10-03T12:00:00Z").unwrap();
+        let bytes = build(&blocks, "Guía", "SociAI", "2026-10-03T12:00:00Z").unwrap();
         // every part is well-formed XML
         let mut zin = zip::ZipArchive::new(Cursor::new(&bytes)).unwrap();
         let names: Vec<String> = (0..zin.len()).map(|i| zin.by_index(i).unwrap().name().to_string()).collect();

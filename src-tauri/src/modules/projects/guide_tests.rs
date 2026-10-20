@@ -179,12 +179,12 @@ async fn when_the_call_asks_for_a_proposal_the_guide_follows_its_structure() {
     assert!(text.contains("Justificación del problema") && text.contains("La casa necesita un sistema de mantenimiento."));
 }
 
-/// Writes a sample guide to the folder named in CIMIENTO_SAMPLE_DIR so it can be opened in Word by hand.
-///   $env:CIMIENTO_SAMPLE_DIR="D:\...\muestra"; cargo test write_a_sample_guide -- --ignored --nocapture
+/// Writes a sample guide to the folder named in SOCIAI_SAMPLE_DIR so it can be opened in Word by hand.
+///   $env:SOCIAI_SAMPLE_DIR="D:\...\muestra"; cargo test write_a_sample_guide -- --ignored --nocapture
 #[tokio::test]
 #[ignore]
 async fn write_a_sample_guide() {
-    let dir = std::env::var("CIMIENTO_SAMPLE_DIR").expect("CIMIENTO_SAMPLE_DIR");
+    let dir = std::env::var("SOCIAI_SAMPLE_DIR").expect("SOCIAI_SAMPLE_DIR");
     let (_d, db) = profile_db();
     let pid = project_ready(&db).await;
     let out = export_guide(&db, &pid, std::path::Path::new(&dir)).unwrap();

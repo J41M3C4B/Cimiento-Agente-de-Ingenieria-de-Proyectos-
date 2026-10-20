@@ -94,7 +94,7 @@ mod tests {
     fn a_backup_restores_everything_even_with_another_working_key() {
         let dir = tempfile::tempdir().unwrap();
         let c = database(dir.path());
-        let file = dir.path().join("respaldo.cimiento");
+        let file = dir.path().join("respaldo.sociai");
         create(&c, &file, "una contraseña larga").unwrap();
         assert!(file.exists());
         // the working database is still fine after the backup
@@ -121,7 +121,7 @@ mod tests {
     fn the_backup_is_encrypted_with_the_password_and_nothing_else_opens_it() {
         let dir = tempfile::tempdir().unwrap();
         let c = database(dir.path());
-        let file = dir.path().join("respaldo.cimiento");
+        let file = dir.path().join("respaldo.sociai");
         create(&c, &file, "una contraseña larga").unwrap();
         let bytes = std::fs::read(&file).unwrap();
         assert!(!bytes.windows(15).any(|w| w == b"Asilo Ficticio\0") && !bytes.starts_with(b"SQLite format 3"), "the file is not readable as it is");
@@ -132,7 +132,7 @@ mod tests {
         // the working key is not the password either
         assert!(matches!(restore_to(&file, KEY, &target, KEY), Err(StorageError::WrongPassword)));
         // a file that is not a backup
-        let junk = dir.path().join("basura.cimiento");
+        let junk = dir.path().join("basura.sociai");
         std::fs::write(&junk, b"esto no es un respaldo, solo texto suelto de prueba").unwrap();
         assert!(matches!(restore_to(&junk, "una contraseña larga", &target, KEY), Err(StorageError::WrongPassword)));
     }
@@ -141,13 +141,13 @@ mod tests {
     fn a_short_password_is_refused_and_a_backup_never_overwrites_a_file() {
         let dir = tempfile::tempdir().unwrap();
         let c = database(dir.path());
-        let file = dir.path().join("respaldo.cimiento");
+        let file = dir.path().join("respaldo.sociai");
         assert!(matches!(create(&c, &file, "corta"), Err(StorageError::WeakPassword)));
         assert!(!file.exists());
         create(&c, &file, "contraseña de 8+").unwrap();
         assert!(matches!(create(&c, &file, "contraseña de 8+"), Err(StorageError::BackupExists)));
         // a password with quotes works too
-        let q = dir.path().join("q.cimiento");
+        let q = dir.path().join("q.sociai");
         create(&c, &q, "it's \"quoted\" ok").unwrap();
         restore_to(&q, "it's \"quoted\" ok", &dir.path().join("q.db"), KEY).unwrap();
     }

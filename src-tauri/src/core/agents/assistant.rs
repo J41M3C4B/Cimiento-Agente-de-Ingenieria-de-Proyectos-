@@ -938,14 +938,14 @@ mod tests {
     }
 
     /// ADR-042 §6, the letters written as digits: what the person told in the test of the institution («Nos representa
-    /// la directora…», from «Contacto y ubicación»), asked `CIMIENTO_ROUNDS` times (8 by default, at most 5 steps each,
+    /// la directora…», from «Contacto y ubicación»), asked `SOCIAI_ROUNDS` times (8 by default, at most 5 steps each,
     /// never more than 14 calls a minute) with the provider and key saved in the app. It prints every answer as the
     /// model wrote it and the words with a digit among letters. Only fictitious text goes out:
     ///   cargo test letters_live -- --ignored --nocapture > letters_live.txt
     #[tokio::test]
     #[ignore]
     async fn letters_live() {
-        let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(8).clamp(1, 20);
+        let rounds: usize = std::env::var("SOCIAI_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(8).clamp(1, 20);
         let (_d, db) = rich_db();
         let provider = {
             let c = db.lock().unwrap();

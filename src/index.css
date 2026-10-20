@@ -3,7 +3,7 @@
 @source not "../docs";
 
 /*
-  Sistema visual de Cimiento (docs/13-sistema-visual.md, ADR-025). Este archivo es la ÚNICA fuente de los valores:
+  Sistema visual de SociAI (docs/13-sistema-visual.md, ADR-025). Este archivo es la ÚNICA fuente de los valores:
   las pantallas usan estos nombres y no escriben colores, tamaños de letra, radios ni sombras sueltos
   (src/design.test.ts lo comprueba).
 

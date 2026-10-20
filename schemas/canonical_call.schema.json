@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cimiento.local/schemas/canonical_call.schema.json",
+  "$id": "https://sociai.local/schemas/canonical_call.schema.json",
   "title": "Convocatoria canónica",
   "description": "Contrato universal para leer una convocatoria de donativos, sea cual sea su institución, formato o idioma de redacción. Reglas que valen en todo el schema: (1) cada dato lleva cita literal, página y documento; el código verifica la cita. (2) 'no_aparece' es una respuesta válida; nunca se inventa. (3) Fechas, montos, porcentajes y duraciones los normaliza el código leyendo la cita (campos x-llena=codigo); el modelo solo señala dónde están. (4) Las listas son exhaustivas. (5) Si dos partes se contradicen, se listan ambas en `conflictos`; no se elige. (6) Anotaciones propias: x-llena (modelo|codigo), x-tipo (normalizador). Quitar x-llena=codigo y los if/then antes de enviar a un proveedor con subconjunto de JSON Schema.",
   "x-version": "1.1.0",

@@ -2,6 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    cimiento_lib::run()
+    sociai_lib::run()
 }
 

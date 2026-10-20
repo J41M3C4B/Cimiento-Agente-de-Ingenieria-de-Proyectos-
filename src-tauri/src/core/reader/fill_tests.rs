@@ -236,13 +236,13 @@ pub(crate) fn grade(expected: &Value, got: Option<&proposals::Proposal>) -> (&'s
 /// Expediente, with the provider and key saved in the app (4 calls with the cheapest model) and, with Gemini, the
 /// vectors of the fictitious fragments (a couple of requests). For every field of `lector.json`: the value, whether
 /// it is right, and whether its page is one expected; then calls, tokens, cost and time per window. Only fictitious
-/// text goes out. With `CIMIENTO_ROUNDS` (1 to 5) it fills everything that many times, each round over a new
+/// text goes out. With `SOCIAI_ROUNDS` (1 to 5) it fills everything that many times, each round over a new
 /// Expediente, to see how steady the cheapest model is. Its whole output goes to a file:
 ///   cargo test reader_live -- --ignored --nocapture > reader_live.txt
 #[tokio::test]
 #[ignore]
 async fn reader_live() {
-    let rounds: usize = std::env::var("CIMIENTO_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
+    let rounds: usize = std::env::var("SOCIAI_ROUNDS").ok().and_then(|r| r.parse().ok()).unwrap_or(1).clamp(1, 5);
     let (mut right, mut wrong, mut missed, mut invented, mut pages_ok, mut graded) = (0, 0, 0, 0, 0, 0);
     let mut spent = (0, 0, 0, 0.0);
     for round in 1..=rounds {

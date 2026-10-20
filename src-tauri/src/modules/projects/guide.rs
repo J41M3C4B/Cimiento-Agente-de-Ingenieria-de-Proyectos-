@@ -1,5 +1,5 @@
 //! The guide of a project in Word (ADR-018): what the conversation and the drafting concluded, ordered so the person
-//! only has to copy it into the forms and documents of the donor. Cimiento does NOT fill the donor's formats.
+//! only has to copy it into the forms and documents of the donor. SociAI does NOT fill the donor's formats.
 //!
 //! First what is indispensable of the call (facts and documents to hand in), then the project: its summary, the
 //! proposal (the sections the person confirmed), the budget and the schedule, the indicators, the institution and
@@ -378,7 +378,7 @@ pub fn export_guide(db: &SharedDb, project_id: &str, dir: &Path) -> Result<Expor
     if findings_in(&conn, &blocks_text(&blocks))? > 0 {
         return Err(ProjectsError::GuideHasPersonalData);
     }
-    let institution = data.institution.as_ref().map(|i| i.institution.name.clone()).unwrap_or_else(|| "Cimiento".into());
+    let institution = data.institution.as_ref().map(|i| i.institution.name.clone()).unwrap_or_else(|| "SociAI".into());
     let created: String = conn.query_row("SELECT strftime('%Y-%m-%dT%H:%M:%SZ','now')", [], |r| r.get(0))?;
     let bytes = docx::build(&blocks, &format!("Guía del proyecto: {}", data.project.title), &institution, &created).map_err(|e| ProjectsError::Internal(e.to_string()))?;
     std::fs::create_dir_all(dir).map_err(|e| ProjectsError::Internal(e.to_string()))?;
