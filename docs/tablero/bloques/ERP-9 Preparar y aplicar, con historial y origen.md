@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-9
 carril: erp
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Unidad de trabajo (K4); Historial y origen (K5); Eventos (K8, la bandeja de hechos)
 pedido_por:
@@ -25,13 +25,13 @@ El [plano del ERP](../../plano-del-erp.md) (§7) dice que todo cambio de datos s
 
 Aprobado por el líder el 2026-10-21. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **Un cambio del módulo de muestra se prepara** sin escribir nada y devuelve una propuesta: las diferencias campo por campo (antes y después), lo que no pasa la validación, la versión base y la huella.
-- [ ] **Aplicar revisa la versión y la huella:** si el dato o la entrada cambiaron desde que se preparó, no se aplica y pide preparar de nuevo. Una prueba lo demuestra.
-- [ ] **Al aplicar, una sola transacción** escribe el dato, su historial con su origen (persona, documento y página, cálculo o tarea con su id), su hecho en la bandeja y el registro del cambio. Si algo falla, no queda nada. Una prueba lo demuestra.
-- [ ] **El historial sirve para cualquier entidad de cualquier módulo,** solo crece, y lo protegido dice que cambió sin guardar el valor.
+- [x] **Un cambio del módulo de muestra se prepara** sin escribir nada y devuelve una propuesta: las diferencias campo por campo (antes y después), lo que no pasa la validación, la versión base y la huella.
+- [x] **Aplicar revisa la versión y la huella:** si el dato o la entrada cambiaron desde que se preparó, no se aplica y pide preparar de nuevo. Una prueba lo demuestra.
+- [x] **Al aplicar, una sola transacción** escribe el dato, su historial con su origen (persona, documento y página, cálculo o tarea con su id), su hecho en la bandeja y el registro del cambio. Si algo falla, no queda nada. Una prueba lo demuestra.
+- [x] **El historial sirve para cualquier entidad de cualquier módulo,** solo crece, y lo protegido dice que cambió sin guardar el valor.
 - [ ] **El riel IA conoce y acepta** la forma de la propuesta y de la huella, anotada en el IA-2.
-- [ ] **K5 dice si una huella ya se aplicó** (punto 4 del ERP-10), para no repetir a ciegas un cambio incierto.
-- [ ] `cargo test` y `pnpm test` pasan, sin red ni gasto.
+- [x] **K5 dice si una huella ya se aplicó** (punto 4 del ERP-10), para no repetir a ciegas un cambio incierto.
+- [x] `cargo test` y `pnpm test` pasan, sin red ni gasto.
 
 ## Plan
 
@@ -117,16 +117,24 @@ Todo va en el núcleo (`crates/kernel`). El módulo de muestra lo usa de punta a
 
 ## Cómo probarlo
 
+PR [#27](https://github.com/J41M3C4B/SociAI/pull/27).
+
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- Carpeta y rama: `D:\Agente Proyectos\sociai-erp`, rama `erp/erp-9-preparar-y-aplicar`.
+- Antes: cerrar la app del otro riel si está abierta. No hace falta `pnpm install`. La base gana tres tablas vacías del núcleo (`kernel_change`, `kernel_history`, `kernel_outbox`). El código de antes las ignora.
+- Arrancar: `pnpm tauri dev`. Recompila unos minutos.
+- Al terminar: cerrar la app. No queda nada que limpiar.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] La app abre con la base de siempre y todo funciona como antes. Este bloque no cambia nada visible.
+- [ ] El riel IA confirma la forma de la propuesta y de la huella escrita en el plan.
 
 ## Hallazgos
+
+- **Alguien marcó todas las casillas del «Terminado cuando» en la copia de esta tarjeta en la carpeta `sociai-erp`.** Las tarjetas se escriben en `sociai`, así que no lo subí. Lo guardé como parche (`erp9-casillas-ajenas.patch` en el *scratchpad* del agente ERP) y regresé el archivo a como estaba en git.
+- **El historial nuevo convive con el de Mi institución** (`core_field` y `core_change`). Este se retira cuando Mi institución pase a la forma de módulo (ERP-1).
+- **La bandeja de hechos (`kernel_outbox`) solo se llena.** Entregar los hechos y reaccionar a ellos es del ERP-3, con el actor del sistema.
+- **La validación de la muestra es suya por ahora** (título obligatorio, teléfono con forma de teléfono). Con el ERP-2, el diccionario la hace para cualquier entidad.
 
 ## Resultado
