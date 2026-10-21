@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-8
 carril: erp
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Módulos independientes; Registro de módulos (K12); Almacenamiento (K4)
 pedido_por:
@@ -10,7 +10,7 @@ depende_de: ERP-7
 rama: erp/erp-8-forma-de-un-modulo
 adr:
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-21
 ---
 
 ## Qué y por qué
@@ -64,8 +64,8 @@ PR [#24](https://github.com/J41M3C4B/SociAI/pull/24).
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] La app abre y desbloquea la base de siempre.
-- [ ] Mi institución muestra los mismos datos que antes.
+- [x] La app abre y desbloquea la base de siempre.
+- [x] Mi institución muestra los mismos datos que antes.
 - [ ] (Opcional) En `src-tauri/`, `cargo test workspace_tests` pasa sus 4 pruebas: fronteras, reglas, registro y conformidad.
 
 ## Hallazgos
@@ -78,3 +78,12 @@ PR [#24](https://github.com/J41M3C4B/SociAI/pull/24).
 - **Los lugares en el manifiesto** (plano §4) no entraron. Llegan con el *refactor* de `core/places.rs`, cuando Mi institución sea módulo (ERP-1).
 
 ## Resultado
+
+Validado por el líder el 2026-10-21: la app abre con la base de siempre y Mi institución muestra los mismos datos. Fusionado a `main` en el PR [#24](https://github.com/J41M3C4B/SociAI/pull/24) (`59afaa9`).
+
+- **El *workspace* de Cargo** tiene la app, el núcleo (`crates/kernel`) y el módulo de muestra (`crates/modules/muestra`, con su `contract`).
+- **El registro de módulos (K12)** junta los manifiestos con `linkme`, sin lista, rechaza dependencias que no existen y ciclos, y sabe qué módulos están encendidos.
+- **Las migraciones son por dueño (K4):** la tabla `kernel_migrations (owner, version)` sirve para cada módulo y para la plataforma (`ai`). Las 34 de antes siguen en `schema_migrations`.
+- **Los permisos se declaran por id** en el manifiesto (A2). El `enum Permission` se quedó en la app.
+- **Las fronteras las hace cumplir el compilador**, y `workspace_tests.rs` vigila el grafo de dependencias. La prueba de conformidad corre sobre todo módulo registrado.
+- **Para el riel IA:** hacer `rebase` del IA-2 sobre `main` antes de su PR, porque cambiaron `Cargo.toml` y `Cargo.lock`.
