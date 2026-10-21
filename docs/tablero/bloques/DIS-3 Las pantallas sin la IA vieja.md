@@ -95,12 +95,12 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] Entrar, ir a Inicio: la barra tiene tema, configuración y tu cuenta; **no hay botón ✨**.
-- [ ] Mi institución → «Editar» de una tarjeta: la ventana abre **sin** «Llenarlo por mí» ni «Llenar con mis documentos».
-- [ ] En esa ventana, pulsar el «?» de un campo: se despliega el manual y **no** aparece «Preguntar más».
-- [ ] En Mi institución, sección del Expediente con un documento que ya tiene archivo: **no** aparece «Llenar todo con mis documentos».
-- [ ] Subir un archivo a un documento (por ejemplo la constancia de situación fiscal de `fixtures/expediente`): cierra la ventana y llega el aviso «Se guardó el archivo…»; si la lectura con reglas dejó sugerencias, en su ventana siguen «Usar», «Descartar» y «Descartar todas».
-- [ ] Repetir en tema oscuro; nada roto ni en blanco.
+- [x] Entrar, ir a Inicio: la barra tiene tema, configuración y tu cuenta; **no hay botón ✨**.
+- [x] Mi institución → «Editar» de una tarjeta: la ventana abre **sin** «Llenarlo por mí» ni «Llenar con mis documentos».
+- [x] En esa ventana, pulsar el «?» de un campo: se despliega el manual y **no** aparece «Preguntar más».
+- [x] En Mi institución, sección del Expediente con un documento que ya tiene archivo: **no** aparece «Llenar todo con mis documentos».
+- [x] Subir un archivo a un documento (por ejemplo la constancia de situación fiscal de `fixtures/expediente`): cierra la ventana y llega el aviso «Se guardó el archivo…»; si la lectura con reglas dejó sugerencias, en su ventana siguen «Usar», «Descartar» y «Descartar todas».
+- [x] Repetir en tema oscuro; nada roto ni en blanco.
 
 ## Hallazgos
 
