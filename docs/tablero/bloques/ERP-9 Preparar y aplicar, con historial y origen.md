@@ -69,14 +69,49 @@ Todo va en el núcleo (`crates/kernel`). El módulo de muestra lo usa de punta a
 6. **El módulo de muestra.** Su nota gana versión, texto y un teléfono protegido (migración 2). `muestra::service` tiene `prepare` y `apply` sobre el núcleo, con una validación sencilla, porque el diccionario llega con el ERP-2. Su entrada (`NoteInput`) va en su `contract`.
 7. **La suite completa y el PR.**
 
-**El acuerdo con el riel IA (lo que necesita confirmar):**
-- La salida de `prepare` de una capacidad de cambio es la `Proposal` del núcleo, con su `fingerprint`.
-- El ejecutor ata la aprobación a esa `fingerprint`. Su huella propia, la de la capacidad y la entrada, le sigue sirviendo para reconocer un paso repetido.
-- Al aplicar, el ejecutor pasa la huella aprobada a `apply`. Se propone un campo nuevo en `Call` (`fingerprint: Option<&str>`), que se agrega con el IA-5.
-  - El núcleo vuelve a calcular la huella con la versión de hoy. Si no coincide, responde «prepara de nuevo», y el ejecutor pide otra aprobación.
-  - Un cambio sin aprobación se aplica sin huella previa.
-- Si un `apply` no contestó, antes de repetirlo el ejecutor pregunta `kernel::applied(huella)`.
-- El origen de un cambio hecho por la plataforma es «tarea T, aceptada por la cuenta C».
+**El acuerdo con el riel IA: la forma de la propuesta y de la huella.** El riel IA la revisa y la acepta antes de que se cierre este bloque. Los puntos 3 y 4 son cambios del contrato de capacidad, y los agrega el riel IA cuando acepte.
+
+1. **El esquema de la propuesta.** La salida de `prepare` de una capacidad de cambio es la `kernel::Proposal`, en JSON:
+
+   ```json
+   {
+     "entity": { "module": "muestra", "entity": "note", "id": "nota_01J…" },
+     "base_version": 3,
+     "changes": [
+       { "field": "title", "before": "Viejo", "after": "Nuevo", "protected": false },
+       { "field": "phone", "before": "55…", "after": "55…", "protected": true }
+     ],
+     "invalid": [ { "field": "title", "reason": "required" } ],
+     "fingerprint": "9f2c…(64 hex)"
+   }
+   ```
+
+   - `base_version` es 0 cuando la entidad es nueva.
+   - `changes` lleva solo los campos que cambian, ordenados por nombre.
+   - `invalid` usa códigos fijos (`required`, `too_long`…). Si no viene vacío, `apply` no aplica.
+   - Un campo `protected` trae sus valores para la persona que aprueba; la política decide si llegan al modelo. En el historial solo queda que cambió.
+2. **La huella es fija.** Es `kernel::fingerprint(&entity, base_version, &input)`: SHA-256 en hexadecimal (64 caracteres) del texto `kernel.v1\n{module}.{entity}#{id}@{base_version}\n`, seguido de la entrada en JSON canónico, con las llaves ordenadas en todos los niveles y sin espacios.
+   - La calcula siempre el núcleo. La plataforma no la calcula; la toma de `proposal.fingerprint`.
+   - Una entidad nueva lleva su id en la entrada (`kernel::new_id`), para que preparar y aplicar vean la misma entidad.
+   - El prefijo `kernel.v1` permite cambiar la forma algún día sin confundir huellas viejas con nuevas.
+3. **El paso de la huella en la `Call`** (cambio del contrato).
+   - `Call` gana `fingerprint: Option<&str>`.
+   - Al aplicar después de una aprobación, el ejecutor pone ahí `proposal.fingerprint`, la que aprobó la persona.
+   - Un cambio sin aprobación (`approval: Never`) va con `None`, y el núcleo lo aplica como se prepara en ese momento.
+   - La aprobación de la plataforma se ata a esa huella. La huella propia del ejecutor, la de la capacidad y la entrada, le sigue sirviendo para reconocer un paso repetido.
+4. **El error de desincronización** (cambio del contrato). Si el dato o la entrada cambiaron después de aprobar, `apply` responde con el código `prepare_again` (`kernel::ApplyError::Stale`).
+   - Se propone que el contrato lo dé como un `CapabilityError` propio, por ejemplo `Outdated`.
+   - Con él, el ejecutor vuelve a preparar y pide otra aprobación, que es lo que ya hace con `Again::Outdated`.
+   - Los otros códigos de `apply`: `already_applied`, `invalid`, `nothing_to_change`, `bad_origin`, `bad_fact`, `version_not_raised` y `database`.
+5. **La consulta a K5.**
+   - Antes de repetir un `apply` que no contestó (el paso quedó «started»), el ejecutor pregunta `kernel::applied(conn, huella)`. Si contesta `Some(Applied { change, entity, version })`, el cambio ya está hecho y no se repite.
+   - Además, `apply` con una huella ya aplicada no hace nada y responde `already_applied`, con el mismo `Applied`.
+6. **El origen viaja por la `Call`.** El `apply` de la capacidad arma el origen con lo que trae la `Call`:
+   - si la invoca una tarea: `Origin::Task { task: call.task, account: call.by }`, donde `call.by` es la cuenta que aprobó o pidió;
+   - si viene de una pantalla, por el flujo determinista: el mismo origen de tarea, porque toda invocación pasa por el runtime;
+   - lo que viene de un documento: `Origin::Document { document, page, account }`.
+   
+   Los ids deben tener forma de id (prefijo y ULID); si no, el núcleo responde `bad_origin`. Por eso, el id de la tarea y el de la cuenta deben seguir esa forma.
 
 **Lo que toca de otros rieles:** nada. `Cargo.toml` mueve `sha2`, `hex` y `ulid` a las dependencias del *workspace*, sin cambiar sus versiones, para que el núcleo use las mismas.
 
