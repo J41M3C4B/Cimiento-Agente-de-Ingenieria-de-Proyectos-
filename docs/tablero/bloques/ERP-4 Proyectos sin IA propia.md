@@ -2,12 +2,12 @@
 tipo: bloque
 id: ERP-4
 carril: erp
-estado: backlog
+estado: en-curso
 prioridad: alta
 caja: Proyectos
 pedido_por: IA-1
 depende_de:
-rama:
+rama: erp/erp-4-proyectos-sin-ia-propia
 adr:
 creado: 2026-10-20
 cerrado:
@@ -21,7 +21,7 @@ Hoy Proyectos tiene sus propias tareas de IA (conversación, diagnóstico, prior
 
 ## Terminado cuando
 
-(Propuesta; la aprueba el líder. Decisión del 2026-10-20: lo que dependa de la IA se **quita**, no se sustituye a mano.)
+Aprobado por el líder el 2026-10-20. Decisión: lo que dependa de la IA se **quita**, no se sustituye a mano. Las casillas se marcan cuando cada punto queda hecho.
 
 - [ ] **Proyectos no usa la IA de ninguna forma.** Ni `modules/projects` ni sus comandos importan `crate::ai` para trabajar con un modelo, y la prueba estricta del IA-1 deja de listar archivos de Proyectos.
 - [ ] **El flujo queda en lo que no usa IA.** Las etapas son `Profile → Prioritization → Drafting → Review → Ready`. `CallSelection` y `Diagnosis` desaparecen: sus condiciones (`root_cause_confirmed`, `diagnosis_summary_confirmed` y `call_confirmed`) las producía la IA. En «Prioritization» la persona agrega, califica y elige a mano la necesidad del proyecto.
