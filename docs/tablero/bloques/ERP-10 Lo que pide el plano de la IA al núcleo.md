@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-10
 carril: erp
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Autenticación, permisos y almacén de auditoría; Datos operativos del ERP; Eventos y tareas automáticas
 pedido_por: IA-6
@@ -55,12 +55,12 @@ Este bloque se queda con lo que el ejecutor del IA-2 necesita del núcleo para c
 
 Aprobado por el líder el 2026-10-21. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **Los permisos generales del núcleo,** los que hoy son el `enum Permission` (usar, borrar, ajustes, administrar), tienen id en el catálogo de K2, igual que los de los módulos.
-- [ ] **Los roles agrupan permisos por id,** y los dos roles de hoy (administración y dirección) siguen pudiendo lo mismo.
-- [ ] **K2 responde una pregunta:** dada la cuenta, la organización y el id del permiso, sí o no. Una cuenta bloqueada, un permiso que no existe o una organización ajena dicen que no.
-- [ ] **K2 dice qué clases de datos ve una cuenta,** con las clases del IA-3. Si el IA-3 no ha cerrado, queda el lugar y una prueba con las clases de hoy.
-- [ ] **El almacén de auditoría (K9) guarda el evento de tarea:** apertura, paso, denegación, aprobación y cierre, con el id de la tarea, la capacidad, el resultado y el motivo. Una prueba demuestra que no guarda datos personales.
-- [ ] `cargo test` y `pnpm test` pasan, sin red ni gasto.
+- [x] **Los permisos generales del núcleo,** los que hoy son el `enum Permission` (usar, borrar, ajustes, administrar), tienen id en el catálogo de K2, igual que los de los módulos.
+- [x] **Los roles agrupan permisos por id,** y los dos roles de hoy (administración y dirección) siguen pudiendo lo mismo.
+- [x] **K2 responde una pregunta:** dada la cuenta, la organización y el id del permiso, sí o no. Una cuenta bloqueada, un permiso que no existe o una organización ajena dicen que no.
+- [x] **K2 dice qué clases de datos ve una cuenta,** con las clases del IA-3. Si el IA-3 no ha cerrado, queda el lugar y una prueba con las clases de hoy.
+- [x] **El almacén de auditoría (K9) guarda el evento de tarea:** apertura, paso, denegación, aprobación y cierre, con el id de la tarea, la capacidad, el resultado y el motivo. Una prueba demuestra que no guarda datos personales.
+- [x] `cargo test` y `pnpm test` pasan, sin red ni gasto.
 
 ## Plan
 
@@ -99,16 +99,24 @@ Va en el núcleo (`crates/kernel`), porque la plataforma, como *crate* (A1), sol
 
 ## Cómo probarlo
 
+PR [#26](https://github.com/J41M3C4B/SociAI/pull/26).
+
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- Carpeta y rama: `D:\Agente Proyectos\sociai-erp`, rama `erp/erp-10-autorizacion-y-evento-de-tarea`.
+- Antes: cerrar la app del otro riel si está abierta. No hace falta `pnpm install`. La base gana dos tablas vacías del núcleo, `kernel_migrations` y `kernel_audit`. El código de antes las ignora.
+- Arrancar: `pnpm tauri dev`. Recompila un par de minutos.
+- Al terminar: cerrar la app. No queda nada que limpiar.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] La app abre y desbloquea la base de siempre.
+- [ ] Con la cuenta de administración, el panel de administración abre como antes.
+- [ ] Si hay una cuenta de Dirección, con ella el panel no aparece, y borrar se vuelve una solicitud, como antes.
 
 ## Hallazgos
+
+- **Hay dos almacenes de auditoría.** El evento de tarea va a `kernel_audit` (K9), y lo de antes sigue en `audit_log`. El panel de administración solo lee `audit_log`, así que los eventos de tarea todavía no se ven ahí. Se juntan cuando se haga el *refactor* de `audit/` hacia K9 (plano del ERP, §10).
+- **Un permiso de un módulo solo lo tiene `admin`.** Dirección tiene `kernel.usar` y nada más. Cuando el ERP-1 traiga los permisos de Mi institución, habrá que decidir qué permisos de módulo recibe Dirección, o hacer que los roles se puedan configurar.
+- **`account()` e `institution::id()` todavía no se usan fuera de las pruebas.** Los va a usar el ejecutor del IA-2. Llevan `#[allow(dead_code)]`, con la razón escrita.
 
 ## Resultado
