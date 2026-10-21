@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-4
 carril: erp
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Proyectos
 pedido_por: IA-1
@@ -25,14 +25,14 @@ Hoy Proyectos tiene sus propias tareas de IA (conversación, diagnóstico, prior
 
 Aprobado por el líder el 2026-10-20 (alcance mínimo por el congelamiento). Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **Proyectos está congelado como los demás módulos.** `"projects"` entra en `HIDDEN` (`core/modules.rs`): la barra, el mapa de lugares y el manual no lo muestran, y nada del núcleo lo lee para mostrarlo. Su código sigue compilando y probándose.
-- [ ] **Proyectos no usa la IA de ninguna forma.** Ningún archivo de `modules/projects` importa `crate::ai`, y la prueba estricta del IA-1 deja de listarlos.
-- [ ] **Solo se quita lo que llama al modelo:** la lectura de convocatorias, la conversación, el resumen, las necesidades con IA, la redacción con IA (`draft_section`, `prepare_plan`, `draft_all`) y el seguimiento de esos trabajos (`jobs`). Los comandos que los arrancan salen también, con su permiso en la lista de `core::access::domain`.
-- [ ] **No se toca lo demás:** ni el modelo de etapas, ni el almacenamiento, ni las migraciones, ni los datos que ya haya en la base.
-- [ ] **Los comandos `ai_*` (configuración de la IA) no cambian:** salen de `commands/diagnosis.rs` a su propio archivo, `commands/ai.rs`, sin tocar su comportamiento.
-- [ ] **Pruebas:** se retiran las de lo que sale; las de lo que se queda pasan. `test_support.rs` y lo de `ai/dry_run_tests.rs` que llama a funciones retiradas se ajusta en este mismo PR, avisando al riel IA. `cargo test` y `pnpm test` pasan sin red ni gasto.
-- [ ] **El DIS-4 ya no hace falta:** con Proyectos oculto, ninguna pantalla suya se ve. Las líneas de los comandos retirados en `lib/tauri.ts` y `lib/types.ts` las quita este bloque.
-- [ ] **Se fusiona antes del IA-1,** sin esperar al DIS-4.
+- [x] **Proyectos está congelado como los demás módulos.** `"projects"` entra en `HIDDEN` (`core/modules.rs`): la barra, el mapa de lugares y el manual no lo muestran, y nada del núcleo lo lee para mostrarlo. Su código sigue compilando y probándose.
+- [x] **Proyectos no usa la IA de ninguna forma.** Ningún archivo de `modules/projects` importa `crate::ai`, y la prueba estricta del IA-1 deja de listarlos.
+- [x] **Solo se quita lo que llama al modelo:** la lectura de convocatorias, la conversación, el resumen, las necesidades con IA, la redacción con IA (`draft_section`, `prepare_plan`, `draft_all`) y el seguimiento de esos trabajos (`jobs`). Los comandos que los arrancan salen también, con su permiso en la lista de `core::access::domain`.
+- [x] **No se toca lo demás:** ni el modelo de etapas, ni el almacenamiento, ni las migraciones, ni los datos que ya haya en la base.
+- [x] **Los comandos `ai_*` (configuración de la IA) no cambian:** salen de `commands/diagnosis.rs` a su propio archivo, `commands/ai.rs`, sin tocar su comportamiento.
+- [x] **Pruebas:** *(`cargo test --lib`: 722 pasan; `pnpm test`: 218 pasan; `pnpm build` pasa. Con la rama del IA-1 fusionada, su prueba estricta ya no lista nada de Proyectos.)* se retiran las de lo que sale; las de lo que se queda pasan. `test_support.rs` y lo de `ai/dry_run_tests.rs` que llama a funciones retiradas se ajusta en este mismo PR, avisando al riel IA. `cargo test` y `pnpm test` pasan sin red ni gasto.
+- [x] **El DIS-4 ya no hace falta:** con Proyectos oculto, sus pantallas no se ven. *(Las líneas de los comandos retirados en `lib/tauri.ts` y `lib/types.ts` **no** se quitaron, a propósito: las pantallas de Proyectos, ocultas y del riel de diseño, aún las importan y `pnpm build` fallaría. Se quitan cuando Proyectos se rehaga. Inicio sí sigue ofreciendo Proyectos: pedido DIS-5.)*
+- [x] **Se fusiona antes del IA-1,** sin esperar al DIS-4.
 
 ## Plan
 
@@ -52,17 +52,27 @@ Aprobado por el líder el 2026-10-20 (alcance mínimo por el congelamiento). Las
 
 ## Cómo probarlo
 
+PR: https://github.com/J41M3C4B/SociAI/pull/18
+
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- Carpeta y rama: `D:\Agente Proyectos\sociai-erp`, rama `erp/erp-4-proyectos-sin-ia-propia`.
+- Antes: nada (ya está instalado y el OCR copiado).
+- Arrancar: `pnpm tauri dev`.
+- Al terminar: cerrar la app.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] En la barra superior ya no aparece «Proyectos».
+- [ ] La pantalla de la ayuda automática sigue igual: proveedor, llave, tope de gasto y «Comprobar».
+- [ ] En *Ayuda*, buscar «proyecto convocatoria»: no sale la pantalla de Proyectos.
+- [ ] Inicio todavía muestra «Nuevo proyecto» (es el DIS-5); pulsarlo no debe romper la app, aunque Proyectos no se vea. *(No lo he probado en la app real: solo las pruebas automáticas.)*
 
 ## Hallazgos
+
+- **Inicio sigue ofreciendo Proyectos** («Nuevo proyecto», proyectos en curso, el paso de proyectos) y llama a `project_list`. Es del riel de diseño: pedido **DIS-5**, en Backlog.
+- **`ai/dry_run_tests.rs` está apagado, no borrado** (`#[cfg(any())]` en `ai/mod.rs`): ~30 pruebas del proveedor y de la tubería (cuota, respaldo de modelos, caché, reintentos) que usaban la conversación de Proyectos como excusa. El riel IA debe portarlas a un impulsor propio.
+- **`call_reading_get` y `call_reading_confirm` salen** aunque no arrancan IA: sin la lectura no tienen sentido.
+- Las condiciones de avance de las etapas de diagnóstico y de convocatoria quedan sin forma de cumplirse. Es aceptable con el módulo congelado.
 
 - **Para el IA-1 y el riel IA:** este bloque ya no depende del DIS-4 (el IA-1 lo tiene en `depende_de`). `ai/dry_run_tests.rs` y `test_support.rs` llaman a funciones de Proyectos que este bloque retira (`start_conversation`, `send_message`, `generate_summary`, `draft_section`…); se ajustan aquí.
 - **El contrato de comandos que se le dio al DIS-4 (2026-10-20) deja de valer** por el congelamiento.
