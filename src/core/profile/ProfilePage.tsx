@@ -215,7 +215,7 @@ export function ProfilePage({
   const spaces = o?.spaces ?? 0;
   const balance = o?.balance_annual_mxn ?? null;
   const shown = (f: { value: number; approx: boolean }) => (f.approx ? `≈ ${count(f.value)}` : count(f.value));
-  const tiles: { page: Exclude<ModuleId, "projects">; title: string; figure: string; label: string; approx?: boolean; core?: string }[] = [
+  const tiles: { page: ModuleId; title: string; figure: string; label: string; approx?: boolean; core?: string }[] = [
     {
       page: "people",
       title: es.nav.people,

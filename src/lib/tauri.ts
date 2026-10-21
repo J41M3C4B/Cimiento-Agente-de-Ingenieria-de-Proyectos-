@@ -4,11 +4,8 @@ import type {
   AddNeedOutcome,
   AiCheckView,
   AiModelsView,
-  ProjectJob,
   AiProvider,
-  AiStatus,
   AiStatusView,
-  AnswerOutcome,
   AppError,
   AppPlace,
   AssistantAsk,
@@ -30,20 +27,16 @@ import type {
   DeleteSummary,
   ConversationView,
   DraftEditOutcome,
-  DraftOutcome,
   DraftingView,
   Exported,
   ReviewView,
   DocumentSummary,
   Found,
   EditOutcome,
-  FileRole,
   NeedsView,
-  NewProjectOutcome,
   ProfileInput,
   ProfileView,
   DonorKind,
-  DraftMode,
   FormValues,
   FormView,
   ManualEntry,
@@ -55,12 +48,10 @@ import type {
   ListOutcome,
   ProjectColor,
   ProjectRow,
-  ReadingDetail,
   SaveProfileOutcome,
   Scores,
   StageName,
   SummaryEdit,
-  SummaryOutcome,
   UsageReport,
 } from "./types";
 
@@ -126,33 +117,6 @@ export const documentsList = () => invoke<DocumentSummary[]>("documents_list");
 export const documentsSearch = (query: string) => invoke<Found>("documents_search", { query });
 export const documentEmergencyDelete = (id: string) =>
   invoke<DeleteSummary>("document_emergency_delete", { id });
-// Calls (convocatorias) belong to the project born from them: files go in as text (base64) and the
-// reading happens in the background
-export interface CallUpload {
-  name: string;
-  data: string;
-  role: FileRole;
-}
-export const projectCreateFromCall = (
-  files: CallUpload[],
-  name: string,
-  funder: string,
-  year: number | null,
-  decision?: Decision,
-) =>
-  invoke<NewProjectOutcome>("project_create_from_call", {
-    files,
-    name,
-    funder: funder.trim() ? funder.trim() : null,
-    year,
-    decision: decision ?? null,
-  });
-export const callReadingGet = (id: string) => invoke<ReadingDetail>("call_reading_get", { id });
-export const callReadingRetry = (id: string) => invoke<boolean>("call_reading_retry", { id });
-/** The person says this is the right call. */
-export const callReadingConfirm = (id: string) => invoke<boolean>("call_reading_confirm", { id });
-/** Writes the «en pocas palabras» of a read call, once. */
-export const callBriefMake = (id: string) => invoke<ReadingDetail>("call_brief_make", { id });
 export const devLoadFixture = (name: "asilo" | "casa-hogar" | "red-comunitaria") =>
   invoke<ProfileView>("dev_load_fixture", { name });
 
@@ -170,9 +134,7 @@ export const aiSetCap = (capMxn: number) => invoke<void>("ai_set_cap", { capMxn 
 export const aiCheck = () => invoke<AiCheckView>("ai_check");
 export const aiUsageReport = () => invoke<UsageReport>("ai_usage_report");
 
-// Projects and diagnosis
-/** What the AI is doing for the project right now (the person may have left the screen that started it). */
-export const projectJob = (projectId: string) => invoke<ProjectJob>("project_job", { projectId });
+// Projects (frozen: no screen offers them while it is)
 export const projectList = () => invoke<ProjectRow[]>("project_list");
 export const projectCreate = (initialRequest: string, decision?: Decision) =>
   invoke<CreateProjectOutcome>("project_create", { initialRequest, decision: decision ?? null });
@@ -184,15 +146,6 @@ export const projectGoBack = (projectId: string, target: StageName) =>
   invoke<ProjectRow>("project_go_back", { projectId, target });
 // The guided conversation of the diagnosis (ADR-017)
 export const conversationGet = (projectId: string) => invoke<ConversationView>("conversation_get", { projectId });
-/** Asks for the opening question; asking again changes nothing and costs nothing. */
-export const conversationStart = (projectId: string) => invoke<AnswerOutcome>("conversation_start", { projectId });
-/** What the person writes; with `confirmRoot` it is the quick reply that confirms the root cause. */
-export const conversationSend = (projectId: string, text: string, confirmRoot: boolean, decision?: Decision) =>
-  invoke<AnswerOutcome>("conversation_send", { projectId, text, confirmRoot, decision: decision ?? null });
-/** The AI owed a message and failed: asks again without the person writing anything. */
-export const conversationRetry = (projectId: string) => invoke<AnswerOutcome>("conversation_retry", { projectId });
-export const diagnosisSummaryGenerate = (projectId: string) =>
-  invoke<SummaryOutcome>("diagnosis_summary_generate", { projectId });
 export const diagnosisSummaryEdit = (projectId: string, edit: SummaryEdit, decision?: Decision) =>
   invoke<EditOutcome>("diagnosis_summary_edit", { projectId, edit, decision: decision ?? null });
 export const diagnosisSummaryConfirm = (projectId: string) =>
@@ -200,8 +153,6 @@ export const diagnosisSummaryConfirm = (projectId: string) =>
 
 // Needs
 export const needsGet = (projectId: string) => invoke<NeedsView>("needs_get", { projectId });
-export const needsPropose = (projectId: string) =>
-  invoke<{ view: NeedsView; ai: AiStatus }>("needs_propose", { projectId });
 export const needAdd = (projectId: string, title: string, description: string, decision?: Decision) =>
   invoke<AddNeedOutcome>("need_add", { projectId, title, description, decision: decision ?? null });
 export const needRate = (projectId: string, needId: string, scores: Scores) =>
@@ -212,10 +163,7 @@ export const needSelect = (projectId: string, needId: string) =>
 // Drafting, review and the guide in Word (ADR-018)
 export const draftingGet = (projectId: string) => invoke<DraftingView>("drafting_get", { projectId });
 export const draftingSetAsks = (projectId: string, asks: boolean) => invoke<DraftingView>("drafting_set_asks", { projectId, asks });
-export const draftingPrepare = (projectId: string) => invoke<DraftOutcome>("drafting_prepare", { projectId });
-export const sectionsDraftAll = (projectId: string, mode: DraftMode) => invoke<DraftOutcome>("sections_draft_all", { projectId, mode });
 export const sectionsConfirmAll = (projectId: string) => invoke<DraftingView>("sections_confirm_all", { projectId });
-export const sectionDraft = (projectId: string, key: string) => invoke<DraftOutcome>("section_draft", { projectId, key });
 export const sectionSave = (projectId: string, key: string, text: string, decision?: Decision) =>
   invoke<DraftEditOutcome>("section_save", { projectId, key, text, decision: decision ?? null });
 export const sectionConfirm = (projectId: string, key: string) => invoke<DraftingView>("section_confirm", { projectId, key });

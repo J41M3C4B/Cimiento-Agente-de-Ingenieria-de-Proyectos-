@@ -41,3 +41,12 @@ describe("the search in the manual, in Ayuda", () => {
     expect(await screen.findByText("No encontramos nada con esas palabras. Pruebe con otras.")).toBeInTheDocument();
   });
 });
+
+describe("Ayuda without Proyectos (DIS-4)", () => {
+  it("does not explain the steps of a project, which is frozen; it keeps what to do when something fails and the data", () => {
+    show();
+    expect(screen.queryByText("Los pasos de un proyecto")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Si algo no funciona" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sus datos" })).toBeInTheDocument();
+  });
+});

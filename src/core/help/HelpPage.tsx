@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ManualText } from "../../components/ManualHelp";
-import { Avatar, Card, Disclosure, PageHeader, Search } from "../../components/ui";
+import { Card, Disclosure, PageHeader, Search } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
 import { manualEntry, manualSearch } from "../../lib/tauri";
 
@@ -37,7 +37,7 @@ function ManualSearch() {
   );
 }
 
-/** Plain help: how a project goes, what to do when something fails, and what happens with the data. */
+/** Plain help: what to do when something fails, and what happens with the data. */
 export function HelpPage() {
   return (
     <div className="space-y-6">
@@ -47,41 +47,24 @@ export function HelpPage() {
 
       <div className="grid items-start gap-4 min-[1000px]:grid-cols-2">
         <Card as="section">
-          <h2 className="text-heading font-bold">{t.stepsTitle}</h2>
-          <ol className="mt-4 space-y-3">
-            {t.steps.map(([name, text], i) => (
-              <li key={name} className="flex gap-4">
-                <Avatar name={String(i + 1)} tone="ink" />
-                <div className="min-w-0">
-                  <p className="text-ui font-bold">{name}</p>
-                  <p className="text-ui text-ink-2">{text}</p>
-                </div>
-              </li>
+          <h2 className="text-heading font-bold">{t.problemsTitle}</h2>
+          <div className="mt-4 space-y-3">
+            {t.problems.map(([q, a], i) => (
+              <Disclosure key={q} title={q} defaultOpen={i === 0}>
+                <p className="text-ui text-ink-2">{a}</p>
+              </Disclosure>
             ))}
-          </ol>
+          </div>
         </Card>
 
-        <div className="space-y-4">
-          <Card as="section">
-            <h2 className="text-heading font-bold">{t.problemsTitle}</h2>
-            <div className="mt-4 space-y-3">
-              {t.problems.map(([q, a], i) => (
-                <Disclosure key={q} title={q} defaultOpen={i === 0}>
-                  <p className="text-ui text-ink-2">{a}</p>
-                </Disclosure>
-              ))}
-            </div>
-          </Card>
-
-          <Card as="section">
-            <h2 className="text-heading font-bold">{t.dataTitle}</h2>
-            <ul className="mt-4 list-disc space-y-2 pl-6 text-ui text-ink-2">
-              {t.data.map((d) => (
-                <li key={d}>{d}</li>
-              ))}
-            </ul>
-          </Card>
-        </div>
+        <Card as="section">
+          <h2 className="text-heading font-bold">{t.dataTitle}</h2>
+          <ul className="mt-4 list-disc space-y-2 pl-6 text-ui text-ink-2">
+            {t.data.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        </Card>
       </div>
     </div>
   );

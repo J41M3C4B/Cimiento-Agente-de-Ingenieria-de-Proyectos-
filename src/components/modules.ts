@@ -4,10 +4,9 @@ import type { IconName } from "./icons";
  * What each module of the institution looks like (ADR-032): its line icon. Its color is the accent of its page
  * (`accentOf`, docs/13 §3.7), so a module is not given a color of its own here.
  */
-export type ModuleId = "projects" | "staff" | "people" | "facilities" | "finance";
+export type ModuleId = "staff" | "people" | "facilities" | "finance";
 
 export const MODULE_META: Record<ModuleId, { icon: IconName }> = {
-  projects: { icon: "folder" },
   staff: { icon: "briefcase" },
   people: { icon: "heart" },
   facilities: { icon: "building" },

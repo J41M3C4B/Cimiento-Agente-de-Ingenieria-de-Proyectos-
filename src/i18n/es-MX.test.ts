@@ -73,10 +73,4 @@ describe("UI texts", () => {
       expect(es.ai.providers[provider], provider).toBeTruthy();
     }
   });
-
-  it("names every project stage", () => {
-    for (const stage of ["PROFILE", "DIAGNOSIS", "PRIORITIZATION", "CALL_SELECTION", "DRAFTING", "REVIEW", "READY"]) {
-      expect(es.stages[stage], stage).toBeTruthy();
-    }
-  });
 });

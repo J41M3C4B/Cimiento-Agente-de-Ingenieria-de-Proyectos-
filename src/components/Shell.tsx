@@ -12,7 +12,7 @@ import { SettingsMenu } from "./SettingsMenu";
 import { Avatar, IconButton, LogoMark } from "./ui";
 
 /** The sections of the bar: the core (Inicio, Mi institución, Documentos), the modules (ADR-032) and the settings. */
-export type Page = "home" | "profile" | "documents" | "projects" | "staff" | "people" | "facilities" | "finance" | "ai" | "security" | "admin" | "help";
+export type Page = "home" | "profile" | "documents" | "staff" | "people" | "facilities" | "finance" | "ai" | "security" | "admin" | "help";
 
 const CORE: [Page, string][] = [
   ["home", es.nav.home],
@@ -21,7 +21,6 @@ const CORE: [Page, string][] = [
 ];
 /** One tab per module of the institution (ADR-032); a frozen module is no place and has no tab (ADR-043). */
 const MODULES: [ModuleId, string][] = [
-  ["projects", es.nav.projects],
   ["staff", es.nav.staff],
   ["people", es.nav.people],
   ["facilities", es.nav.facilities],

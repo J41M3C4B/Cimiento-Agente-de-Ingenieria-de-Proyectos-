@@ -79,7 +79,7 @@ describe("entering the app", () => {
 describe("the menu shows what each person may use", () => {
   // the map of the program (core/places.rs): the pages that are places; a frozen module is not (ADR-043)
   const places = (...ids: string[]) => ids.map((id) => ({ id, label: id }));
-  beforeEach(() => vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "projects", "security", "help")));
+  beforeEach(() => vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "security", "help")));
   const withQuery = (node: ReactNode) => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{node}</QueryClientProvider>;
   const shell = (permissions: SessionView["permissions"], page: Parameters<typeof Shell>[0]["page"] = "home", onNavigate = vi.fn()) =>
     render(
@@ -91,20 +91,20 @@ describe("the menu shows what each person may use", () => {
     );
   const openSettings = () => userEvent.click(screen.getByRole("button", { name: "Configuración" }));
 
-  it("the bar names the core and Proyectos; a frozen module has no tab (ADR-043)", async () => {
-    shell(["use"], "projects");
-    expect(await screen.findByRole("button", { name: "Mis proyectos" })).toHaveAttribute("aria-current", "page");
-    for (const name of ["Inicio", "Mi institución", "Documentos"]) {
+  it("the bar names the core; a frozen module, Proyectos included, has no tab (ADR-043)", async () => {
+    shell(["use"], "documents");
+    expect(await screen.findByRole("button", { name: "Documentos" })).toHaveAttribute("aria-current", "page");
+    for (const name of ["Inicio", "Mi institución"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
-    for (const name of ["Personal", "Beneficiarios", "Instalaciones", "Finanzas"]) {
+    for (const name of ["Mis proyectos", "Personal", "Beneficiarios", "Instalaciones", "Finanzas"]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
     expect(screen.getByRole("button", { name: "Inicio" })).not.toHaveAttribute("aria-current");
   });
 
   it("a module turned back on gets its tab again", async () => {
-    vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "projects", "staff", "people", "facilities", "finance"));
+    vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "staff", "people", "facilities", "finance"));
     shell(["use"], "finance");
     expect(await screen.findByRole("button", { name: "Finanzas" })).toHaveAttribute("aria-current", "page");
     for (const name of ["Personal", "Beneficiarios", "Instalaciones"]) {

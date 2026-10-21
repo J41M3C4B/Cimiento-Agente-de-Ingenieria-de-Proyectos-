@@ -233,7 +233,6 @@ h1, h2, h3 {
   /* el acento de la pantalla (docs/13 §3.7): lo fija la página (`.accent-*` en la ventana) y lo leen las piezas con tone="ac" */
   .accent-institution { --ac: var(--color-brand); --ac-on: var(--color-on-brand); }
   .accent-documents { --ac: #6495ed; --ac-on: var(--color-onc); }
-  .accent-projects { --ac: #5de2b6; --ac-on: var(--color-onc); }
   .accent-staff { --ac: #ff6f61; --ac-on: var(--color-onc); }
   .accent-people { --ac: #b57edc; --ac-on: var(--color-onc); }
   .accent-facilities { --ac: #ff9c2f; --ac-on: var(--color-onc); }

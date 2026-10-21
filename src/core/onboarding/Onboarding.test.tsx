@@ -10,11 +10,11 @@ vi.mock("./api", async (orig) => ({
   onboardingFinish: vi.fn(),
   onboardingWelcomeDone: vi.fn(),
 }));
-// the map of the program (core/places.rs): the core and Proyectos; the frozen modules are not places (ADR-043)
+// the map of the program (core/places.rs): the core; the frozen modules, Proyectos included, are not places (ADR-043)
 vi.mock("../../lib/tauri", () => ({
   toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
   devLoadFixture: vi.fn(),
-  appPlaces: vi.fn(async () => ["home", "profile", "documents", "projects"].map((id) => ({ id, label: id }))),
+  appPlaces: vi.fn(async () => ["home", "profile", "documents"].map((id) => ({ id, label: id }))),
 }));
 vi.mock("../access/session", () => ({ useSession: () => ({ can: () => false }) }));
 
@@ -74,11 +74,11 @@ describe("the first start", () => {
     vi.mocked(api.onboardingStatus).mockResolvedValue(status({ welcomed: false, done: true }));
     gate();
     expect(await screen.findByRole("heading", { name: "Le damos la bienvenida a SociAI" })).toBeInTheDocument();
+    expect(screen.queryByText(/proyectos|asistente/i)).not.toBeInTheDocument();
     expect(screen.queryByText("La app")).not.toBeInTheDocument();
-    // the drawing of the modules shows only what is a place: Proyectos and Documentos, never a frozen one
-    expect(await screen.findByText("Proyectos")).toBeInTheDocument();
-    expect(screen.getByText("Documentos")).toBeInTheDocument();
-    for (const frozen of ["Personal", "Beneficiarios", "Finanzas", "Donantes"]) expect(screen.queryByText(frozen)).not.toBeInTheDocument();
+    // the drawing of the modules shows only what is a place: Documentos, never a frozen one
+    expect(await screen.findByText("Documentos")).toBeInTheDocument();
+    for (const frozen of ["Proyectos", "Personal", "Beneficiarios", "Finanzas", "Donantes"]) expect(screen.queryByText(frozen)).not.toBeInTheDocument();
   });
 
   it("the direction cannot skip the data and is told what is missing, in the words of each field", async () => {

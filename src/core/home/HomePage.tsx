@@ -7,7 +7,6 @@ import type { Tone } from "../../components/ui";
 import type { IconName } from "../../components/icons";
 import { es } from "../../i18n/es-MX";
 import { dayPartOf, firstName } from "../../lib/greeting";
-import { projectList } from "../../lib/tauri";
 import { useSession } from "../access/session";
 import { useIsPlace } from "../places";
 import { facilitiesOverview } from "../../modules/facilities/api";
@@ -17,7 +16,6 @@ import { resumeOnboarding } from "../onboarding/OnboardingGate";
 import { useOverview } from "../profile/gaps";
 import { GlobalFigures } from "./GlobalFigures";
 import { InstitutionCard } from "./InstitutionCard";
-import { Ongoing } from "./Ongoing";
 import { TodoCard } from "./TodoCard";
 import type { Page } from "../../components/Shell";
 
@@ -29,17 +27,11 @@ const t = es.home;
  * notices; and, when it applies, the next steps to get to know the institution better.
  */
 export function HomePage({
-  onOpenProject,
-  onNewProject,
-  onGoProjects,
   onGoProfile,
   onGoPlace,
   onGo,
   onGoAi,
 }: {
-  onOpenProject: (id: string) => void;
-  onNewProject: () => void;
-  onGoProjects: () => void;
   onGoProfile: () => void;
   /** opens a place of the map: a page, or a window of «Mi institución» (`profile.capacity`) */
   onGoPlace: (place: string) => void;
@@ -47,9 +39,6 @@ export function HomePage({
   onGo: (page: Page) => void;
   onGoAi: () => void;
 }) {
-  const projects = useQuery({ queryKey: ["projects"], queryFn: projectList });
-
-  const all = projects.data ?? [];
   const access = useSession();
   const name = firstName(access?.session.display_name);
   const greeting = t.greeting[dayPartOf(new Date().getHours())];
@@ -59,12 +48,6 @@ export function HomePage({
       <PageHeader
         title={name ? `${greeting}, ${name}` : greeting}
         intro={t.greetingIntro}
-        action={
-          <Button variant="primary" onClick={onNewProject}>
-            <Icon name="plus" />
-            {t.newProject}
-          </Button>
-        }
       />
 
       <PendingData />
@@ -79,8 +62,6 @@ export function HomePage({
           </div>
         }
       />
-
-      <Ongoing projects={all} loaded={projects.isSuccess} onOpenProject={onOpenProject} onNewProject={onNewProject} onGoProjects={onGoProjects} />
 
       <NextSteps onGo={onGo} onGoAi={onGoAi} />
     </div>
@@ -127,7 +108,7 @@ function NextSteps({ onGo, onGoAi }: { onGo: (page: Page) => void; onGoAi: () =>
   const s = status.data;
   if (!s || !s.done) return null;
   type Step = { key: string; icon: IconName; tone: Tone; todo: boolean; go: () => void };
-  const of = (module: Exclude<ModuleId, "projects">, todo: boolean): Step => ({ key: module, icon: MODULE_META[module].icon, tone: "ink", todo, go: () => onGo(module) });
+  const of = (module: ModuleId, todo: boolean): Step => ({ key: module, icon: MODULE_META[module].icon, tone: "ink", todo, go: () => onGo(module) });
   const modules: Step[] = [
     of("staff", s.records.staff === 0),
     of("people", s.records.served === 0),

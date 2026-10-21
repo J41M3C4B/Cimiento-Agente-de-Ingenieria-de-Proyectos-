@@ -26,7 +26,7 @@ export function useNotice(): [Notice, (text: string, tone?: "ok" | "error") => v
 export function ModulePage<V extends string = string>({
   title, intro, notice, action, children, after, tab, views,
 }: {
-  module: Exclude<ModuleId, "projects">;
+  module: ModuleId;
   title: string;
   intro: string;
   notice: Notice;
