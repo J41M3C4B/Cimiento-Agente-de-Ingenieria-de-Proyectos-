@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-2
 carril: ia
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Runtime; Ejecutor; Estado, límites y ciclo de vida; Entrega de resultados
 pedido_por:
@@ -10,7 +10,7 @@ depende_de: IA-1
 rama: ia/ia-2-esqueleto-de-la-plataforma
 adr:
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-21
 ---
 
 ## Qué y por qué
@@ -34,11 +34,11 @@ Se arma primero sin modelo para probar el camino con un flujo determinista, sin 
 
 (Aprobado por el líder el 2026-10-21. Ajustado ese día con [el plano de la IA](../../plano-de-la-ia.md): piezas P1, P2, P7, P8, P9 y P12, y decisiones A3 y A4.)
 
-- [ ] Una petición de pantalla que nombra una capacidad recorre runtime → tarea → ejecutor → entrega, como flujo determinista, sin enrutador ni modelo y con todos los controles. El resultado llega en el contrato común de resultados, con el id de la tarea.
-- [ ] Toda tarea registra su cierre: terminada, pausada, denegada, por límite o con error, con su motivo y sin datos personales.
-- [ ] Los límites de pasos, reintentos, gasto y tiempo cortan una tarea que no avanza, y la misma capacidad con la misma entrada dos veces la cierra por límite. Una prueba lo demuestra.
-- [ ] Una modificación se prepara, espera aprobación atada a sus parámetros, y se vuelve a pedir si los parámetros cambian. La huella del ERP-9 se agrega cuando exista.
-- [ ] Las tareas se guardan en la base: una tarea pausada o esperando aprobación sigue ahí al volver a abrir la app, y se reanuda.
+- [x] Una petición de pantalla que nombra una capacidad recorre runtime → tarea → ejecutor → entrega, como flujo determinista, sin enrutador ni modelo y con todos los controles. El resultado llega en el contrato común de resultados, con el id de la tarea.
+- [x] Toda tarea registra su cierre: terminada, pausada, denegada, por límite o con error, con su motivo y sin datos personales.
+- [x] Los límites de pasos, reintentos, gasto y tiempo cortan una tarea que no avanza, y la misma capacidad con la misma entrada dos veces la cierra por límite. Una prueba lo demuestra.
+- [x] Una modificación se prepara, espera aprobación atada a sus parámetros, y se vuelve a pedir si los parámetros cambian. La huella del ERP-9 se agrega cuando exista.
+- [x] Las tareas se guardan en la base: una tarea pausada o esperando aprobación sigue ahí al volver a abrir la app, y se reanuda.
 
 ## Plan
 
@@ -99,13 +99,13 @@ PR: https://github.com/J41M3C4B/SociAI/pull/25
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] **Las 24 pruebas del runtime pasan.** La del recorrido (`a_change_from_a_screen_walks_the_whole_path`) cuenta en español lo que pasa:
+- [x] **Las 24 pruebas del runtime pasan.** La del recorrido (`a_change_from_a_screen_walks_the_whole_path`) cuenta en español lo que pasa:
   - la propuesta;
   - la aprobación;
   - el cambio, con el id de su tarea;
   - las siete líneas que dejó en la auditoría.
-- [ ] **La app abre igual que antes,** y se entra con la cuenta de siempre.
-- [ ] **La puerta contesta desde la app real.** Con la sesión abierta, abre las herramientas de desarrollo (clic derecho → «Inspeccionar», pestaña «Console») y pega:
+- [x] **La app abre igual que antes,** y se entra con la cuenta de siempre.
+- [x] **La puerta contesta desde la app real.** Con la sesión abierta, abre las herramientas de desarrollo (clic derecho → «Inspeccionar», pestaña «Console») y pega:
   ```js
   await window.__TAURI_INTERNALS__.invoke("runtime_submit", { request: { channel: { kind: "chat" }, content: { kind: "text", text: "¿Qué me falta?" } } })
   ```
@@ -115,12 +115,12 @@ PR: https://github.com/J41M3C4B/SociAI/pull/25
   - `body: { kind: "error", code: "without_ai", next: "use_screen" }`.
 
   El chat todavía no tiene modelo, y lo dice con un camino para seguir.
-- [ ] **Con ese id, la tarea se consulta después:**
+- [x] **Con ese id, la tarea se consulta después:**
   ```js
   await window.__TAURI_INTERNALS__.invoke("runtime_task", { task: "task_…" })
   ```
   Regresa el mismo resultado.
-- [ ] **Una capacidad que no existe se cierra con su motivo:**
+- [x] **Una capacidad que no existe se cierra con su motivo:**
   ```js
   await window.__TAURI_INTERNALS__.invoke("runtime_submit", { request: { channel: { kind: "screen", place: "inicio" }, content: { kind: "invoke", capability: "nadie.nada", input: {} } } })
   ```
@@ -140,3 +140,12 @@ PR: https://github.com/J41M3C4B/SociAI/pull/25
   - la huella todavía no lleva la versión del dato (ERP-9).
 
 ## Resultado
+
+Fusionado en `main` el 2026-10-21 con *squash* (PR #25, `2e298f8`), validado por el líder: pasaron las 24 pruebas del runtime y las tres comprobaciones en la consola de la app real.
+
+- **La puerta del runtime y la tarea** (`src-tauri/src/ai/runtime/`): la petición, el contrato común de resultados, la tarea con sus límites, el ejecutor con sus controles, la aprobación atada a la huella y la auditoría de cada tarea en `ai_event`.
+- **Las tablas `ai_`**, migradas con `kernel::migrate_owner(conn, "ai", …)`; pasan la conformidad del núcleo.
+- **Dos comandos,** `runtime_submit` y `runtime_task`, con sus tipos en `src/lib/types.ts` y `src/lib/tauri.ts` para el DIS-1.
+- **Corregido en la revisión propia:** lo que la persona agrega a un cambio ya aprobado se prepara y se aprueba otra vez.
+- **Pruebas:** `cargo test`, 635 pasan; `tsc`, sin errores; `pnpm test`, 224 pasan.
+- **Sigue:** cuando el ERP-10 entre a `main`, conectar el runtime a la pregunta de autorización de K2 y al evento de tarea de K9. Propuesto como primer paso del IA-5; lo decide el líder.
