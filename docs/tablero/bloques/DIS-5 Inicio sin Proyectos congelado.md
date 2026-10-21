@@ -23,9 +23,9 @@ Se necesita que **mientras Proyectos esté congelado, Inicio no ofrezca nada de 
 
 ## Terminado cuando
 
-(Lo escribe el riel de diseño con el líder.)
+**Propuesta del riel de diseño: este pedido lo cubre el [[DIS-4 Proyectos sin la IA vieja|DIS-4]]** y no necesita un bloque aparte. El DIS-4 ya quita de Inicio el botón de nuevo proyecto, la carpeta de proyectos en curso y la consulta `project_list`, y de la bienvenida y el arranque lo que lleve a Proyectos o lo prometa. Hacerlos en dos PR sería partir lo que hay que fusionar junto. El líder decide si este bloque se cierra como cubierto por el DIS-4.
 
-- [ ] 
+- [ ] Lo cubre el DIS-4 (ver su «Terminado cuando»).
 
 ## Plan
 

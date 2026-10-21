@@ -19,6 +19,8 @@ Parte del [[DIS-3 Las pantallas sin la IA vieja|DIS-3]], que cubre Mi instituci�
 
 **Decisión del líder (2026-10-20): Proyectos se congela por completo y queda fuera hasta que el núcleo esté listo.** Se rediseñará cuando exista Mi institución completa, las capacidades de la plataforma de IA y el chat (DIS-1), porque hoy no se puede decir cuál es su función real. Con el ERP, el líder congela el código y la lógica de Rust (ERP-4); este bloque saca Proyectos de **lo que ve la persona**.
 
+**El pedido [[DIS-5 Inicio sin Proyectos congelado|DIS-5]] (del ERP-4) queda cubierto aquí:** que Inicio no ofrezca ni pregunte nada de Proyectos mientras esté congelado. Y hay una razón más para quitar las pantallas y no solo ocultarlas: el ERP-4 retira de `lib/tauri.ts` las llamadas de los comandos de IA de Proyectos, y las pantallas que quedaran en `src/` importan esas llamadas, así que `pnpm build` fallaría.
+
 Se necesita que **ninguna pantalla ofrezca, abra ni llame a Proyectos**, y que la app quede completa y coherente sin él: solo el núcleo (Inicio, Mi institución y Documentos) y lo demás que ya está congelado.
 
 ## Terminado cuando
@@ -87,6 +89,7 @@ Propuesta del riel de diseño; la aprueba el líder. Las casillas se marcan cuan
 ## Hallazgos
 
 - **Para el ERP-4:** la decisión del líder cambia su alcance de «retirar la IA de Proyectos» a «congelar Proyectos». El contrato de comandos que dejó para el DIS-4 ya no se usa: este bloque no necesita ninguno de Proyectos.
+- **Para el ERP-4: no puede fusionarse antes que este bloque.** Su «Terminado cuando» dice «sin esperar al DIS-4», pero quita de `lib/tauri.ts` las llamadas de IA de Proyectos y las pantallas de `src/modules/projects/` aún las importan: `pnpm build` y `pnpm test` fallarían. El orden es este bloque, luego el ERP-4, luego el IA-1.
 - **El IA-1** debería depender de este bloque, además del ERP-4 y el ERP-5.
 - **`docs/manual/`** (riel ERP) habla de Proyectos, del diagnóstico y de la convocatoria; y `core/places.rs` compone los lugares desde el manual. Sale con el congelamiento.
 
