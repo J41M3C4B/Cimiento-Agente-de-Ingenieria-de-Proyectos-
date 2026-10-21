@@ -25,6 +25,8 @@ Los avisos salen por la entrega común de resultados.
 
 **Cambio con el plano del ERP (ERP-7, 2026-10-20).** El calendario es del **núcleo** (K8, [plano del ERP](../../plano-del-erp.md), §5 y paso 7 de la §11), y las obligaciones las declara el módulo dueño de sus datos: estas cuatro, Mi institución. Cumplimiento no es un módulo. Por eso va después del ERP-1.
 
+**Del [[ERP-10 Lo que pide el plano de la IA al núcleo|ERP-10]] (punto 6, ADR-003 A7):** un actor del sistema en K8, con permisos mínimos y sin poder aprobar nada, para que las reacciones a hechos y los vencimientos corran como tareas.
+
 ## Terminado cuando
 
 (Propuesta; la aprueba el líder.)

@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-8
 carril: erp
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Módulos independientes; Registro de módulos (K12); Almacenamiento (K4)
 pedido_por:
@@ -21,13 +21,13 @@ El [plano del ERP](../../plano-del-erp.md) (§3, §4 y D5) dice que el núcleo v
 
 Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **Un *workspace* de Cargo** con el núcleo como *crate* propio y un módulo de muestra como otro *crate*. La app los usa, abre igual que hoy y una base que ya existe abre sin perder nada.
-- [ ] **Las fronteras las hace cumplir el compilador:** el núcleo no puede usar un módulo, y un módulo solo puede usar de otro sus tipos publicados (`contract`). Una prueba lo demuestra.
-- [ ] **El registro de módulos** junta los manifiestos sin ninguna lista, rechaza una dependencia que no existe o que forma un ciclo, y sabe qué módulos están encendidos.
-- [ ] **Las migraciones son por módulo:** cada uno numera las suyas sin chocar con las de otro, y las 34 de hoy quedan como la historia de la app.
-- [ ] **La prueba de conformidad** corre sobre todo módulo registrado (manifiesto, dependencias, migraciones sobre una base vacía, prefijo de sus tablas), y el módulo de muestra la pasa. Las partes del diccionario y de las capacidades se le agregan en ERP-2 y ERP-1.
-- [ ] **El vocabulario de permisos vive en el núcleo** y cada módulo puede declarar los suyos en su manifiesto (K2), para que el IA-5 los use.
-- [ ] `cargo test` y `pnpm test` pasan, sin red ni gasto. Se mide y se anota cuánto tarda la primera compilación.
+- [x] **Un *workspace* de Cargo** con el núcleo como *crate* propio y un módulo de muestra como otro *crate*. La app los usa, abre igual que hoy y una base que ya existe abre sin perder nada.
+- [x] **Las fronteras las hace cumplir el compilador:** el núcleo no puede usar un módulo, y un módulo solo puede usar de otro sus tipos publicados (`contract`). Una prueba lo demuestra.
+- [x] **El registro de módulos** junta los manifiestos sin ninguna lista, rechaza una dependencia que no existe o que forma un ciclo, y sabe qué módulos están encendidos.
+- [x] **Las migraciones son por módulo:** cada uno numera las suyas sin chocar con las de otro, y las 34 de hoy quedan como la historia de la app.
+- [x] **La prueba de conformidad** corre sobre todo módulo registrado (manifiesto, dependencias, migraciones sobre una base vacía, prefijo de sus tablas), y el módulo de muestra la pasa. Las partes del diccionario y de las capacidades se le agregan en ERP-2 y ERP-1.
+- [x] **El vocabulario de permisos vive en el núcleo** y cada módulo puede declarar los suyos en su manifiesto (K2), para que el IA-5 los use.
+- [x] `cargo test` y `pnpm test` pasan, sin red ni gasto. Se mide y se anota cuánto tarda la primera compilación.
 
 ## Plan
 
@@ -42,6 +42,10 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 5. **La prueba de conformidad** corre en la app sobre todo módulo registrado: manifiesto, dependencias, migraciones sobre una base cifrada vacía, el prefijo de sus tablas y el de sus permisos.
 6. **La suite completa,** abrir la app con una base que ya existe, medir la primera compilación, y el PR.
 
+**Ajuste por el ERP-10 (2026-10-21).** El líder aprobó el ADR-003 mientras este bloque estaba en curso, y el ERP-10 pide dos cosas que tocan a este bloque. Se resolvieron aquí porque, una vez en `main`, quedarían fijas en las bases que ya existen:
+- **A2, el permiso por su id.** El `enum Permission` **no se muda** al núcleo. El núcleo guarda el catálogo por id: cada módulo declara los suyos en su manifiesto, y el registro los busca por id. Así el contrato de capacidad no depende del núcleo. `core::access::domain` y `capability/` no cambian.
+- **A3, migraciones por dueño.** La tabla es `kernel_migrations (owner, version)`. La plataforma es un dueño más, con sus tablas `ai_`: usa `kernel::migrate_owner`, y la conformidad le revisa la numeración, el prefijo y las llaves foráneas. El id `ai` queda reservado.
+
 **Lo que toca de otros rieles:** solo `Cargo.toml` y `Cargo.lock` (se dice en el PR), y una línea en `core::access::domain` para reexportar `Permission`. No toca `capability/` ni `ai/`.
 
 **Riesgos:**
@@ -50,16 +54,27 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 
 ## Cómo probarlo
 
+PR [#24](https://github.com/J41M3C4B/SociAI/pull/24).
+
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- Carpeta y rama: `D:\Agente Proyectos\sociai-erp`, rama `erp/erp-8-forma-de-un-modulo`.
+- Antes: cerrar la app del otro riel si está abierta. No hace falta `pnpm install`. La base no cambia: en la app de verdad todavía no se enlaza ningún módulo.
+- Arrancar: `pnpm tauri dev`. Recompila la app y los tres *crates* nuevos; tarda unos minutos.
+- Al terminar: cerrar la app. No queda nada que limpiar.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] La app abre y desbloquea la base de siempre.
+- [ ] Mi institución muestra los mismos datos que antes.
+- [ ] (Opcional) En `src-tauri/`, `cargo test workspace_tests` pasa sus 4 pruebas: fronteras, reglas, registro y conformidad.
 
 ## Hallazgos
+
+- **La primera compilación desde cero tardó 17 min** (`cargo build`), más 1.9 min para compilar las pruebas. Se midió en una carpeta de compilación aparte, ya borrada. SQLCipher y OpenSSL se compilan una sola vez para todo el *workspace*. `CLAUDE.md` decía unos 11 min, pero no medí `main` en las mismas condiciones, y el otro riel pudo estar compilando al mismo tiempo.
+- **Con `-p` de un solo *crate*, SQLCipher se compila otra vez aparte,** porque Cargo junta las *features* solo de lo que se compila. `cargo test` sin `-p` corre todo el *workspace*.
+- **Desde Git Bash, OpenSSL no compila:** usa el `perl` de Git. Hay que compilar desde PowerShell. Una carpeta de compilación con ruta larga, como la del *scratchpad*, pasa el límite de rutas de Windows y también falla.
+- **Un ejemplo de documentación que enlaza SQLCipher no enlaza en Windows** (`rustdoc`). Por eso los ejemplos del núcleo son `no_run`, como los del IA-1.
+- **`HIDDEN` sigue.** El registro ya sabe qué módulos están encendidos, pero los módulos congelados (Personal, Beneficiarios, Instalaciones, Finanzas) todavía no son *crates*. `HIDDEN` sale cuando el último de ellos pase a la forma de módulo.
+- **Los lugares en el manifiesto** (plano §4) no entraron. Llegan con el *refactor* de `core/places.rs`, cuando Mi institución sea módulo (ERP-1).
 
 ## Resultado

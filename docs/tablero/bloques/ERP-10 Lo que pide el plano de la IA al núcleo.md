@@ -6,7 +6,7 @@ estado: backlog
 prioridad: alta
 caja: Autenticación, permisos y almacén de auditoría; Datos operativos del ERP; Eventos y tareas automáticas
 pedido_por: IA-6
-depende_de:
+depende_de: ERP-8
 rama:
 adr:
 creado: 2026-10-21
@@ -36,11 +36,31 @@ cerrado:
 
 **Además, para cuadrar los planos:** que el plano del ERP enlace el plano de la IA. El riel IA no edita el plano del ERP.
 
+**Dónde entra cada punto (decisión del riel ERP, 2026-10-21):**
+
+| Punto | Bloque | Estado |
+|---|---|---|
+| 1. El permiso por su id (A2) | [[ERP-8 La forma de un módulo y el registro de módulos\|ERP-8]] | Hecho en su PR (#24). El `enum Permission` no se mudó. El núcleo guarda el catálogo por id (`Manifest::permissions`, `Modules::permission(id)`). Lo que falta es del IA-5: que el contrato nombre el permiso por id. |
+| 3. La plataforma, dueña de sus tablas (A3) | ERP-8 | Hecho en su PR (#24): la tabla `kernel_migrations (owner, version)`, `kernel::migrate_owner(conn, "ai", …)` y `kernel::conform` para cualquier dueño. El id `ai` queda reservado. |
+| El plano del ERP enlaza el de la IA | ERP-8 | Hecho en su PR (#24), con su fila en la §13. |
+| 2. La pregunta de autorización y las clases que ve cada cuenta (K2) | **Este bloque** | Por hacer |
+| 5. El evento de tarea en el almacén de auditoría (K9) | **Este bloque** | Por hacer |
+| 4. Saber si una huella se aplicó (K5) | [[ERP-9 Preparar y aplicar, con historial y origen\|ERP-9]] | Anotado en su tarjeta |
+| 6. El actor del sistema (K8, A7) | [[ERP-3 El calendario de vencimientos\|ERP-3]] | Anotado en su tarjeta |
+| 7. Los tipos de salida nombran sus campos del diccionario (A5) | [[ERP-2 La clase de cada dato declarada una sola vez\|ERP-2]] | Anotado en su tarjeta |
+
+Este bloque se queda con lo que el ejecutor del IA-2 necesita del núcleo para cada invocación: autorizar y dejar registro.
+
 ## Terminado cuando
 
-(Lo escribe el riel ERP con el líder.)
+(Propuesta del riel ERP; la aprueba el líder.)
 
-- [ ] 
+- [ ] **Los permisos generales del núcleo,** los que hoy son el `enum Permission` (usar, borrar, ajustes, administrar), tienen id en el catálogo de K2, igual que los de los módulos.
+- [ ] **Los roles agrupan permisos por id,** y los dos roles de hoy (administración y dirección) siguen pudiendo lo mismo.
+- [ ] **K2 responde una pregunta:** dada la cuenta, la organización y el id del permiso, sí o no. Una cuenta bloqueada, un permiso que no existe o una organización ajena dicen que no.
+- [ ] **K2 dice qué clases de datos ve una cuenta,** con las clases del IA-3. Si el IA-3 no ha cerrado, queda el lugar y una prueba con las clases de hoy.
+- [ ] **El almacén de auditoría (K9) guarda el evento de tarea:** apertura, paso, denegación, aprobación y cierre, con el id de la tarea, la capacidad, el resultado y el motivo. Una prueba demuestra que no guarda datos personales.
+- [ ] `cargo test` y `pnpm test` pasan, sin red ni gasto.
 
 ## Plan
 

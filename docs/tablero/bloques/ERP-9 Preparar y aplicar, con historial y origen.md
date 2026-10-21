@@ -19,6 +19,8 @@ El [plano del ERP](../../plano-del-erp.md) (§7) dice que todo cambio de datos s
 
 **Lo fija el ERP y lo usa el IA-2:** la forma de la propuesta y de la huella. Este bloque va primero o a la par, y el formato se acuerda con el riel IA antes de cerrarlo.
 
+**Del [[ERP-10 Lo que pide el plano de la IA al núcleo|ERP-10]] (punto 4):** que K5 sepa si una huella ya se aplicó, para que la plataforma no repita a ciegas un `apply` que no contestó.
+
 ## Terminado cuando
 
 (Propuesta; la aprueba el líder.)
