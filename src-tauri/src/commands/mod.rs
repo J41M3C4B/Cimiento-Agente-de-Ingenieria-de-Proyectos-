@@ -9,6 +9,7 @@ pub mod hr;
 pub mod institution;
 pub mod records;
 pub mod onboarding;
+pub mod runtime;
 pub mod security;
 
 use crate::core::access::service::{CurrentUser, Session};
