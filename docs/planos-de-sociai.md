@@ -8,6 +8,8 @@ Este documento es la referencia. Si un plano cambia, se cambia aquí primero. Lo
 
 **La idea central:** hay **una sola plataforma de inteligencia** para todo el ERP. Los módulos no tienen su propio equipo de IA: publican sus capacidades, y la plataforma decide cómo usarlas.
 
+**Cómo se arma por dentro el ERP** (el núcleo, la forma de un módulo y cómo se reparten los datos) está en [el plano del ERP](plano-del-erp.md), que aterriza estos planos para las capas 2, 4, 5 y 6.
+
 ---
 
 ## 1. Plano global
@@ -340,3 +342,4 @@ Se distinguen autenticación, autorización, clasificación de datos y decisión
 | 2026-10-20 | Operativo | Hay una revisión de límites antes de cada invocación y un cierre por límite (§3.3). |
 | 2026-10-20 | Operativo | La aprobación va atada a los parámetros: si cambian, se vuelve a confirmar (§3.5). |
 | 2026-10-20 | Operativo | La salida pasa por controles y se entrega al canal con el id de la tarea. Una pausa se reanuda en la misma tarea (§3.4). |
+| 2026-10-20 | Global | Se agrega [el plano del ERP](plano-del-erp.md): Mi institución es un módulo y el núcleo del ERP va debajo de todos los módulos. No cambia ninguna caja de estos planos (ERP-7, ADR-002). |

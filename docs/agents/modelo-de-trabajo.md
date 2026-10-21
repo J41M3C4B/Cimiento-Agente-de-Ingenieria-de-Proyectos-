@@ -4,6 +4,7 @@ Cómo se organiza el desarrollo de SociAI desde el 2026-10-20. Lo leen todos los
 
 **Los documentos de referencia:**
 - [los planos de SociAI](../planos-de-sociai.md): qué se construye;
+- [el plano del ERP](../plano-del-erp.md): el núcleo, la forma de un módulo y cómo se reparten los datos;
 - [el código frente a los planos](../codigo-frente-a-los-planos.md): de dónde partimos.
 
 ---

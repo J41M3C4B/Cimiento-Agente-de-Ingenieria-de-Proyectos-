@@ -7,3 +7,4 @@ La numeración empieza de nuevo en el **ADR-001**. Los anteriores (001 a 048) es
 | ADR | Decisión | Estado |
 |---|---|---|
 | [ADR-001](ADR-001-el-contrato-de-capacidad-y-el-registro.md) | El contrato de capacidad y el registro: qué declara una capacidad, cómo se registra sin lista y la frontera que impide a un módulo usar la IA | Aceptada (IA-1) |
+| [ADR-002](ADR-002-el-nucleo-del-erp-y-la-forma-de-un-modulo.md) | El núcleo del ERP y la forma de un módulo: Mi institución es un módulo, el núcleo va debajo de todos, cómo se reparten los datos y todo cambio se prepara y se aplica | Aceptada (ERP-7) |
