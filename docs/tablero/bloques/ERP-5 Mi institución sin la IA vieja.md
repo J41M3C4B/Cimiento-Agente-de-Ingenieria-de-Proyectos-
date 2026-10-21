@@ -6,7 +6,7 @@ estado: revision
 prioridad: alta
 caja: Mi institución
 pedido_por: IA-1
-depende_de: DIS-3
+depende_de:
 rama: erp/erp-5-mi-institucion-sin-la-ia-vieja
 adr:
 creado: 2026-10-20
@@ -39,11 +39,11 @@ Aprobado por el líder el 2026-10-20 (con las recomendaciones del riel ERP). Las
 - [x] **Las propuestas por campo siguen funcionando sin el Asistente.** `proposals_reject` vive en `commands/institution.rs`, con el mismo nombre, permiso y firma. Las propuestas salen de `core/agents/` (a `core/proposals.rs`), de modo que `core/agents/` solo contiene lo que el IA-1 borra. La excepción del Capturista (`told_own`) desaparece. Las pruebas de propuestas, de la lectura con reglas y de la revisión de sugerencias pasan sin cambio de comportamiento.
 - [x] **La búsqueda del Expediente es solo por palabras.** `core/archive/search.rs` no usa vectores, no pide ningún vector y `Found` no trae `by_meaning`. `documents_search` responde por palabras, sin internet y sin gasto. La búsqueda por significado vuelve como herramienta de la plataforma, no aquí.
 - [x] **Al adjuntar un documento ya no hay lectura con IA.** `commands/records.rs` no llama a `after_upload` ni emite `record-suggested`. La lectura con reglas, que deja sugerencias con documento y página, sigue igual.
-- [ ] **`FILLABLE` desaparece.** *(Hecho en Rust. Falta `FormView.fill` y `RecordSuggested` en `types.ts`: se quitan al fusionarse el DIS-3; el parche está probado sobre su rama. `Fill` se queda hasta el IA-1, porque `AssistantOutcome` lo usa.)* `core/overview.rs` y la prueba de `core/places.rs` usan `institution::forms::FORMS` y el mapa de lugares. `FormView` ya no trae `fill`, y sus tipos del front (`Fill`, `RecordSuggested`, el campo `fill`) salen de `types.ts`.
+- [x] **`FILLABLE` desaparece.** *(`FormView.fill` y `RecordSuggested` salieron de `types.ts` al fusionarse el DIS-3. `Fill` se queda hasta el IA-1, porque `AssistantOutcome` lo usa.)* `core/overview.rs` y la prueba de `core/places.rs` usan `institution::forms::FORMS` y el mapa de lugares.
 - [x] **El onboarding no sabe que existe la IA.** `core::onboarding::service` recibe `ai_ready` como dato; el comando lo calcula desde la configuración de la plataforma. La tarjeta «Llave puesta» de la bienvenida y de Inicio queda igual.
 - [x] **El manual ya no habla del Asistente.** Salen `howto.assistant`, `howto.fill` y `howto.fill_documents` de `docs/manual/programa.md`, y lo que el `README.md` del manual dice del asistente. El índice del manual y las pruebas de `places.rs` pasan.
 - [x] **Pruebas:** *(`cargo test`: 788 pasan; `pnpm test`: 218 pasan; `pnpm build` pasa.)* `cargo test` (desde `src-tauri/`) y `pnpm test` pasan sin red ni gasto. Hay una prueba nueva por cada punto que cambia (rechazar propuestas, búsqueda sin vectores, onboarding con `ai_ready` dado, formularios sin `fill`).
-- [ ] **Se fusiona después del DIS-3 y antes del IA-1.** Con el código del Asistente aún presente (lo borra el IA-1), la app compila y funciona sin llamarlo desde Mi institución.
+- [x] **Se fusiona después del DIS-3 y antes del IA-1.** *(DIS-3 ya está en `main` (#16); la rama está rebasada sobre él.)* Con el código del Asistente aún presente (lo borra el IA-1), la app compila y funciona sin llamarlo desde Mi institución.
 
 ## Plan
 
@@ -86,11 +86,11 @@ PR: https://github.com/J41M3C4B/SociAI/pull/17
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] En *Documentos*, buscar «extintores» con un expediente cargado: salen pasajes con documento y página, sin internet y sin pedir nada a la IA.
-- [ ] En *Mi institución*, con una sugerencia pendiente (subiendo la constancia fiscal ficticia), «Descartar» funciona y la sugerencia no vuelve.
-- [ ] Adjuntar un documento al Expediente: llegan los avisos de la lectura con reglas (lo que se llenó y las sugerencias), y ninguna sugerencia «de la IA».
-- [ ] En *Inicio* (administrador, recién instalado): la tarjeta de ayuda automática dice «Llave puesta» solo si hay llave guardada.
-- [ ] En *Ayuda*, buscar «asistente»: no aparece ninguna sección que explique usarlo.
+- [x] En *Documentos*, buscar «extintores» con un expediente cargado: salen pasajes con documento y página, sin internet y sin pedir nada a la IA.
+- [x] En *Mi institución*, con una sugerencia pendiente (subiendo la constancia fiscal ficticia), «Descartar» funciona y la sugerencia no vuelve.
+- [x] Adjuntar un documento al Expediente: llegan los avisos de la lectura con reglas (lo que se llenó y las sugerencias), y ninguna sugerencia «de la IA».
+- [x] En *Inicio* (administrador, recién instalado): la tarjeta de ayuda automática dice «Llave puesta» solo si hay llave guardada.
+- [x] En *Ayuda*, buscar «asistente»: no aparece ninguna sección que explique usarlo.
 
 *(En esta rama el botón ✨ y «Llenar con mis documentos» siguen en pantalla: los quita el DIS-3, y los comandos, el IA-1.)*
 
