@@ -102,9 +102,7 @@ impl From<ProjectsError> for UiError {
             P::BudgetIncomplete => UiError::new("budget_incomplete", "Faltan los costos de algunas partidas. Escríbalos y después confirme el presupuesto."),
             P::InvalidActivity => UiError::new("invalid_activity", "Revise los meses: empiezan en 1 y el final no puede ser antes del inicio."),
             P::GuideHasPersonalData => UiError::new("guide_has_personal_data", "La guía traería datos que parecen de una persona, así que no se generó. Revise los textos del proyecto."),
-            P::InvalidYear => UiError::new("invalid_year", "El año no parece correcto. Escríbalo con cuatro cifras, por ejemplo 2026."),
             P::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
-            P::AlreadyRunning => UiError::new("already_running", "Ya lo estamos haciendo. En cuanto termine, se muestra aquí."),
             P::Priority(_) => UiError::new("priority", "Cada calificación debe ir del 1 al 5."),
             P::Stage(e) => {
                 let code = crate::modules::projects::diagnosis::stage_error_code(&e);

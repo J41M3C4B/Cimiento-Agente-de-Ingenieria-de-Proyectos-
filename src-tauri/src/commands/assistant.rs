@@ -1,6 +1,7 @@
 //! The commands of the Assistant (ADR-034 §4, IA3) and the Capturist (IA4): thin, they call `core::agents`.
 
-use super::diagnosis::{make_provider, shared};
+use super::ai::make_provider;
+use super::diagnosis::shared;
 use super::guard;
 use crate::core::access::service::Session;
 use crate::core::agents::assistant::{self, Ask, AssistantOutcome};

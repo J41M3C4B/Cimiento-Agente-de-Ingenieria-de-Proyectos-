@@ -1,88 +1,28 @@
 //! Use cases of the stages after the conversation: summary, needs, stage moves. The conversation itself is in
-//! `conversation`. Code keeps the flow and the numbers; the AI only words text.
+//! `conversation`. Code keeps the flow and the numbers. No AI: what it wrote (the conversation, the summary, the
+//! proposed needs) comes back as capabilities of the platform.
 
-use crate::ai::pipeline::{self, AiCall, SqliteLedger};
-use crate::ai::{prompts, AiError, AiProvider, AiTask};
-use crate::modules::projects::conversation::{call_context, conversation_view, figure_sources, person_words, transcript, ConversationView};
-use crate::modules::projects::domain::conversation::Phase;
-use crate::ai::figures;
+use crate::modules::projects::conversation::{conversation_view, ConversationView};
 use crate::modules::projects::domain::priority::{self, Scores, Weights};
 use crate::modules::projects::domain::stage::{self, Missing, Stage, StageError};
 use crate::scanner::guard::{Decision, QuarantineReport};
 use crate::core::api::guard_texts;
 use crate::modules::projects::ProjectsError;
 use crate::modules::projects::storage::projects::{self as store, NeedRow, ProjectRow};
-use crate::scanner::RegexScanner;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 
 pub use crate::storage::SharedDb;
-
-/// How the AI part went. The UI uses it to say "seguimos sin ayuda automática".
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AiStatus {
-    Used,
-    NotConfigured,
-    Offline,
-    Busy,
-    BudgetExhausted,
-    /// The provider's daily allowance is used up (a free plan has few calls per day).
-    QuotaReached,
-    KeyRejected,
-    Unavailable,
-    /// The AI was not needed (follow-up limit reached, manual summary...).
-    Skipped,
-}
-
-impl From<&AiError> for AiStatus {
-    fn from(e: &AiError) -> Self {
-        match e {
-            AiError::NoApiKey => AiStatus::NotConfigured,
-            AiError::Offline => AiStatus::Offline,
-            AiError::RateLimited | AiError::Timeout => AiStatus::Busy,
-            AiError::BudgetExhausted => AiStatus::BudgetExhausted,
-            AiError::QuotaReached => AiStatus::QuotaReached,
-            AiError::Auth => AiStatus::KeyRejected,
-            _ => AiStatus::Unavailable,
-        }
-    }
-}
 
 pub(crate) fn lock(db: &SharedDb) -> Result<std::sync::MutexGuard<'_, Connection>, ProjectsError> {
     db.lock().map_err(|_| ProjectsError::Internal("database lock poisoned".into()))
 }
 
 
-// ------------------------------------------------------------------ context for the AI
-
 #[cfg(test)]
 pub fn profile_summary_for_tests(conn: &Connection) -> Result<String, ProjectsError> {
-    Ok(profile_context(conn)?)
-}
-
-/// What the AI reads about the institution: the sheet the core builds (`core::api::institution_sheet`, aggregates only).
-pub use crate::core::api::institution_sheet as profile_context;
-
-// ------------------------------------------------------------------ views
-
-fn collect_strings(v: &Value, out: &mut Vec<String>) {
-    match v {
-        Value::String(s) => out.push(s.clone()),
-        Value::Array(a) => a.iter().for_each(|x| collect_strings(x, out)),
-        Value::Object(o) => o.values().for_each(|x| collect_strings(x, out)),
-        Value::Number(n) => out.push(n.to_string()),
-        _ => {}
-    }
-}
-
-pub(crate) fn check_summary_figures(summary: &Value, sources: &[String]) -> Vec<String> {
-    let mut outs = Vec::new();
-    collect_strings(summary, &mut outs);
-    let o: Vec<&str> = outs.iter().map(String::as_str).collect();
-    let s: Vec<&str> = sources.iter().map(String::as_str).collect();
-    figures::unsupported_figures(&o, &s)
+    Ok(crate::core::api::institution_sheet(conn)?)
 }
 
 // ------------------------------------------------------------------ projects and stages
@@ -136,90 +76,7 @@ pub fn go_back(db: &SharedDb, project_id: &str, target: Stage) -> Result<Project
     Ok(store::get_project(&conn, project_id)?.ok_or(ProjectsError::NotFound)?)
 }
 
-// ------------------------------------------------------------------ the AI
-
-pub(crate) async fn ask_ai(
-    db: &SharedDb,
-    provider: Option<&dyn AiProvider>,
-    task: AiTask,
-    project_id: &str,
-    context: Vec<String>,
-    user: String,
-) -> Result<Value, AiError> {
-    let provider = provider.ok_or(AiError::NoApiKey)?;
-    let scanner = {
-        let conn = db.lock().map_err(|_| AiError::Internal("lock".into()))?;
-        let cfg = crate::core::api::scanner_config(&conn).map_err(|e| AiError::Internal(e.to_string()))?;
-        RegexScanner::new(cfg)
-    };
-    let ledger = SqliteLedger(db.clone());
-    pipeline::run(provider, &scanner, &ledger, AiCall { task, context, user, project_id: Some(project_id.to_string()) }).await
-}
-
 // ------------------------------------------------------------------ summary
-
-#[derive(Debug, Serialize)]
-pub struct SummaryOutcome {
-    pub view: ConversationView,
-    pub ai: AiStatus,
-}
-
-/// Writes the summary of the diagnosis from the conversation, once the person confirmed the root cause. The AI
-/// must not invent numbers: if it did, it is asked once more. If it fails nothing is saved and the person can
-/// try again; there is no summary made without the AI.
-pub async fn generate_summary(
-    db: &SharedDb,
-    provider: Option<&dyn AiProvider>,
-    project_id: &str,
-) -> Result<SummaryOutcome, ProjectsError> {
-    let (context, sources) = {
-        let conn = lock(db)?;
-        let view = conversation_view(&conn, project_id)?;
-        if view.phase != Phase::Closed {
-            return Err(ProjectsError::WrongStage);
-        }
-        // what the person confirmed or corrected is theirs: a late or repeated request never writes over it
-        if view.summary.as_ref().is_some_and(|s| s.confirmed_at.is_some() || s.origin != "ai_assumption") {
-            return Ok(SummaryOutcome { view, ai: AiStatus::Skipped });
-        }
-        let rows = store::turns(&conn, project_id)?;
-        let root = view.root.as_ref().map(|r| r.text.clone()).unwrap_or_default();
-        let sources = figure_sources(&conn, &view.project, &rows)?;
-        let context = vec![
-            format!("Perfil de la institución:\n{}", profile_context(&conn)?),
-            format!("Convocatoria que la persona confirmó:\n{}", call_context(&conn, &view.project)?),
-            format!("Conversación con la persona:\n{}", transcript(&rows)),
-            format!("Causa de fondo que la persona confirmó:\n{root}"),
-        ];
-        (context, sources)
-    };
-    let user = "Escriba el resumen del diagnóstico.".to_string();
-
-    let mut result = ask_ai(db, provider, AiTask::DiagnosisSummary, project_id, context.clone(), user.clone()).await;
-    // The AI must not invent numbers: ask once more if it did.
-    if let Ok(v) = &result {
-        let bad = check_summary_figures(v, &sources);
-        if !bad.is_empty() {
-            let again = format!(
-                "{user}\n\nEstas cifras no las dijo la persona: {}. No las use; use solo las cifras que ella dio.",
-                bad.join(", ")
-            );
-            if let Ok(v2) = ask_ai(db, provider, AiTask::DiagnosisSummary, project_id, context, again).await {
-                result = Ok(v2);
-            }
-        }
-    }
-
-    let conn = lock(db)?;
-    let ai = match result {
-        Ok(v) => {
-            store::save_summary(&conn, project_id, &v, "ai_assumption", Some(&json!({ "prompt": prompts::SUMMARY_VERSION })))?;
-            AiStatus::Used
-        }
-        Err(e) => AiStatus::from(&e),
-    };
-    Ok(SummaryOutcome { view: conversation_view(&conn, project_id)?, ai })
-}
 
 /// Fields the person can correct in the summary. Alternatives stay as they are.
 #[derive(Debug, Clone, Deserialize)]
@@ -323,52 +180,6 @@ pub fn needs_view(conn: &Connection, project_id: &str) -> Result<NeedsView, Proj
 pub fn get_needs(db: &SharedDb, project_id: &str) -> Result<NeedsView, ProjectsError> {
     let conn = lock(db)?;
     needs_view(&conn, project_id)
-}
-
-pub async fn propose_needs(db: &SharedDb, provider: Option<&dyn AiProvider>, project_id: &str) -> Result<(NeedsView, AiStatus), ProjectsError> {
-    let context = {
-        let conn = lock(db)?;
-        let summary = store::get_summary(&conn, project_id)?.ok_or(ProjectsError::NotFound)?;
-        if summary.confirmed_at.is_none() {
-            return Err(ProjectsError::WrongStage);
-        }
-        let project = store::get_project(&conn, project_id)?.ok_or(ProjectsError::NotFound)?;
-        let root = store::get_root(&conn, project_id)?.map(|r| r.text).unwrap_or_default();
-        let said = person_words(&store::turns(&conn, project_id)?);
-        // each block says how far to trust it: data captured in Mi institución and what the person said are facts;
-        // the summary was written by the AI and only accepted by the person
-        vec![
-            format!("Perfil de la institución:\n{}", profile_context(&conn)?),
-            format!("Convocatoria que la persona confirmó:\n{}", call_context(&conn, &project)?),
-            format!("Lo que la persona dijo, con sus palabras:\n{}", if said.is_empty() { "(no hay mensajes)".to_string() } else { said }),
-            format!("Causa de fondo que la persona confirmó:\n{root}"),
-            format!("Borrador del diagnóstico (lo redactó la IA y la persona lo aceptó), en JSON:\n{}", summary.summary),
-        ]
-    };
-    let result = ask_ai(db, provider, AiTask::PrioritizationProposeNeeds, project_id, context, "Proponga las necesidades.".into()).await;
-    let conn = lock(db)?;
-    let ai = match result {
-        Ok(v) => {
-            // replace earlier suggestions that nobody has chosen; the model's order (most important first) is the order they are stored in
-            conn.execute(
-                "DELETE FROM need WHERE project_id=?1 AND origin='ai_assumption' AND scores_json IS NULL AND selected=0",
-                [project_id],
-            ).map_err(ProjectsError::from)?;
-            for n in v["needs"].as_array().into_iter().flatten().take(3) {
-                store::add_need(
-                    &conn,
-                    project_id,
-                    n["title"].as_str().unwrap_or_default(),
-                    n["description"].as_str(),
-                    "ai_assumption",
-                    Some(&json!({ "prompt": prompts::PROPOSE_NEEDS_VERSION })),
-                )?;
-            }
-            AiStatus::Used
-        }
-        Err(e) => AiStatus::from(&e),
-    };
-    Ok((needs_view(&conn, project_id)?, ai))
 }
 
 #[derive(Debug, Serialize)]

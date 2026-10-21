@@ -2,8 +2,8 @@
 
 use super::guard;
 use crate::core::access::service::Session;
-use super::diagnosis::{as_dyn, make_provider, shared};
-use crate::modules::projects::drafting::{self as svc, BudgetItemInput, DraftMode, DraftOutcome, DraftingView, EditOutcome};
+use super::diagnosis::shared;
+use crate::modules::projects::drafting::{self as svc, BudgetItemInput, DraftingView, EditOutcome};
 use crate::error::UiError;
 use crate::modules::projects::guide::{self as guide_service, Exported};
 use crate::modules::projects::review::{self as review_service, ReviewView};
@@ -23,32 +23,6 @@ pub fn drafting_get(session: State<'_, Session>, db: State<'_, Db>, project_id: 
 pub fn drafting_set_asks(session: State<'_, Session>, db: State<'_, Db>, project_id: String, asks: bool) -> Result<DraftingView, UiError> {
     guard(&session, "drafting_set_asks")?;
     Ok(svc::set_asks_for_proposal(&shared(&db), &project_id, asks)?)
-}
-
-#[tauri::command]
-pub async fn section_draft(session: State<'_, Session>, db: State<'_, Db>, project_id: String, key: String) -> Result<DraftOutcome, UiError> {
-    guard(&session, "section_draft")?;
-    let db = shared(&db);
-    let provider = make_provider(&db);
-    Ok(svc::draft_section(&db, as_dyn(&provider), &project_id, &key).await?)
-}
-
-/// When the drafting begins: the assistant prepares the explanations, the budget lines and the schedule (once).
-#[tauri::command]
-pub async fn drafting_prepare(session: State<'_, Session>, db: State<'_, Db>, project_id: String) -> Result<DraftOutcome, UiError> {
-    guard(&session, "drafting_prepare")?;
-    let db = shared(&db);
-    let provider = make_provider(&db);
-    Ok(svc::prepare_plan(&db, as_dyn(&provider), &project_id).await?)
-}
-
-/// The assistant writes every pending section at once, as a full draft or as a short guide.
-#[tauri::command]
-pub async fn sections_draft_all(session: State<'_, Session>, db: State<'_, Db>, project_id: String, mode: DraftMode) -> Result<DraftOutcome, UiError> {
-    guard(&session, "sections_draft_all")?;
-    let db = shared(&db);
-    let provider = make_provider(&db);
-    Ok(svc::draft_all(&db, as_dyn(&provider), &project_id, mode).await?)
 }
 
 /// Confirms every text that is ready.

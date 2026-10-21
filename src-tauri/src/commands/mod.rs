@@ -1,8 +1,8 @@
 //! Thin Tauri command layer: validate input, call the service, map errors.
 
 pub mod access;
+pub mod ai;
 pub mod assistant;
-pub mod calls;
 pub mod care;
 pub mod diagnosis;
 pub mod drafting;

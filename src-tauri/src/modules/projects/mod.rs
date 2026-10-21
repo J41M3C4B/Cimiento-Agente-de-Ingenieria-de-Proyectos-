@@ -1,17 +1,15 @@
-//! The projects (ADR-016 to ADR-024): a project is born from its call, the AI leads the conversation of the diagnosis,
-//! the person chooses the need, the AI drafts and the code adds up, reviews and writes the guide in Word. Its
-//! development is paused while the modules grow (ADR-032).
+//! The projects (ADR-016 to ADR-024): the person chooses the need, writes each section, adds up the budget and the
+//! schedule, and the code reviews them and writes the guide in Word. It is frozen like the other modules (it is
+//! hidden, and its development waits for the core) and it does not use the AI: what the conversation, the
+//! diagnosis, the drafting and the reading of the calls did comes back as capabilities of the platform.
 //!
-//! It is the module that consumes: the AI of the projects reads the sheet of the institution the core writes. It
-//! uses the base and `core::api`, nothing else of the app; `architecture_tests` checks it.
+//! It uses the base and `core::api`, nothing else of the app; `architecture_tests` checks it.
 
-pub mod calls;
 pub mod conversation;
 pub mod diagnosis;
 pub mod domain;
 pub mod drafting;
 pub mod guide;
-pub mod jobs;
 pub mod review;
 pub mod storage;
 
@@ -31,8 +29,6 @@ pub enum ProjectsError {
     TextTooLarge,
     #[error("internal error: {0}")]
     Internal(String),
-    #[error("the year of the call is not valid")]
-    InvalidYear,
     #[error("a budget line needs a quantity above zero and a price that is not negative")]
     InvalidBudgetItem,
     #[error("some budget lines have no cost yet")]
@@ -43,8 +39,6 @@ pub enum ProjectsError {
     GuideHasPersonalData,
     #[error("not available at this stage")]
     WrongStage,
-    #[error("the AI is already working on something for this project")]
-    AlreadyRunning,
     #[error(transparent)]
     Stage(#[from] domain::stage::StageError),
     #[error("priority error: {0}")]
