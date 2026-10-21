@@ -50,7 +50,9 @@ pub fn run() {
             }
             std::fs::create_dir_all(&dir)?;
             let key = storage::get_or_create_db_key()?;
-            let conn = storage::open_encrypted(&dir.join("sociai.db"), &key)?;
+            let mut conn = storage::open_encrypted(&dir.join("sociai.db"), &key)?;
+            // the tables of the platform: its tasks, their steps, approvals and trail (ADR-003 A3)
+            ai::runtime::migrate(&mut conn)?;
             // the photo of this month (ADR-033 §4): taken again at each opening until the month ends
             let _ = core::snapshot::take(&conn);
             let db = Arc::new(Mutex::new(conn));
@@ -150,6 +152,8 @@ pub fn run() {
             commands::security::security_scan,
             commands::security::backup_create,
             commands::security::backup_restore,
+            commands::runtime::runtime_submit,
+            commands::runtime::runtime_task,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

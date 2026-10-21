@@ -16,6 +16,8 @@ import type {
   RecordOutcome,
   BackupFile,
   ScanSummary,
+  Outcome,
+  RuntimeRequest,
   BudgetItemInput,
   CreateProjectOutcome,
   Decision,
@@ -180,3 +182,9 @@ export const securityScan = () => invoke<ScanSummary>("security_scan");
 export const backupCreate = (password: string) => invoke<BackupFile>("backup_create", { password });
 /** `data` is the backup file in base64. */
 export const backupRestore = (data: string, password: string) => invoke<void>("backup_restore", { data, password });
+
+// The runtime of the AI platform (ADR-003): the one door of every request. Each outcome is also heard by the window
+// as the event "task-update".
+export const runtimeSubmit = (request: RuntimeRequest) => invoke<Outcome>("runtime_submit", { request });
+/** The last outcome of a task of the person, or null. */
+export const runtimeTask = (task: string) => invoke<Outcome | null>("runtime_task", { task });

@@ -826,3 +826,52 @@ export interface ScanSummary {
   texts: number;
   findings: number;
 }
+
+// The runtime of the AI platform (ADR-003, IA-2): every request goes in through `runtimeSubmit`, and every outcome
+// comes back with the id of its task, in the common contract of outcomes (the AI blueprint §6).
+export type RuntimeChannel =
+  | { kind: "chat" }
+  | { kind: "screen"; place: string }
+  | { kind: "event"; fact: string };
+export type RuntimeContent =
+  /** A screen names the capability and its input: no router, no model. */
+  | { kind: "invoke"; capability: string; input: Record<string, unknown> }
+  | { kind: "text"; text: string }
+  /** The answer to what a paused task asked: the values join its input. */
+  | { kind: "answer"; values: Record<string, unknown> }
+  /** Approve or reject the proposal with this fingerprint. */
+  | { kind: "decision"; fingerprint: string; approve: boolean };
+export interface RuntimeRequest {
+  channel: RuntimeChannel;
+  /** The task it continues; none opens a new one. */
+  task?: string | null;
+  content: RuntimeContent;
+}
+export type TaskState = "running" | "paused" | "done" | "denied" | "limit" | "error";
+export type OutcomeAsk = { kind: "missing"; what: string } | { kind: "correct"; field: string; reason: string };
+/** Why a proposal is asked for once more. */
+export type OutcomeAgain = "changed" | "outdated";
+/** The way to go on after an error: an error never blocks. */
+export type OutcomeNext = "use_screen" | "ask_administrator" | "start_again" | "check_history" | "try_later";
+export interface OutcomeEvidence {
+  source: "person" | "document" | "history" | "calculation";
+  label: string;
+  reference: string | null;
+}
+export type OutcomeBody =
+  | { kind: "answer"; text: string; evidence: OutcomeEvidence[] }
+  | { kind: "data"; capability: string; value: unknown }
+  | { kind: "clarification"; capability: string; ask: OutcomeAsk }
+  | { kind: "proposal"; capability: string; proposal: unknown; fingerprint: string; again: OutcomeAgain | null }
+  | { kind: "state"; reason: string }
+  | { kind: "error"; code: string; next: OutcomeNext };
+export interface Outcome {
+  task: string;
+  /** The step it comes from; 0 when no capability ran. */
+  step: number;
+  channel: RuntimeChannel;
+  state: TaskState;
+  /** Milliseconds since 1970 (UTC). */
+  at_ms: number;
+  body: OutcomeBody;
+}

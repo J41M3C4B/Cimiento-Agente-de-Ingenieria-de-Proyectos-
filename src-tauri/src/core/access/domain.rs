@@ -118,6 +118,9 @@ pub const COMMANDS: &[(&str, Need)] = &[
     ("documents_search", Need::Permission(Permission::Use)),
     ("document_emergency_delete", Need::DeleteOrRequest),
     ("dev_load_fixture", Need::Permission(Permission::Settings)),
+    // the entry to the runtime (ADR-003): a session is enough, the permission is checked per capability inside
+    ("runtime_submit", Need::Session),
+    ("runtime_task", Need::Session),
     ("care_overview", Need::Permission(Permission::Use)),
     ("care_person_get", Need::Permission(Permission::Use)),
     ("care_person_save", Need::Permission(Permission::Use)),
