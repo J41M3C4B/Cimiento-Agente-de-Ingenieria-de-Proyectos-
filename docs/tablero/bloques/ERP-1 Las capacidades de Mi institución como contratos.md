@@ -6,7 +6,7 @@ estado: backlog
 prioridad: alta
 caja: Mi institución; Contratos institucionales
 pedido_por:
-depende_de: IA-1
+depende_de: IA-1, IA-5, ERP-2, ERP-9
 rama:
 adr:
 creado: 2026-10-20
@@ -21,13 +21,18 @@ Mi institución es el módulo más completo, pero sus operaciones no se pueden d
 
 Es la primera capacidad real que corre por la plataforma.
 
+**Cambio con el plano del ERP (ERP-7, 2026-10-20).** Mi institución ya no es el núcleo: es el **primer módulo con la forma nueva** ([plano del ERP](../../plano-del-erp.md), §4 y paso 5 de la §11). Este bloque no envuelve el código de `core/` en contratos: rehace el perfil y «qué me falta» como módulo sobre el núcleo (ERP-8, ERP-9 y ERP-2), y retira las piezas viejas que sustituye. Desbloquea el IA-4.
+
 ## Terminado cuando
 
 (Propuesta; la aprueba el líder.)
 
-- [ ] El registro descubre las capacidades de Mi institución, cada una con su efecto, su permiso y las clases de datos que toca.
-- [ ] Guardar un formulario como capacidad pasa por la misma validación y el mismo historial que hoy.
-- [ ] Ninguna de estas capacidades sabe que existe la IA, y la prueba de fronteras lo comprueba.
+- [ ] Mi institución es un módulo con la forma de la §4 del plano y pasa la prueba de conformidad, incluidas sus capacidades.
+- [ ] El registro descubre sus capacidades, cada una con su efecto, su permiso y las clases de datos que toca, sacadas del diccionario.
+- [ ] «Qué me falta» lo calcula el núcleo con el diccionario de Mi institución, sin código escrito para este módulo.
+- [ ] Guardar un formulario se prepara y se aplica (ERP-9), con la validación del diccionario y el historial genérico. Una base de hoy conserva sus datos y su historial.
+- [ ] Ninguna de estas capacidades sabe que existe la IA, y el compilador lo impide.
+- [ ] Las piezas viejas que esto sustituye salen del código (de las que lista la §10 del plano).
 
 ## Plan
 

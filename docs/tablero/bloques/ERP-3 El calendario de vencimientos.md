@@ -6,7 +6,7 @@ estado: backlog
 prioridad: media
 caja: Eventos y tareas automáticas; Servicios deterministas
 pedido_por:
-depende_de: IA-2
+depende_de: IA-2, ERP-1
 rama:
 adr:
 creado: 2026-10-20
@@ -23,11 +23,14 @@ Según la investigación externa (§1.2), el beneficio que cualquier dirección 
 
 Los avisos salen por la entrega común de resultados.
 
+**Cambio con el plano del ERP (ERP-7, 2026-10-20).** El calendario es del **núcleo** (K8, [plano del ERP](../../plano-del-erp.md), §5 y paso 7 de la §11), y las obligaciones las declara el módulo dueño de sus datos: estas cuatro, Mi institución. Cumplimiento no es un módulo. Por eso va después del ERP-1.
+
 ## Terminado cuando
 
 (Propuesta; la aprueba el líder.)
 
-- [ ] Con los datos de la institución, el programa sabe qué vence, cuándo y qué falta para cumplirlo.
+- [ ] Un módulo declara sus obligaciones como reglas, y el núcleo calcula sin IA qué vence, cuándo y qué falta para cumplirlo.
+- [ ] Con los datos de Mi institución, el programa sabe las cuatro fechas de arriba.
 - [ ] Los avisos salen como eventos de la plataforma, no desde una pantalla.
 
 ## Plan
