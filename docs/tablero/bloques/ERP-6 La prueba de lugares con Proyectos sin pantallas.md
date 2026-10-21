@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-6
 carril: erp
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Mi institución
 pedido_por: IA-1
@@ -31,10 +31,10 @@ Aprobado por el líder el 2026-10-21. Las casillas se marcan cuando cada punto q
 
 - [x] **`cargo test` vuelve a pasar en `main`**, incluida `every_page_of_the_bar_has_its_screen_in_the_manual`. No porque se afloje la prueba, sino porque Proyectos ya no es un módulo congelado: no está en `HIDDEN`, ni en el manual, ni en `Shell.tsx`.
 - [x] **El módulo `modules/projects` (unas 5 200 líneas, con sus pruebas) sale del código:** sus comandos (`project_*`, `need_*`, `drafting_*`, `section_*`, `budget_*`, `schedule_*`, `review_get`, `guide_export`, `conversation_get`, `diagnosis_summary_*`), su registro en `lib.rs`, sus permisos en `core::access::domain`, `ProjectsError` en `error.rs`, su capa en `architecture_tests.rs` y los ayudantes de prueba que solo él usaba.
-- [ ] **Se puede recuperar:** una etiqueta de git, `proyectos-rust-congelado`, apunta al último `main` que tiene el módulo de Rust sin IA (la de `proyectos-congelado`, del DIS-4, apunta a antes de quitarle la IA).
+- [x] **Se puede recuperar:** una etiqueta de git, `proyectos-rust-congelado`, apunta al último `main` que tiene el módulo de Rust sin IA (la de `proyectos-congelado`, del DIS-4, apunta a antes de quitarle la IA).
 - [x] **No se borra ningún dato de la persona.** Las tablas y las migraciones se quedan: un respaldo y una restauración siguen funcionando, y quien vuelva a encender Proyectos encuentra sus datos. `core/security.rs` y `storage/backup.rs` siguen conociendo esas tablas.
 - [x] **El manual ya no tiene la pantalla de Proyectos** (`screen.projects` y lo que diga de ella).
-- [x] **Pruebas:** `cargo test`, `pnpm test` y `pnpm build` pasan, sin red ni gasto.
+- [x] **Pruebas:** *(`cargo test`: 626 pasan, 0 fallan; `pnpm test`: 224 pasan; `pnpm build` pasa.)* `cargo test`, `pnpm test` y `pnpm build` pasan, sin red ni gasto.
 - [x] **Se fusiona antes del IA-1** (#20), que no puede entrar con `main` en rojo.
 
 ## Plan
@@ -56,16 +56,27 @@ Aprobado por el líder el 2026-10-21. Las casillas se marcan cuando cada punto q
 
 ## Cómo probarlo
 
+PR: https://github.com/J41M3C4B/SociAI/pull/21
+
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- Carpeta y rama: `D:\Agente Proyectos\sociai-erp`, rama `erp/erp-6-proyectos-fuera`.
+- Antes: nada.
+- Arrancar: `pnpm tauri dev`.
+- Al terminar: cerrar la app.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] La app arranca con una base que ya tenía proyectos, sin errores, y no hay rastro de Proyectos.
+- [ ] Inicio, Mi institución, Documentos y la configuración de la ayuda automática funcionan igual.
+- [ ] En *Ayuda*, buscar «proyecto convocatoria»: no sale ninguna pantalla de Proyectos.
+- [ ] Un respaldo se crea y se restaura sin error.
 
 ## Hallazgos
+
+- **Borrar un proyecto sigue funcionando:** aprobar la solicitud de borrado de un proyecto lo hace ahora `core::access` (antes llamaba al módulo), con una prueba nueva. `resolve_request` ya no recibe el callback `delete_project`. Las tablas de Proyectos y sus datos se quedan.
+- **`core::api` salió también** (49 líneas): era solo la puerta de Proyectos y no tenía consumidor.
+- **Para diseño:** `lib/tauri.ts` y `lib/types.ts` conservan llamadas y tipos de comandos que ya no existen. No se quitaron porque `HomePage.test.tsx` (DIS-4) importa `projectList`. Hay que ajustar esa prueba y limpiar los dos archivos juntos.
+- **Hallazgo grande, para el líder:** sin Proyectos queda sin consumidor casi todo `documents/canonical` (la lectura de convocatorias), además de `documents/docx.rs`, `chunking.rs`, `pdf.rs` y `reading.rs`, y partes de `ai/` (`golden`, versiones de *prompts*). El compilador ya los marca «nunca usados». Es Documentos (núcleo): no se tocó aquí; conviene un bloque aparte (ERP-7) para decidir qué se retira y qué se conserva como servicio determinista.
+- **El manual conserva frases viejas** en los campos de Mi institución («aparece en los documentos y proyectos que arma el programa», «la ayuda automática lo usa para…») y en la pantalla de Ayuda («los pasos de un proyecto»). No es de este bloque; entra en la pasada del manual.
 
 ## Resultado
