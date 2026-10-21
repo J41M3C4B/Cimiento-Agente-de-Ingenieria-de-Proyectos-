@@ -6,7 +6,7 @@ estado: revision
 prioridad: alta
 caja: Registro común de capacidades; Contratos de capacidades
 pedido_por:
-depende_de: ERP-6
+depende_de:
 rama: ia/ia-1-contrato-de-capacidad
 adr: ADR-001
 creado: 2026-10-20
@@ -76,11 +76,11 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
    Los comandos que solo envuelven eso salen con ellos: `assistant_ask`, `capture_ask`, `institution_fill_from_documents` e `institution_fill_all_from_documents`, de `commands/assistant.rs`. `proposals_reject` se queda en ese archivo, porque las propuestas no se retiran en este bloque (hallazgo del DIS-3). Salen también, junto con sus líneas en `src/lib/tauri.ts` y `src/lib/types.ts`. Los vectores (la búsqueda por significado) no se borran: salen de `core` hacia la plataforma, como herramienta de la capa 4. Lo que Mi institución usa de esas piezas lo quita antes el ERP-5.
 6. **Sacar la IA de los servicios deterministas.** `documents/canonical/run.rs` llama a la IA: es la lectura de convocatorias, que es un operador de IA (capa 4, riel IA). Sale de `documents`, que se queda solo con lo determinista. La prueba estricta también impide que un servicio determinista use la IA: solo la plataforma y los comandos la usan.
 
-**Cambio al hacerlo (2026-10-20):** los vectores y la lectura de convocatorias **se retiraron, no se movieron** a la plataforma. Hay dos razones:
-- ya nadie los usaba: el ERP-5 dejó la búsqueda solo por palabras, y el ERP-4 quitó la lectura;
-- moverlos tal como están rompería otra regla: la plataforma alcanza a los módulos por contratos, no leyendo sus tablas.
+**Cambios al hacerlo:**
+- **Los vectores se retiraron, no se movieron** a la plataforma (2026-10-20). Ya nadie los usaba: el ERP-5 dejó la búsqueda solo por palabras. Además, moverlos tal como están rompería otra regla: la plataforma alcanza a los módulos por contratos, no leyendo sus tablas. Vuelven como herramienta de la plataforma sobre las capacidades.
+- **La lectura de convocatorias queda detenida en la plataforma** (`ai::canonical`), por la decisión del líder en el ERP-6 (2026-10-21): no se elimina. `documents/canonical` conserva lo determinista, incluida la recuperación (`retrieve.rs`).
 
-Vuelven como herramientas de la plataforma sobre las capacidades. Salió también `documents/canonical/retrieve.rs` (los vectores de Gemini y la elección de páginas), que solo servía a esa lectura. Está anotado en las «Consecuencias» del ADR-001.
+Las dos decisiones están en las «Consecuencias» del ADR-001.
 7. La suite completa, y el PR.
 
 **Lo que se pide a otros rieles:**
@@ -123,21 +123,24 @@ PR: https://github.com/J41M3C4B/SociAI/pull/20
 - [ ] Ayuda automática → guardar o cambiar la llave: se guarda y «Comprobar» funciona. Ya no se arma el índice de vectores en segundo plano.
 
 **Pruebas:**
-- `cargo test`: 661 pasan y 1 falla. Es la misma que falla hoy en `main`: el choque entre el DIS-4 y el ERP-4, pedido **ERP-6**. Esta rama no toca esos archivos.
+- `cargo test`: 583 pasan, 15 ignoradas (las corridas reales) y 0 fallan, sobre `main` con el ERP-6.
 - `pnpm test`: 224 pasan. `pnpm build` pasa.
 
 ## Hallazgos
 
 - **La hoja de la IA (`core/ai_sheet.rs`) no llama a la IA:** solo la usa en sus pruebas. Por eso no rompe la regla del IA-1, y se quitó del Plan. Se retira cuando el gestor de contexto la sustituya. Hoy también la usan `core::api` y Proyectos (la guía exportada).
 - **Las propuestas por campo (`core/agents/proposals.rs`) tampoco llaman a la IA.** Son la forma vieja de la confirmación, y se retiran cuando el IA-2 traiga la aprobación atada a los parámetros. Las usan los formularios y la lectura con reglas.
-- **`main` está en rojo desde el DIS-4.** El ERP-4 dejó Proyectos en `HIDDEN`, y la prueba de `core/places.rs` exige que un módulo congelado conserve su página en `Shell.tsx`. Pero el DIS-4 la quitó. Pedido **ERP-6**; el IA-1 espera a que pase.
-- **Queda código sin uso, y la retirada dejó más.** `main` ya tenía 222 avisos de código sin uso en la app; con esta rama son 270. Lo nuevo es código de Mi institución y de los módulos que solo servía a la IA vieja:
+- **`main` estuvo en rojo después del DIS-4.** El ERP-4 había dejado Proyectos en `HIDDEN`, y la prueba de `core/places.rs` exigía que un módulo congelado conservara su página en `Shell.tsx`, que el DIS-4 quitó. Lo resolvió el **ERP-6** (#21), sacando Proyectos del programa.
+- **La retirada dejó código sin uso en Mi institución y en los módulos** (unos 100 avisos del compilador). Es código que solo servía a la IA vieja:
   - casi toda la hoja de la IA (`core/ai_sheet.rs`);
   - `core/reader/quote.rs`;
   - lo del Asistente en `core/places.rs`, `core/records/mod.rs` y `core/institution/forms.rs`;
   - `ai_summary` de Beneficiarios y `lines` de Finanzas.
 
   También hay comentarios que todavía hablan del Asistente (`core/modules.rs`, `core/places.rs`). Es del riel ERP. No lo toqué, para no hacer trabajo de otro riel; el líder decide si va en un bloque aparte.
-- **La plataforma (`ai/`) conserva lo de las tareas viejas:** las tareas de Proyectos (`AiTask`), sus oficios, `figures.rs`, partes del `pipeline`, y `dry_run_tests.rs`, que el ERP-4 apagó. Propongo que el IA-2 empiece por ahí: dejar `ai/` con lo que se conserva según `codigo-frente-a-los-planos.md` (proveedores, configuración, la bóveda y el ritmo), y portar las pruebas del proveedor a un impulsor propio.
+- **La plataforma (`ai/`) conserva lo de las tareas viejas de Proyectos:** sus tareas en `AiTask` (conversación, diagnóstico, prioridades, redacción y el resumen de la convocatoria), sus oficios, `figures.rs`, y `dry_run_tests.rs`, que el ERP-4 apagó. Propongo que el IA-2 empiece por ahí:
+  - dejar `ai/` con lo que se conserva según `codigo-frente-a-los-planos.md` (proveedores, configuración, la bóveda y el ritmo);
+  - conservar la lectura de convocatorias detenida, con lo que usa (`CallCanonical`, su oficio y `golden`), como decidió el líder en el ERP-6;
+  - portar las pruebas del proveedor a un impulsor propio.
 
 ## Resultado
