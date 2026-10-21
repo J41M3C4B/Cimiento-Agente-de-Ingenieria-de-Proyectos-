@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-5
 carril: erp
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Mi institución
 pedido_por: IA-1
@@ -10,7 +10,7 @@ depende_de:
 rama: erp/erp-5-mi-institucion-sin-la-ia-vieja
 adr:
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-20
 ---
 
 ## Qué y por qué
@@ -102,3 +102,19 @@ PR: https://github.com/J41M3C4B/SociAI/pull/17
 - En una corrida de `pnpm test` hecha mientras compilaba Rust salieron «7 errors» con 29 archivos; repetida sola, pasó limpia (36 archivos, 218 tests). No guardé el detalle del primer error.
 
 ## Resultado
+
+Fusionado a `main` con *squash* en el PR #17 (`65a218a`), probado por el líder el 2026-10-20 en la app.
+
+**Qué quedó:**
+- Mi institución ya no usa la IA ni la plataforma fuera de `commands/`. Lo que sigue importando lo viejo es solo lo que el IA-1 retira (`core/agents/{assistant, capturist, tools}`, `core/reader/{ask, fill, upload}` y `archive/vectors`).
+- Las propuestas por campo viven en `core/proposals.rs`, sin la excepción del Capturista. `proposals_reject` quedó en `commands/mod.rs`, con el mismo nombre, permiso y firma.
+- La búsqueda del Expediente es solo por palabras. La parte de significado, con sus pruebas, está en `archive/vectors.rs`, lista para que el IA-1 la lleve a la plataforma.
+- Adjuntar un documento no llama a la IA. `FILLABLE` y `FormView.fill` ya no existen.
+- El onboarding no conoce la IA: el núcleo deja `ai_ready` en `None` y el comando lo completa desde la configuración de la plataforma.
+- El manual ya no habla del Asistente ni de llenar con IA.
+- `cargo test`: 788 pasan. `pnpm test`: 218 pasan. `pnpm build` pasa.
+
+**Lo que queda para el IA-1** (detalle en el PR #17):
+- Borrar `core/agents/{assistant, capturist, tools}` y `core/reader/{ask, fill, upload}` completos, incluido `reader/upload.rs` entero, no solo `after_upload`, y todas sus pruebas.
+- Mover `archive/vectors.rs` a la plataforma; `commands/mod.rs::index_documents` y `lib.rs` aún llaman a `index_in_background`.
+- Quitar de `commands/assistant.rs` y de `lib.rs` los comandos del Asistente, y de `lib/types.ts` el tipo `Fill` junto con `AssistantOutcome`.
