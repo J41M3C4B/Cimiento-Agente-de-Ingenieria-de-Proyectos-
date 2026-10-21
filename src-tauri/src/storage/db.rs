@@ -73,7 +73,8 @@ mod tests {
         let path = dir.path().join("t.db");
         let conn = open_encrypted(&path, KEY).unwrap();
         conn.execute_batch(
-            "DROP TABLE kernel_migrations; DROP TABLE kernel_audit; DROP TABLE muestra_note;
+            "DROP TABLE kernel_migrations; DROP TABLE kernel_audit; DROP TABLE kernel_outbox; DROP TABLE kernel_history;
+             DROP TABLE kernel_change; DROP TABLE muestra_note;
              INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','Asilo','elderly_home','t','t');",
         )
         .unwrap();
@@ -84,13 +85,13 @@ mod tests {
         let history: i64 = conn.query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
         assert_eq!(history, 34);
         let owners: Vec<(String, i64)> = conn
-            .prepare("SELECT owner, version FROM kernel_migrations ORDER BY owner")
+            .prepare("SELECT owner, version FROM kernel_migrations ORDER BY owner, version")
             .unwrap()
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
             .collect::<Result<_, _>>()
             .unwrap();
-        assert_eq!(owners, [("kernel".into(), 1), ("muestra".into(), 1)]);
+        assert_eq!(owners, [("kernel".into(), 1), ("kernel".into(), 2), ("muestra".into(), 1), ("muestra".into(), 2)]);
         conn.execute("INSERT INTO muestra_note (id, title, created_at) VALUES ('n', 'Nota', 't')", []).unwrap();
     }
 

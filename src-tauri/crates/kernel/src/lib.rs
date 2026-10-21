@@ -3,7 +3,8 @@
 //!
 //! It holds the manifest of a module and the registry of modules (K12); the migrations of each owner of tables: the
 //! kernel, every module and the AI platform (K4); the catalog of permissions, the roles and the decision to authorize
-//! (K2); and the audit store, where the platform leaves the life of each task (K9).
+//! (K2); the audit store, where the platform leaves the life of each task (K9); and every change of data, prepared
+//! and then applied in one transaction with its history, its origin and its fact (K4, K5 and K8).
 //!
 //! A module declares itself with `module!`, and the registry finds it when the program is linked, with no list
 //! (compiled, not run: a documentation example does not link SQLCipher on Windows):
@@ -49,6 +50,7 @@
 
 mod access;
 mod audit;
+mod change;
 mod conformance;
 mod migrate;
 mod module;
@@ -56,6 +58,10 @@ mod registry;
 
 pub use access::{authorize, classes_seen, role, Account, Denial, Permission, Role, Scope, CLASSES, GENERAL, ROLES};
 pub use audit::{record_task, AuditError, TaskEvent, TaskMoment};
+pub use change::{
+    applied, apply, fingerprint, history, new_id, propose, Applied, ApplyError, Changeable, Draft, FieldChange, Invalid, Origin,
+    Proposal, Record, Ref,
+};
 pub use conformance::{conform, Breach};
 pub use migrate::{migrate, migrate_owner, MIGRATIONS_TABLE};
 pub use module::{Manifest, Migration};

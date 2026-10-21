@@ -22,6 +22,9 @@ serde_json = "1"
 thiserror = "2"
 linkme = "0.3.37"
 tempfile = "3.27.0"
+hex = "0.4.3"
+sha2 = "0.11.0"
+ulid = "3.0.0"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
@@ -42,7 +45,7 @@ rusqlite = { workspace = true }
 # the kernel of the ERP (ADR-002): the registry of modules, their migrations and the vocabulary of permissions
 kernel = { workspace = true }
 getrandom = "0.4.3"
-hex = "0.4.3"
+hex = { workspace = true }
 keyring-core = "1.0.0"
 calamine = "0.36.1"
 umya-spreadsheet = "3.1.0"
@@ -56,8 +59,8 @@ pdfium-render = { version = "0.9.4", default-features = false, features = ["pdfi
 # not enlarge; only the formats read here, no threads
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "pnm"] }
 base64 = "0.22.1"
-ulid = "3.0.0"
-sha2 = "0.11.0"
+ulid = { workspace = true }
+sha2 = { workspace = true }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "native-tls", "charset", "http2", "system-proxy"] }
 async-trait = "0.1.92"
 jsonschema = "0.58.3"

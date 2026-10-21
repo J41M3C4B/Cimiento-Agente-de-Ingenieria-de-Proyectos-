@@ -97,7 +97,7 @@ pub fn record_task(conn: &Connection, event: &TaskEvent) -> Result<(), AuditErro
 }
 
 /// An optional lowercase prefix with `_` (`usr_`, `task_`), then a ULID: 26 characters of Crockford's base 32.
-fn is_id(s: &str) -> bool {
+pub(crate) fn is_id(s: &str) -> bool {
     let ulid = match s.rsplit_once('_') {
         Some((prefix, rest)) if !prefix.is_empty() && prefix.chars().all(|c| c.is_ascii_lowercase()) => rest,
         Some(_) => return false,
@@ -107,7 +107,7 @@ fn is_id(s: &str) -> bool {
 }
 
 /// Lowercase letters, digits, `_` and `.`, starting with a letter, up to 64.
-fn is_code(s: &str) -> bool {
+pub(crate) fn is_code(s: &str) -> bool {
     s.len() <= 64
         && s.starts_with(|c: char| c.is_ascii_lowercase())
         && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '.')
