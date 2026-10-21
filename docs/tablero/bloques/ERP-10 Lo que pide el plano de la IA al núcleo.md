@@ -2,12 +2,12 @@
 tipo: bloque
 id: ERP-10
 carril: erp
-estado: backlog
+estado: en-curso
 prioridad: alta
 caja: Autenticación, permisos y almacén de auditoría; Datos operativos del ERP; Eventos y tareas automáticas
 pedido_por: IA-6
 depende_de: ERP-8
-rama:
+rama: erp/erp-10-autorizacion-y-evento-de-tarea
 adr:
 creado: 2026-10-21
 cerrado:
@@ -53,7 +53,7 @@ Este bloque se queda con lo que el ejecutor del IA-2 necesita del núcleo para c
 
 ## Terminado cuando
 
-(Propuesta del riel ERP; la aprueba el líder.)
+Aprobado por el líder el 2026-10-21. Las casillas se marcan cuando cada punto queda hecho.
 
 - [ ] **Los permisos generales del núcleo,** los que hoy son el `enum Permission` (usar, borrar, ajustes, administrar), tienen id en el catálogo de K2, igual que los de los módulos.
 - [ ] **Los roles agrupan permisos por id,** y los dos roles de hoy (administración y dirección) siguen pudiendo lo mismo.
@@ -63,6 +63,39 @@ Este bloque se queda con lo que el ejecutor del IA-2 necesita del núcleo para c
 - [ ] `cargo test` y `pnpm test` pasan, sin red ni gasto.
 
 ## Plan
+
+Va en el núcleo (`crates/kernel`), porque la plataforma, como *crate* (A1), solo podrá usar el contrato y el núcleo. La app solo arma la cuenta desde su tabla de hoy.
+
+1. **El catálogo de K2.** Los cuatro permisos generales del núcleo tienen id: `kernel.usar`, `kernel.borrar`, `kernel.ajustes` y `kernel.administrar`. Van en el mismo catálogo que los de los módulos (`Modules::permissions()` y `permission(id)`). El `enum Permission` de la app dice el id de cada uno.
+2. **Los roles por id, en el núcleo.**
+   - `admin`: todo el catálogo;
+   - `manager`: `kernel.usar`.
+
+   `Role::can` de la app le pregunta al núcleo. Una prueba revisa que cada rol pueda lo mismo que antes.
+3. **La pregunta de autorización.** `kernel::authorize(&modules, &account, organization, permission)` es pura y se prueba sin base.
+   - La cuenta lleva su id, su organización, su rol, si está activa y si debe cambiar su contraseña.
+   - Dice que no, con el motivo, a:
+     - una cuenta desactivada;
+     - una que debe cambiar su contraseña;
+     - otra organización;
+     - un permiso o un rol que no existen;
+     - un permiso que el rol no tiene.
+   - En la app, `core::access::service::account(conn, id)` arma esa cuenta desde `app_user`. Su organización es la institución de la base (D4).
+4. **Las clases que ve una cuenta.** `kernel::classes_seen(&account)` devuelve las clases de hoy, las cinco de `DataClass` del contrato:
+   - los dos roles ven todas, como hoy;
+   - una cuenta desactivada no ve ninguna.
+
+   Una prueba en la app revisa que los ids coinciden con `DataClass`. Las clases definitivas llegan con el IA-3.
+5. **El evento de tarea (K9).** El núcleo es dueño de sus propias tablas (`kernel_`), con su primera migración: `kernel_audit`, con cuándo, evento, id de correlación, cuenta, sujeto, resultado y motivo.
+   - `kernel::record_task(conn, &TaskEvent)` guarda la apertura, el paso, la denegación, la aprobación y el cierre.
+   - **Sin datos personales por construcción:**
+     - el id de la tarea y el de la cuenta tienen forma de id (prefijo y ULID);
+     - la capacidad, el resultado y el motivo son códigos del programa (`&'static str` con forma de código), nunca texto que venga de la persona.
+   - Una prueba lo demuestra.
+   - Al abrir la base, el núcleo se migra antes que los módulos.
+6. **La suite completa y el PR.**
+
+**Lo que toca de otros rieles:** nada. Una línea en `core::access::domain`, que es del riel ERP (K2).
 
 ## Cómo probarlo
 
