@@ -38,16 +38,16 @@ cerrado:
 
 **Dónde entra cada punto (decisión del riel ERP, 2026-10-21):**
 
-| Punto | Bloque | Estado |
-|---|---|---|
-| 1. El permiso por su id (A2) | [[ERP-8 La forma de un módulo y el registro de módulos\|ERP-8]] | Hecho en su PR (#24). El `enum Permission` no se mudó. El núcleo guarda el catálogo por id (`Manifest::permissions`, `Modules::permission(id)`). Lo que falta es del IA-5: que el contrato nombre el permiso por id. |
-| 3. La plataforma, dueña de sus tablas (A3) | ERP-8 | Hecho en su PR (#24): la tabla `kernel_migrations (owner, version)`, `kernel::migrate_owner(conn, "ai", …)` y `kernel::conform` para cualquier dueño. El id `ai` queda reservado. |
-| El plano del ERP enlaza el de la IA | ERP-8 | Hecho en su PR (#24), con su fila en la §13. |
-| 2. La pregunta de autorización y las clases que ve cada cuenta (K2) | **Este bloque** | Por hacer |
-| 5. El evento de tarea en el almacén de auditoría (K9) | **Este bloque** | Por hacer |
-| 4. Saber si una huella se aplicó (K5) | [[ERP-9 Preparar y aplicar, con historial y origen\|ERP-9]] | Anotado en su tarjeta |
-| 6. El actor del sistema (K8, A7) | [[ERP-3 El calendario de vencimientos\|ERP-3]] | Anotado en su tarjeta |
-| 7. Los tipos de salida nombran sus campos del diccionario (A5) | [[ERP-2 La clase de cada dato declarada una sola vez\|ERP-2]] | Anotado en su tarjeta |
+| Punto                                                               | Bloque                                                          | Estado                                                                                                                                                                                                               |
+| ------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. El permiso por su id (A2)                                        | [[ERP-8 La forma de un módulo y el registro de módulos\|ERP-8]] | Hecho en su PR (#24). El `enum Permission` no se mudó. El núcleo guarda el catálogo por id (`Manifest::permissions`, `Modules::permission(id)`). Lo que falta es del IA-5: que el contrato nombre el permiso por id. |
+| 3. La plataforma, dueña de sus tablas (A3)                          | ERP-8                                                           | Hecho en su PR (#24): la tabla `kernel_migrations (owner, version)`, `kernel::migrate_owner(conn, "ai", …)` y `kernel::conform` para cualquier dueño. El id `ai` queda reservado.                                    |
+| El plano del ERP enlaza el de la IA                                 | ERP-8                                                           | Hecho en su PR (#24), con su fila en la §13.                                                                                                                                                                         |
+| 2. La pregunta de autorización y las clases que ve cada cuenta (K2) | **Este bloque**                                                 | Por hacer                                                                                                                                                                                                            |
+| 5. El evento de tarea en el almacén de auditoría (K9)               | **Este bloque**                                                 | Por hacer                                                                                                                                                                                                            |
+| 4. Saber si una huella se aplicó (K5)                               | [[ERP-9 Preparar y aplicar, con historial y origen\|ERP-9]]     | Anotado en su tarjeta                                                                                                                                                                                                |
+| 6. El actor del sistema (K8, A7)                                    | [[ERP-3 El calendario de vencimientos\|ERP-3]]                  | Anotado en su tarjeta                                                                                                                                                                                                |
+| 7. Los tipos de salida nombran sus campos del diccionario (A5)      | [[ERP-2 La clase de cada dato declarada una sola vez\|ERP-2]]   | Anotado en su tarjeta                                                                                                                                                                                                |
 
 Este bloque se queda con lo que el ejecutor del IA-2 necesita del núcleo para cada invocación: autorizar y dejar registro.
 
