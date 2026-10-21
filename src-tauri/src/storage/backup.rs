@@ -73,7 +73,6 @@ mod tests {
     use super::*;
     use crate::core::profile::domain::*;
     use crate::core::profile::storage as profile;
-    use crate::modules::projects::storage::projects;
 
     const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
     const OTHER_KEY: &str = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
@@ -83,7 +82,13 @@ mod tests {
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };
         profile::save(&mut c, &input).unwrap();
         profile::confirm(&mut c).unwrap();
-        projects::create_project(&mut c, "Proyecto de prueba", Some("Cambiar las tuberías de la cocina")).unwrap();
+        c.execute(
+            "INSERT INTO project (id,institution_id,profile_id,title,initial_request,stage,kind,created_at,updated_at)
+             SELECT 'proj_test', institution_id, id, 'Proyecto de prueba', 'Cambiar las tuberías de la cocina', 'PROFILE', 'internal', 't', 't'
+             FROM institution_profile ORDER BY version DESC LIMIT 1",
+            [],
+        )
+        .unwrap();
         // a page of a call, searchable like any other
         c.execute("INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,created_at) VALUES ('d','call','a.pdf','application/pdf','green','h','x',0,'t')", []).unwrap();
         crate::core::archive::storage::add_call_document(&c, "bases.pdf", "application/pdf", &["Convocatoria zanahoria 2027.".to_string()], 0, &Default::default()).unwrap();

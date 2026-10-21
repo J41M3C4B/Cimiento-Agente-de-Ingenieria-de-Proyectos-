@@ -341,17 +341,25 @@ mod tests {
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };
         crate::core::profile::storage::save(&mut c, &input).unwrap();
         crate::core::profile::storage::confirm(&mut c).unwrap();
-        let p = crate::modules::projects::storage::projects::create_project(&mut c, "Proyecto", None).unwrap();
+        let p_id = {
+            c.execute(
+                "INSERT INTO project (id,institution_id,profile_id,title,stage,kind,created_at,updated_at)
+                 SELECT 'proj_test', institution_id, id, 'Proyecto', 'PROFILE', 'internal', 't', 't' FROM institution_profile ORDER BY version DESC LIMIT 1",
+                [],
+            )
+            .unwrap();
+            "proj_test".to_string()
+        };
         // data of a person written straight into the database, as a bug or an old version might have left it
         c.execute(
             "INSERT INTO project_section (id,project_id,section_key,content,needs_review,updated_at,origin) VALUES ('s',?1,'what','La señora con CURP LOPM800101MDFRZN09 pidió ayuda.',0,'t','user')",
-            [&p.id],
+            [&p_id],
         )
         .unwrap();
         // the contact of a funder is public and is not a finding
         c.execute(
             "INSERT INTO project_section (id,project_id,section_key,content,needs_review,updated_at,origin) VALUES ('s2',?1,'why','Dudas: fundacion@ejemplo.org o 55 1234 5678.',0,'t','user')",
-            [&p.id],
+            [&p_id],
         )
         .unwrap();
         let dirty = scan_database(&c).unwrap();
@@ -368,7 +376,12 @@ mod tests {
         let input = ProfileInput { institution: InstitutionInput { name: "Asilo Ficticio".into(), ..Default::default() }, ..Default::default() };
         crate::core::profile::storage::save(&mut c, &input).unwrap();
         crate::core::profile::storage::confirm(&mut c).unwrap();
-        crate::modules::projects::storage::projects::create_project(&mut c, title, None).unwrap();
+        c.execute(
+            "INSERT INTO project (id,institution_id,profile_id,title,stage,kind,created_at,updated_at)
+             SELECT 'proj_test', institution_id, id, ?1, 'PROFILE', 'internal', 't', 't' FROM institution_profile ORDER BY version DESC LIMIT 1",
+            [title],
+        )
+        .unwrap();
         (path, Arc::new(Mutex::new(c)))
     }
 

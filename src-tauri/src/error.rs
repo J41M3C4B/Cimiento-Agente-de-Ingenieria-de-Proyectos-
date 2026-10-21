@@ -3,7 +3,6 @@
 
 use crate::scanner::guard::GuardError;
 use crate::core::error::ServiceError;
-use crate::modules::projects::ProjectsError;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -90,32 +89,6 @@ impl From<ServiceError> for UiError {
     }
 }
 
-impl From<ProjectsError> for UiError {
-    fn from(e: ProjectsError) -> Self {
-        use ProjectsError as P;
-        match e {
-            P::Core(e) => e.into(),
-            P::NotFound => ServiceError::NotFound.into(),
-            P::EmptyText => ServiceError::EmptyText.into(),
-            P::TextTooLarge => ServiceError::TextTooLarge.into(),
-            P::InvalidBudgetItem => UiError::new("invalid_budget_item", "Revise la cantidad (debe ser mayor que cero) y el precio (no puede ser negativo)."),
-            P::BudgetIncomplete => UiError::new("budget_incomplete", "Faltan los costos de algunas partidas. Escríbalos y después confirme el presupuesto."),
-            P::InvalidActivity => UiError::new("invalid_activity", "Revise los meses: empiezan en 1 y el final no puede ser antes del inicio."),
-            P::GuideHasPersonalData => UiError::new("guide_has_personal_data", "La guía traería datos que parecen de una persona, así que no se generó. Revise los textos del proyecto."),
-            P::WrongStage => UiError::new("wrong_stage", "Esto todavía no se puede hacer en este paso."),
-            P::Priority(_) => UiError::new("priority", "Cada calificación debe ir del 1 al 5."),
-            P::Stage(e) => {
-                let code = crate::modules::projects::diagnosis::stage_error_code(&e);
-                UiError { code, message: stage_message(code).to_string() }
-            }
-            P::Internal(m) => {
-                eprintln!("internal error: {m}");
-                UiError::internal()
-            }
-        }
-    }
-}
-
 /// The words for the rules of the accounts (ADR-028).
 pub fn access_message(code: &str) -> &'static str {
     match code {
@@ -143,20 +116,5 @@ pub fn access_message(code: &str) -> &'static str {
         "already_requested" => "Eso ya se pidió borrar; la persona administradora lo revisará.",
         "field_builtin" => "Ese dato es de los que el programa necesita y no se puede quitar.",
         _ => "No se pudo hacer. Intente otra vez.",
-    }
-}
-
-fn stage_message(code: &str) -> &'static str {
-    match code {
-        "profile_not_confirmed" => "Primero hay que revisar y confirmar los datos de su institución.",
-        "profile_too_old" => "Los datos de su institución tienen más de un año. Revíselos y confírmelos otra vez.",
-        "diagnosis_incomplete" => "Faltan preguntas del diagnóstico por responder.",
-        "summary_not_confirmed" => "Falta que usted revise y confirme el resumen del diagnóstico.",
-        "no_need_selected" => "Falta elegir cuál será el objetivo del proyecto.",
-        "call_not_ready" => "Falta elegir una convocatoria que sí encaje con el proyecto.",
-        "sections_not_confirmed" => "Faltan secciones del proyecto por revisar.",
-        "checklist_has_errors" => "Hay detalles por corregir antes de terminar.",
-        "already_final" => "Este proyecto ya está en el último paso.",
-        _ => "Solo se puede regresar a un paso anterior.",
     }
 }
