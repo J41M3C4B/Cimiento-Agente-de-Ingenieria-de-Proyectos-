@@ -2,7 +2,7 @@
 tipo: bloque
 id: DIS-4
 carril: diseno
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Interfaces de los módulos
 pedido_por: IA-1
@@ -42,7 +42,7 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 
 ## Plan
 
-**Rama:** `diseno/dis-4-proyectos-sin-la-ia-vieja`, de `main` al día, en la carpeta `sociai-diseno`. Solo `src/` y este bloque. `lib/tauri.ts` y `lib/types.ts` no se tocan: las líneas y los tipos de los comandos de Proyectos los quita el riel ERP al congelarlo. Esto aprovecha la regla que ya usó el DIS-3.
+**Rama:** `diseno/dis-4-proyectos-sin-la-ia-vieja`, de `main` al día, en la carpeta `sociai-diseno`. Solo `src/` y este bloque. `lib/tauri.ts` y `lib/types.ts`: **cambió el plan.** El ERP-4 se fusionó antes (PR #18) sin tocarlos, y dejó a este bloque quitar las llamadas y los tipos de los 14 comandos que retiró de Rust. Así se hizo.
 
 **Qué se retira y qué cambia** (visto en el código):
 
@@ -77,19 +77,29 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 ## Cómo probarlo
 
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- Carpeta y rama: `D:\Agente Proyectos\sociai-diseno`, rama `diseno/dis-4-proyectos-sin-la-ia-vieja` (PR #19).
+- Antes: nada nuevo. Strawberry Perl antes que el `perl` de Git en el `PATH`; el `target` de esa carpeta ya está compilado.
+- Arrancar: `pnpm tauri dev` desde esa carpeta (si tu propio `pnpm tauri dev` usa el puerto 1430, ciérralo antes o dime y lo corro aparte).
+- Al terminar: cerrar la app. Cambiar de rama en esa carpeta solo después de validar.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] **Barra:** solo «Inicio», «Mi institución» y «Documentos»; no hay «Mis proyectos».
+- [ ] **Inicio:** sin «Empezar un proyecto nuevo» y sin la carpeta larga «En curso / Notificaciones». Quedan las cifras, «Por hacer», la tarjeta de Mi institución y «Siguientes pasos» («Conecte la ayuda automática»).
+- [ ] **Ayuda** (engrane → «Ayuda»): sin «Los pasos de un proyecto»; quedan el buscador del manual, «Si algo no funciona» y «Sus datos».
+- [ ] **Una cuenta nueva** (Configuración → administración, crear una de dirección, entrar con ella): la bienvenida dice «Aquí reúne los datos y los documentos de su institución, en un solo lugar.» y el dibujo solo trae «Documentos». **Aquí te pido validar los textos** (los de la bienvenida, «Todo conectado» y «Siguientes pasos»).
+- [ ] **Mi institución y Documentos** se ven y funcionan como antes.
+- [ ] Repetir en tema oscuro; nada roto ni en blanco.
+- [ ] (Opcional) `git checkout proyectos-congelado` en otra carpeta muestra las pantallas de Proyectos como estaban.
 
 ## Hallazgos
 
 - **Para el ERP-4:** la decisión del líder cambia su alcance de «retirar la IA de Proyectos» a «congelar Proyectos». El contrato de comandos que dejó para el DIS-4 ya no se usa: este bloque no necesita ninguno de Proyectos.
 - **Para el ERP-4: no puede fusionarse antes que este bloque.** Su «Terminado cuando» dice «sin esperar al DIS-4», pero quita de `lib/tauri.ts` las llamadas de IA de Proyectos y las pantallas de `src/modules/projects/` aún las importan: `pnpm build` y `pnpm test` fallarían. El orden es este bloque, luego el ERP-4, luego el IA-1.
+- **Hecho en este bloque (2026-10-20):** el ERP-4 se fusionó antes (#18) y este bloque quitó las llamadas y los tipos de sus 14 comandos de `lib/tauri.ts` y `lib/types.ts`, además de las cascadas de tipos de convocatorias sin uso.
+- **Para el riel IA:** la página de «Ayuda automática» (`es.ai`) sigue diciendo que «lee las convocatorias y redacta» y que sin ella el programa «sigue con preguntas fijas»; es de la plataforma y no se tocó aquí.
+- **Para el líder:** la página «Documentos» (núcleo) sigue hablando de «convocatorias» y «proyectos» en sus textos («Usado en 1 convocatoria», «Sirven para todos sus proyectos»). No se tocaron: son el lenguaje del dominio, y tú decides si cambian cuando Proyectos esté congelado.
+- **Para el líder:** el dibujo de la bienvenida queda con un solo módulo («Documentos») mientras lo demás esté congelado.
 - **El IA-1** debería depender de este bloque, además del ERP-4 y el ERP-5.
 - **`docs/manual/`** (riel ERP) habla de Proyectos, del diagnóstico y de la convocatoria; y `core/places.rs` compone los lugares desde el manual. Sale con el congelamiento.
 
