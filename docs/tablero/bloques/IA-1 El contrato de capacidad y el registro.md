@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-1
 carril: ia
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Registro común de capacidades; Contratos de capacidades
 pedido_por:
@@ -10,7 +10,7 @@ depende_de:
 rama: ia/ia-1-contrato-de-capacidad
 adr: ADR-001
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-21
 ---
 
 ## Qué y por qué
@@ -30,7 +30,7 @@ El contrato declara:
 
 Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] El ADR-001 describe el contrato y el registro, y el líder lo aprueba.
+- [x] El ADR-001 describe el contrato y el registro, y el líder lo aprueba. *(Aceptado el 2026-10-21, al validar el bloque.)*
 - [x] Un módulo de prueba declara capacidades, y el registro las descubre sin que nadie las escriba en una lista. *(En la rama: `the_registry_finds_what_a_module_declares_without_a_list`.)*
 - [x] La clase de datos es un campo obligatorio del contrato. Las clases de IA-1 son provisionales: el ADR del IA-3 fija las definitivas y su política sin cambiar la forma del contrato. *(En la rama.)*
 - [x] El registro rechaza un contrato incompleto, como uno sin permiso, sin efecto o sin clase de datos, y una prueba lo demuestra. *(En la rama: sin permiso o sin efecto no compila, y lo prueban los doctests `compile_fail`; sin clase de datos y las demás reglas, `registry_tests`.)*
@@ -144,3 +144,23 @@ PR: https://github.com/J41M3C4B/SociAI/pull/20
   - portar las pruebas del proveedor a un impulsor propio.
 
 ## Resultado
+
+Fusionado a `main` con *squash* en el PR #20 (`11b1c85`), validado por el líder el 2026-10-21. El ADR-001 queda aceptado.
+
+**Qué quedó:**
+- **El contrato de capacidad, la macro `capability!` y el registro sin lista** (`src-tauri/src/capability/`, con `linkme` y `schemars`). La app arma el registro al arrancar, y no abre si un contrato está mal.
+- **Qué se rechaza:**
+  - al compilar, un contrato al que le falta un campo, lo que prueban 3 doctests `compile_fail`;
+  - al armar el registro, las demás reglas: 12 pruebas, que también recorren el registro real.
+- **La frontera de la IA:** `no_module_nor_service_uses_the_ai`, sin lista de excepciones. Ningún módulo, ni Mi institución ni un servicio determinista, usa la IA.
+- **Lo que salió:**
+  - el Asistente, el Capturista y sus herramientas;
+  - la IA del Lector;
+  - los 4 comandos que los envolvían, con sus permisos y sus líneas en el front;
+  - la búsqueda por significado.
+- **La lectura de convocatorias quedó detenida** en la plataforma (`ai::canonical`), por la decisión del líder en el ERP-6.
+- **Pruebas:**
+  - `cargo test`: 583 pasan, 0 fallan y 15 se ignoran (las corridas reales);
+  - `pnpm test`: 224 pasan; `pnpm build` pasa.
+
+**Lo que sigue:** los hallazgos de arriba. El código sin uso de Mi institución lo purga el ERP con el diseño del core, y el IA-2 empieza limpiando `ai/`.
