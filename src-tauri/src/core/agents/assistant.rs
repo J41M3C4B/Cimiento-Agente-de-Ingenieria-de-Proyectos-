@@ -347,7 +347,7 @@ pub fn map(conn: &rusqlite::Connection, question: &str) -> Result<Vec<String>, S
     if !totals.is_empty() {
         s.push_str(&format!("En resumen: {}. Las cifras son estas, tal cual: nunca las cuente usted.\n", totals.join("; ")));
     }
-    let pending = crate::core::agents::proposals::pending_counts(conn)?;
+    let pending = crate::core::proposals::pending_counts(conn)?;
     s.push_str("Ventanas de «Mi institución» (lo que falta y las sugerencias que esperan que la persona las revise):\n");
     for (form, place, name) in FILLABLE {
         let missing = crate::core::profile::forms::get(conn, form)?.missing.len();

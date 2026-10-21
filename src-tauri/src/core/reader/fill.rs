@@ -18,9 +18,9 @@ use crate::ai::{AiProvider, ModelTier};
 use crate::common::forms::{is_filled, FieldKind, FieldSpec, FormSpec, Values};
 use crate::core::agents::assistant::reason;
 use crate::core::agents::capturist::{describe, fit, open_fields, title, FILLABLE};
-use crate::core::agents::proposals::{self, NewProposal, Origin, ProposeOutcome};
+use crate::core::proposals::{self, NewProposal, Origin, ProposeOutcome};
 use crate::core::archive::storage::{self as docs, Drawer};
-use crate::core::archive::{search, vectors};
+use crate::core::archive::vectors;
 use crate::core::error::ServiceError;
 use crate::documents::canonical::retrieve::Embedder;
 use crate::storage::SharedDb;
@@ -154,7 +154,7 @@ pub fn passages_for(conn: &rusqlite::Connection, fields: &[&FieldSpec], vectors_
     for (i, f) in fields.iter().enumerate() {
         let query = query_of(f.id);
         let vector = vectors_of.get(i).and_then(|v| v.as_deref());
-        for p in search::search(conn, Drawer::Record, &query, vector, PER_FIELD, PASSAGE_CHARS)? {
+        for p in vectors::search_in(conn, Drawer::Record, None, &query, vector, PER_FIELD, PASSAGE_CHARS)? {
             if seen.contains(&p.chunk) {
                 continue;
             }

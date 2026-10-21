@@ -70,12 +70,12 @@ pub struct Suggestions {
     pub count: usize,
 }
 
-/// The suggestions waiting in each window the Capturist fills, as the window shows them.
+/// The suggestions waiting in each window of «Mi institución», as the window shows them.
 fn suggestions(conn: &Connection) -> Result<Vec<Suggestions>, ServiceError> {
     let mut out = Vec::new();
-    for (form, _, _) in crate::core::agents::capturist::FILLABLE {
-        let count = crate::core::profile::forms::get(conn, form)?.proposals.len();
-        let place = match *form {
+    for form in crate::core::institution::forms::FORMS {
+        let count = crate::core::profile::forms::get(conn, form.id)?.proposals.len();
+        let place = match form.id {
             "institution.contact" => Place::Contact,
             "institution.legal" => Place::Legal,
             "institution.capacity" => Place::Capacity,

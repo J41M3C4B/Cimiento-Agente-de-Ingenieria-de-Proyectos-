@@ -14,6 +14,7 @@ use crate::ai::pipeline::SqliteLedger;
 use crate::ai::{AiProvider, ModelTier};
 use crate::core::agents::assistant::reason;
 use crate::core::archive::search::{self, Passage};
+use crate::core::archive::vectors;
 use crate::core::archive::storage::{self as docs, Drawer};
 use crate::core::error::ServiceError;
 use crate::documents::canonical::retrieve::Embedder;
@@ -97,7 +98,7 @@ fn lock(db: &SharedDb) -> Result<std::sync::MutexGuard<'_, rusqlite::Connection>
 /// The passages for a question, named by their type. In one document (`document`), its first pages when no word of
 /// the question is in it.
 pub async fn passages_for(db: &SharedDb, embedder: Option<Arc<dyn Embedder>>, question: &str, document: Option<&str>) -> Result<Vec<Shown>, ServiceError> {
-    let mut found = search::search_documents_in(db, embedder, Drawer::Record, document, question, PASSAGES, PASSAGE_CHARS).await?.passages;
+    let mut found = vectors::search_documents_in(db, embedder, Drawer::Record, document, question, PASSAGES, PASSAGE_CHARS).await?.passages;
     let conn = lock(db)?;
     if found.is_empty() {
         if let Some(d) = document {

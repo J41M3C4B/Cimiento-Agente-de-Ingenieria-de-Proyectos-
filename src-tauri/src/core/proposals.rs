@@ -1,4 +1,5 @@
-//! What the AI proposes to change (ADR-034 §2). The AI never writes: a proposal names a field of a form of the
+//! What is proposed to change in «Mi institución» (ADR-034 §2), today by the rules that read a document. Nothing is
+//! written by the proposer: a proposal names a field of a form of the
 //! catalog, carries a value that fits that field, says where it comes from and waits until a person accepts or
 //! rejects it. Accepting is the usual save of the form (IA4): the person puts the suggestion in its field, may
 //! correct it, and «Guardar» marks it accepted in the same transaction as the datum.
@@ -76,10 +77,8 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
     let refused = |code| Ok(ProposeOutcome::Refused { code });
     let Some(form) = crate::core::institution::forms::form(&p.form_id) else { return refused("form_unknown") };
     let Some(field) = form.field(&p.field_id) else { return refused("field_unknown") };
-    // what the AI never sees it cannot propose; a document can (read by rules, ADR-034 §3), and the Capturist the
-    // institution's own data the person told it, copied from their words (ADR-041)
-    let told_own = p.agent == crate::core::agents::capturist::AGENT && field.sensitivity == Sensitivity::InstitutionalPrivate;
-    if p.origin == Origin::AiAssumption && field.ai == AiUse::Never && !told_own {
+    // what the AI never sees it cannot propose; a document can (read by rules, ADR-034 §3)
+    if p.origin == Origin::AiAssumption && field.ai == AiUse::Never {
         return refused("not_for_the_ai");
     }
     if !is_filled(Some(&p.value)) {
@@ -95,7 +94,7 @@ pub fn propose(conn: &Connection, p: NewProposal) -> Result<ProposeOutcome, Serv
     }
     // a protected datum of the institution read by a rule (its RFC, a folio) is its own, not a person's: covering it
     // would lose it; it never reaches the AI and its value is forgotten once the person decides (`forget_protected`)
-    let own = (p.origin == Origin::Document || told_own) && field.sensitivity == Sensitivity::InstitutionalPrivate;
+    let own = p.origin == Origin::Document && field.sensitivity == Sensitivity::InstitutionalPrivate;
     // the name of a place is not scanned, as when the person saves it (`profile::domain`): many are named after a person
     let place = field.rule == Some(crate::common::forms::Rule::PlaceName);
     let value = match &p.value {
@@ -356,7 +355,7 @@ mod tests {
             value,
             origin: Origin::AiAssumption,
             source_ref: Some("chat".into()),
-            agent: "capturist",
+            agent: "reader",
         }
     }
 
@@ -441,5 +440,16 @@ mod tests {
         assert_eq!(waiting.len(), 1, "one proposal per field");
         let text = waiting[0].value.as_str().unwrap();
         assert!(!text.contains("maria.lopez") && text.starts_with("Cuidar personas mayores."), "{text}");
+    }
+
+    /// What the AI never sees it cannot propose, whoever signs: there is no exception left for any agent.
+    #[test]
+    fn nobody_signing_as_the_ai_proposes_what_the_ai_never_sees() {
+        let (_d, c) = conn();
+        for agent in ["reader", "capturist"] {
+            let rfc = NewProposal { form_id: "institution.legal".into(), agent, ..new("institution.legal_rfc", json!("AAA010101AAA")) };
+            assert_eq!(propose(&c, rfc).unwrap(), ProposeOutcome::Refused { code: "not_for_the_ai" }, "{agent}");
+        }
+        assert!(pending(&c, "institution.legal", None).unwrap().is_empty());
     }
 }

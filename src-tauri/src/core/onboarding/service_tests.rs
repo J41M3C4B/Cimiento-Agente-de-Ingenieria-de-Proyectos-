@@ -263,3 +263,13 @@ fn what_mi_institucion_saves_is_confirmed_once_the_first_start_is_finished_and_n
     bad.institution.founded_year = Some(3000);
     assert!(matches!(save_profile_confirmed(&mut c, bad, None).unwrap(), SaveProfileOutcome::Invalid { .. }));
 }
+
+/// The core does not know the AI: whether it has its key is not said here, the command that answers adds it.
+#[test]
+fn the_setup_of_the_core_leaves_the_ai_to_the_platform() {
+    let (_d, c) = conn();
+    let admin = user(&c, "admin", Role::Admin);
+    let setup = status(&c, &admin).unwrap().setup.unwrap();
+    assert_eq!(setup.ai_ready, None);
+    assert!(serde_json::to_value(setup).unwrap()["ai_ready"].is_null());
+}

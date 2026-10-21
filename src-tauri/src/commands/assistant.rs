@@ -50,12 +50,3 @@ pub async fn institution_fill_all_from_documents(session: State<'_, Session>, db
     let embedder = crate::core::archive::vectors::embedder(&db, true);
     Ok(fill::fill_all(&db, provider.as_deref(), embedder).await?)
 }
-
-/// The person discards suggestions of the AI: nothing of the institution changes.
-#[tauri::command]
-pub fn proposals_reject(session: State<'_, Session>, db: State<'_, Db>, ids: Vec<String>) -> Result<usize, UiError> {
-    let gate = guard(&session, "proposals_reject")?;
-    let by = gate.user.as_ref().map(|u| u.id.clone());
-    let conn = super::lock(&db)?;
-    Ok(crate::core::agents::proposals::reject(&conn, &ids, by.as_deref())?)
-}

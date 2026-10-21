@@ -22,6 +22,7 @@ pub mod onboarding;
 pub mod overview;
 pub mod places;
 pub mod profile;
+pub mod proposals;
 pub mod protected;
 pub mod reader;
 pub mod records;

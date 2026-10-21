@@ -145,7 +145,7 @@ fn full_expediente() {
     println!("\nSugerencias que esperan en «Mi institución»:");
     let mut waiting = serde_json::Map::new();
     for form in FORMS {
-        for p in crate::core::agents::proposals::pending(&c, form, None).unwrap() {
+        for p in crate::core::proposals::pending(&c, form, None).unwrap() {
             println!("  {:<36} {:<40} {:?} p{}", p.field_id, p.value.to_string(), p.document.as_deref().unwrap_or("?"), p.page.unwrap_or(0));
             waiting.insert(p.field_id.clone(), p.value.clone());
         }
