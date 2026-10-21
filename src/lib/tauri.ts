@@ -8,17 +8,12 @@ import type {
   AiStatusView,
   AppError,
   AppPlace,
-  AssistantAsk,
   AttachStart,
   PlaceAnswer,
   PlaceStart,
   Expediente,
   RecordForm,
   RecordOutcome,
-  CaptureAsk,
-  CaptureOutcome,
-  FillOutcome,
-  AssistantOutcome,
   BackupFile,
   ScanSummary,
   BudgetItemInput,
@@ -99,13 +94,7 @@ export const institutionListSetActive = (kind: ListKind, id: string, active: boo
   invoke<InstitutionLists>("institution_list_set_active", { kind, id, active });
 export const institutionListDelete = (kind: ListKind, id: string) => invoke<InstitutionLists>("institution_list_delete", { kind, id });
 export const institutionClabeReveal = (id: string) => invoke<string>("institution_clabe_reveal", { id });
-// The Assistant (ADR-034 §4): a question from any screen
-export const assistantAsk = (ask: AssistantAsk, decision?: Decision) => invoke<AssistantOutcome>("assistant_ask", { ask, decision: decision ?? null });
-// The Capturist (IA4): suggestions in a window, and discarding them
-export const captureAsk = (capture: CaptureAsk, decision?: Decision) => invoke<CaptureOutcome>("capture_ask", { capture, decision: decision ?? null });
-// «Llenar con mis documentos» (C2): suggestions from the documents of the Expediente, one window or the four
-export const institutionFillFromDocuments = (form: string) => invoke<FillOutcome>("institution_fill_from_documents", { form });
-export const institutionFillAllFromDocuments = () => invoke<FillOutcome[]>("institution_fill_all_from_documents");
+// The suggestions per field: discarding them
 export const proposalsReject = (ids: string[]) => invoke<number>("proposals_reject", { ids });
 // The manual of the program (ADR-034): the «?» of each field and the search in Ayuda, offline
 export const manualEntry = (id: string) => invoke<ManualEntry | null>("manual_entry", { id });

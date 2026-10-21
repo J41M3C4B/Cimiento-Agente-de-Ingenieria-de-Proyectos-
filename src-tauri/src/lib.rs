@@ -1,5 +1,7 @@
 mod ai;
 mod audit;
+// public for the examples of its documentation, which are compiled from outside the crate (ADR-001)
+pub mod capability;
 mod commands;
 mod common;
 mod core;
@@ -23,6 +25,10 @@ pub fn run() {
         // the native window to choose a file: the record keeps where its original is (N4)
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // every capability of the program, checked once (ADR-001): with an invalid contract the app does not start
+            let registry = capability::Registry::discover()
+                .map_err(|errors| errors.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n"))?;
+            app.manage(registry);
             // what reads scanned pages and photos (OCR, ADR-035) ships with the program; the screen hears how many
             // pages are read
             documents::ocr::set_home(app.path().resource_dir()?.join("ocr"));
@@ -44,8 +50,6 @@ pub fn run() {
             let _ = core::snapshot::take(&conn);
             let db = Arc::new(Mutex::new(conn));
             // who is using the app (ADR-028): nobody until they enter
-            // the vectors of the documents that are missing (IA5), in the background, if the person chose Gemini
-            tauri::async_runtime::spawn(core::archive::vectors::index_in_background(db.clone()));
             app.manage(core::access::service::Session::new(db.clone()));
             app.manage(Db(db));
             app.manage(core::security::Attempts::default());
@@ -89,10 +93,6 @@ pub fn run() {
             commands::institution::institution_clabe_reveal,
             commands::manual_entry,
             commands::app_places,
-            commands::assistant::assistant_ask,
-            commands::assistant::capture_ask,
-            commands::assistant::institution_fill_from_documents,
-            commands::assistant::institution_fill_all_from_documents,
             commands::proposals_reject,
             commands::manual_search,
             commands::profile_confirm,

@@ -8,10 +8,10 @@
 //! Calls run one after another: the per-minute allowance of the model is small, and `pipeline::pace`
 //! waits it out. A block that cannot be read is left blank and listed, never invented.
 
-use super::assemble::{assemble, Answers, Reading};
-use super::contract::{canonical_schema, field_queries, model_schema, section_query, SECTIONS};
-use super::package::Package;
-use super::retrieve::{budget_chars, Embedder, Retrieval, RetrieverKind};
+use crate::documents::canonical::assemble::{assemble, Answers, Reading};
+use crate::documents::canonical::contract::{canonical_schema, field_queries, model_schema, section_query, SECTIONS};
+use crate::documents::canonical::package::Package;
+use crate::documents::canonical::retrieve::{budget_chars, Embedder, Retrieval, RetrieverKind};
 use crate::ai::pipeline::{self, AiCall, Custom, Ledger};
 use crate::ai::{AiError, AiProvider, AiTask};
 use crate::scanner::SensitiveScanner;

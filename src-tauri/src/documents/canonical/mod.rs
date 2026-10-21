@@ -8,11 +8,11 @@
 //!   how a call is written;
 //! * the **retriever** (`retrieve`) picks, for each block of the schema, the pages worth reading (by
 //!   meaning: embeddings, or a plain lexical score), so the model never receives 120 pages for a block;
-//! * the **model** fills the block with quotes copied from the pages;
+//! * the **model** fills the block with quotes copied from the pages, in the platform (`ai::canonical`): no
+//!   deterministic service calls the AI (ADR-001);
 //! * the **code** (`assemble`) verifies every quote against its page, reads dates, amounts and
 //!   percentages from the quotes, validates against the schema and keeps contradictions instead of
-//!   choosing;
-//! * `run` wires them in the two shapes to compare: the whole schema in one call, or one call per block.
+//!   choosing.
 //!
 //! Nothing here may depend on how one funder writes its calls: the code is measured on all of them and
 //! is never adjusted to one.
@@ -23,8 +23,4 @@ pub mod contract;
 pub mod normalize;
 pub mod package;
 pub mod retrieve;
-pub mod run;
 pub mod summary;
-
-#[cfg(test)]
-mod live_tests;

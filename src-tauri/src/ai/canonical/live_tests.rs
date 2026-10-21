@@ -12,10 +12,10 @@
 //! can embed (free); `canonical_live` makes the calls. A run whose result file already exists is skipped,
 //! so a run that stops can be started again without paying twice.
 
-use super::assemble::{assemble, evidence_text, Reading};
-use super::contract::{canonical_schema, field_queries, model_schema, model_schema_of, section_query, SECTIONS};
-use super::package::Package;
-use super::retrieve::{budget_chars, Embedder, GeminiEmbedder, Retrieval, RetrieverKind};
+use crate::documents::canonical::assemble::{assemble, evidence_text, Reading};
+use crate::documents::canonical::contract::{canonical_schema, field_queries, model_schema, model_schema_of, section_query, SECTIONS};
+use crate::documents::canonical::package::Package;
+use crate::documents::canonical::retrieve::{budget_chars, Embedder, GeminiEmbedder, Retrieval, RetrieverKind};
 use super::run::{read_canonical, Options, Strategy};
 use crate::ai::gemini::GeminiProvider;
 use crate::ai::{AiError, AiProvider, AiRequest, AiResponse, ModelTier};

@@ -88,7 +88,7 @@ fn full_expediente() {
                 println!("{file:<48} {kind:<26} NO SE PUDO: {}  ({secs:.1} s)", reason(r));
                 check(file, "no se pudo", json!(reason(r)), Some(want.get("no_se_pudo").unwrap_or(&Value::Null)));
             }
-            AttachOutcome::Attached { id: record, readable, from_picture, doubtful, covered, filled, suggested, .. } => {
+            AttachOutcome::Attached { readable, from_picture, doubtful, covered, filled, suggested, .. } => {
                 println!(
                     "{file:<48} {kind:<26} legible {readable}  de imagen {from_picture}  dudas {doubtful:?}  tapados {covered}  llenos {filled:?}  sugerencias {suggested}  ({secs:.1} s)"
                 );
@@ -101,14 +101,6 @@ fn full_expediente() {
                 filled.sort();
                 check(file, "llenos", json!(filled), want.get("llenos"));
                 check(file, "sugerencias", json!(suggested), want.get("sugerencias"));
-                // what the AI would be asked about this file when it is kept (ADR-042 §5): the code alone, no call
-                if let Some(doc) = document_of(&c, &record).unwrap() {
-                    let kind = crate::core::archive::storage::doc_type_of(&c, &doc).unwrap();
-                    let asked = crate::core::reader::upload::asked(&c, kind.as_deref()).unwrap();
-                    let (fields, passages) = crate::core::reader::upload::detect(&c, &doc, &asked).unwrap();
-                    let ids: Vec<&str> = fields.iter().map(|(_, f)| &f.id["institution.".len()..]).collect();
-                    println!("{:<48} pediría a la IA {} campos con {} pasajes: {}", "", ids.len(), passages.len(), ids.join(" "));
-                }
             }
         }
     }

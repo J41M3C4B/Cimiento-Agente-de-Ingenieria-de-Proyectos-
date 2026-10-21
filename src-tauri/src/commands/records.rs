@@ -87,7 +87,6 @@ pub async fn institution_record_attach(
             Err(error) => serde_json::json!({ "key": key, "kind": kind, "error": error }),
         };
         let _ = tauri::Emitter::emit(&app, "record-read", said);
-        super::index_documents(&shared);
     });
     Ok(AttachStart::Reading { key: started })
 }
@@ -137,7 +136,6 @@ pub async fn institution_record_place(
             Err(error) => serde_json::json!({ "key": target, "kind": kind, "error": error }),
         };
         let _ = tauri::Emitter::emit(&app, "record-read", said);
-        super::index_documents(&shared);
     });
     Ok(PlaceStart::Reading { key: started, kind: ended_kind })
 }
