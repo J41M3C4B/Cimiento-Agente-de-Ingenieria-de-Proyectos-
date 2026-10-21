@@ -2,12 +2,12 @@
 tipo: bloque
 id: IA-5
 carril: ia
-estado: backlog
+estado: en-curso
 prioridad: alta
-caja: Contratos de capacidades; Registro común de capacidades
+caja: Contratos de capacidades; Registro común de capacidades; Runtime; Ejecutor; Auditoría de tareas
 pedido_por: ERP-1
 depende_de: IA-1, ERP-8, ERP-10
-rama:
+rama: ia/ia-5-contrato-y-plataforma-en-crates
 adr:
 creado: 2026-10-20
 cerrado:
@@ -31,7 +31,7 @@ Para qué: el ERP-1 rehace Mi institución como el primer módulo sobre el núcl
 
 ## Terminado cuando
 
-(Propuesta del riel IA; la aprueba el líder.)
+Aprobado por el líder el 2026-10-21, las dos partes juntas. Las casillas se marcan cuando cada punto queda hecho.
 
 - [ ] **El runtime autoriza con el núcleo.** Cada invocación y cada entrega preguntan a `kernel::authorize` por la cuenta, la organización de la base y el id del permiso. Se deniegan, con el motivo de `Denial::code()`:
   - una cuenta desactivada;
@@ -47,6 +47,34 @@ Para qué: el ERP-1 rehace Mi institución como el primer módulo sobre el núcl
 - [ ] `cargo test` y `pnpm test` pasan, sin red ni gasto.
 
 ## Plan
+
+La rama sale de `main` con el IA-2 y el ERP-10 ya fusionados.
+
+1. **El *crate* del contrato** (`crates/capability`). Lleva `src/capability/` tal como está, salvo una cosa: el permiso deja de ser el `enum` de la app y pasa a ser un id (`permission: "kernel.usar"`). No depende del núcleo, de la plataforma ni de un módulo.
+2. **El *crate* de la plataforma** (`crates/platform`). Lleva el runtime del IA-2 (`src/ai/runtime/`).
+   - Se llama `platform` y no `ai`, porque la app todavía tiene su módulo `ai/` con lo viejo y los dos nombres chocarían. Se ajusta el plano, con su fila.
+   - Depende del contrato y del núcleo.
+3. **La autorización, por el núcleo:**
+   - el runtime pregunta a `kernel::authorize`, con la cuenta como está ahora;
+   - la app le da esa cuenta (`core::access::service::account`), solo si la sesión está abierta, sin bloquear y es de esa cuenta;
+   - la organización es la institución de la base;
+   - el motivo de una denegación es `Denial::code()`.
+4. **La auditoría, en el núcleo:** cada momento de la tarea va a `kernel::record_task`. Una migración nueva de la plataforma retira `ai_event`; una migración nunca se edita.
+5. **Los permisos de las capacidades se revisan al arrancar:**
+   - una capacidad cuyo permiso no define el núcleo ni ningún módulo detiene la app;
+   - una prueba lo revisa sobre el registro real.
+6. **El módulo de muestra publica una capacidad** con su permiso `muestra.notas.escribir`, y una prueba de la app la recorre de punta a punta:
+   - la Dirección no tiene ese permiso y se le niega;
+   - la Administración sí lo tiene.
+7. **Las fronteras:**
+   - la prueba del *workspace* aprende los dos *crates* nuevos, con sus reglas (A1 y A2);
+   - `architecture_tests.rs` deja de clasificar `capability` y `ai::runtime`, que ya no viven en la app.
+8. **La suite completa,** medir la primera compilación, y el PR.
+
+**Lo que toca de otros rieles:**
+- `Cargo.toml`: los dos *crates* nuevos, como miembros y como dependencias del *workspace*;
+- `src/workspace_tests.rs` (del ERP-8): las reglas de los dos *crates* nuevos;
+- el módulo de muestra: su primera capacidad.
 
 ## Cómo probarlo
 
