@@ -48,7 +48,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("with Beneficiarios and Finanzas frozen: the quick figure opens its window, with no movements nor money (ADR-043)", async () => {
-    vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "projects"));
+    vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents"));
     vi.mocked(institutionOverview).mockResolvedValue(overview(40, 12));
     const { onGo, onOpenFigures } = show();
     await waitFor(() => expect(screen.getByText("12")).toBeInTheDocument());
@@ -63,7 +63,7 @@ describe("the figures of the whole institution, at the top of Inicio", () => {
   });
 
   it("where people come and go, the count is of the last year and says so, with no places (ERP-2)", async () => {
-    vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents", "projects"));
+    vi.mocked(appPlaces).mockResolvedValue(places("home", "profile", "documents"));
     vi.mocked(institutionOverview).mockResolvedValue(overview(null, 340, false, "last_year"));
     show();
     await waitFor(() => expect(screen.getByText("340")).toBeInTheDocument());

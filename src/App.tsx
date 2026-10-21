@@ -10,7 +10,6 @@ import { ProfilePage } from "./core/profile/ProfilePage";
 import { RecordReadingWatcher } from "./core/profile/recordReading";
 import { attachedNotice } from "./core/profile/RecordWindow";
 import type { Where } from "./core/profile/gaps";
-import { ProjectsPage } from "./modules/projects/ProjectsPage";
 import { StaffPage } from "./modules/hr/StaffPage";
 import { CarePage } from "./modules/care/CarePage";
 import { FacilitiesPage } from "./modules/facilities/FacilitiesPage";
@@ -23,8 +22,6 @@ import { profileGet } from "./lib/tauri";
 
 export default function App() {
   const [page, setPage] = useState<Page>("home");
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
   // a window of «Mi institución» to open when arriving there (Inicio's «Ir a…»); `n` makes each request new.
   // It is used once: coming back to the page later must not open it again
   const [profileWindow, setProfileWindow] = useState<{ where: Where; n: number } | null>(null);
@@ -34,11 +31,6 @@ export default function App() {
 
   const institution = profile.data?.input.institution.name?.trim() || es.nav.profile;
 
-  const openProject = (id: string) => {
-    setOpenId(id);
-    setCreating(false);
-    setPage("projects");
-  };
   const goProfile = () => setPage("profile");
   const navigate = (p: Page) => setPage(p);
   // where a button of Inicio sends the person: a page, or a window of «Mi institución» (`profile.legal`)
@@ -47,20 +39,10 @@ export default function App() {
     setPage(target as Page);
     if (target === "profile" && part) setProfileWindow({ where: part as Where, n: Date.now() });
   };
-  const newProject = () => {
-    setOpenId(null);
-    setCreating(true);
-    setPage("projects");
-  };
 
   return (
     <Shell page={page} onNavigate={navigate} institution={institution} access={access}>
-      {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
-          project, the project that was open and what they were writing are still there when they come back */}
-      <div hidden={page !== "projects"}>
-        <ProjectsPage openId={openId} onOpen={setOpenId} creating={creating} onCreating={setCreating} />
-      </div>
-      {page === "home" && <HomePage onOpenProject={openProject} onNewProject={newProject} onGoProjects={() => setPage("projects")} onGoProfile={goProfile} onGoPlace={goTo} onGo={navigate} onGoAi={() => setPage("ai")} />}
+      {page === "home" && <HomePage onGoProfile={goProfile} onGoPlace={goTo} onGo={navigate} onGoAi={() => setPage("ai")} />}
       {page === "profile" && <ProfilePage onGo={navigate} openWindow={profileWindow} onWindowOpened={() => setProfileWindow(null)} />}
       {page === "staff" && <StaffPage />}
       {page === "people" && <CarePage />}
