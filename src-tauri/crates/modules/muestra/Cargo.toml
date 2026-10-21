@@ -9,3 +9,4 @@ publish = false
 kernel = { workspace = true }
 muestra-contract = { path = "contract" }
 rusqlite = { workspace = true }
+serde_json = { workspace = true }

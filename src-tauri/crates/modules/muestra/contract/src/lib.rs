@@ -12,3 +12,14 @@ use serde::{Deserialize, Serialize};
 /// A reference to a note: what another module keeps, never a copy of the note.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NoteRef(pub String);
+
+/// What saving a note asks: the same input prepares the change and applies it. A new note brings its id, made with
+/// `kernel::new_id("nota")` by whoever asks, so preparing and applying see the same note.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NoteInput {
+    pub id: String,
+    pub title: String,
+    pub body: Option<String>,
+    /// Protected: the history says it changed, never its value.
+    pub phone: Option<String>,
+}

@@ -2416,8 +2416,14 @@ dependencies = [
 name = "kernel"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "linkme",
  "rusqlite",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "ulid",
 ]
 
 [[package]]
@@ -2700,6 +2706,7 @@ dependencies = [
  "kernel",
  "muestra-contract",
  "rusqlite",
+ "serde_json",
 ]
 
 [[package]]

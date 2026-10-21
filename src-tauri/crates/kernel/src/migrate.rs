@@ -12,7 +12,10 @@ use crate::registry::Modules;
 pub const MIGRATIONS_TABLE: &str = "kernel_migrations";
 
 /// The kernel's own tables (`kernel_`): it is an owner like the others.
-pub(crate) const KERNEL_MIGRATIONS: &[Migration] = &[Migration { version: 1, sql: include_str!("../migrations/0001_audit.sql") }];
+pub(crate) const KERNEL_MIGRATIONS: &[Migration] = &[
+    Migration { version: 1, sql: include_str!("../migrations/0001_audit.sql") },
+    Migration { version: 2, sql: include_str!("../migrations/0002_change.sql") },
+];
 
 /// Applies the migrations the database does not have yet: the kernel's first, then module by module, each after the
 /// ones it depends on. Every registered module is migrated, on or off: turning a module on does not change the
@@ -102,7 +105,7 @@ mod tests {
         migrate(&mut conn, &modules).unwrap();
         assert_eq!(
             applied(&conn),
-            [("kernel".into(), 1), ("notas".into(), 1), ("notas".into(), 2), ("tareas".into(), 1), ("tareas".into(), 2)]
+            [("kernel".into(), 1), ("kernel".into(), 2), ("notas".into(), 1), ("notas".into(), 2), ("tareas".into(), 1), ("tareas".into(), 2)]
         );
         conn.execute("INSERT INTO notas_note (id, title) VALUES ('n', 'Hola')", []).unwrap();
         conn.execute("INSERT INTO tareas_task (id, due) VALUES ('t', '2026-10-21')", []).unwrap();
@@ -116,7 +119,7 @@ mod tests {
         migrate(&mut conn, &Modules::of([&NOTES]).unwrap()).unwrap();
         migrate_owner(&mut conn, "ai", PLATFORM).unwrap();
         migrate_owner(&mut conn, "ai", PLATFORM).unwrap();
-        assert_eq!(applied(&conn), [("ai".into(), 1), ("kernel".into(), 1), ("notas".into(), 1), ("notas".into(), 2)]);
+        assert_eq!(applied(&conn), [("ai".into(), 1), ("kernel".into(), 1), ("kernel".into(), 2), ("notas".into(), 1), ("notas".into(), 2)]);
     }
 
     #[test]
@@ -130,7 +133,7 @@ mod tests {
         };
         let mut conn = Connection::open_in_memory().unwrap();
         assert!(migrate(&mut conn, &Modules::of([&BROKEN]).unwrap()).is_err());
-        assert_eq!(applied(&conn), [("kernel".into(), 1), ("notas".into(), 1)]);
+        assert_eq!(applied(&conn), [("kernel".into(), 1), ("kernel".into(), 2), ("notas".into(), 1)]);
         let tag: i64 = conn.query_row("SELECT count(*) FROM sqlite_master WHERE name = 'notas_tag'", [], |r| r.get(0)).unwrap();
         assert_eq!(tag, 0);
     }
