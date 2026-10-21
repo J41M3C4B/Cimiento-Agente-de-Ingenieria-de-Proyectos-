@@ -25,6 +25,7 @@ tempfile = "3.27.0"
 hex = "0.4.3"
 sha2 = "0.11.0"
 ulid = "3.0.0"
+schemars = "1.2.2"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
@@ -70,7 +71,7 @@ tauri-plugin-dialog = "2.8.2"
 # the registry of capabilities (ADR-001): each one is gathered when the program is linked, with no list anywhere
 linkme = { workspace = true }
 # the JSON schema of a capability's input and output comes from its Rust type, never written by hand (ADR-001)
-schemars = "1.2.2"
+schemars = { workspace = true }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

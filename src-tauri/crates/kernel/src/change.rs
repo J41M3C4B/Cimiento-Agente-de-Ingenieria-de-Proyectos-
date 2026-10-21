@@ -14,6 +14,7 @@
 use std::fmt;
 
 use rusqlite::{params, Connection, OptionalExtension};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
@@ -21,7 +22,7 @@ use sha2::{Digest, Sha256};
 use crate::audit::{is_code, is_id};
 
 /// Any entity of any module: `muestra` · `note` · its id.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Ref {
     pub module: String,
     pub entity: String,
@@ -86,7 +87,7 @@ fn canonical(v: &Value, out: &mut String) {
 
 /// One field that changes. A protected one carries its values here, for the person who approves; the history keeps
 /// only that it changed.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct FieldChange {
     pub field: String,
     pub before: Value,
@@ -95,14 +96,22 @@ pub struct FieldChange {
 }
 
 /// A field that does not pass the validation, and the code of why.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Invalid {
     pub field: String,
-    pub reason: &'static str,
+    pub reason: String,
 }
 
-/// What a change would do, before doing it. It is the output of `prepare`, and what a person approves.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+impl Invalid {
+    /// The reason is a code written in the program (`required`, `too_long`), never text of a person.
+    pub fn new(field: &str, reason: &'static str) -> Invalid {
+        Invalid { field: field.into(), reason: reason.into() }
+    }
+}
+
+/// What a change would do, before doing it. It is the output of `prepare`, and what a person approves: the platform
+/// checks it against its schema and ties the approval to its fingerprint.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Proposal {
     pub entity: Ref,
     /// The version it was prepared against; 0 for a new entity.
@@ -188,19 +197,20 @@ pub trait Changeable {
 }
 
 /// A change applied.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Applied {
     /// The id of the record of the change.
     pub change: String,
     pub entity: Ref,
     /// The version the entity has after it.
     pub version: i64,
+    /// It had been applied before, and nothing was done this time: an `apply` repeated after an answer that did not
+    /// arrive. The change is made all the same, so it is a success.
+    pub already_applied: bool,
 }
 
 #[derive(Debug)]
 pub enum ApplyError {
-    /// This fingerprint was applied already: here is what it did. Nothing is done again.
-    AlreadyApplied(Applied),
     /// The datum or the input changed since it was prepared: prepare and approve again.
     Stale,
     /// Something does not pass the validation.
@@ -220,7 +230,6 @@ impl ApplyError {
     /// The code, for the platform and the screens.
     pub fn code(&self) -> &'static str {
         match self {
-            ApplyError::AlreadyApplied(_) => "already_applied",
             ApplyError::Stale => "prepare_again",
             ApplyError::Invalid(_) => "invalid",
             ApplyError::NothingToChange => "nothing_to_change",
@@ -250,8 +259,9 @@ impl From<rusqlite::Error> for ApplyError {
 }
 
 /// Applies a change in one transaction (K4). `approved` is the fingerprint a person approved, when the change asked
-/// for an approval; without it the change is applied as it is prepared now. `fact` is the code of what happened, for
-/// whoever reacts to it (`muestra.nota_guardada`).
+/// for an approval; without it the change is applied as it is prepared now. If that fingerprint was applied already,
+/// nothing is done again and the earlier change is the answer. `fact` is the code of what happened, for whoever
+/// reacts to it (`muestra.nota_guardada`).
 pub fn apply(conn: &mut Connection, what: &impl Changeable, approved: Option<&str>, origin: &Origin, fact: &'static str) -> Result<Applied, ApplyError> {
     if !origin.well_formed() {
         return Err(ApplyError::BadOrigin);
@@ -261,7 +271,7 @@ pub fn apply(conn: &mut Connection, what: &impl Changeable, approved: Option<&st
     }
     let tx = conn.transaction()?;
     if let Some(done) = approved.map(|fp| applied(&tx, fp)).transpose()?.flatten() {
-        return Err(ApplyError::AlreadyApplied(done));
+        return Ok(done);
     }
     let proposal = what.prepare(&tx)?;
     if approved.is_some_and(|fp| fp != proposal.fingerprint) {
@@ -305,15 +315,23 @@ pub fn apply(conn: &mut Connection, what: &impl Changeable, approved: Option<&st
         params![change, fact, e.module, e.entity, e.id],
     )?;
     tx.commit()?;
-    Ok(Applied { change, entity: proposal.entity, version })
+    Ok(Applied { change, entity: proposal.entity, version, already_applied: false })
 }
 
-/// Whether this fingerprint was applied, and what it did: so an `apply` that did not answer is not repeated blindly.
+/// Whether this fingerprint was applied, and what it did (with `already_applied`): so an `apply` that did not answer
+/// is not repeated blindly.
 pub fn applied(conn: &Connection, fingerprint: &str) -> rusqlite::Result<Option<Applied>> {
     conn.query_row(
         "SELECT id, module, entity, entity_id, version FROM kernel_change WHERE fingerprint = ?1",
         [fingerprint],
-        |r| Ok(Applied { change: r.get(0)?, entity: Ref { module: r.get(1)?, entity: r.get(2)?, id: r.get(3)? }, version: r.get(4)? }),
+        |r| {
+            Ok(Applied {
+                change: r.get(0)?,
+                entity: Ref { module: r.get(1)?, entity: r.get(2)?, id: r.get(3)? },
+                version: r.get(4)?,
+                already_applied: true,
+            })
+        },
     )
     .optional()
 }
@@ -411,6 +429,28 @@ mod tests {
             input: &input,
         });
         assert_eq!(new.changes, [FieldChange { field: "title".into(), before: Value::Null, after: json!("Nuevo"), protected: false }]);
+    }
+
+    /// The platform checks the output of `prepare` against the schema of the proposal and reads the fingerprint from it.
+    #[test]
+    fn a_proposal_has_a_schema_and_goes_and_comes_back_as_json() {
+        let input = json!({ "title": "Nuevo" });
+        let p = propose(Draft {
+            entity: Ref::new("muestra", "note", "nota_1"),
+            version: 1,
+            before: Some(map(json!({ "title": "Viejo" }))),
+            after: map(json!({ "title": "Nuevo" })),
+            protected: &[],
+            invalid: vec![Invalid::new("title", "too_long")],
+            input: &input,
+        });
+        let back: Proposal = serde_json::from_value(serde_json::to_value(&p).unwrap()).unwrap();
+        assert_eq!(back, p);
+        let schema = serde_json::to_value(schemars::schema_for!(Proposal)).unwrap();
+        let required: Vec<&str> = schema["required"].as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
+        for field in ["entity", "base_version", "changes", "invalid", "fingerprint"] {
+            assert!(required.contains(&field), "{field}: {schema}");
+        }
     }
 
     #[test]

@@ -32,15 +32,15 @@ fn fields(title: &str, body: &Option<String>, phone: &Option<String>) -> Map<Str
 fn invalid(input: &NoteInput) -> Vec<Invalid> {
     let mut out = Vec::new();
     if input.title.trim().is_empty() {
-        out.push(Invalid { field: "title".into(), reason: "required" });
+        out.push(Invalid::new("title", "required"));
     } else if input.title.chars().count() > 120 {
-        out.push(Invalid { field: "title".into(), reason: "too_long" });
+        out.push(Invalid::new("title", "too_long"));
     }
     let phone_ok = |p: &String| {
         p.chars().all(|c| c.is_ascii_digit() || matches!(c, ' ' | '+' | '-')) && p.chars().filter(char::is_ascii_digit).count() >= 8
     };
     if input.phone.as_ref().is_some_and(|p| !phone_ok(p)) {
-        out.push(Invalid { field: "phone".into(), reason: "not_a_phone" });
+        out.push(Invalid::new("phone", "not_a_phone"));
     }
     out
 }
@@ -129,7 +129,7 @@ mod tests {
         assert_eq!(again.changes.len(), 1);
         assert_eq!((again.changes[0].before.clone(), again.changes[0].after.clone()), (json!("Primera"), json!("Segunda")));
         let bad = prepare(&conn, &NoteInput { title: " ".into(), phone: Some("llámale a Rosa".into()), ..new }).unwrap();
-        let reasons: Vec<(&str, &str)> = bad.invalid.iter().map(|i| (i.field.as_str(), i.reason)).collect();
+        let reasons: Vec<(&str, &str)> = bad.invalid.iter().map(|i| (i.field.as_str(), i.reason.as_str())).collect();
         assert_eq!(reasons, [("title", "required"), ("phone", "not_a_phone")]);
     }
 
@@ -197,12 +197,11 @@ mod tests {
         let fp = prepare(&conn, &new).unwrap().fingerprint;
         assert_eq!(kernel::applied(&conn, &fp).unwrap(), None);
         let done = apply(&mut conn, &new, Some(&fp), &person()).unwrap();
-        assert_eq!(kernel::applied(&conn, &fp).unwrap(), Some(done.clone()));
-        // the platform did not hear the answer and tries again: nothing is done twice
-        match apply(&mut conn, &new, Some(&fp), &person()) {
-            Err(ApplyError::AlreadyApplied(earlier)) => assert_eq!(earlier, done),
-            other => panic!("{other:?}"),
-        }
+        assert!(!done.already_applied);
+        let earlier = Applied { already_applied: true, ..done.clone() };
+        assert_eq!(kernel::applied(&conn, &fp).unwrap(), Some(earlier.clone()));
+        // the platform did not hear the answer and tries again: nothing is done twice, and it is a success
+        assert_eq!(apply(&mut conn, &new, Some(&fp), &person()).unwrap(), earlier);
         assert_eq!(traces(&conn), [1, 1, 1, 1]);
     }
 
@@ -211,7 +210,7 @@ mod tests {
         let mut conn = db();
         let id = kernel::new_id("nota");
         match apply(&mut conn, &input(&id, ""), None, &person()) {
-            Err(ApplyError::Invalid(invalid)) => assert_eq!(invalid, [Invalid { field: "title".into(), reason: "required" }]),
+            Err(ApplyError::Invalid(invalid)) => assert_eq!(invalid, [Invalid::new("title", "required")]),
             other => panic!("{other:?}"),
         }
         apply(&mut conn, &input(&id, "Primera"), None, &person()).unwrap();
