@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-9
 carril: erp
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Unidad de trabajo (K4); Historial y origen (K5); Eventos (K8, la bandeja de hechos)
 pedido_por:
@@ -10,7 +10,7 @@ depende_de: ERP-8
 rama: erp/erp-9-preparar-y-aplicar
 adr:
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-21
 ---
 
 ## Qué y por qué
@@ -29,7 +29,7 @@ Aprobado por el líder el 2026-10-21. Las casillas se marcan cuando cada punto q
 - [x] **Aplicar revisa la versión y la huella:** si el dato o la entrada cambiaron desde que se preparó, no se aplica y pide preparar de nuevo. Una prueba lo demuestra.
 - [x] **Al aplicar, una sola transacción** escribe el dato, su historial con su origen (persona, documento y página, cálculo o tarea con su id), su hecho en la bandeja y el registro del cambio. Si algo falla, no queda nada. Una prueba lo demuestra.
 - [x] **El historial sirve para cualquier entidad de cualquier módulo,** solo crece, y lo protegido dice que cambió sin guardar el valor.
-- [ ] **El riel IA conoce y acepta** la forma de la propuesta y de la huella, anotada en el IA-2.
+- [x] **El riel IA conoce y acepta** la forma de la propuesta y de la huella, anotada en el IA-2.
 - [x] **K5 dice si una huella ya se aplicó** (punto 4 del ERP-10), para no repetir a ciegas un cambio incierto.
 - [x] `cargo test` y `pnpm test` pasan, sin red ni gasto.
 
@@ -127,14 +127,32 @@ PR [#27](https://github.com/J41M3C4B/SociAI/pull/27).
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] La app abre con la base de siempre y todo funciona como antes. Este bloque no cambia nada visible.
-- [ ] El riel IA confirma la forma de la propuesta y de la huella escrita en el plan.
+- [x] La app abre con la base de siempre y todo funciona como antes. Este bloque no cambia nada visible.
+- [x] El riel IA confirma la forma de la propuesta y de la huella escrita en el plan.
 
 ## Hallazgos
 
-- **Alguien marcó todas las casillas del «Terminado cuando» en la copia de esta tarjeta en la carpeta `sociai-erp`.** Las tarjetas se escriben en `sociai`, así que no lo subí. Lo guardé como parche (`erp9-casillas-ajenas.patch` en el *scratchpad* del agente ERP) y regresé el archivo a como estaba en git.
 - **El historial nuevo convive con el de Mi institución** (`core_field` y `core_change`). Este se retira cuando Mi institución pase a la forma de módulo (ERP-1).
 - **La bandeja de hechos (`kernel_outbox`) solo se llena.** Entregar los hechos y reaccionar a ellos es del ERP-3, con el actor del sistema.
 - **La validación de la muestra es suya por ahora** (título obligatorio, teléfono con forma de teléfono). Con el ERP-2, el diccionario la hace para cualquier entidad.
 
 ## Resultado
+
+Validado por el líder el 2026-10-21. El riel IA aceptó la forma de la propuesta y de la huella. Fusionado a `main` en el PR [#27](https://github.com/J41M3C4B/SociAI/pull/27) (`2299549`), antes que el IA-5, que hace `rebase` después.
+
+- **En el núcleo:**
+  - preparar (`propose`, `Proposal`) y la huella fija (`fingerprint`, `kernel.v1`);
+  - aplicar en una transacción (`apply` con `Changeable`), que escribe dato, versión, `kernel_change`, `kernel_history` con su origen y `kernel_outbox`;
+  - el historial de cualquier entidad, que solo crece (`history`);
+  - saber si una huella se aplicó (`applied`).
+- **Las precisiones del riel IA, ya hechas en el PR:**
+  - `Proposal` (con `Ref`, `FieldChange` e `Invalid`) y `Applied` derivan `Deserialize` y `JsonSchema`, y el núcleo usa `schemars` del *workspace*;
+  - aplicar una huella ya aplicada responde `Ok` con `already_applied: true`, en el núcleo, para que todos los módulos respondan igual.
+- **Lo que pone el riel IA** (IA-5):
+  - `Call.fingerprint` y `CapabilityError::Stale` (con el motivo `data_changed` en la pantalla);
+  - que el ejecutor ate la aprobación a `proposal.fingerprint`;
+  - que el registro exija que el `prepare` de toda capacidad de cambio devuelva una propuesta;
+  - cómo traduce el contrato los demás resultados: `invalid` como `Invalid`, y `bad_origin`, `bad_fact`, `version_not_raised` y `database` como `Failed`;
+  - una propuesta sin cambios no pide aprobación;
+  - un `apply` incierto se consulta con `applied` y nunca se aplica por su cuenta.
+- **Pruebas:** 657 de Rust y 224 del frontend.
