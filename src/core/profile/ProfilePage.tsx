@@ -6,9 +6,7 @@ import type { Page } from "../../components/Shell";
 import { ModuleCard } from "../../components/ModuleCard";
 import type { ModuleId } from "../../components/modules";
 import { es } from "../../i18n/es-MX";
-import { devLoadFixture, institutionFillAllFromDocuments, profileGet, toAppError } from "../../lib/tauri";
-import { fillAllNotice } from "./fromDocuments";
-import type { FillNotice } from "./fromDocuments";
+import { devLoadFixture, profileGet, toAppError } from "../../lib/tauri";
 import type { BankAccount, BoardMember, FormValue, InstitutionRecord, ListKind } from "../../lib/types";
 import { CapacityCard } from "./CapacityCard";
 import { FormWindow } from "./FormWindow";
@@ -107,7 +105,7 @@ export function ProfilePage({
   onWindowOpened,
 }: {
   onGo: (page: Page) => void;
-  /** a window to open on arrival (the Assistant's «Ir a…») */
+  /** a window to open on arrival (a «Ir a…» of Inicio) */
   openWindow?: { where: Where; n: number } | null;
   /** the request was used: whoever made it forgets it, so coming back does not open the window again */
   onWindowOpened?: () => void;
@@ -132,22 +130,6 @@ export function ProfilePage({
   const recordsPart = useRef<HTMLDivElement>(null);
   const [toRecords, setToRecords] = useState(0);
   const [busy, setBusy] = useState(false);
-  // «Llenar todo con mis documentos» (C2): the four windows from the documents of the Expediente
-  const [searching, setSearching] = useState(false);
-  const [fromDocs, setFromDocs] = useState<FillNotice | null>(null);
-  async function fillAllFromDocuments() {
-    setSearching(true);
-    setFromDocs(null);
-    try {
-      setFromDocs(fillAllNotice(await institutionFillAllFromDocuments()));
-      void qc.invalidateQueries({ queryKey: ["form"] });
-      void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
-    } catch (e) {
-      setFromDocs({ tone: "error", text: toAppError(e).message });
-    } finally {
-      setSearching(false);
-    }
-  }
   const [toast, setToast] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
   const view = profile.data ?? null;
@@ -207,7 +189,7 @@ export function ProfilePage({
         ? setList({ kind: "board_member", row: null })
         : open({ kind: w });
 
-  // the Assistant sent the person to the record: it is brought into view once it is drawn. In braces: a WebView2
+  // a button sent the person to the record: it is brought into view once it is drawn. In braces: a WebView2
   // returns a promise from scrollIntoView, and an effect must not return it
   useEffect(() => {
     if (toRecords === 0 || !recordsPart.current) return;
@@ -215,7 +197,7 @@ export function ProfilePage({
     setToRecords(0);
   }, [toRecords, records.data]);
 
-  // the Assistant sent the person to a window: it opens once per request
+  // a button sent the person to a window: it opens once per request
   useEffect(() => {
     if (!openWindow) return;
     goTo(openWindow.where);
@@ -463,15 +445,6 @@ export function ProfilePage({
                   </p>
                 )}
                 {records.isError && <Alert tone="error">{toAppError(records.error).message}</Alert>}
-                {records.data && records.data.records.some((r) => r.file?.readable) && (
-                  <div className="mb-2 space-y-2">
-                    <Button size="sm" variant="secondary" disabled={searching} onClick={() => void fillAllFromDocuments()}>
-                      <Icon name="file" size={16} />
-                      {searching ? es.suggestions.searchingDocuments : es.suggestions.fillAllFromDocuments}
-                    </Button>
-                    {fromDocs && <Alert tone={fromDocs.tone}>{fromDocs.text}</Alert>}
-                  </div>
-                )}
                 <ul className="-mx-2">
                   {records.data?.records.map((r) => (
                     <ListRow

@@ -38,12 +38,10 @@ vi.mock("../../lib/tauri", () => ({
   formGet: vi.fn(async () => view),
   formSave: vi.fn(async () => ({ status: "saved", profile: {} })),
   proposalsReject: vi.fn(async () => 1),
-  institutionFillFromDocuments: vi.fn(),
   toAppError: (e: unknown) => ({ code: "x", message: String(e) }),
 }));
 
-import { formGet, formSave, institutionFillFromDocuments, proposalsReject } from "../../lib/tauri";
-import { fillAllNotice } from "./fromDocuments";
+import { formGet, formSave, proposalsReject } from "../../lib/tauri";
 import { FormWindow } from "./FormWindow";
 
 function draw() {
@@ -98,34 +96,13 @@ describe("FormWindow with a suggestion read from a document (IA6)", () => {
   });
 });
 
-describe("«Llenar con mis documentos» (C2)", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("asks the Reader for this window and says how many suggestions it left, or why none", async () => {
-    vi.mocked(institutionFillFromDocuments)
-      .mockResolvedValueOnce({ status: "proposed", form: "institution.identity", place: "profile.institution", fields: ["institution.mission", "institution.age_min"], dropped: 1, note: "" })
-      .mockResolvedValueOnce({ status: "nothing", form: "institution.identity", place: "profile.institution", reason: "no_documents" })
-      .mockResolvedValueOnce({ status: "unavailable", form: "institution.identity", place: "profile.institution", reason: "not_configured" });
+describe("FormWindow does not offer to fill with the AI (DIS-3)", () => {
+  // the view still carries `fill` until the ERP drops it: the window must not draw anything from it
+  it("has no «Llenarlo por mí» nor «Llenar con mis documentos», though Rust says the window may be filled", async () => {
     draw();
-    const button = await screen.findByRole("button", { name: "Llenar con mis documentos" });
-    fireEvent.click(button);
-    await waitFor(() => expect(institutionFillFromDocuments).toHaveBeenCalledWith("institution.identity"));
-    expect(await screen.findByText("Dejé 2 sugerencias de sus documentos: revíselas abajo.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Llenar con mis documentos" }));
-    expect(await screen.findByText(/Su Expediente todavía no tiene documentos con texto/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Llenar con mis documentos" }));
-    expect(await screen.findByText(/La ayuda automática todavía no está configurada/)).toBeInTheDocument();
-    // nothing is saved by it: the suggestions wait under their fields
-    expect(formSave).not.toHaveBeenCalled();
-  });
-
-  it("«Llenar todo» adds up the four windows", () => {
-    const proposed = (n: number) => ({ status: "proposed" as const, form: "f", place: "p", fields: Array.from({ length: n }, (_, i) => `x${i}`), dropped: 0, note: "" });
-    expect(fillAllNotice([proposed(3), proposed(0), proposed(2), { status: "nothing", form: "f", place: "p", reason: "all_written" }]).text).toBe(
-      "Dejé 5 sugerencias de sus documentos en 2 ventanas de «Mi institución». Ábralas para revisarlas.",
-    );
-    expect(fillAllNotice([{ status: "nothing", form: "f", place: "p", reason: "no_documents" }]).text).toMatch(/todavía no tiene documentos/);
-    expect(fillAllNotice([proposed(1), { status: "unavailable", form: "f", place: "p", reason: "budget" }]).tone).toBe("error");
+    await screen.findByDisplayValue("Asilo Ficticio");
+    expect(screen.queryByRole("button", { name: "Llenarlo por mí" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Llenar con mis documentos" })).toBeNull();
   });
 });
 

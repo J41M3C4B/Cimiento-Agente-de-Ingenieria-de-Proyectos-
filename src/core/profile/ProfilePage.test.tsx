@@ -25,7 +25,7 @@ import { institutionOverview, institutionRecords, profileGet } from "../../lib/t
 import { ProfilePage } from "./ProfilePage";
 import type { Where } from "./gaps";
 
-/** As App holds it: the page, and the window the Assistant asked for. */
+/** As App holds it: the page, and the window a button of Inicio asked for. */
 function Harness() {
   const [page, setPage] = useState<"home" | "profile">("home");
   const [request, setRequest] = useState<{ where: Where; n: number } | null>(null);
@@ -47,7 +47,7 @@ function Harness() {
 }
 
 describe("ProfilePage", () => {
-  it("opens the window the Assistant asked for once; coming back later does not open it again", () => {
+  it("opens the window a button asked for once; coming back later does not open it again", () => {
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <Harness />
@@ -107,5 +107,7 @@ describe("the tiles of «Mi institución»", () => {
     );
     expect(await screen.findByText("constancia.pdf")).toBeInTheDocument();
     expect(screen.getAllByText("Sin archivo")).toHaveLength(1);
+    // DIS-3: a readable file no longer offers to read all the windows with the AI
+    expect(screen.queryByRole("button", { name: "Llenar todo con mis documentos" })).toBeNull();
   });
 });

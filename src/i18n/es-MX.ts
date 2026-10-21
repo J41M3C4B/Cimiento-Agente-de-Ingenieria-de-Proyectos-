@@ -298,11 +298,6 @@ export const es = {
         done !== null && total !== null && total > 1 ? `Leyendo: ${done} de ${total} páginas` : "Leyendo el archivo…",
       alreadyReading: "Ya estamos leyendo un archivo de este documento. Espere a que termine.",
       readEnded: (title: string, what: string) => `«${title}»: ${what}`,
-      // what a file just kept says of «Mi institución», read with the cheapest model (ADR-042 §5)
-      suggestedFromFile: (title: string, n: number, windows: string) =>
-        `«${title}»: encontramos ${n === 1 ? "1 dato más" : `${n} datos más`} para «Mi institución». ${n === 1 ? "Espera" : "Esperan"} como sugerencia en ${windows}.`,
-      suggestFailed: (title: string) =>
-        `«${title}»: no pudimos buscar más datos con la ayuda automática. Puede intentarlo después con «Llenar con mis documentos» en cada ventana de «Mi institución».`,
       computedFrom: "Calculado con la fecha de emisión del archivo.",
       pickTitle: "Elija el archivo del documento",
       pickFilter: "PDF, Word o foto",
@@ -1240,81 +1235,8 @@ export const es = {
     searchLabel: "Buscar en el manual",
     searchPlaceholder: "Por ejemplo: ¿qué pongo en «a qué se dedica»?",
     noResults: "No encontramos nada con esas palabras. Pruebe con otras.",
-    askMore: "Preguntar más",
   },
-  // The Assistant (ADR-034 §4): a panel from any screen. The conversation is gone when the program closes.
-  assistant: {
-    open: "Asistente",
-    title: "Asistente",
-    close: "Cerrar el asistente",
-    intro: "Pregúnteme con sus palabras qué poner en un dato, para qué sirve o cómo se hace algo. Esta conversación se borra al cerrar el programa.",
-    label: "Su pregunta",
-    placeholder: "Escriba su pregunta",
-    send: "Preguntar",
-    thinking: "Pensando…",
-    fieldQuestion: "¿Qué pongo aquí y para qué sirve?",
-    fromField: (title: string) => `Sobre «${title}»`,
-    sources: "Lo tomé del manual:",
-    documentSources: "Lo tomé de sus documentos:",
-    documentPage: (document: string, page: number | null) => (page ? `${document}, página ${page}` : document),
-    // the documents of the Expediente, written by the program under «¿qué documentos tengo?» (C4)
-    recordsHave: (n: number, names: string) => `${n === 1 ? "Tiene 1" : `Tiene ${n}`}: ${names}.`,
-    recordsMissing: (n: number, names: string) => `${n === 1 ? "Le falta 1" : `Le faltan ${n}`}: ${names}.`,
-    recordsInProgress: (names: string) => `En trámite: ${names}.`,
-    recordsExpiring: (names: string) => `Por vencer: ${names}.`,
-    recordsExpired: (names: string) => `Vencidos: ${names}.`,
-    recordsDated: (name: string, date: string) => `${name} (${date})`,
-    goTo: (place: string) => `Ir a ${place}`,
-    manualIntro: "Encontré esto en el manual:",
-    noHits: "No encontré nada en el manual con esas palabras. Pruebe con otras o vea la sección «Ayuda».",
-    clear: "Empezar de nuevo",
-    // why the AI did not answer (core/agents/assistant.rs `reason`): what happened, and what the person can do
-    reasons: {
-      not_configured: "La ayuda automática todavía no está configurada: falta su llave.",
-      key_rejected: "La llave de la ayuda automática no funciona: el servicio la rechazó.",
-      offline: "No hay conexión a internet, o no se pudo llegar al servicio de ayuda automática.",
-      busy: "El servicio de ayuda automática está saturado en este momento.",
-      quota: "Se acabaron las consultas de hoy del servicio de ayuda automática. Mañana vuelve a funcionar.",
-      budget: "Se terminó el presupuesto de ayuda automática de este mes.",
-      unavailable: "La ayuda automática no pudo responder esta vez.",
-    } as Record<string, string>,
-    reasonHelp: {
-      not_configured: { admin: "Configúrela en «Ayuda automática».", other: "Pídale a la persona administradora que la configure." },
-      key_rejected: { admin: "Revise la llave en «Ayuda automática».", other: "Pídale a la persona administradora que revise la llave." },
-      budget: { admin: "Puede revisar el tope de gasto en «Ayuda automática».", other: "La persona administradora puede revisar el tope de gasto." },
-      offline: { admin: "Revise su conexión e intente de nuevo.", other: "Revise su conexión e intente de nuevo." },
-      busy: { admin: "Intente de nuevo en unos minutos.", other: "Intente de nuevo en unos minutos." },
-      unavailable: { admin: "Intente de nuevo.", other: "Intente de nuevo." },
-    } as Record<string, { admin: string; other: string }>,
-    meanwhile: "Mientras tanto, le respondo con el manual:",
-    retry: "Intentar de nuevo",
-    toSettings: "Ir a «Ayuda automática»",
-    // «Llenarlo por mí» (IA4): the Capturist leaves suggestions in a window
-    fillMe: "Llenarlo por mí",
-    filling: (place: string) => `Llenando «${place}»`,
-    stopFilling: "Dejar de llenar",
-    fillPlaceholder: "Cuénteme con sus palabras",
-    fillIntro: (place: string) =>
-      `Cuénteme con sus palabras lo que sepa de «${place}». Yo dejo sugerencias en la ventana y usted decide cuáles usar: nada se guarda hasta que pulse «Guardar».`,
-    left: (n: number, place: string) => (n === 1 ? `Dejé 1 sugerencia en «${place}».` : `Dejé ${n} sugerencias en «${place}».`),
-    // what the Capturist left and what is still to tell, in the program's words (the titles come from the manual)
-    leftWhich: (n: number, place: string, titles: string[]) =>
-      `${n === 1 ? "Dejé 1 sugerencia" : `Dejé ${n} sugerencias`} en «${place}»: ${es.assistant.list(titles)}.`,
-    leftNone: (place: string) => `En lo que me contó no encontré datos para «${place}».`,
-    // what the person told and was saved already the same (ADR-042 §6): nothing to suggest
-    same: (titles: string[]) => `Ya estaba guardado igual: ${es.assistant.list(titles)}.`,
-    // «Llenarlo por mí» offered under an answer: the program's words, never the AI's (ADR-042 §6)
-    fillOffer: (place: string) =>
-      `Esos datos van en «Mi institución». Con el botón de abajo los dejo como sugerencias en la ventana de cada uno, empezando por «${place}», y usted decide cuáles guardar.`,
-    notTaken: "Lo que habría tenido que calcular o suponer no lo dejé: escríbalo usted en la ventana.",
-    still: (titles: string[]) => `Todavía puede contarme: ${es.assistant.list(titles)}.`,
-    list: (items: string[]) => {
-      const quoted = items.map((i) => `«${i}»`);
-      return quoted.length < 2 ? quoted.join("") : `${quoted.slice(0, -1).join(", ")} y ${quoted[quoted.length - 1]}`;
-    },
-    review: "Revisarlas",
-  },
-  // The suggestions of the AI in a window (ADR-034, IA4): the person uses or discards each one
+  // The suggestions in a window (ADR-034): the person uses or discards each one
   suggestions: {
     title: "Sugerencia de la IA:",
     said: (quote: string) => `Usted dijo: «${quote}»`,
@@ -1328,25 +1250,6 @@ export const es = {
         ? "Hay 1 sugerencia en esta ventana. «Usar» la pone en su campo, donde puede corregirla; se guarda hasta que pulse «Guardar»."
         : `Hay ${n} sugerencias en esta ventana. Revíselas una por una: «Usar» pone cada una en su campo, donde puede corregirla; se guardan hasta que pulse «Guardar».`,
     discardAll: "Descartar todas",
-    // «Llenar con mis documentos» (C2): the Reader of the Expediente leaves suggestions from the documents
-    fillFromDocuments: "Llenar con mis documentos",
-    fillAllFromDocuments: "Llenar todo con mis documentos",
-    searchingDocuments: "Buscando en sus documentos…",
-    fromDocuments: (n: number) =>
-      n === 0
-        ? "No encontré en sus documentos datos nuevos para los campos vacíos de esta ventana."
-        : n === 1
-          ? "Dejé 1 sugerencia de sus documentos: revísela abajo."
-          : `Dejé ${n} sugerencias de sus documentos: revíselas abajo.`,
-    fromDocumentsAll: (n: number, windows: number) =>
-      n === 0
-        ? "No encontré en sus documentos datos nuevos para los campos vacíos de «Mi institución»."
-        : `Dejé ${n} ${n === 1 ? "sugerencia" : "sugerencias"} de sus documentos en ${windows} ${windows === 1 ? "ventana" : "ventanas"} de «Mi institución». Ábralas para revisarlas.`,
-    nothingFromDocuments: {
-      all_written: "Todos los campos que puedo llenar en esta ventana ya están escritos.",
-      no_documents: "Su Expediente todavía no tiene documentos con texto. Súbalos en «Mi institución», en la parte del Expediente.",
-      nothing_found: "No encontré en sus documentos datos para los campos vacíos de esta ventana.",
-    } as Record<string, string>,
     pending: (n: number, place: string) => `Hay ${n} ${n === 1 ? "sugerencia" : "sugerencias"} en «${place}» para que las revise.`,
     review: "Revisarlas",
   },
