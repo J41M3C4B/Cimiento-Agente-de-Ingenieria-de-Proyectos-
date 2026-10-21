@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-10
 carril: erp
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Autenticación, permisos y almacén de auditoría; Datos operativos del ERP; Eventos y tareas automáticas
 pedido_por: IA-6
@@ -10,7 +10,7 @@ depende_de: ERP-8
 rama: erp/erp-10-autorizacion-y-evento-de-tarea
 adr:
 creado: 2026-10-21
-cerrado:
+cerrado: 2026-10-21
 ---
 
 ## Qué y por qué
@@ -109,9 +109,9 @@ PR [#26](https://github.com/J41M3C4B/SociAI/pull/26).
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] La app abre y desbloquea la base de siempre.
-- [ ] Con la cuenta de administración, el panel de administración abre como antes.
-- [ ] Si hay una cuenta de Dirección, con ella el panel no aparece, y borrar se vuelve una solicitud, como antes.
+- [x] La app abre y desbloquea la base de siempre.
+- [x] Con la cuenta de administración, el panel de administración abre como antes.
+- [x] Si hay una cuenta de Dirección, con ella el panel no aparece, y borrar se vuelve una solicitud, como antes.
 
 ## Hallazgos
 
@@ -120,3 +120,13 @@ PR [#26](https://github.com/J41M3C4B/SociAI/pull/26).
 - **`account()` e `institution::id()` todavía no se usan fuera de las pruebas.** Los va a usar el ejecutor del IA-2. Llevan `#[allow(dead_code)]`, con la razón escrita.
 
 ## Resultado
+
+Validado por el líder el 2026-10-21: la app abre con la base de siempre y los permisos funcionan como antes. Pasó por `rebase` sobre el IA-2 (#25) sin conflictos, y la suite completa pasa: 647 pruebas de Rust y 224 del frontend. Fusionado a `main` en el PR [#26](https://github.com/J41M3C4B/SociAI/pull/26) (`dcd63b9`).
+
+- **K2:**
+  - los permisos generales tienen id (`kernel.usar`, `kernel.borrar`, `kernel.ajustes`, `kernel.administrar`);
+  - los roles viven en el núcleo;
+  - `kernel::authorize` responde con su motivo, y `kernel::classes_seen` dice qué clases ve una cuenta;
+  - `Role::can` de la app, que también usa el runtime del IA-2, ya le pregunta al núcleo.
+- **K9:** `kernel_audit` y `kernel::record_task`, sin datos personales por construcción.
+- **Lo que sigue en el riel IA:** el runtime todavía autoriza con `role.can`. Pasar a `kernel::authorize` con `core::access::service::account` le suma revisar la cuenta activa y la organización. Escribir sus eventos con `kernel::record_task` también es suyo.
