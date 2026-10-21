@@ -1,6 +1,6 @@
 # Plano de la IA
 
-**Borrador del 2026-10-21, propuesto en el bloque IA-6. Lo aprueba el líder, con las decisiones de la §12.** Detalla, para el riel IA, las cajas que le tocan en [los planos de SociAI](planos-de-sociai.md):
+**Aprobado por el líder el 2026-10-21, con las siete decisiones de la §12** (bloque IA-6, [ADR-003](adr/ADR-003-la-plataforma-de-ia-por-dentro.md)). Detalla, para el riel IA, las cajas que le tocan en [los planos de SociAI](planos-de-sociai.md):
 - la capa 3 completa: la plataforma de inteligencia;
 - de la capa 4, los operadores, los agentes y las herramientas de IA;
 - de la capa 6, lo que es suyo: la clasificación aplicada, la política de datos, la validación de los contratos, la confirmación y la auditoría de las tareas.
@@ -285,24 +285,26 @@ Es lo que dibuja el riel de diseño.
 
 ## 7. Dónde se toca con el ERP
 
-Es la tabla para cuadrar los dos planos. **Acordado** quiere decir que ya está en un ADR, en un plano aprobado o en una tarjeta; **por acordar** quiere decir que este plano lo propone y el riel ERP lo revisa.
+Es la tabla para cuadrar los dos planos.
+- **Acordado:** ya estaba en un ADR, en el plano del ERP o en una tarjeta.
+- **Aprobado y pedido:** lo aprobó el líder con este plano, y lo construye el riel ERP. Los pedidos están juntos en el ERP-10 (§8).
 
 | # | Punto | Lo define | Lo usa | Plano del ERP | Este plano | Estado |
 |---|---|---|---|---|---|---|
-| 1 | El contrato de capacidad y el registro | IA (ADR-001; su *crate* en el IA-5) | ERP: cada módulo, y el núcleo, publican sus capacidades | §4 `capabilities`; prueba de conformidad | P3; §2 | Acordado. Su *crate*, por acordar (A2) |
-| 2 | Los permisos | ERP: cada módulo los declara en su manifiesto, y K2 los agrupa en roles | IA: el contrato nombra el permiso; el ejecutor le pregunta a K2 | K2 | P7 | Por acordar: el contrato nombra el permiso por su id (A2) |
-| 3 | Qué clases de datos ve cada rol | ERP (K2) | IA: la política, al armar el contexto y al entregar | K2; D2 | P10 | Por acordar con el IA-3 |
+| 1 | El contrato de capacidad y el registro | IA (ADR-001; su *crate* en el IA-5) | ERP: cada módulo, y el núcleo, publican sus capacidades | §4 `capabilities`; prueba de conformidad | P3; §2 | Acordado (ADR-001). Su *crate*: aprobado (A1, A2) y pedido |
+| 2 | Los permisos | ERP: cada módulo los declara en su manifiesto, y K2 los agrupa en roles | IA: el contrato nombra el permiso; el ejecutor le pregunta a K2 | K2 | P7 | Aprobado (A2) y pedido: el contrato nombra el permiso por su id |
+| 3 | Qué clases de datos ve cada rol | ERP (K2) | IA: la política, al armar el contexto y al entregar | K2; D2 | P10 | Pedido. Las clases, con el IA-3 |
 | 4 | Las clases de datos | IA: cuáles hay y qué permite cada una (ADR del IA-3) | ERP: declara la de cada campo en el diccionario (ERP-2) | K3 | P10 | Acordado (tarjetas ERP-2 e IA-3) |
-| 5 | La clase en la salida de una capacidad | ERP: el tipo de salida nombra el campo del diccionario | IA: toma la clase de K3, campo por campo | §4 `catalog` y `contract` | P10 | Por acordar (A5) |
+| 5 | La clase en la salida de una capacidad | ERP: el tipo de salida nombra el campo del diccionario | IA: toma la clase de K3, campo por campo | §4 `catalog` y `contract` | P10 | Aprobado (A5) y pedido, con el ERP-2 |
 | 6 | La propuesta y la huella | ERP (ERP-9) | IA: la muestra, ata la aprobación y pasa la huella al aplicar | §7 | P8 | Acordado en el IA-2: el formato, antes de cerrar el ERP-9 |
-| 7 | La llamada (`Call`) | IA | ERP la lee: la cuenta, la organización, la tarea y la huella aprobada | §7 (origen) | P7 | Por acordar: agregarle la organización y la huella |
-| 8 | El origen y el historial | ERP (K5) | IA: da la tarea y la cuenta en la llamada, pide la evidencia por capacidad y pregunta si una huella se aplicó | K5 | P2; P7 | Por pedir: consultar por huella |
+| 7 | La llamada (`Call`) | IA | ERP la lee: la cuenta, la organización, la tarea y la huella aprobada | §7 (origen) | P7 | Lo hace el riel IA: le agrega la organización y la huella. El formato de la huella, con el ERP-9 |
+| 8 | El origen y el historial | ERP (K5) | IA: da la tarea y la cuenta en la llamada, pide la evidencia por capacidad y pregunta si una huella se aplicó | K5 | P2; P7 | Pedido: consultar por huella |
 | 9 | «Qué falta» y preguntarle a la persona | ERP: lo calcula el núcleo (K3) | IA: `NeedsPerson` nombra campos del diccionario, y la entrega los manda como aclaración con opciones | §8 | P9 | Pedido por el ERP, para cuando exista el ERP-2 |
-| 10 | Hechos y vencimientos | ERP (K8): los emite, y cada módulo declara a qué reacciona | IA: entran al runtime como peticiones, y las reacciones corren como flujos por el ejecutor | K8; §4 `events` | P1; P5 | Por acordar con el ERP-3 (A7) |
+| 10 | Hechos y vencimientos | ERP (K8): los emite, y cada módulo declara a qué reacciona | IA: entran al runtime como peticiones, y las reacciones corren como flujos por el ejecutor | K8; §4 `events` | P1; P5 | Aprobado (A7) y pedido, con el ERP-3 |
 | 11 | Las vistas de varios módulos | IA: un flujo que combina capacidades (P5) | ERP: publica las capacidades de cada parte | §2; §6.3 | P5 | Acordado (lo dice el plano del ERP) |
-| 12 | La auditoría | ERP: el almacén (K9) | IA: escribe los eventos de sus tareas | K9 | P12 | Por acordar: la forma del evento de tarea |
-| 13 | Las tablas de la plataforma | IA: tareas, pasos, aprobaciones y uso de los modelos | ERP: el mecanismo de migraciones por dueño (K4) | K4 | P2 | Por pedir: que la plataforma sea un dueño más |
-| 14 | Documentos y búsqueda | ERP (K6 y K10) | IA: el conocimiento documental del gestor de contexto, por capacidades del núcleo | K6; K10 | P6 | Por pedir: que el núcleo publique capacidades (A2) |
+| 12 | La auditoría | ERP: el almacén (K9) | IA: escribe los eventos de sus tareas | K9 | P12 | Pedido: el evento de tarea |
+| 13 | Las tablas de la plataforma | IA: tareas, pasos, aprobaciones y uso de los modelos | ERP: el mecanismo de migraciones por dueño (K4) | K4 | P2 | Aprobado (A3) y pedido: la plataforma es un dueño más |
+| 14 | Documentos y búsqueda | ERP (K6 y K10) | IA: el conocimiento documental del gestor de contexto, por capacidades del núcleo | K6; K10 | P6 | Aprobado (A2) y pedido: el núcleo publica capacidades |
 | 15 | Los comandos de Tauri | ERP retira los de cada módulo (D6) | IA da la entrada al runtime; diseño la llama | D6 | P1 | Acordado (D6) |
 
 **Lo que el ERP le pidió al riel IA, y dónde queda:**
@@ -314,7 +316,7 @@ Es la tabla para cuadrar los dos planos. **Acordado** quiere decir que ya está 
 
 ## 8. Lo que este plano le pide al ERP
 
-Se revisan con el riel ERP. Se vuelven pedidos en el tablero solo cuando el líder apruebe el plano.
+Los aprobó el líder con el plano (2026-10-21). Están juntos en el pedido **ERP-10**, y el riel ERP decide en qué bloque suyo entra cada uno. El 1 va primero, porque toca al ERP-8, que está en curso.
 
 1. **El contrato, debajo del núcleo** (A2). Hoy el ERP-8 muda `Permission` al núcleo, y el contrato lo toma de ahí. Se propone al revés:
    - el contrato nombra el permiso por su id (`contabilidad.polizas.registrar`);
@@ -401,9 +403,11 @@ El esqueleto primero, sin modelo, probado con **una** capacidad de punta a punta
 
 ---
 
-## 12. Las decisiones para el líder
+## 12. Las decisiones del líder (2026-10-21)
 
-| | Decisión | Se recomienda | Por qué | ¿Toca al ERP? |
+Las siete se aprobaron como se recomendaban. Las recoge el [ADR-003](adr/ADR-003-la-plataforma-de-ia-por-dentro.md).
+
+| | Decisión | Se aprobó | Por qué | ¿Toca al ERP? |
 |---|---|---|---|---|
 | **A1** | La plataforma es un *crate* propio del *workspace*, que depende del contrato y del núcleo. Ni el núcleo ni un módulo pueden usarla | **Sí** | La frontera del IA-1 la hace cumplir el compilador, igual que D5. | Sí: entra al *workspace* del ERP-8. |
 | **A2** | El contrato de capacidad va en el *crate* más bajo, y nombra el permiso por su id. El catálogo, los roles y la decisión son de K2 | **Sí** | Sin esto, el núcleo no puede publicar capacidades (documentos, búsqueda, historial), y el gestor de contexto tendría que leerlo por fuera del ejecutor. | Sí: cambia cómo el ERP-8 muda `Permission`. |
@@ -419,4 +423,4 @@ El esqueleto primero, sin modelo, probado con **una** capacidad de punta a punta
 
 | Fecha | Ajuste |
 |---|---|
-| 2026-10-21 | Primer borrador, propuesto en el IA-6. |
+| 2026-10-21 | Primera versión, aprobada con las decisiones A1 a A7 (IA-6, ADR-003). Lo que toca al ERP se pidió en el ERP-10. |
