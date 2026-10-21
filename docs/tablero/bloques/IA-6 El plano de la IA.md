@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-6
 carril: ia
-estado: backlog
+estado: en-curso
 prioridad: alta
 caja: Runtime; Enrutador; Planificador; Registro; Gestor de contexto; Ejecutor; Estado, límites y ciclo de vida; Entrega de resultados; Operadores y agentes de IA; Clasificación aplicada, política de datos, validación, confirmación y auditoría de tareas
 pedido_por:
@@ -23,9 +23,9 @@ Con los dos planos, el riel IA cuadra el suyo con el del ERP, y el riel ERP cuad
 
 ## Terminado cuando
 
-(Propuesta; la aprueba el líder.)
+Aprobado por el líder el 2026-10-21. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **El plano de la IA** (`docs/plano-de-la-ia.md`) dice:
+- [x] **El plano de la IA** (`docs/plano-de-la-ia.md`) dice:
   - dónde vive la plataforma;
   - sus piezas y un recorrido completo;
   - los tres niveles de ejecución;
@@ -36,20 +36,19 @@ Con los dos planos, el riel IA cuadra el suyo con el del ERP, y el riel ERP cuad
   - el veredicto del código de hoy.
 
   El líder lo leyó y lo aprobó.
-- [ ] **Las decisiones A1 a A7** están aprobadas por el líder, y las que tocan al ERP las revisó el riel ERP.
-- [ ] **El ADR-003** las recoge.
-- [ ] **Los planos, el plano del ERP y el modelo de trabajo** enlazan el plano de la IA, con su fila en «Ajustes hechos a los planos».
-- [ ] **El tablero tiene lo que sigue:**
+- [x] **Las decisiones A1 a A7** están aprobadas por el líder (2026-10-21), y lo que toca al ERP está pedido en el ERP-10.
+- [x] **El ADR-003** las recoge. *(Queda aprobado al validar el bloque.)*
+- [x] **Los planos y el modelo de trabajo** enlazan el plano de la IA, con su fila en «Ajustes hechos a los planos». El enlace desde el plano del ERP lo pone el riel ERP (ERP-10).
+- [x] **El tablero tiene lo que sigue:**
   - el IA-2 con su «Terminado cuando» ajustado;
-  - los pedidos al riel ERP de la §8, como tarjetas o anotados en las que ya existen.
+  - los pedidos al riel ERP de la §8, juntos en el ERP-10.
 
 ## Plan
 
 1. Leer los planos, el plano del ERP, los ADR-001 y ADR-002, la investigación y, al final, el código, solo para el veredicto. Revisar la rama del ERP-8, que está en curso, para que el *workspace* cuadre.
-2. Borrador del plano, revisado con el líder.
-3. Revisar con el riel ERP las decisiones que lo tocan (A1, A2, A3, A5 y A7). La A2 va primero, porque cambia cómo el ERP-8 muda `Permission`.
-4. El ADR-003, los enlaces y el PR.
-5. Las tarjetas.
+2. Borrador del plano, revisado con el líder: aprobado el 2026-10-21 con las siete decisiones, como se recomendaban.
+3. El ADR-003, los enlaces y el PR.
+4. Las tarjetas: el pedido ERP-10 con lo que toca al ERP (A1, A2, A3, A5 y A7; la A2 va primero, porque cambia cómo el ERP-8 muda `Permission`), y el IA-2 ajustado.
 
 Es solo documentación: no cambia código.
 

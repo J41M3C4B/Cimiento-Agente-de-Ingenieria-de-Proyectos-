@@ -32,12 +32,13 @@ Se arma primero sin modelo para probar el camino con un flujo determinista, sin 
 
 ## Terminado cuando
 
-(Propuesta; la aprueba el líder.)
+(Propuesta; la aprueba el líder. Ajustada el 2026-10-21 con [el plano de la IA](../../plano-de-la-ia.md): piezas P1, P2, P7, P8, P9 y P12, y decisiones A3 y A4.)
 
-- [ ] Una petición recorre runtime → tarea → ejecutor → entrega con una capacidad determinista de prueba, y el resultado llega con el id de la tarea.
+- [ ] Una petición de pantalla que nombra una capacidad recorre runtime → tarea → ejecutor → entrega, como flujo determinista, sin enrutador ni modelo y con todos los controles. El resultado llega en el contrato común de resultados, con el id de la tarea.
 - [ ] Toda tarea registra su cierre: terminada, pausada, denegada, por límite o con error, con su motivo y sin datos personales.
-- [ ] Los límites de pasos, reintentos, gasto y tiempo cortan una tarea que no avanza. Una prueba lo demuestra.
-- [ ] Una modificación se prepara, espera aprobación atada a sus parámetros, y se vuelve a pedir si los parámetros cambian.
+- [ ] Los límites de pasos, reintentos, gasto y tiempo cortan una tarea que no avanza, y la misma capacidad con la misma entrada dos veces la cierra por límite. Una prueba lo demuestra.
+- [ ] Una modificación se prepara, espera aprobación atada a sus parámetros, y se vuelve a pedir si los parámetros cambian. La huella del ERP-9 se agrega cuando exista.
+- [ ] Las tareas se guardan en la base: una tarea pausada o esperando aprobación sigue ahí al volver a abrir la app, y se reanuda.
 
 ## Plan
 
