@@ -84,12 +84,12 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] **Barra:** solo «Inicio», «Mi institución» y «Documentos»; no hay «Mis proyectos».
-- [ ] **Inicio:** sin «Empezar un proyecto nuevo» y sin la carpeta larga «En curso / Notificaciones». Quedan las cifras, «Por hacer», la tarjeta de Mi institución y «Siguientes pasos» («Conecte la ayuda automática»).
-- [ ] **Ayuda** (engrane → «Ayuda»): sin «Los pasos de un proyecto»; quedan el buscador del manual, «Si algo no funciona» y «Sus datos».
-- [ ] **Una cuenta nueva** (Configuración → administración, crear una de dirección, entrar con ella): la bienvenida dice «Aquí reúne los datos y los documentos de su institución, en un solo lugar.» y el dibujo solo trae «Documentos». **Aquí te pido validar los textos** (los de la bienvenida, «Todo conectado» y «Siguientes pasos»).
-- [ ] **Mi institución y Documentos** se ven y funcionan como antes.
-- [ ] Repetir en tema oscuro; nada roto ni en blanco.
+- [x] **Barra:** solo «Inicio», «Mi institución» y «Documentos»; no hay «Mis proyectos».
+- [x] **Inicio:** sin «Empezar un proyecto nuevo» y sin la carpeta larga «En curso / Notificaciones». Quedan las cifras, «Por hacer», la tarjeta de Mi institución y «Siguientes pasos» («Conecte la ayuda automática»).
+- [x] **Ayuda** (engrane → «Ayuda»): sin «Los pasos de un proyecto»; quedan el buscador del manual, «Si algo no funciona» y «Sus datos».
+- [x] **Una cuenta nueva** (Configuración → administración, crear una de dirección, entrar con ella): la bienvenida dice «Aquí reúne los datos y los documentos de su institución, en un solo lugar.» y el dibujo solo trae «Documentos». **Aquí te pido validar los textos** (los de la bienvenida, «Todo conectado» y «Siguientes pasos»).
+- [x] **Mi institución y Documentos** se ven y funcionan como antes.
+- [x] Repetir en tema oscuro; nada roto ni en blanco.
 - [ ] (Opcional) `git checkout proyectos-congelado` en otra carpeta muestra las pantallas de Proyectos como estaban.
 
 ## Hallazgos
