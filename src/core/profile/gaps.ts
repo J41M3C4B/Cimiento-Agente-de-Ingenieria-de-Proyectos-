@@ -10,7 +10,7 @@ export const useOverview = () => useQuery({ queryKey: OVERVIEW_KEY, queryFn: ins
 
 /**
  * Where a piece that is still missing gets filled in: a window of «Mi institución»; or the record (`records`), a part
- * of «Mi institución» the Assistant may send the person to.
+ * of «Mi institución» a button may send the person to.
  */
 export type Where = Place | "records";
 

@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Shell } from "./components/Shell";
 import type { Page } from "./components/Shell";
 import { AiSettingsPage } from "./core/ai/AiSettingsPage";
-import { AssistantProvider } from "./core/assistant/Assistant";
 import { HomePage } from "./core/home/HomePage";
 import { DocumentsPage } from "./core/documents/DocumentsPage";
 import { HelpPage } from "./core/help/HelpPage";
@@ -26,7 +25,7 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  // a window of «Mi institución» to open when arriving there (the Assistant's «Ir a…»); `n` makes each request new.
+  // a window of «Mi institución» to open when arriving there (Inicio's «Ir a…»); `n` makes each request new.
   // It is used once: coming back to the page later must not open it again
   const [profileWindow, setProfileWindow] = useState<{ where: Where; n: number } | null>(null);
   // the app is shown only with a person inside (AccessGate, ADR-028); what they may do shapes the menu
@@ -42,7 +41,7 @@ export default function App() {
   };
   const goProfile = () => setPage("profile");
   const navigate = (p: Page) => setPage(p);
-  // where the Assistant sends the person: a page, or a window of «Mi institución» (`profile.legal`)
+  // where a button of Inicio sends the person: a page, or a window of «Mi institución» (`profile.legal`)
   const goTo = (place: string) => {
     const [target, part] = place.split(".");
     setPage(target as Page);
@@ -55,7 +54,6 @@ export default function App() {
   };
 
   return (
-    <AssistantProvider screen={page} onGo={goTo}>
     <Shell page={page} onNavigate={navigate} institution={institution} access={access}>
       {/* Projects stays mounted while the person is in another section (only hidden): what the AI is doing for a
           project, the project that was open and what they were writing are still there when they come back */}
@@ -76,6 +74,5 @@ export default function App() {
       {/* the files of the Expediente read in the background say how they ended, wherever the person is (ADR-038) */}
       <RecordReadingWatcher attachedText={attachedNotice} />
     </Shell>
-    </AssistantProvider>
   );
 }

@@ -2,15 +2,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { FormRenderer } from "../../components/FormRenderer";
 import { QuarantineDialog } from "../../components/QuarantineDialog";
-import { Icon } from "../../components/icons";
 import { Alert, Button, Modal } from "../../components/ui";
 import { es } from "../../i18n/es-MX";
-import { formGet, formSave, institutionFillFromDocuments, proposalsReject, toAppError } from "../../lib/tauri";
+import { formGet, formSave, proposalsReject, toAppError } from "../../lib/tauri";
 import type { Decision, FormValues, ProfileIssue, ProfileView, Proposal, QuarantineReport } from "../../lib/types";
-import { useAssistant } from "../assistant/Assistant";
 import { ONBOARDING_KEY } from "../onboarding/api";
-import { fillNotice } from "./fromDocuments";
-import type { FillNotice } from "./fromDocuments";
 import { OVERVIEW_KEY } from "./gaps";
 
 export const formKey = (id: string) => ["form", id];
@@ -20,7 +16,7 @@ export const formKey = (id: string) => ["form", id];
  * values back to Rust, which checks them, passes them through the scanner and saves them. Nothing here knows which
  * field goes where in the profile.
  *
- * The suggestions of the AI (IA4) show under their fields: «Usar» puts one in its field, where the person may correct
+ * The suggestions of reading the documents show under their fields: «Usar» puts one in its field, where the person may correct
  * it, and «Guardar» saves it like anything typed; «Descartar» drops it. None is saved without that click.
  */
 export function FormWindow({ id, title, onSaved, onClose }: { id: string; title: string; onSaved: (profile: ProfileView) => void; onClose: () => void }) {
@@ -35,30 +31,6 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
   const [failure, setFailure] = useState<string | null>(null);
   // the suggestions put in their fields, saved with «Guardar»
   const [used, setUsed] = useState<string[]>([]);
-  const assistant = useAssistant();
-  // closing the window (saved or not) ends «Llenarlo por mí» for it in the Assistant
-  const close = () => {
-    assistant?.windowClosed(id);
-    onClose();
-  };
-  // «Llenar con mis documentos» (C2): the Reader looks in the Expediente for the empty fields of this window
-  const [searching, setSearching] = useState(false);
-  const [fromDocs, setFromDocs] = useState<FillNotice | null>(null);
-  async function fillFromDocuments() {
-    setSearching(true);
-    setFromDocs(null);
-    setFailure(null);
-    try {
-      const out = await institutionFillFromDocuments(id);
-      setFromDocs(fillNotice(out));
-      void qc.invalidateQueries({ queryKey: formKey(id) });
-      void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
-    } catch (e) {
-      setFailure(toAppError(e).message);
-    } finally {
-      setSearching(false);
-    }
-  }
   const waiting = (form.data?.proposals ?? []).filter((p) => !used.includes(p.id));
 
   const use = (p: Proposal) => {
@@ -95,7 +67,7 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
         void qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
         void qc.invalidateQueries({ queryKey: formKey(id) });
         onSaved(out.profile);
-        close();
+        onClose();
       } else if (out.status === "invalid") {
         setQuarantine(null);
         setIssues(out.issues);
@@ -116,10 +88,10 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
     <>
       <Modal
         title={title}
-        onClose={close}
+        onClose={onClose}
         footer={
           <>
-            <Button onClick={close}>{es.common.cancel}</Button>
+            <Button onClick={onClose}>{es.common.cancel}</Button>
             <Button variant="primary" disabled={busy || !values} onClick={() => void save()}>
               {busy ? es.common.saving : es.common.save}
             </Button>
@@ -127,21 +99,6 @@ export function FormWindow({ id, title, onSaved, onClose }: { id: string; title:
         }
       >
         {form.isError && <Alert tone="error">{toAppError(form.error).message}</Alert>}
-        {form.data?.fill && (
-          <div className="flex flex-wrap gap-2">
-            {assistant && (
-              <Button size="sm" variant="secondary" onClick={() => assistant.fill(form.data.fill!)}>
-                <Icon name="sparkles" size={16} />
-                {es.assistant.fillMe}
-              </Button>
-            )}
-            <Button size="sm" variant="secondary" disabled={searching} onClick={() => void fillFromDocuments()}>
-              <Icon name="file" size={16} />
-              {searching ? es.suggestions.searchingDocuments : es.suggestions.fillFromDocuments}
-            </Button>
-          </div>
-        )}
-        {fromDocs && <Alert tone={fromDocs.tone}>{fromDocs.text}</Alert>}
         {waiting.length > 0 && (
           <Alert tone="info">
             <p>{es.suggestions.waiting(waiting.length)}</p>
