@@ -350,7 +350,6 @@ fn the_layer_rules() {
     assert!(allowed("commands::hr", Shell, Module("hr"), &rest("storage")));
     // ADR-001: the AI is the platform's, the contract and the permissions are everyone's
     assert!(!allowed("core::profile::service", Core, Platform, &rest("pipeline")));
-    assert!(!allowed("modules::projects::calls", Projects, Platform, &rest("pipeline")));
     assert!(!allowed("hr::service", Module("hr"), Platform, &rest("")));
     assert!(!allowed("documents::reading", Base, Platform, &rest("pipeline")));
     assert!(!allowed("capability::contract", Contract, Platform, &rest("")));

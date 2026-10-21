@@ -125,7 +125,8 @@ fn missing_fields(call: &Call, input: MissingInput) -> Result<MissingFields, Cap
   - sus pantallas, en el DIS-3 y el DIS-4.
 
   Hasta que la plataforma las sustituya, esas funciones no están en la app.
-- **La búsqueda por significado y la lectura de convocatorias también se retiran; no se mueven a la plataforma.** Moverlas tal como están rompería otra regla: la plataforma no lee las tablas de Mi institución, las alcanza por contratos. Además, ya nadie las usaba: el ERP-5 dejó la búsqueda del Expediente solo por palabras, y el ERP-4 quitó la lectura de convocatorias. Vuelven como herramientas de la plataforma, sobre las capacidades de los módulos. Las tablas de los vectores (`document_chunk_vec`, `vec_model`) se quedan en la base; qué hacer con ellas lo decide el riel ERP.
+- **La búsqueda por significado se retira; no se mueve a la plataforma.** Moverla tal como está rompería otra regla: la plataforma no lee las tablas de Mi institución, las alcanza por contratos. Además, ya nadie la usaba: el ERP-5 dejó la búsqueda del Expediente solo por palabras. Vuelve como herramienta de la plataforma, sobre las capacidades de los módulos. Las tablas de los vectores (`document_chunk_vec`, `vec_model`) se quedan en la base; qué hacer con ellas lo decide el riel ERP.
+- **La lectura de convocatorias queda detenida en la plataforma** (`ai::canonical`). Por decisión del líder (2026-10-21), no se elimina: espera a conectarse a un núcleo sólido. Como llama al modelo, sale de `documents`, y lo determinista (el contrato, el paquete, la recuperación y la verificación de las citas) se queda allí. Nada del programa la llama.
 - **Dos dependencias nuevas:**
   - `linkme`, para el registro sin lista;
   - `schemars`, para el esquema que sale del tipo.

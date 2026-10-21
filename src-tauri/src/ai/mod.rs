@@ -5,6 +5,7 @@
 
 pub mod agent;
 pub mod anthropic;
+pub mod canonical;
 pub mod figures;
 pub mod gemini;
 #[cfg(test)]
