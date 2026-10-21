@@ -2,12 +2,12 @@
 tipo: bloque
 id: DIS-4
 carril: diseno
-estado: backlog
+estado: en-curso
 prioridad: alta
 caja: Interfaces de los módulos
 pedido_por: IA-1
 depende_de:
-rama:
+rama: diseno/dis-4-proyectos-sin-la-ia-vieja
 adr:
 creado: 2026-10-20
 cerrado:
@@ -25,7 +25,7 @@ Se necesita que **ninguna pantalla ofrezca, abra ni llame a Proyectos**, y que l
 
 ## Terminado cuando
 
-Propuesta del riel de diseño; la aprueba el líder. Las casillas se marcan cuando cada punto queda hecho.
+Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto queda hecho.
 
 - [ ] **Proyectos no aparece en ninguna parte de la app:**
   - no hay pestaña «Mis proyectos» en la barra;
