@@ -23,6 +23,13 @@ La columna vertebral del plano operativo, **todavía sin IA**:
 
 Se arma primero sin modelo para probar el camino con un flujo determinista, sin gastar nada. Así el ciclo sin fin que hoy tiene el agente queda imposible por diseño.
 
+**Acuerdos con el riel ERP (2026-10-21):**
+1. **La aprobación.** El IA-2 ata la aprobación a la entrada desde ahora, como dice el ADR-001. La versión del dato y la huella del [[ERP-9 Preparar y aplicar, con historial y origen|ERP-9]] se agregan después. Su formato lo acuerdan el riel IA y el riel ERP antes de cerrar el ERP-9; está escrito en su tarjeta.
+2. **Los archivos de compilación.** El ERP-8 cambia `src-tauri/Cargo.toml` y `Cargo.lock` para armar el *workspace*. Cuando el ERP-8 entre a `main`, el IA-2 hace `rebase` antes de su PR.
+3. **`Permission`.** Se muda al núcleo, pero `core::access::domain` lo sigue exponiendo, así que `capability/` y `ai/` no cambian por el ERP-8. Lo que el IA-5 pide aparte son los permisos que declara cada módulo.
+
+**Propuesta para empezar:** primero, limpiar `ai/`. Se conserva lo que dice `codigo-frente-a-los-planos.md` (proveedores, configuración, la bóveda y el ritmo) y la lectura de convocatorias detenida, con lo que usa. Se retiran las tareas viejas de Proyectos, y las pruebas del proveedor apagadas (`dry_run_tests.rs`) se portan a un impulsor propio. Después, el esqueleto.
+
 ## Terminado cuando
 
 (Propuesta; la aprueba el líder.)
