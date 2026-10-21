@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-6
 carril: ia
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Runtime; Enrutador; Planificador; Registro; Gestor de contexto; Ejecutor; Estado, límites y ciclo de vida; Entrega de resultados; Operadores y agentes de IA; Clasificación aplicada, política de datos, validación, confirmación y auditoría de tareas
 pedido_por:
@@ -53,6 +53,10 @@ Aprobado por el líder el 2026-10-21. Las casillas se marcan cuando cada punto q
 Es solo documentación: no cambia código.
 
 ## Cómo probarlo
+
+PR: https://github.com/J41M3C4B/SociAI/pull/23
+
+**Pruebas:** `cargo test`: 587 pasan y 0 fallan; `pnpm test`: 224 pasan. Solo es documentación.
 
 **Cómo correrlo:**
 - Carpeta y rama: `D:\Agente Proyectos\sociai-ia`, rama `ia/ia-6-plano-de-la-ia`.
