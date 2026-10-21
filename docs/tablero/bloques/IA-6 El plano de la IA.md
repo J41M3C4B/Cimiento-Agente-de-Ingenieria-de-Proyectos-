@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-6
 carril: ia
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Runtime; Enrutador; Planificador; Registro; Gestor de contexto; Ejecutor; Estado, límites y ciclo de vida; Entrega de resultados; Operadores y agentes de IA; Clasificación aplicada, política de datos, validación, confirmación y auditoría de tareas
 pedido_por:
@@ -10,7 +10,7 @@ depende_de:
 rama: ia/ia-6-plano-de-la-ia
 adr: ADR-003
 creado: 2026-10-21
-cerrado:
+cerrado: 2026-10-21
 ---
 
 ## Qué y por qué
@@ -66,9 +66,18 @@ PR: https://github.com/J41M3C4B/SociAI/pull/23
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] Los cuatro diagramas del plano se ven dibujados.
-- [ ] La §7 cuadra con el plano del ERP, punto por punto.
+- [x] Los cuatro diagramas del plano se ven dibujados.
+- [x] La §7 cuadra con el plano del ERP, punto por punto.
 
 ## Hallazgos
 
 ## Resultado
+
+Fusionado en `main` el 2026-10-21 con *squash* (PR #23, `d270b7a`), validado por el líder.
+
+- **El plano de la IA** (`docs/plano-de-la-ia.md`) y el **ADR-003**, aceptado, con las siete decisiones (A1 a A7).
+- **Los planos, el modelo de trabajo, la guía de los agentes y el índice de los ADR** enlazan el plano de la IA.
+- **En el tablero:**
+  - el pedido ERP-10 al riel ERP, con lo que toca al núcleo; la A2 va primero, por el ERP-8;
+  - el IA-2, con su «Terminado cuando» ajustado al plano.
+- **Pruebas:** `cargo test`, 587 pasan; `pnpm test`, 224 pasan. Solo es documentación.
