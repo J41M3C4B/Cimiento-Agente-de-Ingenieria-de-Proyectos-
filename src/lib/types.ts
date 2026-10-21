@@ -510,157 +510,6 @@ export interface DeleteSummary {
   derived_rows: number;
 }
 
-// Calls (convocatorias): the files, the reading in the background, and what was understood of them.
-export type ReadingStatus = "waiting" | "reading" | "ready" | "partial" | "failed";
-/** What a file is inside the package of a call, as the person marked it. A package has exactly one `main`. */
-export type FileRole = "main" | "annex" | "guide" | "form" | "notice" | "other";
-export interface ReadingFile {
-  document_id: string;
-  name: string;
-  pages: number;
-  role: FileRole;
-}
-export interface ReadingRow {
-  id: string;
-  name: string;
-  /** Who gives the call and in which year, as the person wrote them. */
-  funder: string | null;
-  year: number | null;
-  status: ReadingStatus;
-  /** Why it is waiting, partial or failed (a code the screen words). */
-  note: string | null;
-  created_at: string;
-  finished_at: string | null;
-  /** When the person confirmed that this is the right call (cleared when it is read again). */
-  confirmed_at: string | null;
-  files: ReadingFile[];
-}
-export type UnreadableReason =
-  | "unsupported_type"
-  | "too_large"
-  | "damaged"
-  | "scanned"
-  | "empty"
-  | "roster"
-  | "no_files"
-  | "too_many_files"
-  | "no_main_file";
-export type NewProjectOutcome =
-  | { status: "created"; project: ProjectRow; reading: ReadingRow }
-  | { status: "quarantine"; report: QuarantineReport }
-  | { status: "unreadable"; file: string; reason: UnreadableReason };
-export interface SummaryItem {
-  text: string;
-  applies_to: string | null;
-  requirement: string | null;
-  page: number | null;
-  file: string | null;
-}
-export interface SummaryGroup {
-  key: string;
-  items: SummaryItem[];
-}
-export interface SummaryDate {
-  label: string;
-  when: string;
-  kind: string;
-  page: number | null;
-  file: string | null;
-}
-export interface SummaryAmount {
-  kind: "max_amount" | "min_amount" | "cofunding" | "admin_cap" | "modality";
-  label: string | null;
-  value: string;
-  page: number | null;
-  file: string | null;
-}
-export interface SummaryConflict {
-  field: string;
-  note: string;
-  versions: SummaryItem[];
-}
-export interface SummaryKind {
-  /** What the document calls itself, as written. */
-  words: string;
-  /** The class the code reads from those words: only describes the document. */
-  class: string;
-}
-export interface CallSummary {
-  document_kind: SummaryKind | null;
-  title: string | null;
-  funder: string | null;
-  edition: string | null;
-  objective: string | null;
-  dates: SummaryDate[];
-  amounts: SummaryAmount[];
-  groups: SummaryGroup[];
-  conflicts: SummaryConflict[];
-  doubts: string[];
-  /** Fields the documents do not say, as `section.field`. */
-  missing: string[];
-}
-export interface ReadingQuality {
-  pages: number;
-  pages_with_quotes: number;
-  quotes_verified_percent: number;
-  blocks_read: number;
-  blocks_total: number;
-}
-/** Something the person wrote about the call that the documents do not seem to say (only a heads-up). */
-export interface ReadingDifference {
-  field: "funder" | "year";
-  said: string;
-  read: string;
-}
-/** What the person reads first about a call (ADR-024): short, in plain words, built by the program. */
-export interface CardFact {
-  kind: "max_amount" | "min_amount" | "cofunding" | "admin_cap" | "duration" | "closing" | "registration" | "modalities";
-  value: string;
-  page: number | null;
-  file: string | null;
-}
-export interface CardPoint {
-  text: string;
-  applies_to: string | null;
-  page: number | null;
-  file: string | null;
-}
-export interface CardBlock {
-  key: "who_can" | "supported" | "fundable" | "not_fundable";
-  points: CardPoint[];
-  /** How many more points the detail has. */
-  more: number;
-}
-export interface CardAlert {
-  kind: "not_a_call" | "conflicts" | "missing" | "doubts";
-  count: number;
-  /** For `missing`: the first data not found, as `section.field`. */
-  fields: string[];
-}
-export interface CallCard {
-  title: string | null;
-  funder: string | null;
-  edition: string | null;
-  /** The «en pocas palabras» written with the automatic help, once checked. */
-  brief: string | null;
-  /** What stands in for it: the first sentence of what the document says the call is for. */
-  lead: string | null;
-  facts: CardFact[];
-  blocks: CardBlock[];
-  alerts: CardAlert[];
-}
-
-export interface ReadingDetail {
-  reading: ReadingRow;
-  card: CallCard | null;
-  /** The call was read and nobody has tried yet to write its «en pocas palabras». */
-  brief_pending: boolean;
-  /** The whole understanding, group by group: for looking something up, not for reading from start to end. */
-  summary: CallSummary | null;
-  quality: ReadingQuality | null;
-  differences: ReadingDifference[];
-}
-
 export interface AppError {
   code: string;
   message: string;
@@ -703,14 +552,6 @@ export interface AiStatusView {
   paused: boolean;
 }
 
-/** What the AI is doing for a project: a message of the conversation, the summary, or the suggested objectives. */
-export type JobKind = "turn" | "summary" | "needs" | "brief";
-
-export interface ProjectJob {
-  running: JobKind | null;
-  /** How the last job ended; the program hands it over only once. */
-  finished: { kind: JobKind; ai: AiStatus } | null;
-}
 
 export interface AiModelsView {
   provider: AiProvider;
@@ -877,14 +718,6 @@ export type CreateProjectOutcome =
   | { status: "created"; project: ProjectRow }
   | { status: "quarantine"; report: QuarantineReport };
 
-export type AnswerOutcome =
-  | { status: "saved"; view: ConversationView; ai: AiStatus }
-  | { status: "quarantine"; report: QuarantineReport };
-
-export interface SummaryOutcome {
-  view: ConversationView;
-  ai: AiStatus;
-}
 
 export interface SummaryEdit {
   problem_statement: string;
@@ -1029,7 +862,6 @@ export interface DraftingView {
   /** The assistant already prepared the draft (explanations, budget lines and schedule). */
   plan_ready: boolean;
 }
-export type DraftMode = "full" | "guide";
 export interface BudgetItemInput {
   id: string | null;
   category: string;
@@ -1044,10 +876,6 @@ export interface BudgetItemInput {
 export type DraftEditOutcome =
   | { status: "saved"; view: DraftingView }
   | { status: "quarantine"; report: QuarantineReport };
-export interface DraftOutcome {
-  view: DraftingView;
-  ai: AiStatus;
-}
 
 export type CheckLevel = "error" | "warn" | "info";
 export interface ReviewCheck {
