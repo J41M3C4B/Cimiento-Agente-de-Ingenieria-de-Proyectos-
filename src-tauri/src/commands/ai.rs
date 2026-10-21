@@ -152,15 +152,12 @@ pub fn ai_set_models(session: State<'_, Session>, db: State<'_, Db>, light: Stri
 }
 
 #[tauri::command]
-pub fn ai_set_key(session: State<'_, Session>, db: State<'_, Db>, provider: ProviderKind, key: String) -> Result<(), UiError> {
+pub fn ai_set_key(session: State<'_, Session>, provider: ProviderKind, key: String) -> Result<(), UiError> {
     guard(&session, "ai_set_key")?;
     if key.trim().is_empty() {
         return Err(UiError::new("empty_text", "Este dato nos falta."));
     }
-    storage::set_api_key(provider.as_str(), &key).map_err(|e: StorageError| conn_err(e))?;
-    // with the key, the vectors of the documents already saved can be made (IA5)
-    super::index_documents(&db.0);
-    Ok(())
+    storage::set_api_key(provider.as_str(), &key).map_err(|e: StorageError| conn_err(e))
 }
 
 #[tauri::command]

@@ -2,7 +2,6 @@
 
 pub mod access;
 pub mod ai;
-pub mod assistant;
 pub mod care;
 pub mod facilities;
 pub mod finance;
@@ -166,12 +165,6 @@ pub fn profile_confirm(session: State<'_, Session>, db: State<Db>) -> Result<Pro
     guard(&session, "profile_confirm")?;
     let mut conn = lock(&db)?;
     Ok(service::confirm_profile(&mut conn)?)
-}
-
-/// Makes in the background the vectors of the documents that are missing (IA5); nothing when the person did not
-/// choose Gemini or did not save its key.
-pub(crate) fn index_documents(db: &crate::storage::SharedDb) {
-    tauri::async_runtime::spawn(crate::core::archive::vectors::index_in_background(db.clone()));
 }
 
 /// Looks for a question in the documents of the institution (IA5): by words, with no internet.

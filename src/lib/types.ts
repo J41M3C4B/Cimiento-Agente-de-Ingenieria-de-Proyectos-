@@ -92,11 +92,6 @@ export interface FormView {
   /** the suggestions of the AI waiting in this window (IA4) */
   proposals: Proposal[];
 }
-/** A window of «Mi institución» the Capturist fills: its form and its place (`profile.institution`). */
-export interface Fill {
-  form: string;
-  place: string;
-}
 /** A suggestion of the AI for a field (ADR-034 §2): nothing is saved until the person uses it and saves. */
 export interface Proposal {
   id: string;
@@ -228,92 +223,11 @@ export interface ListForm {
   masked: string | null;
 }
 export type ListOutcome = { status: "saved"; lists: InstitutionLists } | { status: "invalid"; issues: ProfileIssue[] };
-// The Assistant (ADR-034 §4, core/agents/assistant.rs): the conversation lives only on the screen.
-export interface AssistantTurn {
-  /** `assistant`: the words of the AI; `program`: what the program said happened (the Capturist's suggestions) */
-  from: "person" | "assistant" | "program";
-  text: string;
-  /** the documents of the Expediente the answer was based on (ids, from its citations): «ese mismo» has a document */
-  documents?: string[];
-  /** the window the answer offered to fill («Llenarlo por mí»), by its place */
-  fill?: string;
-}
 /** A place of the program a button may take the person to, with its name (core/places.rs). */
 export interface AppPlace {
   id: string;
   label: string;
 }
-export interface AssistantAsk {
-  /** the page where the person is */
-  screen: string;
-  /** the field whose «?» opened the question */
-  field: string | null;
-  question: string;
-  history: AssistantTurn[];
-}
-export interface ManualSource {
-  id: string;
-  title: string;
-}
-/** A passage of a document of the institution an answer is based on: its name and page come from the code (IA5). */
-/** The documents of the Expediente by their names and how they are (core/agents/assistant.rs). */
-export interface RecordsList {
-  have: string[];
-  missing: string[];
-  in_progress: string[];
-  expiring: { name: string; date: string }[];
-  expired: { name: string; date: string }[];
-}
-export interface DocumentSource {
-  document_id: string;
-  document: string;
-  page: number | null;
-}
-export type AssistantOutcome =
-  | {
-      status: "answered";
-      asked: string;
-      text: string;
-      go_to: string | null;
-      sources: ManualSource[];
-      documents: DocumentSource[];
-      /** «Llenarlo por mí»: then `text` is empty and the screen says the program's sentence (ADR-042 §6). */
-      fill: Fill | null;
-      /** The documents of the Expediente by how they are, written by the program under the answer (C4). */
-      records?: RecordsList | null;
-    }
-  | { status: "manual"; asked: string; reason: string; hits: ManualSource[] }
-  | { status: "quarantine"; report: QuarantineReport };
-// The Capturist (ADR-034, IA4, core/agents/capturist.rs): what the person tells becomes suggestions in a window.
-export interface CaptureAsk {
-  form: string;
-  said: string;
-  history: AssistantTurn[];
-}
-/** How «Llenar con mis documentos» went for a window (C2). */
-export type FillOutcome =
-  | { status: "proposed"; form: string; place: string; fields: string[]; dropped: number; note: string }
-  | { status: "nothing"; form: string; place: string; reason: string }
-  | { status: "unavailable"; form: string; place: string; reason: string };
-export type CaptureOutcome =
-  /**
-   * `left`: titles of what was left in the window the person is in; `others`: in other windows, each by its place
-   * (ADR-042 §6); `same`: what was saved already the same.
-   */
-  | {
-      status: "proposed";
-      asked: string;
-      form: string;
-      place: string;
-      fields: string[];
-      left: string[];
-      others: { place: string; left: string[] }[];
-      same: string[];
-      still: string[];
-      dropped: number;
-    }
-  | { status: "unavailable"; asked: string; reason: string }
-  | { status: "quarantine"; report: QuarantineReport };
 // The manual of the program (ADR-034, core/manual): in the program, with no AI and no internet.
 export interface ManualEntry {
   id: string;

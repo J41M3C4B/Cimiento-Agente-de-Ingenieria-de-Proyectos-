@@ -50,8 +50,6 @@ pub fn run() {
             let _ = core::snapshot::take(&conn);
             let db = Arc::new(Mutex::new(conn));
             // who is using the app (ADR-028): nobody until they enter
-            // the vectors of the documents that are missing (IA5), in the background, if the person chose Gemini
-            tauri::async_runtime::spawn(core::archive::vectors::index_in_background(db.clone()));
             app.manage(core::access::service::Session::new(db.clone()));
             app.manage(Db(db));
             app.manage(core::security::Attempts::default());
@@ -95,10 +93,6 @@ pub fn run() {
             commands::institution::institution_clabe_reveal,
             commands::manual_entry,
             commands::app_places,
-            commands::assistant::assistant_ask,
-            commands::assistant::capture_ask,
-            commands::assistant::institution_fill_from_documents,
-            commands::assistant::institution_fill_all_from_documents,
             commands::proposals_reject,
             commands::manual_search,
             commands::profile_confirm,

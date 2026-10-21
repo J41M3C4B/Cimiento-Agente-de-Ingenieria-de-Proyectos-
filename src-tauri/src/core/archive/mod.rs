@@ -3,4 +3,3 @@
 pub mod search;
 pub mod service;
 pub mod storage;
-pub mod vectors;

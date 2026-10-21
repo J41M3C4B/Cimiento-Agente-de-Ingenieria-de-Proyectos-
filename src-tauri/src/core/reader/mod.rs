@@ -10,13 +10,10 @@
 //!   «Usar» and «Guardar».
 //! - **Invoices are not read here:** they are uploaded only in Finanzas.
 
-pub mod ask;
 pub mod dates;
-pub mod fill;
 pub mod kinds;
 pub mod quote;
 pub mod rules;
-pub mod upload;
 
 use crate::common::forms::Sensitivity;
 use crate::core::proposals::{self, NewProposal, Origin, ProposeOutcome};

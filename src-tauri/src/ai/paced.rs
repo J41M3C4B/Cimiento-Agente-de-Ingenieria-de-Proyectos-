@@ -1,10 +1,9 @@
-//! A provider and an embedder that never send more than `PER_MINUTE` requests in any minute, for the real batteries.
-//! The pace of the pipeline counts in `ai_usage`, and a battery builds a new database for every case or round, so it
-//! does not see the calls before; this one counts in the process. The text model and the vectors have a window each,
-//! because the provider counts them per model.
+//! A provider that never sends more than `PER_MINUTE` requests in any minute, for the real batteries. The pace of the
+//! pipeline counts in `ai_usage`, and a battery builds a new database for every case or round, so it does not see the
+//! calls before; this one counts in the process.
 
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use tokio::time::Instant;
@@ -12,7 +11,6 @@ use tokio::time::Instant;
 use async_trait::async_trait;
 
 use super::{AiError, AiProvider, AiRequest, AiResponse, ModelCheck, ModelTier};
-use crate::documents::canonical::retrieve::Embedder;
 
 /// One under the 15 per minute of the free plan, so a slow clock never makes it 16.
 pub(crate) const PER_MINUTE: usize = 14;
@@ -45,7 +43,6 @@ impl Window {
 }
 
 static TEXT: Window = Window::new();
-static VECTORS: Window = Window::new();
 
 struct Paced(Box<dyn AiProvider>);
 
@@ -73,30 +70,9 @@ impl AiProvider for Paced {
     }
 }
 
-struct PacedEmbedder(Arc<dyn Embedder>);
-
-#[async_trait]
-impl Embedder for PacedEmbedder {
-    async fn embed(&self, texts: &[String], query: bool) -> Result<Vec<Vec<f32>>, String> {
-        VECTORS.wait().await;
-        self.0.embed(texts, query).await
-    }
-    fn label(&self) -> String {
-        self.0.label()
-    }
-    fn usage(&self) -> (usize, usize) {
-        self.0.usage()
-    }
-}
-
 /// The provider, at most `PER_MINUTE` calls in any minute.
 pub(crate) fn provider(inner: Box<dyn AiProvider>) -> Box<dyn AiProvider> {
     Box::new(Paced(inner))
-}
-
-/// The embedder, at most `PER_MINUTE` requests in any minute.
-pub(crate) fn embedder(inner: Arc<dyn Embedder>) -> Arc<dyn Embedder> {
-    Arc::new(PacedEmbedder(inner))
 }
 
 #[cfg(test)]
