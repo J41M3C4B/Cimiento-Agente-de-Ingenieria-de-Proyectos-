@@ -2,7 +2,7 @@
 tipo: bloque
 id: DIS-4
 carril: diseno
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Interfaces de los módulos
 pedido_por: IA-1
@@ -10,7 +10,7 @@ depende_de:
 rama: diseno/dis-4-proyectos-sin-la-ia-vieja
 adr:
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-20
 ---
 
 ## Qué y por qué
@@ -27,18 +27,18 @@ Se necesita que **ninguna pantalla ofrezca, abra ni llame a Proyectos**, y que l
 
 Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **Proyectos no aparece en ninguna parte de la app:**
+- [x] **Proyectos no aparece en ninguna parte de la app:**
   - no hay pestaña «Mis proyectos» en la barra;
   - Inicio no tiene el botón «Empezar un proyecto nuevo» ni la carpeta larga «En curso / Notificaciones» (su «En curso» solo mostraba proyectos);
   - ningún «Ir a…», paso de arranque, dibujo de módulos o texto de ayuda lleva a Proyectos o lo promete.
-- [ ] **Ninguna pantalla llama a un comando de Proyectos:** ni los de IA del contrato del ERP-4 ni el resto (`project_*`, `need_*`, `needs_get`, `drafting_*`, `section*`, `budget_*`, `schedule_*`, `review_get`, `guide_export`, `conversation_*`, `diagnosis_*`, `call_*`). Una prueba en `src/` lo demuestra, como la del DIS-3.
-- [ ] **El código de las pantallas sale de `src/`** (`src/modules/projects/` y lo que solo ellas usaban, como `Ongoing`), y se puede recuperar: una etiqueta de git, `proyectos-congelado`, apunta al último `main` que las tiene.
-- [ ] **La app queda completa sin él:** Inicio, Mi institución, Documentos, la configuración y los módulos ya congelados se ven y funcionan; nada queda en blanco, roto ni con un hueco que pregunte por Proyectos.
-- [ ] **Sin promesas falsas:** la bienvenida, el arranque, la ayuda y los textos de `es-MX.ts` dejan de decir que SociAI «prepara proyectos» o que «el asistente hará preguntas o borradores». Los textos nuevos se proponen en el PR y los valida el líder.
-- [ ] **Sin textos ni componentes huérfanos** de lo retirado (`conversation`, `diagnosis`, `calls`, `drafting`, `review`, `objectives`, `home.ongoing`, `home.nextByStage` y lo que solo ellos usaban).
-- [ ] **Pruebas:** se retiran las de Proyectos; las de lo que se queda pasan y se ajustan las que contaban con la pestaña o con las tarjetas de proyecto; `pnpm test` y `pnpm build` pasan.
-- [ ] **Revisado en la app real (WebView2),** en claro y oscuro: Inicio, la barra, Mi institución y la bienvenida de una cuenta nueva.
-- [ ] **Se fusiona antes que el congelamiento del ERP:** con los comandos aún en Rust, la app compila y funciona sin llamarlos.
+- [x] **Ninguna pantalla llama a un comando de Proyectos:** ni los de IA del contrato del ERP-4 ni el resto (`project_*`, `need_*`, `needs_get`, `drafting_*`, `section*`, `budget_*`, `schedule_*`, `review_get`, `guide_export`, `conversation_*`, `diagnosis_*`, `call_*`). Una prueba en `src/` lo demuestra, como la del DIS-3.
+- [x] **El código de las pantallas sale de `src/`** (`src/modules/projects/` y lo que solo ellas usaban, como `Ongoing`), y se puede recuperar: una etiqueta de git, `proyectos-congelado`, apunta al último `main` que las tiene.
+- [x] **La app queda completa sin él:** Inicio, Mi institución, Documentos, la configuración y los módulos ya congelados se ven y funcionan; nada queda en blanco, roto ni con un hueco que pregunte por Proyectos.
+- [x] **Sin promesas falsas:** la bienvenida, el arranque, la ayuda y los textos de `es-MX.ts` dejan de decir que SociAI «prepara proyectos» o que «el asistente hará preguntas o borradores». Los textos nuevos se proponen en el PR y los valida el líder.
+- [x] **Sin textos ni componentes huérfanos** de lo retirado (`conversation`, `diagnosis`, `calls`, `drafting`, `review`, `objectives`, `home.ongoing`, `home.nextByStage` y lo que solo ellos usaban).
+- [x] **Pruebas:** se retiran las de Proyectos; las de lo que se queda pasan y se ajustan las que contaban con la pestaña o con las tarjetas de proyecto; `pnpm test` y `pnpm build` pasan.
+- [x] **Revisado en la app real (WebView2),** en claro y oscuro: Inicio, la barra, Mi institución y la bienvenida de una cuenta nueva.
+- [x] **Se fusiona antes que el congelamiento del ERP:** con los comandos aún en Rust, la app compila y funciona sin llamarlos.
 
 ## Plan
 
@@ -90,7 +90,7 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 - [x] **Una cuenta nueva** (Configuración → administración, crear una de dirección, entrar con ella): la bienvenida dice «Aquí reúne los datos y los documentos de su institución, en un solo lugar.» y el dibujo solo trae «Documentos». **Aquí te pido validar los textos** (los de la bienvenida, «Todo conectado» y «Siguientes pasos»).
 - [x] **Mi institución y Documentos** se ven y funcionan como antes.
 - [x] Repetir en tema oscuro; nada roto ni en blanco.
-- [ ] (Opcional) `git checkout proyectos-congelado` en otra carpeta muestra las pantallas de Proyectos como estaban.
+- [x] (Opcional) `git checkout proyectos-congelado` en otra carpeta muestra las pantallas de Proyectos como estaban.
 
 ## Hallazgos
 
@@ -104,3 +104,17 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 - **`docs/manual/`** (riel ERP) habla de Proyectos, del diagnóstico y de la convocatoria; y `core/places.rs` compone los lugares desde el manual. Sale con el congelamiento.
 
 ## Resultado
+
+Fusionado a `main` con squash (PR #19, `e2df0bf`), validado por el líder el 2026-10-20. Cubre también el [[DIS-5 Inicio sin Proyectos congelado|DIS-5]].
+
+- Proyectos ya no existe en las pantallas: sin pestaña, sin `src/modules/projects/` y sin nada en Inicio. Recuperable con la etiqueta de git `proyectos-congelado`.
+- Inicio sin «Empezar un proyecto nuevo» ni la carpeta «En curso / Notificaciones».
+- Bienvenida, arranque y Ayuda sin promesas de proyectos ni de «el asistente»; los textos nuevos los validó el líder.
+- `lib/tauri.ts` y `lib/types.ts` sin las llamadas ni los tipos de los 14 comandos que retiró el ERP-4.
+- La prueba `src/lib/retiredAi.test.ts` falla si algo de `src/` vuelve a nombrar un comando de Proyectos.
+- `pnpm test` (224) y `pnpm build` pasan. Revisado en WebView2 real con el Rust del ERP-4, en claro y oscuro. `cargo test` no se corrió: no se tocó Rust.
+
+**Queda para otros:**
+- **IA-1:** ya puede quitar a DIS-4 y ERP-4 de su `depende_de`.
+- **Riel IA:** la página «Ayuda automática» aún dice que lee convocatorias y que sin ella hay «preguntas fijas».
+- **Líder:** la página «Documentos» sigue con «convocatorias» y «proyectos» en sus textos.
