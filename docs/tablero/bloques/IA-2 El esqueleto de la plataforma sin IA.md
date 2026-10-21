@@ -2,12 +2,12 @@
 tipo: bloque
 id: IA-2
 carril: ia
-estado: backlog
+estado: en-curso
 prioridad: alta
 caja: Runtime; Ejecutor; Estado, límites y ciclo de vida; Entrega de resultados
 pedido_por:
 depende_de: IA-1
-rama:
+rama: ia/ia-2-esqueleto-de-la-plataforma
 adr:
 creado: 2026-10-20
 cerrado:
@@ -32,7 +32,7 @@ Se arma primero sin modelo para probar el camino con un flujo determinista, sin 
 
 ## Terminado cuando
 
-(Propuesta; la aprueba el líder. Ajustada el 2026-10-21 con [el plano de la IA](../../plano-de-la-ia.md): piezas P1, P2, P7, P8, P9 y P12, y decisiones A3 y A4.)
+(Aprobado por el líder el 2026-10-21. Ajustado ese día con [el plano de la IA](../../plano-de-la-ia.md): piezas P1, P2, P7, P8, P9 y P12, y decisiones A3 y A4.)
 
 - [ ] Una petición de pantalla que nombra una capacidad recorre runtime → tarea → ejecutor → entrega, como flujo determinista, sin enrutador ni modelo y con todos los controles. El resultado llega en el contrato común de resultados, con el id de la tarea.
 - [ ] Toda tarea registra su cierre: terminada, pausada, denegada, por límite o con error, con su motivo y sin datos personales.
@@ -41,6 +41,41 @@ Se arma primero sin modelo para probar el camino con un flujo determinista, sin 
 - [ ] Las tareas se guardan en la base: una tarea pausada o esperando aprobación sigue ahí al volver a abrir la app, y se reanuda.
 
 ## Plan
+
+La rama sale de `main` con el ERP-8 ya fusionado, así que no hace falta `rebase`. Todo lo nuevo va en `src-tauri/src/ai/runtime/`, sin depender del código viejo de `ai/`, para que pasarlo al *crate* de la plataforma (A1, IA-5) sea mover archivos.
+
+1. **Las tablas de la plataforma** (A3), con `kernel::migrate_owner(conn, "ai", …)`:
+   - `ai_task`: la tarea, su estado, la razón de su pausa o de su cierre, y sus contadores;
+   - `ai_step`: cada invocación, con su capacidad, su fase y la huella de su entrada;
+   - `ai_approval`: la aprobación pendiente, atada a la huella de la capacidad y su entrada;
+   - `ai_event`: la auditoría de la tarea (P12), solo ids y códigos fijos.
+
+   Las migra la app al abrir la base. El almacén de auditoría del núcleo (K9) llega con el ERP-10; mientras, la plataforma escribe en su propia tabla.
+2. **La petición y el contrato común de resultados** (P1, P9):
+   - **la petición:** canal, tarea por reanudar y contenido (una capacidad con su entrada, un texto, una respuesta o una decisión);
+   - **el resultado:** respuesta, datos, aclaración, propuesta, estado y error, cada uno con el id de la tarea, el paso y la hora.
+
+   Su tipo va en `src/lib/types.ts`, para el DIS-1.
+3. **La tarea y sus límites** (P2), por tipo de tarea (pantalla, chat o evento):
+   - pasos;
+   - correcciones;
+   - gasto con reserva;
+   - tiempo de cada turno;
+   - plazo de una pausa;
+   - la misma capacidad con la misma entrada dos veces.
+4. **El ejecutor** (P7). Antes de cada invocación revisa la tarea, los límites, la repetición, el permiso (por una pregunta de autorización que hoy contesta la sesión y mañana K2) y el esquema de la entrada. Después revisa el esquema de la salida. Una consulta entrega los datos; un cambio prepara y, si el contrato lo pide, espera aprobación. Un `apply` que no terminó queda «incierto» y nunca se repite.
+5. **La aprobación** (P8): atada a la huella de la capacidad y su entrada. Si la entrada cambia, la aprobación anterior queda vieja y se pide otra vez.
+6. **La entrada desde la app:** dos comandos, `runtime_submit` y `runtime_task` (consultar una tarea por su id). La entrega también se avisa a la ventana como evento.
+7. **Las pruebas,** con capacidades de prueba y sin modelo:
+   - un recorrido completo, que se puede leer en la terminal;
+   - cada cierre;
+   - cada límite;
+   - la aprobación y su cambio;
+   - reabrir la base con una tarea en pausa.
+
+**Lo que no entra aquí:**
+- **La política de datos:** IA-3, en los cuatro puntos fijos que deja el ejecutor.
+- **Retirar las tareas viejas de Proyectos y traer las pruebas del proveedor apagadas:** van con el IA-4, cuando el modelo entre al ejecutor. Las pruebas del pipeline usan esas tareas como ejemplo, y el pipeline se rehace ahí; hacerlo ahora sería hacerlo dos veces.
 
 ## Cómo probarlo
 
