@@ -4,7 +4,7 @@ use crate::core::archive::search::tests::load_record;
 use crate::core::profile::forms::save;
 use crate::core::profile::service::SaveProfileOutcome;
 use crate::core::reader::fill::tests::reference;
-use crate::core::agents::proposals;
+use crate::core::proposals;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 
@@ -348,16 +348,16 @@ fn a_file_with_more_say_is_asked_even_if_a_suggestion_waits() {
     let (_d, db) = db();
     let conn = db.lock().unwrap();
     let opinion = document_named(&conn, "opinion-cumplimiento.txt");
-    let new = crate::core::agents::proposals::NewProposal {
+    let new = crate::core::proposals::NewProposal {
         form_id: "institution.identity".into(),
         record_id: None,
         field_id: "institution.services".into(),
         value: json!("Casa de reposo"),
-        origin: crate::core::agents::proposals::Origin::Document,
+        origin: crate::core::proposals::Origin::Document,
         source_ref: Some(json!({ "document_id": opinion, "page": 1, "rank": crate::core::reader::authority("institution.services", Some("tax_compliance_opinion")) }).to_string()),
         agent: crate::core::reader::AGENT,
     };
-    crate::core::agents::proposals::propose(&conn, new).unwrap();
+    crate::core::proposals::propose(&conn, new).unwrap();
     let ids = |kind: &str| asked(&conn, Some(kind)).unwrap().into_iter().map(|(_, f)| f.id).collect::<Vec<_>>();
     assert!(ids("annual_report").contains(&"institution.services"), "the report has more say");
     assert!(!ids("tax_compliance_opinion").contains(&"institution.services"), "the same say: it waits already");

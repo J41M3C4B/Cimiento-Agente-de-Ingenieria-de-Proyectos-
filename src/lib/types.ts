@@ -515,10 +515,9 @@ export interface Passage {
   /** the words around what was looked for */
   snippet: string;
 }
-/** What a search in the documents found, and whether it also looked by meaning. */
+/** What a search in the documents found: by words. */
 export interface Found {
   passages: Passage[];
-  by_meaning: boolean;
 }
 
 export interface DeleteSummary {

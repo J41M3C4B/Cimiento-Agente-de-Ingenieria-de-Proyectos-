@@ -23,7 +23,7 @@ use crate::ai::pipeline::SqliteLedger;
 use crate::ai::{AiProvider, ModelTier};
 use crate::common::forms::{is_filled, AiUse, FieldKind, FieldSpec, FormSpec, Sensitivity, Values};
 use crate::core::agents::assistant::{last_turns, reason, Turn};
-use crate::core::agents::proposals::{self, NewProposal, Origin, ProposeOutcome};
+use crate::core::proposals::{self, NewProposal, Origin, ProposeOutcome};
 use crate::core::error::ServiceError;
 use crate::storage::SharedDb;
 use serde::{Deserialize, Serialize};

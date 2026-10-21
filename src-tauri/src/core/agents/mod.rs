@@ -5,5 +5,4 @@
 
 pub mod assistant;
 pub mod capturist;
-pub mod proposals;
 pub mod tools;

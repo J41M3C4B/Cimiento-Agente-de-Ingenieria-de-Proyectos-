@@ -24,9 +24,7 @@ pub struct FormView {
     pub origins: std::collections::BTreeMap<String, crate::core::history::FieldOrigin>,
     pub missing: Vec<&'static str>,
     /// The suggestions of the AI waiting in this form (IA4), but the ones that say what is already saved.
-    pub proposals: Vec<crate::core::agents::proposals::Proposal>,
-    /// Whether the Capturist may fill this window («Llenarlo por mí»), and where it is.
-    pub fill: Option<crate::core::agents::capturist::Fill>,
+    pub proposals: Vec<crate::core::proposals::Proposal>,
 }
 
 /// Every datum of the catalog the profile holds, by field id: what the history compares (ADR-033 §4).
@@ -171,18 +169,18 @@ pub fn get(conn: &Connection, id: &str) -> Result<FormView, ServiceError> {
     let values = values_of(id, &profile);
     let origins = crate::core::history::origins(conn, &values)?;
     // what a document suggests shows only while its field is empty (ADR-038); what the AI proposes, while it differs
-    let proposals = crate::core::agents::proposals::pending(conn, id, None)?
+    let proposals = crate::core::proposals::pending(conn, id, None)?
         .into_iter()
         .filter(|p| match p.origin {
-            crate::core::agents::proposals::Origin::Document => !crate::common::forms::is_filled(values.get(&p.field_id)),
-            crate::core::agents::proposals::Origin::AiAssumption => values.get(&p.field_id) != Some(&p.value),
+            crate::core::proposals::Origin::Document => !crate::common::forms::is_filled(values.get(&p.field_id)),
+            crate::core::proposals::Origin::AiAssumption => values.get(&p.field_id) != Some(&p.value),
         })
         .collect();
     // a quick figure the records of a module already answer is not missing (ADR-031 §3: the records win)
     let answered = crate::core::onboarding::service::answered(conn)?;
     let context = context_of(spec, &profile);
     let missing = spec.missing(&with_context(&values, &context)).into_iter().filter(|f| !answered.contains(f)).collect();
-    Ok(FormView { spec, missing, origins, values, context, proposals, fill: crate::core::agents::capturist::fill_of_form(id) })
+    Ok(FormView { spec, missing, origins, values, context, proposals })
 }
 
 /// The values of a form as saved now, by field id: what the Capturist must not propose again.
@@ -223,7 +221,7 @@ pub fn save_using(conn: &mut Connection, id: &str, mut values: Values, decision:
         return Ok(SaveProfileOutcome::Invalid { issues: blocking });
     }
     apply(id, &values, &mut profile);
-    let taken = crate::core::agents::proposals::waiting(conn, id, used)?;
+    let taken = crate::core::proposals::waiting(conn, id, used)?;
     let sources = taken
         .iter()
         .filter(|p| values.get(&p.field_id) == Some(&p.value))
@@ -233,8 +231,8 @@ pub fn save_using(conn: &mut Connection, id: &str, mut values: Values, decision:
     // with the save, what documents suggested for the fields now written is set aside (ADR-038)
     let (form_id, saved) = (id.to_string(), values.clone());
     let accept = move |tx: &Connection| {
-        crate::core::agents::proposals::accept_in(tx, &ids)?;
-        crate::core::agents::proposals::discard_filled(tx, &form_id, None, &saved)?;
+        crate::core::proposals::accept_in(tx, &ids)?;
+        crate::core::proposals::discard_filled(tx, &form_id, None, &saved)?;
         Ok(())
     };
     let taken = crate::core::profile::service::Taken { sources, then: Some(Box::new(accept)) };
@@ -499,5 +497,17 @@ mod tests {
         input.institution.contact_email = Some("contacto@casa.org".into());
         let p = saved(crate::core::onboarding::service::save_profile_confirmed(&mut c, input, None).unwrap());
         assert_eq!(p.input.institution.attention.unwrap().populations, vec!["adults".to_string()]);
+    }
+
+    /// A window of «Mi institución» says what it holds and what waits in it, and nothing of any AI that fills it.
+    #[test]
+    fn a_window_view_carries_no_trace_of_an_assistant_that_fills() {
+        let (_d, c) = conn();
+        for form in crate::core::institution::forms::FORMS {
+            let view = serde_json::to_value(get(&c, form.id).unwrap()).unwrap();
+            let mut keys: Vec<_> = view.as_object().unwrap().keys().cloned().collect();
+            keys.sort();
+            assert_eq!(keys, vec!["context", "missing", "origins", "proposals", "spec", "values"], "{}", form.id);
+        }
     }
 }

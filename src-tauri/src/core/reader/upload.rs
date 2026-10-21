@@ -20,7 +20,7 @@ use crate::ai::AiProvider;
 use crate::common::forms::FieldSpec;
 use crate::core::agents::assistant::reason;
 use crate::core::agents::capturist::{describe, plain, FILLABLE};
-use crate::core::agents::proposals;
+use crate::core::proposals;
 use crate::core::archive::search;
 use crate::core::archive::storage::{self as docs, Drawer};
 use crate::core::error::ServiceError;

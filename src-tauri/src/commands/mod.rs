@@ -127,6 +127,15 @@ pub fn form_save(session: State<'_, Session>, db: State<Db>,
     Ok(crate::core::profile::forms::save_using(&mut conn, &id, values, decision, &used.unwrap_or_default())?)
 }
 
+/// The person discards suggestions of a window: nothing of the institution changes.
+#[tauri::command]
+pub fn proposals_reject(session: State<'_, Session>, db: State<Db>, ids: Vec<String>) -> Result<usize, UiError> {
+    let gate = guard(&session, "proposals_reject")?;
+    let by = gate.user.as_ref().map(|u| u.id.clone());
+    let conn = lock(&db)?;
+    Ok(crate::core::proposals::reject(&conn, &ids, by.as_deref())?)
+}
+
 /// What the manual says of a screen, a form or a field (the «?»): in the program, with no AI and no internet.
 #[tauri::command]
 pub fn manual_entry(session: State<'_, Session>, id: String) -> Result<Option<crate::core::manual::EntryView>, UiError> {
@@ -162,15 +171,12 @@ pub(crate) fn index_documents(db: &crate::storage::SharedDb) {
     tauri::async_runtime::spawn(crate::core::archive::vectors::index_in_background(db.clone()));
 }
 
-/// Looks for a question in the documents of the institution (IA5): by words always, and by meaning when the person
-/// chose Gemini and the vectors are made.
+/// Looks for a question in the documents of the institution (IA5): by words, with no internet.
 #[tauri::command]
-pub async fn documents_search(session: State<'_, Session>, db: State<'_, Db>, query: String) -> Result<crate::core::archive::search::Found, UiError> {
+pub fn documents_search(session: State<'_, Session>, db: State<'_, Db>, query: String) -> Result<crate::core::archive::search::Found, UiError> {
     use crate::core::archive::search::{search_documents, SNIPPET_CHARS};
     guard(&session, "documents_search")?;
-    let db = db.0.clone();
-    let embedder = crate::core::archive::vectors::embedder(&db, true);
-    Ok(search_documents(&db, embedder, crate::core::archive::storage::Drawer::Record, &query, 8, SNIPPET_CHARS).await?)
+    Ok(search_documents(&db.0, crate::core::archive::storage::Drawer::Record, &query, 8, SNIPPET_CHARS)?)
 }
 
 /// The documents of the drawers of the core (ADR-036): today, the Expediente. Each one says which document of the

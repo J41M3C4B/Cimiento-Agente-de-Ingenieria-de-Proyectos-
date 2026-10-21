@@ -251,12 +251,12 @@ mod tests {
         assert_eq!(choose(Some("ai"), &["howto.ai"], "home", Some(Role::Admin)), Some("ai"));
     }
 
-    /// The windows the Capturist and the Reader fill are windows of the map, with the same name.
+    /// Each window of «Mi institución» is a window of the map.
     #[test]
-    fn the_windows_to_fill_are_windows_of_the_map() {
-        for (form, window, name) in crate::core::agents::capturist::FILLABLE {
-            assert_eq!(direct(form), Some(*window), "{form}");
-            assert_eq!(place(window).map(|p| p.label.as_str()), Some(*name), "{window}");
+    fn the_windows_of_the_institution_are_windows_of_the_map() {
+        for form in FORMS {
+            let window = direct(form.id).unwrap_or_else(|| panic!("{} has no window in the map", form.id));
+            assert!(window.starts_with("profile.") && place(window).is_some(), "{window}");
         }
     }
 

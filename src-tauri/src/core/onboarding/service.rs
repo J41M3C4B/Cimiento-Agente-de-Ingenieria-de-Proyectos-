@@ -30,7 +30,9 @@ pub struct Records {
 /// What the administrator leaves ready besides the data (only shown to them).
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct Setup {
-    pub ai_ready: bool,
+    /// Whether the AI has its key. The core does not know the AI: `None` here, and the command that answers fills it
+    /// from the platform's setting (`commands::onboarding`).
+    pub ai_ready: Option<bool>,
     /// Active accounts of direction and accounting.
     pub managers: i64,
 }
@@ -105,10 +107,8 @@ pub fn records(conn: &Connection) -> Result<Records, ServiceError> {
 }
 
 fn setup(conn: &Connection) -> Result<Setup, ServiceError> {
-    let provider = crate::ai::settings::load(conn)?.provider;
-    let ai_ready = crate::storage::get_api_key(provider.as_str()).ok().flatten().is_some();
     let managers = conn.query_row("SELECT count(*) FROM app_user WHERE role = 'manager' AND active = 1", [], |r| r.get(0))?;
-    Ok(Setup { ai_ready, managers })
+    Ok(Setup { ai_ready: None, managers })
 }
 
 /// Every datum of the windows of «Mi institución», by field id.

@@ -1,6 +1,6 @@
 # Manual del programa (ADR-034 §3)
 
-Lo que la persona lee al tocar el «?» junto a un campo y lo que encuentra al buscar en Ayuda. Funciona sin internet y sin la ayuda automática. Más adelante, el asistente lo consulta para responder.
+Lo que la persona lee al tocar el «?» junto a un campo y lo que encuentra al buscar en Ayuda. Funciona sin internet y sin la ayuda automática.
 
 ## Cómo se escribe
 

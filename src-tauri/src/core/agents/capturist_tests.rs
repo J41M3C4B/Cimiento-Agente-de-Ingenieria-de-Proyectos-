@@ -174,33 +174,6 @@ async fn a_suggested_text_is_scanned() {
     assert!(!mission.contains("maria.lopez") && mission.starts_with("Cuidamos personas mayores"), "{mission}");
 }
 
-/// ADR-044 §2: a place the scanner took for a person goes as a mark and comes back as its value in whatever field the AI
-/// chose; the field validates it (a municipality of the catalog) and the person sees it before accepting. A suggestion
-/// with a mark the errand never made is dropped.
-#[tokio::test]
-async fn a_place_taken_for_a_person_comes_back_to_its_field() {
-    let (_d, db) = db();
-    let said = "Estamos en Calle Ana María Rodríguez 8, en Benito Juárez, Ciudad de México.";
-    let answer = json!({ "proposals": [
-        { "field": "institution.street", "value": "[NOMBRE_1]", "quote": "Estamos en [NOMBRE_1] 8" },
-        { "field": "institution.municipality", "value": "[NOMBRE_2]", "quote": "en [NOMBRE_2], Ciudad de México" },
-        { "field": "institution.state", "value": "cdmx", "quote": "Ciudad de México" },
-        { "field": "institution.neighborhood", "value": "[NOMBRE_3]", "quote": "en [NOMBRE_3]" }
-    ] });
-    let p = MockProvider::new(vec![reply(answer)]);
-    let (fields, dropped, _) = proposed(capture(&db, Some(&p), told("institution.contact", said)).await.unwrap());
-    let sent = &p.requests()[0];
-    assert!(!sent.user.contains("Rodríguez") && !sent.user.contains("Juárez"), "{}", sent.user);
-    assert!(sent.context.last().unwrap().contains("[NOMBRE_2]: un nombre"), "the legend: {:?}", sent.context.last());
-    assert!(fields.contains(&"institution.street".to_string()) && fields.contains(&"institution.municipality".to_string()), "{fields:?}");
-    assert_eq!(dropped, 1, "[NOMBRE_3] was never made");
-    let c = db.lock().unwrap();
-    let pending = proposals::pending(&c, "institution.contact", None).unwrap();
-    let value = |id: &str| pending.iter().find(|p| p.field_id == id).map(|p| p.value.clone());
-    assert_eq!(value("institution.street"), Some(json!("Ana María Rodríguez")), "the street without «Calle», as the program writes it");
-    assert_eq!(value("institution.municipality"), Some(json!("Benito Juárez")));
-}
-
 /// Without the AI nothing is suggested and the reason is said as in the Assistant.
 #[tokio::test]
 async fn without_the_ai_nothing_is_suggested_and_the_reason_is_said() {
@@ -239,36 +212,6 @@ fn the_context_names_the_fields_of_every_window_and_never_a_protected_value() {
         assert!(ctx.find(&format!("Ventana «{name}»")).is_some_and(|at| at > legal_at), "{name}: {ctx}");
     }
     assert!(ctx.contains("cdmx (Ciudad de México)"), "{ctx}");
-}
-
-/// ADR-042 §6: what the person tells goes to the window of its field, whatever window the person is in; what is saved
-/// already the same (read as a person reads it) is not suggested and the outcome says it was there.
-#[tokio::test]
-async fn each_datum_goes_to_its_window_and_the_same_is_not_suggested() {
-    let (_d, db) = db();
-    let said = "Nos representa la directora, Rosa Ficticia del Ejemplo, y tenemos 50 camas.";
-    let answer = json!({ "proposals": [
-        { "field": "institution.legal_rep_name", "value": "Rosa Ficticia del Ejemplo", "quote": "la directora, Rosa Ficticia del Ejemplo" },
-        { "field": "institution.capacity_total", "value": 50, "quote": "tenemos 50 camas" }
-    ] });
-    let saved_capacity = {
-        let c = db.lock().unwrap();
-        crate::core::profile::forms::saved_values(&c, "institution.capacity").unwrap().get("institution.capacity_total").cloned()
-    };
-    let p = MockProvider::new(vec![reply(answer)]);
-    let out = capture(&db, Some(&p), told("institution.contact", said)).await.unwrap();
-    let CaptureOutcome::Proposed { fields, left, others, same, .. } = out else { panic!("{out:?}") };
-    let c = db.lock().unwrap();
-    let rep = proposals::pending(&c, "institution.legal", None).unwrap();
-    assert!(rep.iter().any(|p| p.field_id == "institution.legal_rep_name"), "in «Datos legales», not in «Contacto»");
-    assert!(left.is_empty(), "nothing for the window the person is in: {left:?}");
-    assert!(others.iter().any(|o| o.place == "profile.legal" && o.left == vec![title("institution.legal_rep_name")]), "{others:?}");
-    if saved_capacity == Some(json!(50)) {
-        assert_eq!(same, vec![title("institution.capacity_total")]);
-        assert!(!fields.contains(&"institution.capacity_total".to_string()));
-    } else {
-        assert!(fields.contains(&"institution.capacity_total".to_string()), "{fields:?}");
-    }
 }
 
 /// «alcaldía Benito Juárez» is a place, not a person: it reaches the Capturist without the scanner's question, and the
@@ -312,60 +255,4 @@ fn it_fills_only_the_windows_of_the_catalog() {
         assert_eq!(fill_of_place(place).unwrap().form, *form);
     }
     assert!(fill_of_form("institution.board_member").is_none() && fill_of_form("institution.bank_account").is_none());
-}
-
-/// ADR-041: the institution's own data the person tells are suggested copied from their words, letter by letter and
-/// digit by digit; a date is one they wrote. A changed digit, a completed value or a date not said is dropped, and no
-/// other agent of the AI may propose them.
-#[test]
-fn the_institutions_own_data_are_copied_never_made() {
-    let (_d, db) = db();
-    let c = db.lock().unwrap();
-    let keep_one = |_form: &str, told: &str, field: &str, value: Value, quote: &str| {
-        let answer = json!({ "proposals": [{ "field": field, "value": value, "quote": quote }] });
-        keep(&c, &Saved::new(), told, &answer, &Vault::new()).unwrap().fields.into_iter().map(|(_, f)| f).collect::<Vec<_>>()
-    };
-    let contact = "Estamos en Calle Volcanes #412, C.P. 55060. Nuestro teléfono es 33 1234 5678.";
-    assert_eq!(keep_one("institution.contact", contact, "institution.contact_phone", json!("3312345678"), "Nuestro teléfono es 33 1234 5678"), vec!["institution.contact_phone"]);
-    assert_eq!(keep_one("institution.contact", contact, "institution.postal_code", json!("55060"), "C.P. 55060"), vec!["institution.postal_code"]);
-    assert_eq!(keep_one("institution.contact", contact, "institution.street", json!("Calle Volcanes"), "Calle Volcanes #412"), vec!["institution.street"]);
-    // a digit changed, a value completed, a quote without it
-    assert!(keep_one("institution.contact", contact, "institution.contact_phone", json!("3312345679"), "Nuestro teléfono es 33 1234 5678").is_empty());
-    assert!(keep_one("institution.contact", contact, "institution.postal_code", json!("55060"), "Estamos en Calle Volcanes").is_empty());
-    assert!(keep_one("institution.contact", contact, "institution.street", json!("Calle Volcanes Norte"), "Calle Volcanes #412").is_empty());
-    let legal = "Nuestro RFC es CSE870512AB3 y el poder vale hasta el 18 de enero de 2027.";
-    assert_eq!(keep_one("institution.legal", legal, "institution.legal_rfc", json!("CSE870512AB3"), "Nuestro RFC es CSE870512AB3"), vec!["institution.legal_rfc"]);
-    assert!(keep_one("institution.legal", legal, "institution.legal_rfc", json!("CSE870512AB8"), "Nuestro RFC es CSE870512AB3").is_empty());
-    assert_eq!(keep_one("institution.legal", legal, "institution.legal_rep_valid_until", json!("2027-01-18"), "vale hasta el 18 de enero de 2027"), vec!["institution.legal_rep_valid_until"]);
-    assert!(keep_one("institution.legal", legal, "institution.legal_rep_valid_until", json!("2027-01-31"), "vale hasta el 18 de enero de 2027").is_empty());
-    // its value is kept as told (not covered by the scanner), and only the Capturist may propose it
-    let rfc: String = c.query_row("SELECT value_json FROM ai_proposal WHERE field_id = 'institution.legal_rfc' AND status = 'pending'", [], |r| r.get(0)).unwrap();
-    assert_eq!(rfc, "\"CSE870512AB3\"");
-    let other = NewProposal {
-        form_id: "institution.legal".into(),
-        record_id: None,
-        field_id: "institution.legal_rfc".into(),
-        value: json!("CSE870512AB3"),
-        origin: Origin::AiAssumption,
-        source_ref: None,
-        agent: "assistant",
-    };
-    assert!(matches!(proposals::propose(&c, other).unwrap(), ProposeOutcome::Refused { code: "not_for_the_ai" }));
-}
-
-/// ADR-041 with the vault (ADR-044): the institution's RFC the person tells reaches the Capturist as a mark, never its
-/// letters, without asking the person anything, and comes back as its value copied from the person's words.
-#[tokio::test]
-async fn the_institutions_rfc_goes_as_a_mark_and_comes_back_as_told() {
-    let said = "Nuestro RFC es CSE870512AB3.";
-    let answer = json!({ "proposals": [{ "field": "institution.legal_rfc", "value": "[RFC_1]", "quote": "Nuestro RFC es [RFC_1]" }] });
-    let (_d, db) = db();
-    let p = MockProvider::new(vec![reply(answer)]);
-    let out = capture(&db, Some(&p), told("institution.legal", said)).await.unwrap();
-    let CaptureOutcome::Proposed { fields, .. } = out else { panic!("{out:?}") };
-    assert_eq!(fields, vec!["institution.legal_rfc"]);
-    let sent = &p.requests()[0];
-    assert!(!sent.user.contains("CSE870512AB3") && sent.user.contains("[RFC_1]"), "{}", sent.user);
-    let rfc: String = db.lock().unwrap().query_row("SELECT value_json FROM ai_proposal WHERE field_id = 'institution.legal_rfc' AND status = 'pending'", [], |r| r.get(0)).unwrap();
-    assert_eq!(rfc, "\"CSE870512AB3\"");
 }

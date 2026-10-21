@@ -19,7 +19,7 @@ pub mod rules;
 pub mod upload;
 
 use crate::common::forms::Sensitivity;
-use crate::core::agents::proposals::{self, NewProposal, Origin, ProposeOutcome};
+use crate::core::proposals::{self, NewProposal, Origin, ProposeOutcome};
 use crate::core::error::ServiceError;
 use rules::Found;
 use rusqlite::Connection;
