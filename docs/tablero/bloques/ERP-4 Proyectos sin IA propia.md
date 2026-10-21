@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-4
 carril: erp
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Proyectos
 pedido_por: IA-1
@@ -10,7 +10,7 @@ depende_de:
 rama: erp/erp-4-proyectos-sin-ia-propia
 adr:
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-20
 ---
 
 ## Qué y por qué
@@ -62,10 +62,10 @@ PR: https://github.com/J41M3C4B/SociAI/pull/18
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] En la barra superior ya no aparece «Proyectos».
-- [ ] La pantalla de la ayuda automática sigue igual: proveedor, llave, tope de gasto y «Comprobar».
-- [ ] En *Ayuda*, buscar «proyecto convocatoria»: no sale la pantalla de Proyectos.
-- [ ] Inicio todavía muestra «Nuevo proyecto» (es el DIS-5); pulsarlo no debe romper la app, aunque Proyectos no se vea. *(No lo he probado en la app real: solo las pruebas automáticas.)*
+- [x] En la barra superior ya no aparece «Proyectos».
+- [x] La pantalla de la ayuda automática sigue igual: proveedor, llave, tope de gasto y «Comprobar».
+- [x] En *Ayuda*, buscar «proyecto convocatoria»: no sale la pantalla de Proyectos.
+- [x] Inicio todavía muestra «Nuevo proyecto» (es el DIS-5); pulsarlo no debe romper la app, aunque Proyectos no se vea. *(No lo he probado en la app real: solo las pruebas automáticas.)*
 
 ## Hallazgos
 
@@ -78,3 +78,16 @@ PR: https://github.com/J41M3C4B/SociAI/pull/18
 - **El contrato de comandos que se le dio al DIS-4 (2026-10-20) deja de valer** por el congelamiento.
 
 ## Resultado
+
+Fusionado a `main` con *squash* en el PR #18 (`3b56cd0`), probado por el líder el 2026-10-20 en la app.
+
+**Qué quedó:**
+- Proyectos está congelado como los demás módulos (`"projects"` en `HIDDEN`): no aparece en la barra, en el mapa de lugares ni en el manual.
+- `modules/projects` ya no usa la IA. Salieron la lectura de convocatorias, los turnos de la conversación, el resumen, las necesidades con IA, la redacción con IA y `jobs.rs`, con 14 comandos y sus permisos. Etapas, almacenamiento, migraciones y datos no se tocaron.
+- Los comandos `ai_*` de configuración viven ahora en `commands/ai.rs`, sin cambios (con `AiStatus`).
+- `cargo test --lib`: 722 pasan. `pnpm test`: 218 pasan. `pnpm build` pasa. Con la rama del IA-1 fusionada, su prueba estricta ya no lista nada de Proyectos.
+
+**Lo que queda para otros rieles:**
+- **IA-1:** su prueba solo lista ya lo que él mismo retira (`core::agents`, `core::reader`, `core::archive::vectors`, `documents::canonical::run`). Su tarjeta aún tiene a DIS-4 y ERP-4 en `depende_de`.
+- **IA:** `ai/dry_run_tests.rs` está apagado (`#[cfg(any())]`), no borrado: ~30 pruebas del proveedor y la tubería que hay que portar a un impulsor que no dependa de Proyectos.
+- **Diseño:** DIS-5 (Inicio sin Proyectos), en Backlog. Las líneas de los comandos retirados siguen en `lib/tauri.ts` y `lib/types.ts` porque las pantallas ocultas de Proyectos las importan; se quitan cuando Proyectos se rehaga.
