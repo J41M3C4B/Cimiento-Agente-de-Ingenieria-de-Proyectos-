@@ -1,0 +1,141 @@
+//! The crates of the ERP and the tests that run on all of them (ERP-8, ADR-002 D5).
+//!
+//! **The boundaries.** The kernel and each module are a crate, so a use that the blueprint forbids does not compile:
+//! a crate can only use what its `Cargo.toml` names. What stays to be kept is the graph itself, and that is what
+//! these tests read from `cargo metadata` (no network): the kernel uses no module, a module uses only the kernel and
+//! the `contract` of a module, and a contract uses only the kernel and other contracts. The app (the shell, with the
+//! code from before the modules) may use them all, and nothing uses it.
+//!
+//! **The conformance test** runs on every registered module, with no line written for each one.
+
+use std::collections::BTreeSet;
+use std::path::Path;
+
+/// What a crate of the workspace is, by where it lives.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum Crate {
+    /// `src-tauri`: the app.
+    App,
+    /// `crates/kernel`
+    Kernel,
+    /// `crates/modules/{id}`
+    Module(String),
+    /// `crates/modules/{id}/contract`
+    Contract(String),
+    /// Anywhere else: not a shape the blueprint knows.
+    Outside(String),
+}
+
+use Crate::*;
+
+fn kind(root: &Path, dir: &Path) -> Crate {
+    let rel = dir.strip_prefix(root).unwrap_or(dir);
+    let parts: Vec<String> = rel.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
+    let parts: Vec<&str> = parts.iter().map(String::as_str).collect();
+    match parts.as_slice() {
+        [] => App,
+        ["crates", "kernel"] => Kernel,
+        ["crates", "modules", id] => Module(id.to_string()),
+        ["crates", "modules", id, "contract"] => Contract(id.to_string()),
+        _ => Outside(parts.join("/")),
+    }
+}
+
+/// Whether a crate may depend on another one of the workspace (the ERP blueprint §3, rules 1 to 3).
+fn may_use(from: &Crate, to: &Crate) -> bool {
+    match (from, to) {
+        (_, App | Outside(_)) | (Outside(_), _) => false,
+        (App, _) => true,
+        (Kernel, _) => false,
+        (Module(_) | Contract(_), Kernel | Contract(_)) => true,
+        _ => false,
+    }
+}
+
+/// Every dependency between crates of the workspace, of any kind (normal, build or for the tests).
+fn graph() -> BTreeSet<(Crate, Crate)> {
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let out = std::process::Command::new(cargo)
+        .args(["metadata", "--format-version", "1", "--no-deps", "--offline", "--manifest-path"])
+        .arg(&manifest)
+        .output()
+        .expect("cargo metadata runs");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let meta: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let root = Path::new(meta["workspace_root"].as_str().unwrap());
+    let mut edges = BTreeSet::new();
+    for package in meta["packages"].as_array().unwrap() {
+        let from = kind(root, Path::new(package["manifest_path"].as_str().unwrap()).parent().unwrap());
+        for dep in package["dependencies"].as_array().unwrap() {
+            if let Some(path) = dep["path"].as_str().filter(|p| Path::new(p).starts_with(root)) {
+                edges.insert((from.clone(), kind(root, Path::new(path))));
+            }
+        }
+    }
+    edges
+}
+
+#[test]
+fn the_kernel_and_the_modules_only_use_what_they_may() {
+    let edges = graph();
+    // what the sample module shows, so a graph read wrong does not pass for a clean one
+    assert!(edges.contains(&(Module("muestra".into()), Kernel)), "{edges:#?}");
+    assert!(edges.contains(&(Module("muestra".into()), Contract("muestra".into()))), "{edges:#?}");
+    assert!(edges.contains(&(App, Kernel)), "{edges:#?}");
+    let forbidden: Vec<_> = edges.iter().filter(|(from, to)| !may_use(from, to)).collect();
+    assert!(forbidden.is_empty(), "a dependency the ERP blueprint forbids (§3): {forbidden:#?}");
+}
+
+#[test]
+fn the_rules_of_the_boundaries() {
+    let module = |id: &str| Module(id.into());
+    let contract = |id: &str| Contract(id.into());
+    assert!(!may_use(&Kernel, &module("contabilidad")), "the kernel knows no module");
+    assert!(!may_use(&Kernel, &contract("contabilidad")));
+    assert!(may_use(&module("proyectos"), &Kernel));
+    assert!(may_use(&module("proyectos"), &contract("proyectos")));
+    assert!(may_use(&module("proyectos"), &contract("contabilidad")), "a module uses the published types of another");
+    assert!(!may_use(&module("proyectos"), &module("contabilidad")), "never its service, its storage or its tables");
+    assert!(may_use(&contract("proyectos"), &contract("contabilidad")));
+    assert!(!may_use(&contract("proyectos"), &module("proyectos")), "a contract does not reach into its module");
+    assert!(!may_use(&module("proyectos"), &App) && !may_use(&Kernel, &App), "nothing uses the app");
+    assert!(may_use(&App, &module("proyectos")));
+    assert!(!may_use(&Outside("crates/util".into()), &Kernel) && !may_use(&App, &Outside("crates/util".into())));
+    let root = Path::new("/w");
+    assert_eq!(kind(root, Path::new("/w")), App);
+    assert_eq!(kind(root, Path::new("/w/crates/modules/contabilidad/contract")), contract("contabilidad"));
+    assert_eq!(kind(root, Path::new("/w/crates/otros")), Outside("crates/otros".into()));
+}
+
+/// The linker may drop a crate nobody names, and its manifest with it: each module the app links must be in the
+/// registry, under the name of its folder.
+#[test]
+fn every_module_the_app_links_is_in_the_registry() {
+    let linked: BTreeSet<String> = graph()
+        .into_iter()
+        .filter_map(|(from, to)| match (from, to) {
+            (App, Module(id)) => Some(id),
+            _ => None,
+        })
+        .collect();
+    let registered: BTreeSet<String> = kernel::Modules::discover().unwrap().all().map(|m| m.id.to_string()).collect();
+    assert_eq!(registered, linked);
+}
+
+/// The conformance test (the ERP blueprint §4). The registry already refused a manifest that breaks the shape, a
+/// dependency that does not exist and a cycle; each module then migrates alone on an empty encrypted database, its
+/// tables carry its prefix and none of them points at another module's. The dictionary joins with ERP-2 and the
+/// capabilities with ERP-1.
+#[test]
+fn every_registered_module_conforms() {
+    let modules = kernel::Modules::discover().unwrap_or_else(|errors| panic!("{errors:#?}"));
+    assert!(modules.all().count() > 0, "the sample module is registered");
+    for m in modules.all() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = rusqlite::Connection::open(dir.path().join("m.db")).unwrap();
+        conn.execute_batch("PRAGMA key = 'conformance'; PRAGMA foreign_keys = ON;").unwrap();
+        let breaches = kernel::conform(m.id, m.migrations, &mut conn);
+        assert!(breaches.is_empty(), "module `{}`: {:#?}", m.id, breaches.iter().map(ToString::to_string).collect::<Vec<_>>());
+    }
+}

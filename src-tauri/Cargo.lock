@@ -2413,6 +2413,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kernel"
+version = "0.1.0"
+dependencies = [
+ "linkme",
+ "rusqlite",
+]
+
+[[package]]
 name = "keyboard-types"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2683,6 +2691,22 @@ dependencies = [
  "serde",
  "thiserror 2.0.21",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "muestra"
+version = "0.1.0"
+dependencies = [
+ "kernel",
+ "muestra-contract",
+ "rusqlite",
+]
+
+[[package]]
+name = "muestra-contract"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -4286,8 +4310,10 @@ dependencies = [
  "hex",
  "image",
  "jsonschema",
+ "kernel",
  "keyring-core",
  "linkme",
+ "muestra",
  "pdfium-render",
  "regex",
  "reqwest",

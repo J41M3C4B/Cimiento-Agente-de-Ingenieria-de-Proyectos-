@@ -39,6 +39,8 @@ pub enum StorageError {
     NothingToConfirm,
     #[error("the institution profile does not exist yet")]
     NoProfile,
+    #[error("a module does not keep the shape of a module: {0}")]
+    Modules(String),
     #[error("audit error: {0}")]
     Audit(#[from] crate::audit::AuditError),
 }

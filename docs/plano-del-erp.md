@@ -1,6 +1,6 @@
 # Plano del ERP
 
-**Aprobado por el líder el 2026-10-20, con las seis decisiones de la §12** (bloque ERP-7, [ADR-002](adr/ADR-002-el-nucleo-del-erp-y-la-forma-de-un-modulo.md)). Detalla, para el riel ERP, las cajas que le tocan en [los planos de SociAI](planos-de-sociai.md): la capa 2 (módulos y contratos), los servicios deterministas de la capa 4, la capa 5 (datos) y la parte de la capa 6 que es suya (cuentas, permisos y el almacén de la auditoría). No cambia los planos: los aterriza. Si algo de aquí choca con ellos, mandan los planos. Si este plano cambia, se cambia aquí primero, con su fila en la §13.
+**Aprobado por el líder el 2026-10-20, con las seis decisiones de la §12** (bloque ERP-7, [ADR-002](adr/ADR-002-el-nucleo-del-erp-y-la-forma-de-un-modulo.md)). Detalla, para el riel ERP, las cajas que le tocan en [los planos de SociAI](planos-de-sociai.md): la capa 2 (módulos y contratos), los servicios deterministas de la capa 4, la capa 5 (datos) y la parte de la capa 6 que es suya (cuentas, permisos y el almacén de la auditoría). No cambia los planos: los aterriza. Su par del lado de la IA es [el plano de la IA](plano-de-la-ia.md) (ADR-003), que en su §7 cuadra los dos punto por punto. Si algo de aquí choca con los planos, mandan los planos. Si este plano cambia, se cambia aquí primero, con su fila en la §13.
 
 **Cómo se hizo.** Primero los planos y la [investigación](investigacion/README.md); el código no se consultó para decidir, solo al final para el veredicto de la §10. Nada se diseña para acomodar lo que ya existe.
 
@@ -149,9 +149,9 @@ flowchart LR
 | | Pieza | Qué hace | Qué necesita de los módulos |
 |---|---|---|---|
 | **K1** | Organización | La institución dueña de la base: id, nombre corto, tipo. Va en toda petición para el permiso «sobre la institución» de los planos. | Nada. |
-| **K2** | Cuentas, roles y permisos | Cuentas, sesión, bloqueo y recuperación. Los **permisos los declara cada módulo** en su manifiesto (`contabilidad.polizas.registrar`); los roles del núcleo los agrupan, y también dicen qué **clases de datos** ve cada rol. | Sus permisos. |
+| **K2** | Cuentas, roles y permisos | Cuentas, sesión, bloqueo y recuperación. Los **permisos los declara cada módulo** en su manifiesto, por su id (`contabilidad.polizas.registrar`), y una capacidad nombra el suyo por ese id (ADR-003, A2); los roles del núcleo los agrupan y dicen qué **clases de datos** ve cada rol, y el núcleo decide si una cuenta puede. | Sus permisos. |
 | **K3** | Diccionario de datos | La única descripción de cada entidad y campo: tipo, regla, cuándo aplica, obligatorio, clase. De ahí salen la validación, los formularios, lo que falta por llenar, la exportación y la clase que usa la política de la IA. Es la «capa semántica» de la investigación. | Su catálogo. |
-| **K4** | Almacenamiento y unidad de trabajo | La conexión cifrada, las migraciones por módulo, los ids, la versión de cada registro y la **unidad de trabajo**: una sola transacción que escribe el dato, su historial, su hecho y su registro de cambio, o nada (§7). | Sus tablas y sus migraciones. |
+| **K4** | Almacenamiento y unidad de trabajo | La conexión cifrada, las migraciones por dueño (cada módulo y la plataforma de IA, con sus tablas `ai_`; ADR-003, A3), los ids, la versión de cada registro y la **unidad de trabajo**: una sola transacción que escribe el dato, su historial, su hecho y su registro de cambio, o nada (§7). | Sus tablas y sus migraciones. |
 | **K5** | Historial y origen | Para cualquier entidad de cualquier módulo: quién cambió qué, cuándo, desde dónde (persona, documento con página, cálculo o tarea de la plataforma con su id). Solo crece. Lo protegido dice que cambió, no el valor. | Nada: se escribe solo al aplicar. |
 | **K6** | Documentos | El almacén de archivos, su texto por página, la búsqueda por palabras, sus vigencias y el **vínculo con cualquier entidad** de cualquier módulo. | Sus tipos de documento (Mi institución declara «acta constitutiva»; Contabilidad, «CFDI»). |
 | **K7** | Directorio | Una sola ficha mínima por persona u organización (nombre, tipo, RFC o CURP, contacto), y **en qué módulos aparece y con qué papel**: donante, beneficiario, empleado, proveedor, integrante del patronato. Lo propio de cada papel vive en su módulo. Evita la doble captura. | Los papeles que define. |
@@ -357,3 +357,4 @@ Las seis se aprobaron como se recomendaban. Las recoge el [ADR-002](adr/ADR-002-
 | Fecha | Ajuste |
 |---|---|
 | 2026-10-20 | Primera versión, aprobada con las decisiones D1 a D6 (ERP-7, ADR-002). |
+| 2026-10-21 | Cuadra con [el plano de la IA](plano-de-la-ia.md) (ADR-003, pedido en el ERP-10): el plano lo enlaza; en K2 el permiso se nombra por su id (A2), y en K4 las migraciones son por dueño, con la plataforma como un dueño más (A3). Bloque ERP-8. |

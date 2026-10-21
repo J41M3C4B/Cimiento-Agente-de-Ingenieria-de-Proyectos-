@@ -1,0 +1,11 @@
+[package]
+name = "muestra"
+version = "0.1.0"
+description = "The sample module: the living reference of the shape of a module (ERP blueprint §4)"
+edition = "2021"
+publish = false
+
+[dependencies]
+kernel = { workspace = true }
+muestra-contract = { path = "contract" }
+rusqlite = { workspace = true }

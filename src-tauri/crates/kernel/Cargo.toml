@@ -1,0 +1,10 @@
+[package]
+name = "kernel"
+version = "0.1.0"
+description = "The kernel of the SociAI ERP: what every module needs and none owns (ADR-002)"
+edition = "2021"
+publish = false
+
+[dependencies]
+rusqlite = { workspace = true }
+linkme = { workspace = true }

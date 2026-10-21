@@ -12,6 +12,11 @@ mod scanner;
 mod storage;
 #[cfg(test)]
 mod architecture_tests;
+#[cfg(test)]
+mod workspace_tests;
+// the sample module, named once so the linker keeps its manifest for the registry (ERP-8)
+#[cfg(test)]
+extern crate muestra;
 
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
