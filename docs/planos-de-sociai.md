@@ -10,6 +10,8 @@ Este documento es la referencia. Si un plano cambia, se cambia aquí primero. Lo
 
 **Cómo se arma por dentro el ERP** (el núcleo, la forma de un módulo y cómo se reparten los datos) está en [el plano del ERP](plano-del-erp.md), que aterriza estos planos para las capas 2, 4, 5 y 6.
 
+**Cómo se arma por dentro la plataforma de IA** (sus piezas, la tarea, la entrega, la política y cómo se acopla al ERP) está en [el plano de la IA](plano-de-la-ia.md), que aterriza estos planos para las capas 3, 4 y 6.
+
 ---
 
 ## 1. Plano global
@@ -343,3 +345,4 @@ Se distinguen autenticación, autorización, clasificación de datos y decisión
 | 2026-10-20 | Operativo | La aprobación va atada a los parámetros: si cambian, se vuelve a confirmar (§3.5). |
 | 2026-10-20 | Operativo | La salida pasa por controles y se entrega al canal con el id de la tarea. Una pausa se reanuda en la misma tarea (§3.4). |
 | 2026-10-20 | Global | Se agrega [el plano del ERP](plano-del-erp.md): Mi institución es un módulo y el núcleo del ERP va debajo de todos los módulos. No cambia ninguna caja de estos planos (ERP-7, ADR-002). |
+| 2026-10-21 | Global | Se agrega [el plano de la IA](plano-de-la-ia.md): las piezas de la plataforma, la tarea, la entrega, la política en cuatro puntos y dónde se toca con el ERP. No cambia ninguna caja de estos planos (IA-6, ADR-003). |
