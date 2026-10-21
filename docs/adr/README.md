@@ -6,4 +6,4 @@ La numeración empieza de nuevo en el **ADR-001**. Los anteriores (001 a 048) es
 
 | ADR | Decisión | Estado |
 |---|---|---|
-| [ADR-001](ADR-001-el-contrato-de-capacidad-y-el-registro.md) | El contrato de capacidad y el registro: qué declara una capacidad, cómo se registra sin lista y la frontera que impide a un módulo usar la IA | Propuesta (IA-1) |
+| [ADR-001](ADR-001-el-contrato-de-capacidad-y-el-registro.md) | El contrato de capacidad y el registro: qué declara una capacidad, cómo se registra sin lista y la frontera que impide a un módulo usar la IA | Aceptada (IA-1) |

@@ -1,6 +1,6 @@
 ---
 adr: 1
-estado: propuesta
+estado: aceptada
 fecha: 2026-10-20
 tema: [ia, plataforma, contratos, arquitectura]
 bloque: IA-1
@@ -8,7 +8,7 @@ tags: [adr]
 ---
 # ADR-001 · El contrato de capacidad y el registro
 
-**Estado:** propuesta (2026-10-20), dentro del bloque IA-1. El líder la aprueba al validar el bloque.
+**Estado:** aceptada (2026-10-21). Propuesta el 2026-10-20 en el bloque IA-1, y aprobada por el líder al validarlo.
 
 ## Contexto
 
