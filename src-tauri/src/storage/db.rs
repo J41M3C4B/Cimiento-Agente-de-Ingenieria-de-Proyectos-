@@ -31,6 +31,10 @@ pub fn open_encrypted(path: &Path, key_hex: &str) -> Result<Connection, StorageE
     // secure_delete zeroes freed pages so deleted text does not linger in the file
     conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA secure_delete = ON;")?;
     migrations::run(&mut conn)?;
+    // then the modules of the ERP, each with its own migrations (ERP-8)
+    let modules = kernel::Modules::discover()
+        .map_err(|errors| StorageError::Modules(errors.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")))?;
+    kernel::migrate(&mut conn, &modules)?;
     Ok(conn)
 }
 
@@ -59,6 +63,29 @@ mod tests {
             .query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
         assert_eq!(versions, 34);
+    }
+
+    /// A database from before the modules (ERP-8) keeps all it had: the migrations of the app stay as its history,
+    /// and it gains the kernel's table of migrations and the tables of each module.
+    #[test]
+    fn a_database_from_before_the_modules_keeps_its_data_and_gains_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("t.db");
+        let conn = open_encrypted(&path, KEY).unwrap();
+        conn.execute_batch(
+            "DROP TABLE kernel_migrations; DROP TABLE muestra_note;
+             INSERT INTO institution (id,name,kind,created_at,updated_at) VALUES ('i','Asilo','elderly_home','t','t');",
+        )
+        .unwrap();
+        drop(conn);
+        let conn = open_encrypted(&path, KEY).unwrap();
+        let name: String = conn.query_row("SELECT name FROM institution WHERE id = 'i'", [], |r| r.get(0)).unwrap();
+        assert_eq!(name, "Asilo");
+        let history: i64 = conn.query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
+        assert_eq!(history, 34);
+        let module: (String, i64) = conn.query_row("SELECT owner, version FROM kernel_migrations", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(module, ("muestra".into(), 1));
+        conn.execute("INSERT INTO muestra_note (id, title, created_at) VALUES ('n', 'Nota', 't')", []).unwrap();
     }
 
     #[test]

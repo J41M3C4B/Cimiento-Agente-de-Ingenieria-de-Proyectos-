@@ -1,0 +1,9 @@
+[package]
+name = "muestra-contract"
+version = "0.1.0"
+description = "What the sample module publishes: the only part another module may use"
+edition = "2021"
+publish = false
+
+[dependencies]
+serde = { workspace = true }

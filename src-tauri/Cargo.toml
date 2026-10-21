@@ -7,6 +7,22 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# The app and the crates of the ERP (ADR-002, D5): the kernel and each module are a crate, so a dependency the
+# blueprint forbids does not compile. `cargo test` runs them all.
+[workspace]
+members = ["crates/kernel", "crates/modules/*", "crates/modules/*/contract"]
+default-members = [".", "crates/kernel", "crates/modules/*", "crates/modules/*/contract"]
+
+# the versions every crate shares, set once so SQLCipher and the rest are built once
+[workspace.dependencies]
+kernel = { path = "crates/kernel" }
+rusqlite = { version = "0.40.2", features = ["bundled-sqlcipher-vendored-openssl"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+linkme = "0.3.37"
+tempfile = "3.27.0"
+
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
@@ -19,10 +35,12 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror = "2"
-rusqlite = { version = "0.40.2", features = ["bundled-sqlcipher-vendored-openssl"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rusqlite = { workspace = true }
+# the kernel of the ERP (ADR-002): the registry of modules, their migrations and the vocabulary of permissions
+kernel = { workspace = true }
 getrandom = "0.4.3"
 hex = "0.4.3"
 keyring-core = "1.0.0"
@@ -47,7 +65,7 @@ tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time"] }
 argon2 = "0.6.0"
 tauri-plugin-dialog = "2.8.2"
 # the registry of capabilities (ADR-001): each one is gathered when the program is linked, with no list anywhere
-linkme = "0.3.37"
+linkme = { workspace = true }
 # the JSON schema of a capability's input and output comes from its Rust type, never written by hand (ADR-001)
 schemars = "1.2.2"
 
@@ -70,11 +88,13 @@ debug = "line-tables-only"
 debug = false
 
 [dev-dependencies]
-tempfile = "3.27.0"
+tempfile = { workspace = true }
 wiremock = "0.6.5"
 # paused clock for tests that wait out a rate-limit window without really waiting
 tokio = { version = "1.53.1", features = ["test-util"] }
 roxmltree = "0.21.1"
+# the sample module, the living reference of the shape of a module (ERP-8): linked only in the tests
+muestra = { path = "crates/modules/muestra" }
 
 [target."cfg(windows)".dependencies]
 windows-native-keyring-store = "1.1.0"
