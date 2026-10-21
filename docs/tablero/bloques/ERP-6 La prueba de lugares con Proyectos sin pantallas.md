@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-6
 carril: erp
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Mi institución
 pedido_por: IA-1
@@ -10,7 +10,7 @@ depende_de:
 rama: erp/erp-6-proyectos-fuera
 adr:
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-21
 ---
 
 ## Qué y por qué
@@ -76,7 +76,20 @@ PR: https://github.com/J41M3C4B/SociAI/pull/21
 - **Borrar un proyecto sigue funcionando:** aprobar la solicitud de borrado de un proyecto lo hace ahora `core::access` (antes llamaba al módulo), con una prueba nueva. `resolve_request` ya no recibe el callback `delete_project`. Las tablas de Proyectos y sus datos se quedan.
 - **`core::api` salió también** (49 líneas): era solo la puerta de Proyectos y no tenía consumidor.
 - **Para diseño:** `lib/tauri.ts` y `lib/types.ts` conservan llamadas y tipos de comandos que ya no existen. No se quitaron porque `HomePage.test.tsx` (DIS-4) importa `projectList`. Hay que ajustar esa prueba y limpiar los dos archivos juntos.
-- **Hallazgo grande, para el líder:** sin Proyectos queda sin consumidor casi todo `documents/canonical` (la lectura de convocatorias), además de `documents/docx.rs`, `chunking.rs`, `pdf.rs` y `reading.rs`, y partes de `ai/` (`golden`, versiones de *prompts*). El compilador ya los marca «nunca usados». Es Documentos (núcleo): no se tocó aquí; conviene un bloque aparte (ERP-7) para decidir qué se retira y qué se conserva como servicio determinista.
+- **Decisión del líder (2026-10-21) sobre lo que quedó sin consumidor:** la lectura de convocatorias (`documents/canonical`: `assemble`, `card`, `contract`, `normalize`, `package`, `retrieve`, `run`, `summary`) y lo que solo ella usaba (`documents/docx.rs`, `chunking.rs`, `pdf.rs`, `reading.rs`, y partes de `ai/`: `golden`, versiones de *prompts*) **quedan detenidas, no eliminadas: desacopladas hasta que se puedan conectar bien a un núcleo sólido.** El compilador las marca «nunca usadas»; es lo esperado y no se retiran. No hace falta un bloque ERP-7 para borrarlas.
 - **El manual conserva frases viejas** en los campos de Mi institución («aparece en los documentos y proyectos que arma el programa», «la ayuda automática lo usa para…») y en la pantalla de Ayuda («los pasos de un proyecto»). No es de este bloque; entra en la pasada del manual.
 
 ## Resultado
+
+Fusionado a `main` con *squash* en el PR #21 (`5e6bffc`), probado por el líder el 2026-10-21. `main` vuelve a verde.
+
+**Qué quedó:**
+- Proyectos salió del programa: `modules/projects` (unas 5 200 líneas con sus pruebas), sus 27 comandos, su registro y permisos, `ProjectsError`, su capa en `architecture_tests` y `test_support`. `projects` ya no está en `HIDDEN` ni en el manual.
+- Recuperable con la etiqueta `proyectos-rust-congelado`. Ningún dato se borró: las tablas y migraciones se quedan.
+- Aprobar el borrado de un proyecto lo hace ahora `core::access` (con prueba nueva); `resolve_request` ya no recibe el callback. `core::api` salió también.
+- `cargo test`: 626 pasan. `pnpm test`: 224 pasan. `pnpm build` pasa.
+
+**Lo que queda para otros rieles:**
+- **Diseño:** `lib/tauri.ts` y `lib/types.ts` conservan llamadas y tipos de comandos que ya no existen; `HomePage.test.tsx` (DIS-4) importa `projectList`. Se ajusta esa prueba y se limpian ambos archivos juntos.
+- **IA:** el IA-1 (#20) ya puede entrar a `main`. `ai/dry_run_tests.rs` sigue apagado y nombra a Proyectos.
+- **Manual:** frases viejas en los campos de Mi institución y en Ayuda («los pasos de un proyecto»); entran en la pasada del manual.
