@@ -2,7 +2,7 @@
 tipo: bloque
 id: DIS-3
 carril: diseno
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Chat global; Interfaces de los módulos
 pedido_por: IA-1
@@ -88,14 +88,19 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 ## Cómo probarlo
 
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- Carpeta y rama: `D:\Agente Proyectos\sociai-diseno`, rama `diseno/dis-3-pantallas-sin-la-ia-vieja` (PR #16).
+- Antes: nada nuevo (`pnpm install` ya está hecho). Strawberry Perl antes que el `perl` de Git en el `PATH`. El `target` de esa carpeta ya está compilado, así que arranca en segundos.
+- Arrancar: `pnpm tauri dev` desde esa carpeta. Si tu propio `pnpm tauri dev` usa el puerto 1430, ciérralo antes o dime y lo corro aparte.
+- Al terminar: cerrar la app. Cambiar de rama en esa carpeta solo después de validar.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] Entrar, ir a Inicio: la barra tiene tema, configuración y tu cuenta; **no hay botón ✨**.
+- [ ] Mi institución → «Editar» de una tarjeta: la ventana abre **sin** «Llenarlo por mí» ni «Llenar con mis documentos».
+- [ ] En esa ventana, pulsar el «?» de un campo: se despliega el manual y **no** aparece «Preguntar más».
+- [ ] En Mi institución, sección del Expediente con un documento que ya tiene archivo: **no** aparece «Llenar todo con mis documentos».
+- [ ] Subir un archivo a un documento (por ejemplo la constancia de situación fiscal de `fixtures/expediente`): cierra la ventana y llega el aviso «Se guardó el archivo…»; si la lectura con reglas dejó sugerencias, en su ventana siguen «Usar», «Descartar» y «Descartar todas».
+- [ ] Repetir en tema oscuro; nada roto ni en blanco.
 
 ## Hallazgos
 
