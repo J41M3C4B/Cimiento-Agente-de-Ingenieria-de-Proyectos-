@@ -10,8 +10,8 @@ edition = "2021"
 # The app and the crates of the ERP (ADR-002, D5): the kernel and each module are a crate, so a dependency the
 # blueprint forbids does not compile. `cargo test` runs them all.
 [workspace]
-members = ["crates/kernel", "crates/modules/*", "crates/modules/*/contract"]
-default-members = [".", "crates/kernel", "crates/modules/*", "crates/modules/*/contract"]
+members = ["crates/kernel", "crates/modules/*", "crates/modules/*/contract", "crates/capability", "crates/platform"]
+default-members = [".", "crates/kernel", "crates/modules/*", "crates/modules/*/contract", "crates/capability", "crates/platform"]
 
 # the versions every crate shares, set once so SQLCipher and the rest are built once
 [workspace.dependencies]
@@ -25,6 +25,9 @@ tempfile = "3.27.0"
 hex = "0.4.3"
 sha2 = "0.11.0"
 ulid = "3.0.0"
+# the capability contract and the AI platform (ADR-003, A1 and A2)
+capability = { path = "crates/capability" }
+platform = { path = "crates/platform" }
 schemars = "1.2.2"
 
 [lib]
@@ -45,6 +48,9 @@ thiserror = { workspace = true }
 rusqlite = { workspace = true }
 # the kernel of the ERP (ADR-002): the registry of modules, their migrations and the vocabulary of permissions
 kernel = { workspace = true }
+# the capability contract, under the kernel, and the runtime of the AI platform (ADR-003, A1 and A2)
+capability = { workspace = true }
+platform = { workspace = true }
 getrandom = "0.4.3"
 hex = { workspace = true }
 keyring-core = "1.0.0"

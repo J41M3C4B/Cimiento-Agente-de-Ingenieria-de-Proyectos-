@@ -10,3 +10,7 @@ kernel = { workspace = true }
 muestra-contract = { path = "contract" }
 rusqlite = { workspace = true }
 serde_json = { workspace = true }
+# what it publishes: its capabilities, with the contract that sits under the kernel (ADR-003 A2)
+capability = { workspace = true }
+serde = { workspace = true }
+schemars = { workspace = true }

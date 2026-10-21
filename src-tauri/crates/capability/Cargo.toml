@@ -1,0 +1,18 @@
+[package]
+name = "capability"
+version = "0.1.0"
+description = "The capability contract and its registry (ADR-001): how the kernel and every module publish what they offer"
+edition = "2021"
+publish = false
+
+# The lowest crate of the workspace (ADR-003 A2): it uses nothing of the ERP nor of the platform, so the kernel, the
+# modules and the platform can all use it.
+[dependencies]
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+# each capability is gathered when the program is linked, with no list anywhere
+linkme = { workspace = true }
+# the JSON schema of a capability's input and output comes from its Rust type, never written by hand
+schemars = { workspace = true }

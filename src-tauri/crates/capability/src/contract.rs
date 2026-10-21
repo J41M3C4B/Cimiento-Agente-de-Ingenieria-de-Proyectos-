@@ -10,8 +10,6 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
 
-pub use crate::core::access::domain::Permission;
-
 /// What running a capability does to the institution's data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -132,7 +130,9 @@ pub struct Capability {
     /// What it does, in Spanish, in a line or two: the router reads it to propose it.
     pub description: &'static str,
     pub effect: Effect,
-    pub permission: Permission,
+    /// The id of the permission it needs (ADR-003 A2): one of the kernel's (`kernel.usar`) or one its module defines
+    /// (`contabilidad.polizas.registrar`). The catalog, the roles and the decision are the kernel's (K2).
+    pub permission: &'static str,
     pub data: &'static [DataClass],
     pub approval: Approval,
     pub limits: Limits,

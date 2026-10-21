@@ -6,6 +6,10 @@
 //! the `contract` of a module, and a contract uses only the kernel and other contracts. The app (the shell, with the
 //! code from before the modules) may use them all, and nothing uses it.
 //!
+//! The two crates of the AI rail keep their own rules (ADR-003): the capability contract uses nothing of the
+//! workspace and anyone may use it (A2), and the platform uses the contract and the kernel, and only the app uses it
+//! (A1).
+//!
 //! **The conformance test** runs on every registered module, with no line written for each one.
 
 use std::collections::BTreeSet;
@@ -22,6 +26,10 @@ enum Crate {
     Module(String),
     /// `crates/modules/{id}/contract`
     Contract(String),
+    /// `crates/capability`: the capability contract (ADR-001).
+    Capability,
+    /// `crates/platform`: the AI platform (ADR-003).
+    Platform,
     /// Anywhere else: not a shape the blueprint knows.
     Outside(String),
 }
@@ -37,6 +45,8 @@ fn kind(root: &Path, dir: &Path) -> Crate {
         ["crates", "kernel"] => Kernel,
         ["crates", "modules", id] => Module(id.to_string()),
         ["crates", "modules", id, "contract"] => Contract(id.to_string()),
+        ["crates", "capability"] => Capability,
+        ["crates", "platform"] => Platform,
         _ => Outside(parts.join("/")),
     }
 }
@@ -46,6 +56,12 @@ fn may_use(from: &Crate, to: &Crate) -> bool {
     match (from, to) {
         (_, App | Outside(_)) | (Outside(_), _) => false,
         (App, _) => true,
+        // the contract is the lowest crate, and everyone may use it (ADR-003 A2)
+        (Capability, _) => false,
+        (_, Capability) => true,
+        // the platform uses the contract and the kernel; only the app uses it (ADR-003 A1)
+        (Platform, Kernel) => true,
+        (Platform, _) | (_, Platform) => false,
         (Kernel, _) => false,
         (Module(_) | Contract(_), Kernel | Contract(_)) => true,
         _ => false,
@@ -83,6 +99,8 @@ fn the_kernel_and_the_modules_only_use_what_they_may() {
     assert!(edges.contains(&(Module("muestra".into()), Kernel)), "{edges:#?}");
     assert!(edges.contains(&(Module("muestra".into()), Contract("muestra".into()))), "{edges:#?}");
     assert!(edges.contains(&(App, Kernel)), "{edges:#?}");
+    assert!(edges.contains(&(App, Platform)) && edges.contains(&(Platform, Capability)), "{edges:#?}");
+    assert!(edges.contains(&(Module("muestra".into()), Capability)), "{edges:#?}");
     let forbidden: Vec<_> = edges.iter().filter(|(from, to)| !may_use(from, to)).collect();
     assert!(forbidden.is_empty(), "a dependency the ERP blueprint forbids (§3): {forbidden:#?}");
 }
@@ -102,10 +120,18 @@ fn the_rules_of_the_boundaries() {
     assert!(!may_use(&module("proyectos"), &App) && !may_use(&Kernel, &App), "nothing uses the app");
     assert!(may_use(&App, &module("proyectos")));
     assert!(!may_use(&Outside("crates/util".into()), &Kernel) && !may_use(&App, &Outside("crates/util".into())));
+    // the two crates of the AI rail (ADR-003)
+    assert!(may_use(&Kernel, &Capability) && may_use(&module("proyectos"), &Capability) && may_use(&Platform, &Capability));
+    assert!(!may_use(&Capability, &Kernel) && !may_use(&Capability, &module("proyectos")) && !may_use(&Capability, &Platform));
+    assert!(may_use(&Platform, &Kernel) && !may_use(&Platform, &module("proyectos")) && !may_use(&Platform, &contract("proyectos")));
+    assert!(!may_use(&Kernel, &Platform) && !may_use(&module("proyectos"), &Platform) && !may_use(&contract("proyectos"), &Platform), "only the app uses the platform");
+    assert!(may_use(&App, &Platform));
     let root = Path::new("/w");
     assert_eq!(kind(root, Path::new("/w")), App);
     assert_eq!(kind(root, Path::new("/w/crates/modules/contabilidad/contract")), contract("contabilidad"));
     assert_eq!(kind(root, Path::new("/w/crates/otros")), Outside("crates/otros".into()));
+    assert_eq!(kind(root, Path::new("/w/crates/platform")), Platform);
+    assert_eq!(kind(root, Path::new("/w/crates/capability")), Capability);
 }
 
 /// The linker may drop a crate nobody names, and its manifest with it: each module the app links must be in the

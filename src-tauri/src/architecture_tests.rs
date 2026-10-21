@@ -33,7 +33,6 @@ use Layer::*;
 const PLACES: &[(&str, Layer)] = &[
     // the three layers of ADR-001
     ("ai", Platform),
-    ("capability", Contract),
     ("core::access::domain", Control),
     // base
     ("audit", Base),

@@ -49,7 +49,7 @@ El ERP-8 arma un *workspace* de Cargo para que el compilador haga cumplir las fr
 ```mermaid
 flowchart TB
     APP["App (Tauri): la ventana y los comandos de entrada; enlaza todo"]
-    AI["Plataforma de IA (crate ai)"]
+    AI["Plataforma de IA (crate platform)"]
     CAPC["Contrato de capacidad y registro (crate capability)"]
     KER["Núcleo del ERP (crate kernel)"]
     MOD["Cada módulo (crate) y sus tipos publicados (crate contract)"]
@@ -424,3 +424,4 @@ Las siete se aprobaron como se recomendaban. Las recoge el [ADR-003](adr/ADR-003
 | Fecha | Ajuste |
 |---|---|
 | 2026-10-21 | Primera versión, aprobada con las decisiones A1 a A7 (IA-6, ADR-003). Lo que toca al ERP se pidió en el ERP-10. |
+| 2026-10-21 | El *crate* de la plataforma se llama `platform`, no `ai`: la app todavía tiene su módulo `ai/` con lo viejo, y los dos nombres chocarían (IA-5). |

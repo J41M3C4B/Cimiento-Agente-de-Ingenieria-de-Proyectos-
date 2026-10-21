@@ -17,8 +17,6 @@ pub mod mock;
 pub(crate) mod paced;
 pub mod pipeline;
 pub mod prompts;
-// the runtime of the platform (ADR-003, IA-2): the one door of every request, the task, the executor and the delivery
-pub mod runtime;
 pub mod settings;
 pub mod vault;
 
