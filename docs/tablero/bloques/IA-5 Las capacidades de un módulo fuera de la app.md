@@ -6,7 +6,7 @@ estado: backlog
 prioridad: alta
 caja: Contratos de capacidades; Registro común de capacidades
 pedido_por: ERP-1
-depende_de: IA-1, ERP-8
+depende_de: IA-1, ERP-8, ERP-10
 rama:
 adr:
 creado: 2026-10-20
