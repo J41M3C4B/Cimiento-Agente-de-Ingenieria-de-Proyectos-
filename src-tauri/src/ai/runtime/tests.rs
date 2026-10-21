@@ -77,6 +77,36 @@ mod trial {
         Err(CapabilityError::Failed { reason: "always fails" })
     }
 
+    #[derive(serde::Deserialize, schemars::JsonSchema)]
+    pub struct RenameWhy {
+        pub name: String,
+        pub why: Option<String>,
+    }
+
+    pub fn preview_why(call: &Call, ask: RenameWhy) -> Result<Change, CapabilityError> {
+        Ok(Change { from: current(call)?, to: ask.name })
+    }
+
+    /// Only when it applies does it find that something of the person is missing.
+    pub fn rename_why(call: &Call, ask: RenameWhy) -> Result<Change, CapabilityError> {
+        if ask.why.is_none() {
+            return Err(CapabilityError::NeedsPerson { what: "why the name changes" });
+        }
+        rename(call, Rename { name: ask.name })
+    }
+
+    crate::capability! {
+        static RENAME_WHY = "trial.rename_why" {
+            description: "Cambia el nombre de prueba; al aplicar pide el motivo.",
+            effect: Modify,
+            permission: Use,
+            data: [Public],
+            approval: Required,
+            limits: Limits::CHANGE,
+            run: change(preview_why, rename_why),
+        }
+    }
+
     crate::capability! {
         static READ = "trial.read" {
             description: "Lee el nombre de prueba.",
@@ -594,4 +624,32 @@ fn a_request_and_an_outcome_read_as_the_screens_write_them() {
     assert_eq!(v["body"]["kind"], "proposal");
     assert_eq!(v["body"]["again"], Value::Null);
     assert_eq!(v["channel"], json!({ "kind": "screen", "place": "institution" }));
+}
+
+#[test]
+fn what_the_person_adds_to_an_approved_change_is_approved_again() {
+    let w = world();
+    let asked = w.invoke(None, "trial.rename_why", json!({ "name": "Otra" }));
+    let o = w.decide(&asked.task, &fingerprint_of(&asked), true);
+    assert_eq!(o.body, Body::Clarification { capability: "trial.rename_why".into(), ask: Ask::Missing { what: "why the name changes".into() } });
+
+    // the answer changes the input: it is prepared and shown again, never applied on the earlier approval
+    let o = w.answer(&asked.task, json!({ "why": "Cambio de razón social" }));
+    assert!(matches!(&o.body, Body::Proposal { .. }), "{o:?}");
+    assert_ne!(fingerprint_of(&o), fingerprint_of(&asked));
+    assert_eq!(w.name(), "Casa Hogar");
+
+    let o = w.decide(&asked.task, &fingerprint_of(&o), true);
+    assert_eq!(o.state, TaskState::Done);
+    assert_eq!(w.name(), "Otra");
+}
+
+#[test]
+fn a_request_that_changes_nothing_keeps_what_the_task_said_last() {
+    let w = world();
+    let asked = w.invoke(None, "trial.rename", json!({ "name": "Otra" }));
+    let o = w.answer(&asked.task, json!({ "name": "Tercera" }));
+    assert_eq!(o.body, Body::Error { code: "not_waiting".into(), next: Next::StartAgain });
+    let runtime = Runtime { registry: &w.registry, clock: &w.clock, authorize: &w.session, deliver: &w.window };
+    assert_eq!(runtime.task(&w.conn, &ANA, &asked.task).unwrap(), Some(asked), "the proposal is still what waits");
 }

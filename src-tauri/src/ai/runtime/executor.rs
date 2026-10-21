@@ -148,7 +148,7 @@ impl Runtime<'_> {
 
     fn answer(&self, conn: &Connection, who: &Who, task: &mut Task, values: Value) -> Done {
         let (Some(Pause::Person), Some(waiting)) = (task.pause, task.waiting.clone()) else {
-            return self.respond(conn, task, 0, error("not_waiting", Next::StartAgain));
+            return Ok(self.notice(task, error("not_waiting", Next::StartAgain)));
         };
         let Some(cap) = self.registry.get(&waiting.capability) else {
             return self.close(conn, task, TaskState::Error, "unknown_capability", 0, error("unknown_capability", Next::TryLater));
@@ -169,7 +169,7 @@ impl Runtime<'_> {
     fn decide(&self, conn: &Connection, who: &Who, task: &mut Task, fp: &str, approve: bool) -> Done {
         let pending = match (task.pause, store::pending_approval(conn, &task.id)?) {
             (Some(Pause::Approval), Some(p)) => p,
-            _ => return self.respond(conn, task, 0, error("not_waiting", Next::StartAgain)),
+            _ => return Ok(self.notice(task, error("not_waiting", Next::StartAgain))),
         };
         // a decision for another proposal: the one waiting is shown again
         if pending.fingerprint != fp {
@@ -238,8 +238,6 @@ impl Runtime<'_> {
             }
             Err(CapabilityError::Invalid { field, reason }) => {
                 self.ended(conn, task, n, cap.id, "invalid")?;
-                // nothing changed: a correction runs from the preparation again
-                let phase = if phase == Phase::Apply { Phase::Prepare } else { phase };
                 return self.pause_for_person(conn, task, cap, phase, input, n, Ask::Correct { field: field.into(), reason: reason.into() }, true);
             }
             Err(CapabilityError::NeedsPerson { what }) => {
@@ -282,6 +280,9 @@ impl Runtime<'_> {
 
     #[allow(clippy::too_many_arguments)]
     fn pause_for_person(&self, conn: &Connection, task: &mut Task, cap: &Capability, phase: Phase, input: Value, n: u32, ask: Ask, correction: bool) -> Done {
+        // a change never resumes at its apply: what the person adds changes the input, so it is prepared and
+        // approved again (the blueprints §3.5)
+        let phase = if phase == Phase::Apply { Phase::Prepare } else { phase };
         task.waiting = Some(Waiting { capability: cap.id.into(), phase, input, correction });
         self.pause(conn, task, Pause::Person, "needs_person", n, Body::Clarification { capability: cap.id.into(), ask })
     }
@@ -321,9 +322,18 @@ impl Runtime<'_> {
 
     /// The outcome, with the id of its task, kept as the last one of the task and handed over.
     fn respond(&self, conn: &Connection, task: &Task, step: u32, body: Body) -> Done {
-        let outcome = Outcome { task: task.id.clone(), step, channel: task.channel.clone(), state: task.state, at_ms: self.clock.now_ms(), body };
+        let outcome = self.outcome(task, step, body);
         store::save_task(conn, task, &outcome)?;
         self.deliver.deliver(&outcome);
         Ok(outcome)
+    }
+
+    /// An answer to a request that changed nothing: the task keeps what it said last.
+    fn notice(&self, task: &Task, body: Body) -> Outcome {
+        self.outcome(task, 0, body)
+    }
+
+    fn outcome(&self, task: &Task, step: u32, body: Body) -> Outcome {
+        Outcome { task: task.id.clone(), step, channel: task.channel.clone(), state: task.state, at_ms: self.clock.now_ms(), body }
     }
 }
