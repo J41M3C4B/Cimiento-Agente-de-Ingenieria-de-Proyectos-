@@ -22,6 +22,17 @@ Hoy qué ve la IA se decide en varios lugares: la hoja de la IA, cada herramient
 
 Incluye la regla del proveedor: los términos del plan gratuito de Gemini prohíben mandarle datos personales o confidenciales ([investigación externa](../../investigacion/investigacion-externa.md), §4.2), y hoy nada lo impide.
 
+**SubQ como proveedor candidato (nota del líder, 2026-10-21).** El líder tiene una suscripción a SubQ (Subquadratic): un contexto de hasta 12 millones de tokens, con atención dispersa en vez de partir los documentos y recuperarlos por *embeddings*. Ofrece dos modelos, uno de decisión y uno más general, y el líder tiene 100 millones de tokens de regalo. Un documento de una institución no llega ni al millón de tokens, así que alcanzan para probar si sirve para el conocimiento documental (P6, [plano de la IA](../../plano-de-la-ia.md)). Un caso que encaja: las convocatorias, que son públicas y largas.
+
+- **Se hará una investigación especializada** antes de decidir.
+- **Lo que este bloque tiene que resolver para SubQ:**
+  - sus condiciones (el contrato de API y el acuerdo de tratamiento de datos, que no son públicos): si entrena con lo que recibe, cuánto lo guarda, si lo borra y su confidencialidad (LFPDPPP, art. 52);
+  - si los tokens de regalo cuentan como servicio pagado o como gratuito;
+  - si vencen.
+
+  Mientras no se sepa, la política solo le deja mandar lo público.
+- **La comparación de calidad** (frente a la recuperación por fragmentos) va con la batería, cuando exista el IA-4, con una corrida real corta.
+
 ## Terminado cuando
 
 (Propuesta; la aprueba el líder.)
