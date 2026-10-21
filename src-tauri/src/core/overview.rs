@@ -239,8 +239,8 @@ mod tests {
     fn a_hidden_module_gives_its_quick_figure_as_it_is() {
         assert_eq!(figure_of("people", 12, Some(30)), Figure { value: 30, approx: false });
         assert_eq!(figure_of("staff", 4, None), Figure { value: 0, approx: false });
-        assert_eq!(figure_of("projects", 0, Some(30)), Figure { value: 30, approx: true });
-        assert_eq!(figure_of("projects", 12, Some(30)), Figure { value: 12, approx: false });
+        assert_eq!(figure_of("documents", 0, Some(30)), Figure { value: 30, approx: true });
+        assert_eq!(figure_of("documents", 12, Some(30)), Figure { value: 12, approx: false });
     }
 
     #[test]

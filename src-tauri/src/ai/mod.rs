@@ -21,7 +21,10 @@ pub mod vault;
 
 #[cfg(test)]
 pub mod golden;
-#[cfg(test)]
+// ERP-4: the dry run of the provider drove it through the conversation and the summary of Projects, which no longer
+// use the AI. The file stays as it was, switched off, for the AI rail to carry its tests over to a driver of the
+// platform (the fake Gemini server, the harness and the checks of the pipeline are still good).
+#[cfg(any())]
 mod dry_run_tests;
 
 use async_trait::async_trait;

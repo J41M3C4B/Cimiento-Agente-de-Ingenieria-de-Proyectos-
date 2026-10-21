@@ -245,7 +245,8 @@ mod tests {
         // without accents, and a plural finds the singular
         assert_eq!(search(&c, "respaldo computadora", 3).unwrap()[0].id, "howto.backup");
         assert!(search(&c, "Convocatorias: ¿a quién atienden?", 3).unwrap().iter().any(|h| h.id == "institution.populations"));
-        assert!(search(&c, "proyecto convocatoria", 3).unwrap().iter().any(|h| h.id == "screen.projects"));
+        // Proyectos is frozen: the manual does not answer with its screen (ADR-043)
+        assert!(search(&c, "proyecto convocatoria", 3).unwrap().iter().all(|h| h.id != "screen.projects"));
         assert!(search(&c, "que como", 5).unwrap().is_empty(), "only empty words: nothing");
         // what the person writes never reaches FTS5 as syntax
         assert!(search(&c, "\" OR * NEAR( -", 5).unwrap().is_empty());

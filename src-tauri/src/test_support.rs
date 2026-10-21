@@ -1,13 +1,11 @@
-//! Shared scaffolding for the tests of the services: a database with a confirmed profile, a project born from a
-//! call (read and confirmed, or not yet) and a scripted model for the conversation. Tests only.
+//! Shared scaffolding for the tests of the services: a database with a confirmed profile, and a project born from a
+//! call (read and confirmed, or not yet), as far along as the test needs. No model: what the AI used to leave in the
+//! base (the root cause, the summary) is written straight into it. Tests only.
 
-use crate::ai::mock::MockProvider;
-use crate::ai::{AiError, AiProvider, AiResponse, Usage};
-use crate::modules::projects::calls::{create_project_from_call, NewProjectOutcome, PackageFile, UploadedFile};
-use crate::modules::projects::conversation::{send_message, start_conversation, AnswerOutcome, ConversationView};
+use crate::core::api::PageMarks;
 use crate::modules::projects::diagnosis::{advance, SharedDb};
 use crate::core::profile::domain::*;
-use crate::modules::projects::storage::calls::{self, FileRole, ReadingStatus};
+use crate::modules::projects::storage::calls::{self, CallMeta, FileRole, NewFile, ReadingStatus};
 use crate::storage::open_encrypted;
 use crate::core::profile::storage as profile;
 use serde_json::{json, Value};
@@ -15,11 +13,6 @@ use std::sync::{Arc, Mutex};
 
 pub const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
-/// What the person writes in the scripted conversation. Every cause quoted below is a literal piece of these.
-pub const OPENING_ANSWER: &str = "Queremos arreglar la cocina y los baños de la casa para que las niñas coman y se bañen seguras, porque el agua sale con óxido y no hemos tenido dinero; así mejoraría su alimentación y bajarían los malestares.";
-pub const WHY1_ANSWER: &str = "No hay quien se encargue del mantenimiento de la casa, solo se arregla cuando algo falla.";
-pub const WHY2_ANSWER: &str = "Nadie ha hecho un plan de mantenimiento porque la directora atiende todo sola.";
-pub const WHY3_ANSWER: &str = "No existe un fondo para mantenimiento, el dinero se usa en lo urgente de cada día.";
 pub const ROOT: &str = "No hay un sistema de mantenimiento con responsable y fondo propio";
 
 pub fn fixture(name: &str) -> Vec<u8> {
@@ -84,15 +77,35 @@ pub fn canonical_doc() -> Value {
     })
 }
 
+pub fn summary_value(extra: &str) -> Value {
+    json!({
+        "problem_statement": format!("La casa no tiene un sistema de mantenimiento y por eso el agua sale con óxido {extra}"),
+        "affected": {"group": "personas que viven en la casa", "count": 18, "description": "Usan a diario la cocina y los baños"},
+        "current_consequences": ["El agua sale con óxido"],
+        "root_causes": [ROOT],
+        "reframed_need": "Alimentación segura en una casa con mantenimiento preventivo",
+        "alternatives": [{"title": "Obra con plan de mantenimiento", "pros": ["Evita que se repita"], "cons": ["Requiere responsable"]}],
+        "suggested_indicators": ["Instalaciones de agua conformes"],
+        "open_questions": ["Cotizaciones", "Quién mantendrá la solución"]
+    })
+}
+
 /// A project born from a call that was read (`ready`) but that the person has not confirmed yet.
 pub fn project_in_call_selection(db: &SharedDb) -> String {
-    let files = vec![PackageFile { file: UploadedFile { name: "bases.pdf".into(), bytes: fixture("convocatoria-con-tablas.pdf") }, role: FileRole::Main }];
-    let NewProjectOutcome::Created { project, reading } = create_project_from_call(db, files, "Apoyos 2027", Some("Fundación Ficticia"), Some(2027), None).unwrap() else {
-        panic!("the project was not created")
-    };
-    let conn = db.lock().unwrap();
-    calls::finish(&conn, &reading.id, ReadingStatus::Ready, None, Some(&canonical_doc()), &json!({})).unwrap();
-    project.id
+    let files = vec![NewFile {
+        name: "bases.pdf".into(),
+        mime: "application/pdf",
+        pages: vec!["APOYOS 2027".into(), "Monto máximo: $250,000 pesos".into()],
+        redactions: 0,
+        role: FileRole::Main,
+        marks: PageMarks::default(),
+    }];
+    let meta = CallMeta { name: "Apoyos 2027".into(), funder: Some("Fundación Ficticia".into()), year: Some(2027) };
+    let mut conn = db.lock().unwrap();
+    let (pid, reading) = calls::create_project_with_call(&mut conn, "Apoyos 2027", "Arreglar la cocina y los baños de la casa", &meta, &files).unwrap();
+    calls::finish(&conn, &reading, ReadingStatus::Ready, None, Some(&canonical_doc()), &json!({})).unwrap();
+    crate::modules::projects::storage::projects::set_stage(&mut conn, &pid, crate::modules::projects::domain::stage::Stage::CallSelection, false).unwrap();
+    pid
 }
 
 /// A project in the diagnosis: its call was read and the person confirmed it.
@@ -107,90 +120,22 @@ pub fn project_in_diagnosis(db: &SharedDb) -> String {
     pid
 }
 
-pub fn usage() -> Usage {
-    Usage { input_tokens: 800, output_tokens: 120, ..Default::default() }
+/// What an earlier diagnosis left in the base, written straight into it: a confirmed root cause and a confirmed
+/// summary.
+pub fn confirm_the_diagnosis(db: &SharedDb, pid: &str) {
+    use crate::modules::projects::storage::projects as store;
+    let conn = db.lock().unwrap();
+    store::set_root(&conn, pid, ROOT, None).unwrap();
+    assert!(store::confirm_root(&conn, pid).unwrap());
+    store::save_summary(&conn, pid, &summary_value(""), "user", None).unwrap();
+    assert!(store::confirm_summary(&conn, pid).unwrap());
 }
 
-/// The reply of the model for one turn of the conversation.
-pub fn turn_reply(message: &str, cause: Option<(&str, &str)>, hypothesis: Option<&str>, options: &[&str], fit: Option<(&str, &str)>) -> Result<AiResponse, AiError> {
-    Ok(AiResponse {
-        value: json!({
-            "message": message,
-            "cause": cause.map(|(text, quote)| json!({ "text": text, "quote": quote })),
-            "root_hypothesis": hypothesis,
-            "options": options,
-            "fit": fit.map(|f| f.0),
-            "fit_note": fit.map_or("", |f| f.1),
-        }),
-        model: "gemini-3.5-flash-lite".into(),
-        usage: usage(),
-    })
-}
-
-pub fn summary_value(extra: &str) -> Value {
-    json!({
-        "problem_statement": format!("La casa no tiene un sistema de mantenimiento y por eso el agua sale con óxido {extra}"),
-        "affected": {"group": "personas que viven en la casa", "count": 18, "description": "Usan a diario la cocina y los baños"},
-        "current_consequences": ["El agua sale con óxido"],
-        "root_causes": [ROOT],
-        "reframed_need": "Alimentación segura en una casa con mantenimiento preventivo",
-        "alternatives": [{"title": "Obra con plan de mantenimiento", "pros": ["Evita que se repita"], "cons": ["Requiere responsable"]}],
-        "suggested_indicators": ["Instalaciones de agua conformes"],
-        "open_questions": ["Cotizaciones", "Quién mantendrá la solución"]
-    })
-}
-
-pub fn summary_ok(v: Value) -> Result<AiResponse, AiError> {
-    Ok(AiResponse { value: v, model: "gemini-3.5-flash".into(), usage: Usage { input_tokens: 3000, output_tokens: 900, ..Default::default() } })
-}
-
-pub fn view_of(out: AnswerOutcome) -> ConversationView {
-    match out {
-        AnswerOutcome::Saved { view, .. } => view,
-        AnswerOutcome::Quarantine { .. } => panic!("unexpected quarantine"),
-    }
-}
-
-/// The person writes a message and the model answers.
-pub async fn say(db: &SharedDb, p: &dyn AiProvider, pid: &str, text: &str) -> ConversationView {
-    view_of(send_message(db, Some(p), pid, text, false, None).await.unwrap())
-}
-
-/// The replies of the happy path: opening, first «why», second, third and the root cause proposed.
-pub fn happy_replies() -> Vec<Result<AiResponse, AiError>> {
-    vec![
-        turn_reply("Hola, para la convocatoria «Apoyos 2027»: ¿qué proyecto tienen en mente, por qué no se ha podido y cómo cambiaría la vida de las niñas?", None, None, &[], None),
-        turn_reply("Entiendo. ¿Por qué no se ha podido arreglar?", None, None, &[], Some(("fits", ""))),
-        turn_reply("¿Y por qué no hay quien se encargue?", Some(("No hay quien dé mantenimiento", "solo se arregla cuando algo falla")), None, &[], None),
-        turn_reply("¿Por qué nadie hizo un plan?", Some(("Nadie hizo un plan", "la directora atiende todo sola")), None, &[], None),
-        turn_reply("Entonces la causa parece ser la falta de un sistema.", Some(("No hay fondo para mantenimiento", "No existe un fondo para mantenimiento")), Some(ROOT), &[], None),
-    ]
-}
-
-/// Runs the happy path with the scripted model until the person confirms the root cause. Returns the provider so
-/// the test can look at what was asked.
-pub async fn reach_confirmed_root(db: &SharedDb, pid: &str) -> MockProvider {
-    let p = MockProvider::new(happy_replies());
-    view_of(start_conversation(db, Some(&p), pid).await.unwrap());
-    say(db, &p, pid, OPENING_ANSWER).await;
-    say(db, &p, pid, WHY1_ANSWER).await;
-    say(db, &p, pid, WHY2_ANSWER).await;
-    let v = say(db, &p, pid, WHY3_ANSWER).await;
-    assert_eq!(v.phase, crate::modules::projects::domain::conversation::Phase::RootProposed);
-    let v = view_of(send_message(db, Some(&p), pid, "", true, None).await.unwrap());
-    assert_eq!(v.phase, crate::modules::projects::domain::conversation::Phase::Closed);
-    p
-}
-
-/// A project in the drafting stage: its call is confirmed, the conversation ended in a confirmed root cause, the
-/// summary is confirmed and a goal was chosen.
+/// A project in the drafting stage: its call is confirmed, the diagnosis is confirmed and a goal was chosen.
 pub async fn project_in_drafting(db: &SharedDb) -> String {
-    use crate::modules::projects::diagnosis::{add_need, confirm_summary, generate_summary, select_need, AddNeedOutcome};
+    use crate::modules::projects::diagnosis::{add_need, select_need, AddNeedOutcome};
     let pid = project_in_diagnosis(db);
-    reach_confirmed_root(db, &pid).await;
-    let p = MockProvider::new(vec![summary_ok(summary_value(""))]);
-    generate_summary(db, Some(&p), &pid).await.unwrap();
-    confirm_summary(db, &pid).unwrap();
+    confirm_the_diagnosis(db, &pid);
     advance(db, &pid).unwrap();
     let AddNeedOutcome::Saved { view } = add_need(db, &pid, "Un sistema de mantenimiento preventivo", "Con responsable, agenda y fondo propio", None).unwrap() else { panic!() };
     select_need(db, &pid, &view.needs[0].id).unwrap();

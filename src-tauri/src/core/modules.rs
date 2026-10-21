@@ -1,10 +1,10 @@
-//! Which modules of the ERP the program shows (ADR-043 §3). Personal, Beneficiarios, Instalaciones and Finanzas are
-//! frozen until the MVP is validated: their code still builds and is tested, but nothing shows them. Everything else
+//! Which modules of the ERP the program shows (ADR-043 §3). Personal, Beneficiarios, Instalaciones, Finanzas and
+//! Proyectos are frozen until the core (Mi institución and Documentos, with the AI platform) is done: their code still builds and is tested, but nothing shows them. Everything else
 //! follows from this list: the map of places (and so the bar, the Assistant and its buttons), the figures of the
 //! institution and what the core asks of them. Turning a module back on is taking its page out of `HIDDEN`.
 
 /// The pages of the modules the program does not show.
-pub const HIDDEN: &[&str] = &["staff", "people", "facilities", "finance"];
+pub const HIDDEN: &[&str] = &["staff", "people", "facilities", "finance", "projects"];
 
 /// Whether a page is shown: every page is, except the hidden modules.
 pub fn shown(page: &str) -> bool {
@@ -42,7 +42,7 @@ mod tests {
             let hits = crate::core::manual::search(&conn, &screen.title, 10).unwrap();
             assert!(hits.iter().all(|h| h.id != screen.id), "the manual answers with {}", screen.id);
         }
-        for page in ["home", "profile", "documents", "projects"] {
+        for page in ["home", "profile", "documents"] {
             assert!(shown(page) && place(page).is_some(), "{page}");
         }
         // the Assistant is told what does not exist yet, so it does not send the person somewhere else
