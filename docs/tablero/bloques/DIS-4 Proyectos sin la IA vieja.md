@@ -15,66 +15,62 @@ cerrado:
 
 ## Qué y por qué
 
-Parte del [[DIS-3 Las pantallas sin la IA vieja|DIS-3]], que cubre Mi institución y el Asistente. El IA-1 exige que **ningún módulo llame a la IA por su cuenta**, y el ERP-4 retira de Proyectos sus tareas de IA. Las pantallas de Proyectos están hechas alrededor de ellas, así que hay que decidir cómo se ven **sin** esas llamadas antes de que los comandos se retiren.
+Parte del [[DIS-3 Las pantallas sin la IA vieja|DIS-3]], que cubre Mi institución y el Asistente. El IA-1 exige que **ningún módulo llame a la IA por su cuenta**, y las pantallas de Proyectos están hechas alrededor de la IA: cada paso es una conversación con un panel de convocatoria al lado.
 
-Hoy las pantallas de Proyectos llaman a los comandos que el ERP-4 retira. **La lista cerrada está en el «Plan» del ERP-4** («Contrato para el DIS-4»): conversación y resumen, `needs_propose`, `drafting_prepare`, `section_draft`, `sections_draft_all`, las convocatorias (`project_create_from_call`, `call_*`) y `project_job`.
+**Decisión del líder (2026-10-20): Proyectos se congela por completo y queda fuera hasta que el núcleo esté listo.** Se rediseñará cuando exista Mi institución completa, las capacidades de la plataforma de IA y el chat (DIS-1), porque hoy no se puede decir cuál es su función real. Con el ERP, el líder congela el código y la lógica de Rust (ERP-4); este bloque saca Proyectos de **lo que ve la persona**.
 
-Se necesita que **las pantallas de Proyectos dejen de usarlos**, y que lo que queda se vea completo y usable a mano (escribir, editar y confirmar). Lo que hacían se vuelve a construir como capacidades de la plataforma, con el chat y las confirmaciones del DIS-1 y el DIS-2; no se conserva.
+Se necesita que **ninguna pantalla ofrezca, abra ni llame a Proyectos**, y que la app quede completa y coherente sin él: solo el núcleo (Inicio, Mi institución y Documentos) y lo demás que ya está congelado.
 
 ## Terminado cuando
 
-Propuesta del riel de diseño; la aprueba el líder. Decisión de fondo (2026-10-20): lo que dependa de la IA **se quita, no se sustituye a mano**; lo que queda se ve completo y se usa sin IA.
+Propuesta del riel de diseño; la aprueba el líder. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **Ninguna pantalla de Proyectos usa los comandos retirados** del contrato del ERP-4 (ni sus `invoke` por nombre). Una prueba en `src/` lo demuestra, como la del DIS-3.
-- [ ] **Un proyecto se recorre a mano de punta a punta, sin chat, sin conversación y sin convocatoria:** crearlo, elegir su necesidad, escribir y confirmar sus textos, armar presupuesto y calendario, revisarlo y exportar la guía en Word.
-- [ ] **Los pasos que ve la persona son cuatro** (los que quedan en el contrato): Priorización, Redacción, Revisión y Lista. El indicador de pasos, las tarjetas de proyecto y Inicio dicen lo mismo.
-- [ ] **Un proyecto nuevo** se crea con lo que el contrato permite: lo que la institución quiere lograr (`initial_request`) y quién da el apoyo. No pide archivos, nombre de convocatoria, quién convoca ni año.
-- [ ] **Priorización a mano:** la persona ve sus necesidades, agrega una (título y descripción, con la revisión de datos personales de siempre) y elige la del proyecto. No hay propuesta automática ni calificación a mano: no hace falta para avanzar.
-- [ ] **Redacción a mano:** el objetivo y tres partes (presupuesto, calendario y textos) con su estado, que se abren en su ventana como hoy; sin «redactar con IA», sin «guía corta» y sin preparar el borrador. Lo que ya se escribió o confirmó antes se ve igual, también un texto antiguo marcado como borrador de la IA.
-- [ ] **Sin convocatoria en pantalla:** no hay panel de convocatoria ni lectura, y las tarjetas de proyecto y de Inicio no muestran quién convoca ni cuándo cierra; muestran el tipo de apoyo.
-- [ ] **Un proyecto que todavía está en una etapa que desaparece** (si llega a la pantalla antes de la migración del ERP-4) se muestra en Priorización y avisa con claridad si algo no puede seguir; no se rompe ni queda en blanco.
-- [ ] **Sin textos huérfanos ni promesas falsas:** se retira de `es-MX.ts` y de `src/` lo que solo usaba la IA de Proyectos, y la bienvenida y el arranque dejan de decir que «el asistente» hará preguntas o borradores.
-- [ ] **Pruebas:** se retiran las de la conversación, el diagnóstico y las convocatorias; las de lo que se queda pasan; hay una prueba nueva por cada pantalla que cambia. `pnpm test` y `pnpm build` pasan.
-- [ ] **Revisado en la app real (WebView2) con el Rust del ERP-4**, en claro y oscuro: recorrer un proyecto de punta a punta. Con el Rust actual un proyecto nuevo nace en «Diagnosis» y no puede avanzar sin conversación, así que no se puede probar completo sin el ERP-4.
-- [ ] **Se fusiona antes que el ERP-4 y se valida junto con él** (ver «Riesgos»).
+- [ ] **Proyectos no aparece en ninguna parte de la app:**
+  - no hay pestaña «Mis proyectos» en la barra;
+  - Inicio no tiene el botón «Empezar un proyecto nuevo» ni la carpeta larga «En curso / Notificaciones» (su «En curso» solo mostraba proyectos);
+  - ningún «Ir a…», paso de arranque, dibujo de módulos o texto de ayuda lleva a Proyectos o lo promete.
+- [ ] **Ninguna pantalla llama a un comando de Proyectos:** ni los de IA del contrato del ERP-4 ni el resto (`project_*`, `need_*`, `needs_get`, `drafting_*`, `section*`, `budget_*`, `schedule_*`, `review_get`, `guide_export`, `conversation_*`, `diagnosis_*`, `call_*`). Una prueba en `src/` lo demuestra, como la del DIS-3.
+- [ ] **El código de las pantallas sale de `src/`** (`src/modules/projects/` y lo que solo ellas usaban, como `Ongoing`), y se puede recuperar: una etiqueta de git, `proyectos-congelado`, apunta al último `main` que las tiene.
+- [ ] **La app queda completa sin él:** Inicio, Mi institución, Documentos, la configuración y los módulos ya congelados se ven y funcionan; nada queda en blanco, roto ni con un hueco que pregunte por Proyectos.
+- [ ] **Sin promesas falsas:** la bienvenida, el arranque, la ayuda y los textos de `es-MX.ts` dejan de decir que SociAI «prepara proyectos» o que «el asistente hará preguntas o borradores». Los textos nuevos se proponen en el PR y los valida el líder.
+- [ ] **Sin textos ni componentes huérfanos** de lo retirado (`conversation`, `diagnosis`, `calls`, `drafting`, `review`, `objectives`, `home.ongoing`, `home.nextByStage` y lo que solo ellos usaban).
+- [ ] **Pruebas:** se retiran las de Proyectos; las de lo que se queda pasan y se ajustan las que contaban con la pestaña o con las tarjetas de proyecto; `pnpm test` y `pnpm build` pasan.
+- [ ] **Revisado en la app real (WebView2),** en claro y oscuro: Inicio, la barra, Mi institución y la bienvenida de una cuenta nueva.
+- [ ] **Se fusiona antes que el congelamiento del ERP:** con los comandos aún en Rust, la app compila y funciona sin llamarlos.
 
 ## Plan
 
-**Rama:** `diseno/dis-4-proyectos-sin-la-ia-vieja`, de `main` al día, en la carpeta `sociai-diseno`. Solo `src/` y este bloque. `lib/tauri.ts` y `lib/types.ts` no se tocan: las líneas de los comandos retirados y `Stage` los cambia el ERP-4 después (contrato del ERP-4).
+**Rama:** `diseno/dis-4-proyectos-sin-la-ia-vieja`, de `main` al día, en la carpeta `sociai-diseno`. Solo `src/` y este bloque. `lib/tauri.ts` y `lib/types.ts` no se tocan: las líneas y los tipos de los comandos de Proyectos los quita el riel ERP al congelarlo. Esto aprovecha la regla que ya usó el DIS-3.
 
-**El diseño: una sola columna, sin chat.** Hoy cada paso es una conversación (`ConversationChat`) con un panel al lado (`Workspace`, con la convocatoria como índice). Sin IA no hay conversación ni convocatoria, y el panel queda sin función. Cada paso pasa a ser la pantalla de lo que se hace en él, dentro de la carpeta del proyecto (el color y el título de siempre), con el indicador de pasos arriba y las acciones («Continuar», «Volver») al pie. Todo con los componentes que ya existen (`Folder`, `Steps`, `Card`, `Inset`, `Tag`, `Bar`, `Modal`, `ListRow`); no se inventa ninguno.
+**Qué se retira y qué cambia** (visto en el código):
 
-**Qué cambia en cada pantalla** (lo visto en el código):
-
-1. **Página del proyecto** (`ProjectPage.tsx`, `Workspace.tsx`, `steps.ts`): deja de leer `conversation_get`; el proyecto sale de `project_list` y los datos de cada paso, de su propio comando (`needs_get`, `drafting_get`, `review_get`). Sale el panel de la convocatoria y su botón. Los pasos son `PRIORITIZATION`, `DRAFTING`, `REVIEW`, `READY`. «Volver» ofrece solo pasos anteriores que existen.
-2. **Nuevo proyecto** (`NewProjectForm.tsx`): de dos pasos con archivos a **una pantalla**: «¿Qué quiere lograr?» (texto), tipo de apoyo y la revisión de datos personales. Llama a `project_create` y luego a `project_set_donor_kind`.
-3. **Priorización** (`ObjectivesStage.tsx`): lista de necesidades con «Elegir», «Agregar una necesidad» y, al pie, la elegida y «Continuar». Sin propuesta ni «pensando…».
-4. **Redacción** (`DraftingStage.tsx`, `ProjectIndex.tsx`, `TextsEditor.tsx`, `SectionCard.tsx`): el objetivo y las tres partes con su estado como contenido principal; cada una abre su ventana (`BudgetEditor`, `ScheduleEditor`, `TextsEditor`). Salen: preparar, la pregunta de propuesta propia como burbuja del chat (queda como interruptor dentro de «Textos»), las tres tarjetas de cómo redactar, «Redactar lo pendiente», «Guía otra vez» y el botón de IA de cada sección.
-5. **Revisión y Lista** (`ReviewStage.tsx`, `ReadyStage.tsx`): el resultado y la guía pasan a ser el contenido principal, con sus botones al pie.
-6. **Tarjetas** (`ProjectFolder.tsx`, `projectCall.ts`, `core/home/Ongoing.tsx`): sin quién convoca ni fecha de cierre; el tipo de apoyo ocupa su lugar. Los textos «lo que sigue» (`es.home.nextByStage`) se ajustan a cuatro pasos.
-7. **Se borran:** `ConversationChat`, `ChatParts`, `DiagnosisPanel`, `CallConfirm`, `CallReading`, `CallCardView`, `CallIndex`, `useProjectJob` y sus pruebas.
-8. **Textos** (`es-MX.ts`): sale lo de la conversación, el diagnóstico, las convocatorias y los avisos de IA que ya nadie use; se reescribe la bienvenida y el arranque (`onboarding`, `help`) sin «el asistente».
+1. **La barra y el mapa de páginas** (`components/Shell.tsx`, `modules.ts`, `App.tsx`): sale «Mis proyectos» de `MODULES`, `projects` de `Page` y de `ModuleId`, `ProjectsPage` y los atajos de `App` (`openProject`, `newProject`, `onGoProjects`). Los tipos `Exclude<ModuleId, "projects">` pasan a ser `ModuleId`.
+2. **Inicio** (`core/home/HomePage.tsx`): sale el botón de nuevo proyecto, la consulta `projectList` y la carpeta `Ongoing`. Queda lo demás: aviso de datos pendientes, cifras, «Por hacer», tarjeta de Mi institución y «Siguientes pasos». Se borra `Ongoing` y su prueba.
+3. **Se borra `src/modules/projects/`** completo, con sus pruebas (unos 40 archivos): la página, el formulario, los pasos, la conversación, la convocatoria, la redacción, la revisión y la guía.
+4. **Bienvenida y arranque** (`core/onboarding`, `es.onboarding`, `help`): se quitan los pasos y los dibujos que hablan de Proyectos o del asistente, y se proponen textos sin esas promesas. Lo que hoy dice «prepara los proyectos de su institución para pedir donativos» (`app.tagline`, `welcome`) lo reescribe el líder o lo valida.
+5. **Textos** (`i18n/es-MX.ts`): sale lo de Proyectos y lo que solo ellos usaban. Los avisos de IA que usen la configuración de la IA o Mi institución se quedan.
+6. **Prueba de arquitectura de `src/`** (`lib/retiredAi.test.ts`, la del DIS-3): se amplía con los comandos de Proyectos y con `modules/projects`.
+7. **La etiqueta de git** `proyectos-congelado`, en el `main` que aún tiene las pantallas, antes de fusionar.
 
 **Los pasos:**
-1. La rama y la lista exacta de importaciones y llaves a retirar (búsqueda en `src/`).
-2. Página del proyecto y pasos sin chat (1, 3, 5), con pruebas.
-3. Nuevo proyecto (2) y Redacción (4), con pruebas.
-4. Tarjetas e Inicio (6); borrar lo huérfano (7); textos (8).
-5. Prueba de arquitectura de `src/` con los comandos de Proyectos (la misma del DIS-3, ampliada).
-6. `pnpm test`, `pnpm build`, revisión en WebView2 real con el Rust del ERP-4, `rebase` sobre `main`, finales de línea y PR.
+1. La rama y la lista exacta de importaciones, llaves y pruebas a retirar (búsqueda en `src/`).
+2. Barra, `App` y los tipos (1); Inicio (2); borrar `src/modules/projects/` (3).
+3. Bienvenida, arranque y textos (4 y 5), con pruebas.
+4. La prueba de arquitectura (6).
+5. `pnpm test`, `pnpm build`, revisión en WebView2 real, `rebase` sobre `main`, finales de línea y PR.
+6. Al fusionar: la etiqueta (7).
 
-**Orden para fusionar:** DIS-4 primero, luego ERP-4, y al final IA-1.
+**Orden para fusionar:** DIS-4 primero. Después el congelamiento del ERP (ERP-4) y al final el IA-1.
 
 **Lo que no entra aquí:**
-- `lib/tauri.ts` y `lib/types.ts` (ERP-4).
-- Calificar las necesidades a mano (`need_rate`): el comando se queda, pero no hace falta para avanzar. Se agrega si el líder lo pide.
-- Un chat o una ayuda con IA dentro de Proyectos: lo dibujan DIS-1 y DIS-2 sobre las capacidades nuevas.
-- El nombre de un proyecto nuevo y cambiarlo después (ver «Hallazgos»).
+- Rust, `lib/tauri.ts` y `lib/types.ts`: el riel ERP.
+- Rediseñar Proyectos: queda para cuando el núcleo esté listo.
+- Qué se pone en Inicio en lugar de «En curso»: no se inventa nada. Si el líder quiere otra cosa ahí, se pide aparte.
 
 **Riesgos:**
-- **Mientras DIS-4 esté en `main` sin el ERP-4, un proyecto nuevo nace en «Diagnosis» y no puede avanzar** (su avance pide la conversación que ya no se ve). Por eso DIS-4 y ERP-4 se validan y se fusionan seguidos, el mismo día.
-- La revisión en la app real necesita el Rust del ERP-4. Hasta que su rama exista, se prueba lo que sí se puede (Priorización con un proyecto ya creado, redacción, revisión) y el resto con el ERP-4.
-- Es un bloque grande (unos 25 archivos de `src/` y sus pruebas). Si el líder prefiere, se parte en dos PR seguidos: pasos y página; luego nuevo proyecto y tarjetas.
+- **Inicio pierde su carpeta larga.** Hoy su única función era mostrar proyectos y notificaciones aún vacías. El líder debe verlo así al validar.
+- **Los textos de la bienvenida y el arranque son el rostro del producto.** Cambiar «prepara proyectos» cambia lo que SociAI dice que es; por eso los valida el líder.
+- **Los datos de proyectos que ya existan** quedan en la base sin verse; los trata el ERP.
 
 ## Cómo probarlo
 
@@ -90,9 +86,8 @@ Propuesta del riel de diseño; la aprueba el líder. Decisión de fondo (2026-10
 
 ## Hallazgos
 
-- **El título de un proyecto nuevo es el comienzo de lo que se escribió** (`project_create` corta `initial_request` a 80 caracteres) y no hay comando para cambiarlo. Antes lo ponía el nombre de la convocatoria. Para el ERP: un `project_rename`, o un título aparte en `project_create`; el líder decide si va en el ERP-4 o aparte.
-- **Para el ERP-4:** su contrato debe decir en qué etapa nace un proyecto con `project_create` (aquí se supone `Prioritization`, pues `Diagnosis` desaparece) y que `Profile` sigue siendo un estado previo.
+- **Para el ERP-4:** la decisión del líder cambia su alcance de «retirar la IA de Proyectos» a «congelar Proyectos». El contrato de comandos que dejó para el DIS-4 ya no se usa: este bloque no necesita ninguno de Proyectos.
 - **El IA-1** debería depender de este bloque, además del ERP-4 y el ERP-5.
-- **`docs/manual/`** habla del diagnóstico y de la convocatoria; es del riel ERP.
+- **`docs/manual/`** (riel ERP) habla de Proyectos, del diagnóstico y de la convocatoria; y `core/places.rs` compone los lugares desde el manual. Sale con el congelamiento.
 
 ## Resultado
