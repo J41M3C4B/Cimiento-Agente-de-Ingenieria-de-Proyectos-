@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-5
 carril: erp
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Mi institución
 pedido_por: IA-1
@@ -35,14 +35,14 @@ Las propuestas por campo (`core::agents::proposals`) y la lectura con reglas del
 
 Aprobado por el líder el 2026-10-20 (con las recomendaciones del riel ERP). Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **Mi institución no usa la IA vieja ni la plataforma de IA.** Fuera de `commands/`, nada del código de Mi institución (`core/`, salvo lo que retira el IA-1) importa `crate::ai`, `core::agents::{assistant, capturist, tools}`, `core::reader::{ask, fill, upload}` ni `core::archive::vectors`. Una búsqueda lo demuestra, y la prueba de fronteras sigue pasando.
-- [ ] **Las propuestas por campo siguen funcionando sin el Asistente.** `proposals_reject` vive en `commands/institution.rs`, con el mismo nombre, permiso y firma. Las propuestas salen de `core/agents/` (a `core/proposals.rs`), de modo que `core/agents/` solo contiene lo que el IA-1 borra. La excepción del Capturista (`told_own`) desaparece. Las pruebas de propuestas, de la lectura con reglas y de la revisión de sugerencias pasan sin cambio de comportamiento.
-- [ ] **La búsqueda del Expediente es solo por palabras.** `core/archive/search.rs` no usa vectores, no pide ningún vector y `Found` no trae `by_meaning`. `documents_search` responde por palabras, sin internet y sin gasto. La búsqueda por significado vuelve como herramienta de la plataforma, no aquí.
-- [ ] **Al adjuntar un documento ya no hay lectura con IA.** `commands/records.rs` no llama a `after_upload` ni emite `record-suggested`. La lectura con reglas, que deja sugerencias con documento y página, sigue igual.
-- [ ] **`FILLABLE` desaparece.** `core/overview.rs` y la prueba de `core/places.rs` usan `institution::forms::FORMS` y el mapa de lugares. `FormView` ya no trae `fill`, y sus tipos del front (`Fill`, `RecordSuggested`, el campo `fill`) salen de `types.ts`.
-- [ ] **El onboarding no sabe que existe la IA.** `core::onboarding::service` recibe `ai_ready` como dato; el comando lo calcula desde la configuración de la plataforma. La tarjeta «Llave puesta» de la bienvenida y de Inicio queda igual.
-- [ ] **El manual ya no habla del Asistente.** Salen `howto.assistant`, `howto.fill` y `howto.fill_documents` de `docs/manual/programa.md`, y lo que el `README.md` del manual dice del asistente. El índice del manual y las pruebas de `places.rs` pasan.
-- [ ] **Pruebas:** `cargo test` (desde `src-tauri/`) y `pnpm test` pasan sin red ni gasto. Hay una prueba nueva por cada punto que cambia (rechazar propuestas, búsqueda sin vectores, onboarding con `ai_ready` dado, formularios sin `fill`).
+- [x] **Mi institución no usa la IA vieja ni la plataforma de IA.** Fuera de `commands/`, nada del código de Mi institución (`core/`, salvo lo que retira el IA-1) importa `crate::ai`, `core::agents::{assistant, capturist, tools}`, `core::reader::{ask, fill, upload}` ni `core::archive::vectors`. Una búsqueda lo demuestra, y la prueba de fronteras sigue pasando.
+- [x] **Las propuestas por campo siguen funcionando sin el Asistente.** `proposals_reject` vive en `commands/institution.rs`, con el mismo nombre, permiso y firma. Las propuestas salen de `core/agents/` (a `core/proposals.rs`), de modo que `core/agents/` solo contiene lo que el IA-1 borra. La excepción del Capturista (`told_own`) desaparece. Las pruebas de propuestas, de la lectura con reglas y de la revisión de sugerencias pasan sin cambio de comportamiento.
+- [x] **La búsqueda del Expediente es solo por palabras.** `core/archive/search.rs` no usa vectores, no pide ningún vector y `Found` no trae `by_meaning`. `documents_search` responde por palabras, sin internet y sin gasto. La búsqueda por significado vuelve como herramienta de la plataforma, no aquí.
+- [x] **Al adjuntar un documento ya no hay lectura con IA.** `commands/records.rs` no llama a `after_upload` ni emite `record-suggested`. La lectura con reglas, que deja sugerencias con documento y página, sigue igual.
+- [ ] **`FILLABLE` desaparece.** *(Hecho en Rust. Falta `FormView.fill` y `RecordSuggested` en `types.ts`: se quitan al fusionarse el DIS-3; el parche está probado sobre su rama. `Fill` se queda hasta el IA-1, porque `AssistantOutcome` lo usa.)* `core/overview.rs` y la prueba de `core/places.rs` usan `institution::forms::FORMS` y el mapa de lugares. `FormView` ya no trae `fill`, y sus tipos del front (`Fill`, `RecordSuggested`, el campo `fill`) salen de `types.ts`.
+- [x] **El onboarding no sabe que existe la IA.** `core::onboarding::service` recibe `ai_ready` como dato; el comando lo calcula desde la configuración de la plataforma. La tarjeta «Llave puesta» de la bienvenida y de Inicio queda igual.
+- [x] **El manual ya no habla del Asistente.** Salen `howto.assistant`, `howto.fill` y `howto.fill_documents` de `docs/manual/programa.md`, y lo que el `README.md` del manual dice del asistente. El índice del manual y las pruebas de `places.rs` pasan.
+- [x] **Pruebas:** *(`cargo test`: 788 pasan; `pnpm test`: 218 pasan; `pnpm build` pasa.)* `cargo test` (desde `src-tauri/`) y `pnpm test` pasan sin red ni gasto. Hay una prueba nueva por cada punto que cambia (rechazar propuestas, búsqueda sin vectores, onboarding con `ai_ready` dado, formularios sin `fill`).
 - [ ] **Se fusiona después del DIS-3 y antes del IA-1.** Con el código del Asistente aún presente (lo borra el IA-1), la app compila y funciona sin llamarlo desde Mi institución.
 
 ## Plan
@@ -76,16 +76,29 @@ Aprobado por el líder el 2026-10-20 (con las recomendaciones del riel ERP). Las
 
 ## Cómo probarlo
 
+PR: https://github.com/J41M3C4B/SociAI/pull/17
+
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- Carpeta y rama: `D:\Agente Proyectos\sociai-erp`, rama `erp/erp-5-mi-institucion-sin-la-ia-vieja`.
+- Antes: `pnpm install` (ya hecho en esa carpeta). El OCR ya está en `src-tauri/resources/ocr`.
+- Arrancar: `pnpm tauri dev`.
+- Al terminar: cerrar la app. No deja datos fuera de su carpeta de datos.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] En *Documentos*, buscar «extintores» con un expediente cargado: salen pasajes con documento y página, sin internet y sin pedir nada a la IA.
+- [ ] En *Mi institución*, con una sugerencia pendiente (subiendo la constancia fiscal ficticia), «Descartar» funciona y la sugerencia no vuelve.
+- [ ] Adjuntar un documento al Expediente: llegan los avisos de la lectura con reglas (lo que se llenó y las sugerencias), y ninguna sugerencia «de la IA».
+- [ ] En *Inicio* (administrador, recién instalado): la tarjeta de ayuda automática dice «Llave puesta» solo si hay llave guardada.
+- [ ] En *Ayuda*, buscar «asistente»: no aparece ninguna sección que explique usarlo.
+
+*(En esta rama el botón ✨ y «Llenar con mis documentos» siguen en pantalla: los quita el DIS-3, y los comandos, el IA-1.)*
 
 ## Hallazgos
+
+- **Corrección al plan:** `proposals_reject` quedó en `commands/mod.rs`, junto a `form_save`, no en `commands/institution.rs` (ese es de la junta y los bancos).
+- **Para el riel IA:** `reader/upload.rs` es casi todo apoyo de la lectura con IA (`asked`, `detect`, `context`, `speaking`): el IA-1 debe borrarlo entero, no solo `after_upload`. Se borraron 4 pruebas del Capturista que comprobaban la excepción retirada (`told_own`). Más detalle en el PR.
+- **Para el DIS-3:** quitar `fill` de `FormView` obliga a borrar una línea en `FormWindow.test.tsx` (el dato de ejemplo). Lo hace este bloque al rebasar sobre el #16.
+- En una corrida de `pnpm test` hecha mientras compilaba Rust salieron «7 errors» con 29 archivos; repetida sola, pasó limpia (36 archivos, 218 tests). No guardé el detalle del primer error.
 
 ## Resultado
