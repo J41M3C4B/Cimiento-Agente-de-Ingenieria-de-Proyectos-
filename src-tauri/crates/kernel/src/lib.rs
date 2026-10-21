@@ -1,8 +1,9 @@
 //! The kernel of the ERP (ADR-002, the ERP blueprint §5): what every module needs and none owns. It sits under the
 //! modules and knows none of them, not even by name; what it needs of a module, the module declares in its manifest.
 //!
-//! In this first step it holds the skeleton: the manifest of a module, the registry of modules (K12), the migrations
-//! of each owner of tables, every module and the AI platform (K4), and the vocabulary of permissions (K2).
+//! It holds the manifest of a module and the registry of modules (K12); the migrations of each owner of tables: the
+//! kernel, every module and the AI platform (K4); the catalog of permissions, the roles and the decision to authorize
+//! (K2); and the audit store, where the platform leaves the life of each task (K9).
 //!
 //! A module declares itself with `module!`, and the registry finds it when the program is linked, with no list
 //! (compiled, not run: a documentation example does not link SQLCipher on Windows):
@@ -29,14 +30,32 @@
 //! ```compile_fail
 //! use muestra as _;
 //! ```
+//!
+//! Nor does the audit take a reason that is not a code of the program: text read while the program runs could carry
+//! data of a person.
+//!
+//! ```compile_fail
+//! let typed = String::from("lo que escribió la persona");
+//! let event = kernel::TaskEvent {
+//!     moment: kernel::TaskMoment::Denied,
+//!     task: "task_01JB3M7Q8ZK4X2N6V9R5T0W1YC",
+//!     account: None,
+//!     capability: None,
+//!     outcome: None,
+//!     reason: Some(typed.as_str()),
+//! };
+//! # drop(event);
+//! ```
 
 mod access;
+mod audit;
 mod conformance;
 mod migrate;
 mod module;
 mod registry;
 
-pub use access::Permission;
+pub use access::{authorize, classes_seen, role, Account, Denial, Permission, Role, Scope, CLASSES, GENERAL, ROLES};
+pub use audit::{record_task, AuditError, TaskEvent, TaskMoment};
 pub use conformance::{conform, Breach};
 pub use migrate::{migrate, migrate_owner, MIGRATIONS_TABLE};
 pub use module::{Manifest, Migration};

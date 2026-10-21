@@ -349,3 +349,27 @@ fn approving_the_deletion_of_a_project_removes_it_with_its_call_and_its_data() {
     }
     assert!(events(&c).into_iter().any(|e| e.0 == "emergency.delete"), "the deletion is in the log");
 }
+
+/// The kernel decides with the account as it is now (ERP-10): the administrator may administer in its own institution,
+/// direction may not, nobody passes in another organization, and a deactivated account may do nothing and sees nothing.
+#[test]
+fn the_kernel_decides_with_the_account_as_it_is_now() {
+    let (_d, mut c) = conn();
+    let (session, _) = with_admin(&mut c);
+    let (_, rosa_session) = manager(&mut c, &session);
+    let modules = kernel::Modules::discover().unwrap();
+    let org = crate::core::institution::id(&c).unwrap();
+    let boss = account(&c, &admin(&session).id).unwrap().unwrap();
+    let rosa = account(&c, &rosa_session.current().unwrap().id).unwrap().unwrap();
+    assert_eq!(kernel::authorize(&modules, &boss, &org, "kernel.administrar"), Ok(()));
+    assert_eq!(kernel::authorize(&modules, &boss, &org, "muestra.notas.escribir"), Ok(()));
+    assert_eq!(kernel::authorize(&modules, &rosa, &org, "kernel.usar"), Ok(()));
+    assert_eq!(kernel::authorize(&modules, &rosa, &org, "kernel.administrar"), Err(kernel::Denial::NotGranted));
+    assert_eq!(kernel::authorize(&modules, &rosa, "inst_otra", "kernel.usar"), Err(kernel::Denial::OtherOrganization));
+    assert_eq!(kernel::classes_seen(&rosa), kernel::CLASSES);
+    update_user(&c, &admin(&session), &rosa.id, Role::Manager, false).unwrap();
+    let rosa = account(&c, &rosa.id).unwrap().unwrap();
+    assert_eq!(kernel::authorize(&modules, &rosa, &org, "kernel.usar"), Err(kernel::Denial::Inactive));
+    assert!(kernel::classes_seen(&rosa).is_empty());
+    assert!(account(&c, "usr_nadie").unwrap().is_none());
+}
