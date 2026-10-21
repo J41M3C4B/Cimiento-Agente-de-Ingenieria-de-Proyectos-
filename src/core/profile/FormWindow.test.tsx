@@ -31,7 +31,6 @@ const view: FormView = {
     { id: "prop_1", form_id: "institution.identity", field_id: "institution.populations", value: ["older_adults"], origin: "ai_assumption", said: "atendemos a 38 señoras", document: null, page: null },
     { id: "prop_2", form_id: "institution.identity", field_id: "institution.age_min", value: 60, origin: "ai_assumption", said: "de 60 años en adelante", document: null, page: null },
   ],
-  fill: { form: "institution.identity", place: "profile.institution" },
 };
 
 vi.mock("../../lib/tauri", () => ({
