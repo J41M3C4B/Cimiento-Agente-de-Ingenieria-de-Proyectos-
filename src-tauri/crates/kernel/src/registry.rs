@@ -111,12 +111,12 @@ impl Modules {
         self.all().filter(|m| self.is_on(m.id))
     }
 
-    /// Every permission the modules define: the catalog of K2.
+    /// The catalog of K2: the kernel's general permissions, then every permission the modules define.
     pub fn permissions(&self) -> impl Iterator<Item = &'static crate::Permission> + '_ {
-        self.all().flat_map(|m| m.permissions.iter())
+        crate::access::GENERAL.iter().chain(self.all().flat_map(|m| m.permissions.iter()))
     }
 
-    /// The permission with this id, if a module defines it.
+    /// The permission with this id, if the kernel or a module defines it.
     pub fn permission(&self, id: &str) -> Option<&'static crate::Permission> {
         self.permissions().find(|p| p.id == id)
     }
@@ -303,7 +303,7 @@ mod tests {
             Manifest { permissions: &[Permission { id: "donantes.recibos.emitir", description: "Emitir recibos." }], ..manifest("donantes", &[], false) },
         ];
         let modules = Modules::of(&ALL).unwrap();
-        let ids: Vec<_> = modules.permissions().map(|p| p.id).collect();
+        let ids: Vec<_> = modules.permissions().map(|p| p.id).filter(|id| !id.starts_with("kernel.")).collect();
         assert_eq!(ids, ["contabilidad.polizas.registrar", "donantes.recibos.emitir"]);
         // a module that is off still defines its permissions: turning it on does not change the catalog
         assert_eq!(modules.permission("donantes.recibos.emitir").map(|p| p.description), Some("Emitir recibos."));

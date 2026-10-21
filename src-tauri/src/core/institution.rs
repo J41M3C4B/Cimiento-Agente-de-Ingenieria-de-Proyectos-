@@ -11,6 +11,12 @@ pub fn kind(conn: &Connection) -> Option<String> {
     conn.query_row("SELECT kind FROM institution LIMIT 1", [], |r| r.get(0)).optional().ok().flatten()
 }
 
+/// The id of the institution, which is the organization that owns this database (D4), or `None` before it is written.
+#[allow(dead_code)]
+pub fn id(conn: &Connection) -> Option<String> {
+    conn.query_row("SELECT id FROM institution LIMIT 1", [], |r| r.get(0)).optional().ok().flatten()
+}
+
 /// The kind of institution as the staff module understands it (the positions it suggests).
 pub fn hr_flavor(conn: &Connection) -> crate::modules::hr::Flavor {
     crate::modules::hr::Flavor::from_kind(kind(conn).as_deref())

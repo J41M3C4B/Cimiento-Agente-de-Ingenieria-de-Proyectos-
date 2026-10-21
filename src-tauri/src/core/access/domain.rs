@@ -26,14 +26,16 @@ impl Role {
             _ => None,
         }
     }
+    /// What the screens are told the role may do; a test keeps it equal to what the kernel says.
     pub fn permissions(self) -> &'static [Permission] {
         match self {
             Role::Admin => &[Permission::Use, Permission::Delete, Permission::Settings, Permission::Administer],
             Role::Manager => &[Permission::Use],
         }
     }
+    /// The roles and what they may do live in the kernel (K2, ERP-10).
     pub fn can(self, p: Permission) -> bool {
-        self.permissions().contains(&p)
+        kernel::role(self.as_db()).is_some_and(|r| r.grants(p.id()))
     }
 }
 
@@ -48,6 +50,20 @@ pub enum Permission {
     Settings,
     /// The administration panel: accounts, requests, audit log.
     Administer,
+}
+
+impl Permission {
+    pub const ALL: [Permission; 4] = [Permission::Use, Permission::Delete, Permission::Settings, Permission::Administer];
+
+    /// Its id in the catalog of the kernel (K2), where it is one of the general permissions.
+    pub fn id(self) -> &'static str {
+        match self {
+            Permission::Use => "kernel.usar",
+            Permission::Delete => "kernel.borrar",
+            Permission::Settings => "kernel.ajustes",
+            Permission::Administer => "kernel.administrar",
+        }
+    }
 }
 
 /// What a command needs before it runs.
@@ -289,6 +305,35 @@ mod tests {
             assert!(!Role::Manager.can(p), "{p:?}");
             assert!(Role::Admin.can(p), "{p:?}");
         }
+    }
+
+    /// The four permissions of the app are the kernel's general ones, and what each role may do is decided there: the
+    /// list the screens receive says the same.
+    #[test]
+    fn the_permissions_and_roles_of_the_app_are_the_kernels() {
+        let general: Vec<&str> = kernel::GENERAL.iter().map(|p| p.id).collect();
+        assert_eq!(Permission::ALL.map(Permission::id).to_vec(), general);
+        for role in [Role::Admin, Role::Manager] {
+            assert!(kernel::role(role.as_db()).is_some(), "{role:?}");
+            let can: Vec<Permission> = Permission::ALL.into_iter().filter(|p| role.can(*p)).collect();
+            assert_eq!(role.permissions(), can.as_slice(), "{role:?}");
+        }
+    }
+
+    /// The kernel names the classes of data of today by the same ids as the capability contract (IA-3 brings the
+    /// definitive ones).
+    #[test]
+    fn the_classes_of_the_kernel_are_the_classes_of_the_contract() {
+        use crate::capability::DataClass::{self, *};
+        // a new class has to be added here: without it this does not compile
+        let _every = |c: DataClass| match c {
+            Public | Internal | Confidential | Personal | SensitivePersonal => (),
+        };
+        let ids: Vec<String> = [Public, Internal, Confidential, Personal, SensitivePersonal]
+            .iter()
+            .map(|c| serde_json::to_value(c).unwrap().as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(ids, kernel::CLASSES);
     }
 
     #[test]

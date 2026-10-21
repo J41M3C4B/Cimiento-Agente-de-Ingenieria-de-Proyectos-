@@ -367,6 +367,23 @@ pub fn team(conn: &Connection) -> Result<Vec<TeamMember>, ServiceError> {
     Ok(store::users(conn)?.into_iter().filter(|u| u.active).map(|u| TeamMember { display_name: u.display_name, role: u.role }).collect())
 }
 
+// ------------------------------------------------------------------ the account, for the kernel
+
+/// The account as the kernel decides on it (K2, ERP-10): its role, whether it is active, whether it must change its
+/// password, and its organization, which is the institution of this database (D4). `None` if there is no such account.
+// the executor of the platform asks the kernel with it (IA-2)
+#[allow(dead_code)]
+pub fn account(conn: &Connection, id: &str) -> Result<Option<kernel::Account>, ServiceError> {
+    let organization = crate::core::institution::id(conn).unwrap_or_default();
+    Ok(store::user(conn, id)?.map(|u| kernel::Account {
+        id: u.id,
+        organization,
+        role: u.role.as_db().to_string(),
+        active: u.active,
+        must_change_password: u.must_change_password,
+    }))
+}
+
 // ------------------------------------------------------------------ the administration panel
 
 #[derive(Debug, Serialize)]
