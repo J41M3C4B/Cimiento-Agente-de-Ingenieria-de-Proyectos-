@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-2
 carril: ia
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Runtime; Ejecutor; Estado, límites y ciclo de vida; Entrega de resultados
 pedido_por:
@@ -79,16 +79,64 @@ La rama sale de `main` con el ERP-8 ya fusionado, así que no hace falta `rebase
 
 ## Cómo probarlo
 
+PR: https://github.com/J41M3C4B/SociAI/pull/25
+
+**Pruebas:** `cargo test`: 635 pasan y 0 fallan; `tsc --noEmit`: sin errores; `pnpm test`: 224 pasan.
+
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- **Carpeta y rama:** `D:\Agente Proyectos\sociai-ia`, rama `ia/ia-2-esqueleto-de-la-plataforma`.
+- **Antes:**
+  - compilar desde **PowerShell**, no desde Git Bash. La primera compilación tarda más, porque entran los *crates* del ERP-8; SQLCipher no se vuelve a compilar.
+  - Al abrirse, la base gana las tablas `ai_` de la plataforma. No toca nada de lo que ya tiene.
+- **Arrancar:**
+  1. Las pruebas, donde se ve el recorrido completo (todavía ninguna pantalla usa el runtime; eso es del DIS-1):
+     ```
+     cd src-tauri
+     cargo test --lib ai::runtime -- --nocapture --test-threads=1
+     ```
+  2. La app: `pnpm tauri dev`, desde `D:\Agente Proyectos\sociai-ia`.
+- **Al terminar:** cerrar la app. No queda nada que limpiar.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] **Las 24 pruebas del runtime pasan.** La del recorrido (`a_change_from_a_screen_walks_the_whole_path`) cuenta en español lo que pasa:
+  - la propuesta;
+  - la aprobación;
+  - el cambio, con el id de su tarea;
+  - las siete líneas que dejó en la auditoría.
+- [ ] **La app abre igual que antes,** y se entra con la cuenta de siempre.
+- [ ] **La puerta contesta desde la app real.** Con la sesión abierta, abre las herramientas de desarrollo (clic derecho → «Inspeccionar», pestaña «Console») y pega:
+  ```js
+  await window.__TAURI_INTERNALS__.invoke("runtime_submit", { request: { channel: { kind: "chat" }, content: { kind: "text", text: "¿Qué me falta?" } } })
+  ```
+  Debe regresar:
+  - un `task` que empieza con `task_`;
+  - `state: "error"`;
+  - `body: { kind: "error", code: "without_ai", next: "use_screen" }`.
+
+  El chat todavía no tiene modelo, y lo dice con un camino para seguir.
+- [ ] **Con ese id, la tarea se consulta después:**
+  ```js
+  await window.__TAURI_INTERNALS__.invoke("runtime_task", { task: "task_…" })
+  ```
+  Regresa el mismo resultado.
+- [ ] **Una capacidad que no existe se cierra con su motivo:**
+  ```js
+  await window.__TAURI_INTERNALS__.invoke("runtime_submit", { request: { channel: { kind: "screen", place: "inicio" }, content: { kind: "invoke", capability: "nadie.nada", input: {} } } })
+  ```
+  Regresa `code: "unknown_capability"`.
 
 ## Hallazgos
+
+- **El tiempo de cada capacidad (`limits.timeout`) todavía no se corta.**
+  - Por qué: una capacidad corre con la conexión de la base y no se puede interrumpir a la mitad. Para cortarla hay que correrla aparte, con su propia conexión.
+  - Lo que hay por ahora: el tiempo se revisa por turno, antes de cada invocación.
+  - Cuándo se resuelve: cuando el ejecutor llame al modelo (IA-4), que sí es asíncrono, o antes si una capacidad lenta lo pide.
+- **Encontrado en la revisión propia y corregido aquí:** si un `apply` ya aprobado pedía algo a la persona, su respuesta se aplicaba con la aprobación anterior. Ahora una pausa nunca se reanuda en `apply`: lo que la persona agrega se prepara y se aprueba otra vez. Hay una prueba para eso.
+- **Lo que espera de otros bloques, ya con su lugar:**
+  - la pregunta de autorización la contesta la sesión hasta que K2 la tenga (ERP-10);
+  - la auditoría de las tareas vive en `ai_event` hasta que K9 reciba el evento de tarea (ERP-10);
+  - la organización es «local» hasta que exista K1;
+  - la huella todavía no lleva la versión del dato (ERP-9).
 
 ## Resultado
