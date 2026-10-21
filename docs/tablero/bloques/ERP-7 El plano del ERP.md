@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-7
 carril: erp
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Módulos; Contratos de capacidades; Datos operativos del ERP; Autenticación, permisos y almacén de auditoría
 pedido_por:
@@ -10,7 +10,7 @@ depende_de:
 rama: erp/erp-7-plano-del-erp
 adr: ADR-002
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-20
 ---
 
 ## Qué y por qué
@@ -50,9 +50,17 @@ PR: https://github.com/J41M3C4B/SociAI/pull/22
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] Los cuatro diagramas del plano se ven dibujados en GitHub.
-- [ ] El plano y el ADR-002 dicen lo que se aprobó.
+- [x] Los cuatro diagramas del plano se ven dibujados en GitHub.
+- [x] El plano y el ADR-002 dicen lo que se aprobó.
 
 ## Hallazgos
 
 ## Resultado
+
+Fusionado en `main` el 2026-10-20 con *squash* (PR #22, `fd4056e`), validado por el líder.
+
+- **El plano del ERP** (`docs/plano-del-erp.md`) y el **ADR-002**, aceptado, con las seis decisiones (D1 a D6).
+- **Los planos y el modelo de trabajo** enlazan el plano del ERP.
+- **En el tablero:** ERP-8 (aprobado y en curso) y ERP-9; ERP-1, ERP-2 y ERP-3 sobre el núcleo; el pedido IA-5 al riel IA.
+- Al hacer `rebase` sobre el IA-1, el índice de ADR quedó con las dos filas.
+- Pruebas: `cargo test` 626 pasan; `pnpm test` 224 pasan. Solo es documentación.
