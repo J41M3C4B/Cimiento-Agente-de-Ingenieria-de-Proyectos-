@@ -24,12 +24,6 @@ Con esto el programa encuentra lo que más falla y las convocatorias de obra o d
 Aquí escribe de dónde llega el dinero y en qué se gasta. El programa hace las cuentas y le dice si los ingresos alcanzan para el año.
 Si todavía no tiene la lista de gastos, puede escribir cuánto gasta al año, aproximadamente.
 
-# Proyectos {#screen.projects}
-
-Cada proyecto empieza con una convocatoria. El programa la lee y usted confirma que es la correcta.
-Después conversa con la ayuda automática para llegar a la causa de fondo, elige el objetivo, escribe el presupuesto y revisa los textos.
-Al final se arma una guía en Word para pasar la información a los formularios del donante.
-
 # Documentos {#screen.documents}
 
 Aquí sube sus documentos, y cada uno va a su cajón. Por ahora el único cajón es el Expediente de su institución, el mismo de Mi institución. Se quedan en esta computadora.

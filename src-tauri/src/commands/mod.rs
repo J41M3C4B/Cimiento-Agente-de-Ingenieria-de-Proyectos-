@@ -4,8 +4,6 @@ pub mod access;
 pub mod ai;
 pub mod assistant;
 pub mod care;
-pub mod diagnosis;
-pub mod drafting;
 pub mod facilities;
 pub mod finance;
 pub mod hr;
@@ -52,6 +50,11 @@ impl Gate {
     pub fn user(&self) -> Result<&CurrentUser, UiError> {
         self.user.as_ref().ok_or_else(|| UiError::new("not_signed_in", access_message("not_signed_in")))
     }
+}
+
+/// The shared handle of the database, for the commands that call services which take it whole.
+pub(crate) fn shared(db: &State<'_, Db>) -> crate::storage::SharedDb {
+    db.0.clone()
 }
 
 /// The check every command makes first (ADR-028): a session that is open and not locked, and the permission the

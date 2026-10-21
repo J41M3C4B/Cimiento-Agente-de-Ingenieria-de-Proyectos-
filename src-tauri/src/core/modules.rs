@@ -1,10 +1,12 @@
-//! Which modules of the ERP the program shows (ADR-043 §3). Personal, Beneficiarios, Instalaciones, Finanzas and
-//! Proyectos are frozen until the core (Mi institución and Documentos, with the AI platform) is done: their code still builds and is tested, but nothing shows them. Everything else
+//! Which modules of the ERP the program shows (ADR-043 §3). Personal, Beneficiarios, Instalaciones and Finanzas are
+//! frozen until the core (Mi institución and Documentos, with the AI platform) is done: their code still builds and
+//! is tested, but nothing shows them. Proyectos is not here: it left the program (ERP-6) and comes back, if it does,
+//! from the tag `proyectos-rust-congelado`. Everything else
 //! follows from this list: the map of places (and so the bar, the Assistant and its buttons), the figures of the
 //! institution and what the core asks of them. Turning a module back on is taking its page out of `HIDDEN`.
 
 /// The pages of the modules the program does not show.
-pub const HIDDEN: &[&str] = &["staff", "people", "facilities", "finance", "projects"];
+pub const HIDDEN: &[&str] = &["staff", "people", "facilities", "finance"];
 
 /// Whether a page is shown: every page is, except the hidden modules.
 pub fn shown(page: &str) -> bool {

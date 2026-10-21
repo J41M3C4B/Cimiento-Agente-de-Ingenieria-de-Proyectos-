@@ -563,16 +563,35 @@ pub fn request_deletion(conn: &mut Connection, by: &CurrentUser, kind: DeletionK
 }
 
 /// How a project is deleted for good: the core does not know the projects (ADR-032), so the commands say it.
-pub type DeleteProject<'a> = &'a dyn Fn(&mut Connection, &str) -> Result<(), ServiceError>;
+/// A project is no longer a module of the program, but what is stored of it is still the person's (its tables stay):
+/// approving its deletion removes it with everything of it. Its answers, needs and sections go by cascade, and its
+/// call (files, text and reading) through the emergency delete of each file, so nothing is left.
+fn delete_project_data(conn: &mut Connection, id: &str) -> Result<(), ServiceError> {
+    use rusqlite::OptionalExtension;
+    let found: Option<(String, Option<String>)> =
+        conn.query_row("SELECT kind, call_reading_id FROM project WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    let Some((kind, reading)) = found else { return Ok(()) };
+    conn.execute("DELETE FROM project WHERE id=?1", [id])?;
+    if let Some(reading) = reading {
+        let documents: Vec<String> =
+            conn.prepare("SELECT document_id FROM call_reading_file WHERE reading_id=?1")?.query_map([&reading], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        for document in documents {
+            crate::core::archive::storage::emergency_delete_document(conn, &document)?;
+        }
+        conn.execute("DELETE FROM call_reading WHERE id=?1", [&reading])?;
+    }
+    audit::record(conn, AuditKind::EmergencyDelete, Some("project"), Some(id), json!({ "kind": kind }))?;
+    Ok(())
+}
 
 /// The deletion itself, as the administrator does it.
-fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str, delete_project: DeleteProject) -> Result<(), ServiceError> {
+fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str) -> Result<(), ServiceError> {
     match kind {
         DeletionKind::Document => {
             crate::core::archive::storage::emergency_delete_document(conn, target)?;
         }
         DeletionKind::Project => {
-            delete_project(conn, target)?;
+            delete_project_data(conn, target)?;
         }
         DeletionKind::HrPerson => {
             crate::core::bridge::staff::delete_person(conn, target)?;
@@ -594,10 +613,10 @@ fn delete_for_good(conn: &mut Connection, kind: DeletionKind, target: &str, dele
 }
 
 /// The administrator approves (the thing is deleted for good) or rejects (it comes back) a request.
-pub fn resolve_request(conn: &mut Connection, actor: &CurrentUser, id: &str, approve: bool, delete_project: DeleteProject) -> Result<AdminOverview, ServiceError> {
+pub fn resolve_request(conn: &mut Connection, actor: &CurrentUser, id: &str, approve: bool) -> Result<AdminOverview, ServiceError> {
     let request = store::request(conn, id)?.filter(|r| r.status == "pending").ok_or(ServiceError::NotFound)?;
     if approve {
-        delete_for_good(conn, request.kind, &request.target_id, delete_project)?;
+        delete_for_good(conn, request.kind, &request.target_id)?;
     } else {
         hide(conn, request.kind, &request.target_id, false)?;
         sync_after(conn, request.kind)?;

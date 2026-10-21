@@ -10,8 +10,6 @@ mod scanner;
 mod storage;
 #[cfg(test)]
 mod architecture_tests;
-#[cfg(test)]
-mod test_support;
 
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
@@ -42,8 +40,6 @@ pub fn run() {
             std::fs::create_dir_all(&dir)?;
             let key = storage::get_or_create_db_key()?;
             let conn = storage::open_encrypted(&dir.join("sociai.db"), &key)?;
-            // a reading that was running when the program was closed waits to be resumed
-            let _ = modules::projects::storage::calls::mark_interrupted(&conn);
             // the photo of this month (ADR-033 §4): taken again at each opening until the month ends
             let _ = core::snapshot::take(&conn);
             let db = Arc::new(Mutex::new(conn));
@@ -146,33 +142,6 @@ pub fn run() {
             commands::ai::ai_check,
             commands::ai::ai_usage_report,
             commands::ai::ai_set_cap,
-            commands::diagnosis::project_list,
-            commands::diagnosis::project_create,
-            commands::diagnosis::project_delete,
-            commands::diagnosis::project_set_color,
-            commands::diagnosis::project_set_donor_kind,
-            commands::diagnosis::project_advance,
-            commands::diagnosis::project_go_back,
-            commands::diagnosis::conversation_get,
-            commands::diagnosis::diagnosis_summary_edit,
-            commands::diagnosis::diagnosis_summary_confirm,
-            commands::diagnosis::needs_get,
-            commands::diagnosis::need_add,
-            commands::diagnosis::need_rate,
-            commands::diagnosis::need_select,
-            commands::drafting::drafting_get,
-            commands::drafting::drafting_set_asks,
-            commands::drafting::sections_confirm_all,
-            commands::drafting::section_save,
-            commands::drafting::section_confirm,
-            commands::drafting::budget_save_item,
-            commands::drafting::budget_delete_item,
-            commands::drafting::budget_confirm,
-            commands::drafting::schedule_save_activity,
-            commands::drafting::schedule_delete_activity,
-            commands::drafting::schedule_confirm,
-            commands::drafting::review_get,
-            commands::drafting::guide_export,
             commands::security::security_scan,
             commands::security::backup_create,
             commands::security::backup_restore,

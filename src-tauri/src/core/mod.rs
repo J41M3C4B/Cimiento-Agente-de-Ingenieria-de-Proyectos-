@@ -6,7 +6,6 @@
 pub mod access;
 pub mod agents;
 pub mod ai_sheet;
-pub mod api;
 pub mod archive;
 pub mod bridge;
 pub mod error;

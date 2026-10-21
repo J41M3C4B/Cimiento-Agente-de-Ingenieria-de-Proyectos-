@@ -1,7 +1,6 @@
 //! The layers of the app (ADR-032) and the one test that keeps them. Every file belongs to a layer, and a layer only
 //! looks down: the base knows no business; a module (staff, people served, facilities, finances) uses only the base;
-//! the core uses the base and the `api`, `service` and `domain` of the modules; the projects use the base and
-//! `core::api`; the commands use anything.
+//! the core uses the base and the `api`, `service` and `domain` of the modules; the commands use anything.
 //!
 //! What breaks the rule today is written down in `DEBT`, block by block of ADR-032, and the list may only shrink:
 //! the test also fails when a line of it is no longer needed.
@@ -14,7 +13,6 @@ enum Layer {
     Base,
     Module(&'static str),
     Core,
-    Projects,
     Shell,
 }
 
@@ -39,8 +37,6 @@ const PLACES: &[(&str, Layer)] = &[
     ("modules::finance", Module("finance")),
     // core
     ("core", Core),
-    // projects
-    ("modules::projects", Projects),
     // shell
     ("", Shell),
     ("commands", Shell),
@@ -89,7 +85,6 @@ fn allowed(from_path: &str, from: Layer, to: Layer, rest: &[String]) -> bool {
         // a move of old data into a module is a migration (ADR-027, 029, 030)
         (Base, Module(_)) => from_path.starts_with("storage::migrations") && (first == "legacy" || a_type),
         (Core, Module(_)) => a_type || matches!(first, "api" | "service" | "domain"),
-        (Projects, Core) => first == "api",
         _ => false,
     }
 }
@@ -326,9 +321,6 @@ fn the_layer_rules() {
     assert!(allowed("core::home", Core, Module("care"), &rest("api::indicators")));
     assert!(allowed("core::home", Core, Module("care"), &rest("CareError")));
     assert!(!allowed("core::home", Core, Module("care"), &rest("storage::Group")));
-    assert!(allowed("modules::projects::guide", Projects, Core, &rest("api::sheet")));
-    assert!(!allowed("modules::projects::guide", Projects, Core, &rest("institution")));
-    assert!(!allowed("modules::projects::guide", Projects, Module("facilities"), &rest("api")));
     assert!(!allowed("scanner::guard", Base, Core, &rest("")));
     assert!(allowed("storage::migrations", Base, Module("hr"), &rest("legacy")));
     assert!(!allowed("storage::backup", Base, Module("hr"), &rest("legacy")));

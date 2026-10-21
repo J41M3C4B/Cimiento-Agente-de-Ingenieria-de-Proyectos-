@@ -3,7 +3,7 @@
 
 use super::guard;
 use crate::core::access::service::Session;
-use super::diagnosis::shared;
+use super::shared;
 use crate::error::UiError;
 use crate::core::security::{self as svc, BackupFile, ScanSummary};
 use crate::Db;

@@ -10,11 +10,6 @@ use crate::storage::open_encrypted;
 const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 const ADMIN_PASSWORD: &str = "una clave larga";
 
-/// No project is deleted in these tests: the projects belong to their module (ADR-032).
-fn no_project(_: &mut Connection, _: &str) -> Result<(), ServiceError> {
-    Ok(())
-}
-
 fn conn() -> (tempfile::TempDir, Connection) {
     let dir = tempfile::tempdir().unwrap();
     let c = open_encrypted(&dir.path().join("t.db"), KEY).unwrap();
@@ -247,14 +242,14 @@ fn a_deletion_asked_by_direction_hides_the_person_until_the_administrator_decide
     assert_eq!((pending.len(), pending[0].target_label.as_str(), pending[0].requested_by_name.as_str()), (1, "Ana", "Rosa María Hernández"));
 
     // rejected: it comes back
-    resolve_request(&mut c, &a, &pending[0].id, false, &no_project).unwrap();
+    resolve_request(&mut c, &a, &pending[0].id, false).unwrap();
     assert!(crate::core::bridge::staff::overview(&c).unwrap().hr.people.iter().any(|p| p.id == person.id));
     assert_eq!(payroll(&c), 9_000);
 
     // asked again and approved: deleted for good
     request_deletion(&mut c, &rosa, DeletionKind::HrPerson, &person.id).unwrap();
     let id = admin_overview(&c).unwrap().pending[0].id.clone();
-    let after = resolve_request(&mut c, &a, &id, true, &no_project).unwrap();
+    let after = resolve_request(&mut c, &a, &id, true).unwrap();
     assert!(after.pending.is_empty() && after.resolved.iter().any(|r| r.status == "approved"));
     assert!(crate::modules::hr::service::get_person(&c, &person.id).unwrap().is_none());
     let kinds: Vec<String> = events(&c).into_iter().map(|e| e.0).collect();
@@ -290,8 +285,8 @@ fn a_board_member_or_an_account_deleted_by_direction_waits_for_the_administrator
 
     // the member comes back; the account goes for good
     let of = |k: DeletionKind| pending.iter().find(|r| r.kind == k).unwrap().id.clone();
-    resolve_request(&mut c, &a, &of(DeletionKind::BoardMember), false, &no_project).unwrap();
-    resolve_request(&mut c, &a, &of(DeletionKind::BankAccount), true, &no_project).unwrap();
+    resolve_request(&mut c, &a, &of(DeletionKind::BoardMember), false).unwrap();
+    resolve_request(&mut c, &a, &of(DeletionKind::BankAccount), true).unwrap();
     let l = protected::lists(&c).unwrap();
     assert_eq!((l.board.len(), l.accounts.len()), (1, 0));
     let left: i64 = c.query_row("SELECT count(*) FROM core_bank_account", [], |r| r.get(0)).unwrap();
@@ -322,4 +317,35 @@ fn a_hidden_field_keeps_its_values_and_a_document_hides_too() {
     let doc = crate::core::archive::storage::add_text_document(&mut c, crate::core::archive::storage::Drawer::Record, "Reglamento", "Texto del reglamento interno.", 0).unwrap();
     request_deletion(&mut c, &rosa, DeletionKind::Document, &doc.id).unwrap();
     assert!(crate::core::archive::storage::list_drawer(&c, crate::core::archive::storage::Drawer::Record).unwrap().is_empty());
+}
+
+/// A project is no longer a module of the program, but its data is still the person's: when the administrator approves
+/// its deletion, it goes with everything of it (needs, sections, and the call with its files).
+#[test]
+fn approving_the_deletion_of_a_project_removes_it_with_its_call_and_its_data() {
+    let (_d, mut c) = conn();
+    let (s, _) = with_admin(&mut c);
+    let a = admin(&s);
+    let (_, rosa_session) = manager(&mut c, &s);
+    let rosa = rosa_session.current().unwrap();
+    c.execute_batch(
+        "INSERT INTO call_reading (id,name,status,created_at) VALUES ('r','Una','ready','t');
+         INSERT INTO document (id,kind,display_name,mime,data_level,clean_hash,extracted_text,redactions_count,created_at) VALUES ('d','call','a.pdf','application/pdf','green','h','texto de la convocatoria',0,'t');
+         INSERT INTO call_reading_file (reading_id,document_id,position,role) VALUES ('r','d',0,'main');
+         INSERT INTO project (id,institution_id,profile_id,title,stage,kind,call_reading_id,created_at,updated_at)
+           SELECT 'proj', institution_id, id, 'Baño', 'PROFILE', 'call', 'r', 't', 't' FROM institution_profile LIMIT 1;
+         INSERT INTO need (id,project_id,title,origin) VALUES ('n','proj','Una necesidad','user');
+         INSERT INTO project_section (id,project_id,section_key,content,needs_review,updated_at,origin) VALUES ('s','proj','what','Texto',0,'t','user');",
+    )
+    .unwrap();
+    let count = |c: &Connection, table: &str| -> i64 { c.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0)).unwrap() };
+
+    request_deletion(&mut c, &rosa, DeletionKind::Project, "proj").unwrap();
+    let id = admin_overview(&c).unwrap().pending[0].id.clone();
+    assert_eq!(count(&c, "project"), 1, "it waits for the administrator");
+    resolve_request(&mut c, &a, &id, true).unwrap();
+    for table in ["project", "need", "project_section", "call_reading", "call_reading_file", "document"] {
+        assert_eq!(count(&c, table), 0, "{table}");
+    }
+    assert!(events(&c).into_iter().any(|e| e.0 == "emergency.delete"), "the deletion is in the log");
 }
