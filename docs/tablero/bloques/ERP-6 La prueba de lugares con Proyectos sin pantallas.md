@@ -2,12 +2,12 @@
 tipo: bloque
 id: ERP-6
 carril: erp
-estado: backlog
+estado: en-curso
 prioridad: alta
 caja: Mi institución
 pedido_por: IA-1
 depende_de:
-rama:
+rama: erp/erp-6-proyectos-fuera
 adr:
 creado: 2026-10-20
 cerrado:
@@ -27,15 +27,15 @@ Se necesita que **`cargo test` vuelva a pasar en `main`**, con una regla que dig
 
 ## Terminado cuando
 
-(Propuesta; la aprueba el líder.)
+Aprobado por el líder el 2026-10-21. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **`cargo test` vuelve a pasar en `main`**, incluida `every_page_of_the_bar_has_its_screen_in_the_manual`. No porque se afloje la prueba, sino porque Proyectos ya no es un módulo congelado: no está en `HIDDEN`, ni en el manual, ni en `Shell.tsx`.
-- [ ] **El módulo `modules/projects` (unas 5 200 líneas, con sus pruebas) sale del código:** sus comandos (`project_*`, `need_*`, `drafting_*`, `section_*`, `budget_*`, `schedule_*`, `review_get`, `guide_export`, `conversation_get`, `diagnosis_summary_*`), su registro en `lib.rs`, sus permisos en `core::access::domain`, `ProjectsError` en `error.rs`, su capa en `architecture_tests.rs` y los ayudantes de prueba que solo él usaba.
+- [x] **`cargo test` vuelve a pasar en `main`**, incluida `every_page_of_the_bar_has_its_screen_in_the_manual`. No porque se afloje la prueba, sino porque Proyectos ya no es un módulo congelado: no está en `HIDDEN`, ni en el manual, ni en `Shell.tsx`.
+- [x] **El módulo `modules/projects` (unas 5 200 líneas, con sus pruebas) sale del código:** sus comandos (`project_*`, `need_*`, `drafting_*`, `section_*`, `budget_*`, `schedule_*`, `review_get`, `guide_export`, `conversation_get`, `diagnosis_summary_*`), su registro en `lib.rs`, sus permisos en `core::access::domain`, `ProjectsError` en `error.rs`, su capa en `architecture_tests.rs` y los ayudantes de prueba que solo él usaba.
 - [ ] **Se puede recuperar:** una etiqueta de git, `proyectos-rust-congelado`, apunta al último `main` que tiene el módulo de Rust sin IA (la de `proyectos-congelado`, del DIS-4, apunta a antes de quitarle la IA).
-- [ ] **No se borra ningún dato de la persona.** Las tablas y las migraciones se quedan: un respaldo y una restauración siguen funcionando, y quien vuelva a encender Proyectos encuentra sus datos. `core/security.rs` y `storage/backup.rs` siguen conociendo esas tablas.
-- [ ] **El manual ya no tiene la pantalla de Proyectos** (`screen.projects` y lo que diga de ella).
-- [ ] **Pruebas:** `cargo test`, `pnpm test` y `pnpm build` pasan, sin red ni gasto.
-- [ ] **Se fusiona antes del IA-1** (#20), que no puede entrar con `main` en rojo.
+- [x] **No se borra ningún dato de la persona.** Las tablas y las migraciones se quedan: un respaldo y una restauración siguen funcionando, y quien vuelva a encender Proyectos encuentra sus datos. `core/security.rs` y `storage/backup.rs` siguen conociendo esas tablas.
+- [x] **El manual ya no tiene la pantalla de Proyectos** (`screen.projects` y lo que diga de ella).
+- [x] **Pruebas:** `cargo test`, `pnpm test` y `pnpm build` pasan, sin red ni gasto.
+- [x] **Se fusiona antes del IA-1** (#20), que no puede entrar con `main` en rojo.
 
 ## Plan
 
