@@ -2,7 +2,7 @@
 tipo: bloque
 id: DIS-3
 carril: diseno
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Chat global; Interfaces de los módulos
 pedido_por: IA-1
@@ -10,7 +10,7 @@ depende_de:
 rama: diseno/dis-3-pantallas-sin-la-ia-vieja
 adr:
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-20
 ---
 
 ## Qué y por qué
@@ -36,17 +36,17 @@ Se necesita que **las pantallas dejen de usarlos** antes de que se retiren. Lo q
 
 Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **Ninguna pantalla usa la IA vieja de Mi institución.** En `src/`, fuera de `lib/tauri.ts` y `lib/types.ts` (que cambia quien retira el comando), nada llama a `assistant_ask`, `capture_ask`, `institution_fill_from_documents` ni `institution_fill_all_from_documents`, nada escucha `record-suggested` y nada lee el dato `fill` de la vista de un formulario. Una búsqueda en `src/` lo demuestra.
-- [ ] **La app se usa sin el Asistente.** No hay botón ✨ en la barra, ni panel, ni «Preguntar más». La ayuda de cada campo sigue mostrando el manual, sin internet y sin gasto.
-- [ ] **Las ventanas de Mi institución y su página no ofrecen llenar con IA:** ni «Llenarlo por mí», ni «Llenar con mis documentos», ni «Llenar todo con mis documentos».
-- [ ] **Lo que no usa IA sigue como está:**
+- [x] **Ninguna pantalla usa la IA vieja de Mi institución.** En `src/`, fuera de `lib/tauri.ts` y `lib/types.ts` (que cambia quien retira el comando), nada llama a `assistant_ask`, `capture_ask`, `institution_fill_from_documents` ni `institution_fill_all_from_documents`, nada escucha `record-suggested` y nada lee el dato `fill` de la vista de un formulario. Una búsqueda en `src/` lo demuestra.
+- [x] **La app se usa sin el Asistente.** No hay botón ✨ en la barra, ni panel, ni «Preguntar más». La ayuda de cada campo sigue mostrando el manual, sin internet y sin gasto.
+- [x] **Las ventanas de Mi institución y su página no ofrecen llenar con IA:** ni «Llenarlo por mí», ni «Llenar con mis documentos», ni «Llenar todo con mis documentos».
+- [x] **Lo que no usa IA sigue como está:**
   - revisar sugerencias por campo («Usar», «Descartar», «Descartar todas») y el aviso «Hay N sugerencias» de Mi institución;
   - los avisos al adjuntar un documento (lo que se llenó y las sugerencias de la lectura con reglas);
   - «Ir a…» desde Inicio y la cuarentena de datos personales al guardar.
-- [ ] **No quedan textos ni componentes huérfanos:** lo que solo usaba el Asistente o la lectura con IA sale de `es-MX.ts` y de `src/`.
-- [ ] **Pruebas:** se retiran las del Asistente y de la lectura con IA; las de lo que se queda pasan; hay una prueba nueva por cada punto que cambia (barra, ayuda de campo, ventana, página). `pnpm test` y `pnpm build` pasan.
-- [ ] **Revisado en la app real (WebView2),** en tema claro y oscuro: Inicio, una ventana de Mi institución, adjuntar un archivo al Expediente y la ayuda de un campo.
-- [ ] **Se fusiona antes que el ERP-4, el ERP-5 y el IA-1.** Con los comandos aún en Rust, la app compila y funciona sin llamarlos.
+- [x] **No quedan textos ni componentes huérfanos:** lo que solo usaba el Asistente o la lectura con IA sale de `es-MX.ts` y de `src/`.
+- [x] **Pruebas:** se retiran las del Asistente y de la lectura con IA; las de lo que se queda pasan; hay una prueba nueva por cada punto que cambia (barra, ayuda de campo, ventana, página). `pnpm test` y `pnpm build` pasan.
+- [x] **Revisado en la app real (WebView2),** en tema claro y oscuro: Inicio, una ventana de Mi institución, adjuntar un archivo al Expediente y la ayuda de un campo.
+- [x] **Se fusiona antes que el ERP-4, el ERP-5 y el IA-1.** Con los comandos aún en Rust, la app compila y funciona sin llamarlos.
 
 ## Plan
 
@@ -109,3 +109,16 @@ Aprobado por el líder el 2026-10-20. Las casillas se marcan cuando cada punto q
 - **El IA-1 debería depender también del DIS-4** (hoy depende del DIS-3, el ERP-4 y el ERP-5). Lo ajusta su riel.
 
 ## Resultado
+
+Fusionado a `main` con squash (PR #16, `52ece77`), validado por el líder el 2026-10-20.
+
+- Las pantallas ya no usan `assistant_ask`, `capture_ask`, `institution_fill_from_documents` ni `institution_fill_all_from_documents`, ni escuchan `record-suggested`. Una prueba (`src/lib/retiredAi.test.ts`) falla si algo de `src/` vuelve a nombrarlos.
+- No hay Asistente: sin botón ✨, sin panel y sin «Preguntar más». La ayuda de cada campo sigue mostrando el manual.
+- Las ventanas y la página de Mi institución ya no ofrecen llenar con IA.
+- Se conservó la revisión de sugerencias por campo hasta el DIS-2.
+- Revisado en WebView2 real, en claro y oscuro. `cargo test` no se corrió: no se tocó Rust.
+
+**Para los otros rieles:**
+- **ERP-5 y ERP-4** ya pueden retirar sus comandos: ninguna pantalla los llama. Hacen `rebase` sobre `main` antes de fusionar.
+- **IA-1:** `lib/tauri.ts` y `lib/types.ts` conservan los wrappers y tipos de los comandos retirados (`AssistantOutcome`, `CaptureOutcome`, `FillOutcome`, `RecordSuggested`, `Fill`, el campo `fill`). Quien retira cada comando los quita.
+- **`proposals_reject` debe quedarse** (ver «Hallazgos»).
