@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-7
 carril: ia
-estado: en-curso
+estado: revision
 prioridad: alta
 caja: Contratos de capacidades; Registro común de capacidades; Ejecutor; Aprobación
 pedido_por: ERP-9
@@ -36,24 +36,24 @@ Para qué: el ERP-1 publica las capacidades de cambio de Mi institución, y cada
 
 Aprobado por el líder el 2026-10-23. Las casillas se marcan cuando cada punto queda hecho.
 
-- [ ] **Una capacidad de cambio aplica en el núcleo.** La muestra publica `muestra.guardar_nota`, con su permiso `muestra.notas.escribir`:
+- [x] **Una capacidad de cambio aplica en el núcleo.** La muestra publica `muestra.guardar_nota`, con su permiso `muestra.notas.escribir`:
   - su `prepare` devuelve la `kernel::Proposal`;
   - su `apply` llama a `kernel::apply`, que guarda la nota con su historial, su hecho y el origen de la tarea (el id de la tarea y la cuenta que aprobó).
 
   Una prueba de la app la recorre de punta a punta: a la Dirección se le niega, y la Administración prepara, aprueba y guarda. Nada escribe saltándose el núcleo.
-- [ ] **La aprobación se ata a la huella del núcleo.** La persona aprueba `proposal.fingerprint`, y el `apply` la recibe en `Call.fingerprint`. Si el dato cambió después de aprobar, el contrato responde `CapabilityError::Stale`, y el ejecutor prepara de nuevo y pide otra aprobación, con el motivo `data_changed`. Una prueba lo demuestra.
-- [ ] **El registro lo hace cumplir.** Rechaza una capacidad de cambio cuyo `prepare` no devuelve una `kernel::Proposal`.
-- [ ] **Cada resultado de `apply` tiene su traducción fija:**
+- [x] **La aprobación se ata a la huella del núcleo.** La persona aprueba `proposal.fingerprint`, y el `apply` la recibe en `Call.fingerprint`. Si el dato cambió después de aprobar, el contrato responde `CapabilityError::Stale`, y el ejecutor prepara de nuevo y pide otra aprobación, con el motivo `data_changed`. Una prueba lo demuestra.
+- [x] **El registro lo hace cumplir.** Rechaza una capacidad de cambio cuyo `prepare` no devuelve una `kernel::Proposal`.
+- [x] **Cada resultado de `apply` tiene su traducción fija:**
   - `invalid` se vuelve `Invalid`, con su campo y su código;
   - `already_applied` termina bien, con el mismo cambio;
   - `bad_origin`, `bad_fact`, `version_not_raised` y `database` se vuelven `Failed`.
-- [ ] **Una propuesta sin cambios no pide aprobación:** la tarea termina y dice que no había nada que cambiar.
-- [ ] **Un `apply` incierto se consulta, no se repite.** Si la app se cerró a media aplicación, al volver el ejecutor pregunta a `kernel::applied` por la huella aprobada:
+- [x] **Una propuesta sin cambios no pide aprobación:** la tarea termina y dice que no había nada que cambiar.
+- [x] **Un `apply` incierto se consulta, no se repite.** Si la app se cerró a media aplicación, al volver el ejecutor pregunta a `kernel::applied` por la huella aprobada:
   - si se aplicó, la tarea termina bien;
   - si no, la tarea lo dice y no aplica sola.
 
   Una prueba lo demuestra.
-- [ ] `cargo test` y `pnpm test` pasan, sin red ni gasto.
+- [x] `cargo test` y `pnpm test` pasan, sin red ni gasto.
 
 ## Plan
 
@@ -117,16 +117,40 @@ La rama sale de `main` con el IA-5 ya fusionado.
 
 ## Cómo probarlo
 
+PR: https://github.com/J41M3C4B/SociAI/pull/30
+
+**Pruebas:** `cargo test`: 670 pasan y 0 fallan (contrato 14, núcleo 27, muestra 7, plataforma 32, app 582, documentación 8); `tsc`: sin errores; `pnpm test`: 224 pasan.
+
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- **Carpeta y rama:** `D:\Agente Proyectos\sociai-ia`, rama `ia/ia-7-aprobacion-atada-a-la-propuesta`.
+- **Antes:** compilar desde **PowerShell**; recompila unos minutos. Al abrirse, la base aplica la migración 3 de la plataforma (la huella de cada `apply` y de cada aprobación).
+- **Arrancar:**
+  1. Las pruebas que cuentan lo que pasa:
+     ```
+     cd src-tauri
+     cargo test -- --nocapture --test-threads=1 walks_the_whole_path goes_through_the_kernel data_changed
+     ```
+  2. La app: `pnpm tauri dev`, desde `D:\Agente Proyectos\sociai-ia`.
+- **Al terminar:** cerrar la app. No queda nada que limpiar.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] **Las tres pruebas pasan.** El recorrido muestra la propuesta del núcleo (antes y después, versión base y huella), la aprobación y las seis líneas de la auditoría.
+- [ ] **La nota de la muestra se guarda por el núcleo** (`a_change_of_a_module_goes_through_the_kernel`):
+  - a la Dirección se le niega;
+  - la Administración ve la propuesta, la aprueba y la nota queda guardada;
+  - el historial dice la tarea y la cuenta, y que el teléfono cambió, sin su valor.
+- [ ] **Un dato que cambió después de aprobar** (`…_prepared_and_approved_again`) no se aplica: la persona ve la propuesta nueva con `data_changed` y la aprueba otra vez.
+- [ ] **La app abre igual que siempre:** la revisión al arrancar no encuentra ningún cambio sin propuesta. En la consola, este comando sigue regresando `without_ai`:
+  ```js
+  await window.__TAURI_INTERNALS__.invoke("runtime_submit", { request: { channel: { kind: "chat" }, content: { kind: "text", text: "¿Qué me falta?" } } })
+  ```
 
 ## Hallazgos
+
+- **Con el ERP-2 (PR #29):** `kernel::propose` recibe el diccionario y `Draft` pierde `protected`. La forma de `Proposal` no cambia, así que el IA-7 sigue valiendo. Si el ERP-2 entra primero, el `rebase` ajusta el módulo de prueba de la plataforma y la documentación de `muestra/src/lib.rs`.
+- **El plan decía `Call::origin()`, y no se hizo:** el contrato vive debajo del núcleo (A2) y no conoce `kernel::Origin`. El módulo arma el origen con `call.task` y `call.by`, en una línea.
+- **La protección contra pasos repetidos** se precisó en el camino: un `apply` solo es repetido si aplica la misma huella. Sin eso, aplicar después de preparar de nuevo se cortaba como repetición.
+- **La fila 7 del [plano de la IA](../../plano-de-la-ia.md)** dice que la `Call` también lleva la organización. Hoy hay una base por institución y ningún módulo la pide; no entró en este bloque.
 
 ## Resultado
