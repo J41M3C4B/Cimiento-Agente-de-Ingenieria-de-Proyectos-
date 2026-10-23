@@ -26,6 +26,11 @@ pub enum Fault {
     InputNotAnObject,
     /// A query or transformation that runs as a change, or the other way around.
     RunDoesNotFitEffect,
+    /// The permission is not written as an id: lowercase letters, digits and `_`, in two parts or more joined by dots.
+    BadPermission,
+    /// Neither the kernel nor any module defines the permission. The registry does not know the catalog of
+    /// permissions; the platform checks it against the kernel when the program starts.
+    UnknownPermission,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,14 +117,18 @@ fn faults(c: &Capability) -> Vec<Fault> {
     if c.effect.changes() != matches!(c.run, Run::Change { .. }) {
         out.push(Fault::RunDoesNotFitEffect);
     }
+    if !(c.permission.contains('.') && c.permission.split('.').all(part)) {
+        out.push(Fault::BadPermission);
+    }
     out
 }
 
-/// `module.name`: two parts, each starting with a lowercase letter, then lowercase letters, digits and `_`.
+/// One part of an id: it starts with a lowercase letter, then lowercase letters, digits and `_`.
+fn part(p: &str) -> bool {
+    p.starts_with(|c: char| c.is_ascii_lowercase()) && p.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+}
+
+/// `module.name`: two parts.
 fn well_formed(id: &str) -> bool {
-    let part = |p: &str| {
-        p.starts_with(|c: char| c.is_ascii_lowercase())
-            && p.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-    };
     matches!(id.split_once('.'), Some((m, n)) if part(m) && part(n))
 }

@@ -1,0 +1,24 @@
+[package]
+name = "platform"
+version = "0.1.0"
+description = "The AI platform of SociAI (ADR-003): the runtime every request goes through, the task, the executor and the delivery"
+edition = "2021"
+publish = false
+
+# It uses the capability contract and the kernel, never a module (ADR-003 A1); only the app uses it.
+[dependencies]
+capability = { workspace = true }
+kernel = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+# the same versions as the app, so nothing is built twice
+hex = { workspace = true }
+jsonschema = "0.58.3"
+sha2 = { workspace = true }
+ulid = { workspace = true }
+
+[dev-dependencies]
+schemars = { workspace = true }
+tempfile = { workspace = true }

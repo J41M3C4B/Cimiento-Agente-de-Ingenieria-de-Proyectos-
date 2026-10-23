@@ -7,7 +7,8 @@ use rusqlite::Connection;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::capability::{Approval, Call, Capability, CapabilityError, Run};
+use capability::{Approval, Call, Capability, CapabilityError, Run};
+use kernel::{TaskEvent, TaskMoment};
 
 use super::outcome::{Again, Ask, Body, Next, Outcome};
 use super::request::{Channel, Content, Request};
@@ -103,7 +104,8 @@ impl Runtime<'_> {
         // an apply that started and never said how it ended is never run again (the AI blueprint §5)
         if let Some((n, capability)) = store::unfinished_apply(conn, &task.id)? {
             store::end_step(conn, &task.id, n, "uncertain", now)?;
-            store::event(conn, &task.id, "step", Some(&capability), Some("uncertain"), now)?;
+            let capability = self.registry.get(&capability).map(|c| c.id);
+            self.trail(conn, &task, TaskMoment::Step, capability, Some("uncertain"), None)?;
             return self.close(conn, &mut task, TaskState::Error, "uncertain_change", n, error("uncertain_change", Next::CheckHistory));
         }
         if task.pause_expired(now) {
@@ -122,7 +124,7 @@ impl Runtime<'_> {
     fn open(&self, conn: &Connection, who: &Who, channel: Channel, now: i64) -> Result<Task, RuntimeError> {
         let task = Task::open(format!("task_{}", ulid::Ulid::generate()), who.organization, who.account, channel, now);
         store::insert_task(conn, &task)?;
-        store::event(conn, &task.id, "open", None, Some(task.channel.as_str()), now)?;
+        self.trail(conn, &task, TaskMoment::Opened, None, Some(task.channel.as_str()), None)?;
         Ok(task)
     }
 
@@ -182,19 +184,19 @@ impl Runtime<'_> {
         let now = self.clock.now_ms();
         if !approve {
             store::decide_approval(conn, &task.id, fp, false, who.account, now)?;
-            store::event(conn, &task.id, "approval", Some(cap.id), Some("rejected"), now)?;
+            // the close says it: done, because the person rejected it
             return self.close(conn, task, TaskState::Done, "rejected", 0, Body::State { reason: "rejected".into() });
         }
         // the approval is of a person with the permission, never of an agent
-        if !self.authorize.may(who, cap.permission) {
-            return self.deny(conn, task, cap.id);
+        if let Err(code) = self.authorize(who, cap.permission) {
+            return self.deny(conn, task, cap.id, code);
         }
         // the input approved is the input applied
         if fingerprint(cap.id, &pending.input) != pending.fingerprint {
             return self.close(conn, task, TaskState::Error, "approval_mismatch", 0, error("approval_mismatch", Next::StartAgain));
         }
         store::decide_approval(conn, &task.id, fp, true, who.account, now)?;
-        store::event(conn, &task.id, "approval", Some(cap.id), Some("approved"), now)?;
+        self.trail(conn, task, TaskMoment::Approved, Some(cap.id), None, None)?;
         self.step(conn, who, task, cap, Phase::Apply, pending.input, None)
     }
 
@@ -211,8 +213,8 @@ impl Runtime<'_> {
             return self.limit(conn, task, Reached::Repeated);
         }
         // the permission, right before the operation
-        if !self.authorize.may(who, cap.permission) {
-            return self.deny(conn, task, cap.id);
+        if let Err(code) = self.authorize(who, cap.permission) {
+            return self.deny(conn, task, cap.id, code);
         }
         if let Err(field) = fits(&(cap.input)(), &input) {
             return self.pause_for_person(conn, task, cap, phase, input, 0, Ask::Correct { field, reason: "does_not_fit".into() }, true);
@@ -253,8 +255,8 @@ impl Runtime<'_> {
         match phase {
             Phase::Prepare if cap.approval == Approval::Required => {
                 let now = self.clock.now_ms();
+                // the pause that follows says it in the trail: paused, waiting for the approval
                 store::ask_approval(conn, &task.id, &hash, cap.id, &input, &value, now)?;
-                store::event(conn, &task.id, "approval", Some(cap.id), Some("asked"), now)?;
                 task.waiting = Some(Waiting { capability: cap.id.into(), phase: Phase::Apply, input, correction: false });
                 let body = Body::Proposal { capability: cap.id.into(), proposal: value, fingerprint: hash, again };
                 self.pause(conn, task, Pause::Approval, "approval", n, body)
@@ -263,18 +265,37 @@ impl Runtime<'_> {
             Phase::Prepare => self.step(conn, who, task, cap, Phase::Apply, input, None),
             Phase::Read | Phase::Apply => {
                 // the permission once more, before handing it over
-                if !self.authorize.may(who, cap.permission) {
-                    return self.deny(conn, task, cap.id);
+                if let Err(code) = self.authorize(who, cap.permission) {
+                    return self.deny(conn, task, cap.id, code);
                 }
                 self.close(conn, task, TaskState::Done, "done", n, Body::Data { capability: cap.id.into(), value })
             }
         }
     }
 
-    fn ended(&self, conn: &Connection, task: &Task, n: u32, capability: &str, result: &'static str) -> Result<(), RuntimeError> {
-        let now = self.clock.now_ms();
-        store::end_step(conn, &task.id, n, result, now)?;
-        store::event(conn, &task.id, "step", Some(capability), Some(result), now)?;
+    fn ended(&self, conn: &Connection, task: &Task, n: u32, capability: &'static str, result: &'static str) -> Result<(), RuntimeError> {
+        store::end_step(conn, &task.id, n, result, self.clock.now_ms())?;
+        self.trail(conn, task, TaskMoment::Step, Some(capability), Some(result), None)
+    }
+
+    /// The question of authorization, to the kernel (K2): the account as it is now, the organization and the
+    /// permission. No account (the session closed, locked or of someone else) is no.
+    fn authorize(&self, who: &Who, permission: &str) -> Result<(), &'static str> {
+        let account = self.accounts.now(who).ok_or("no_session")?;
+        kernel::authorize(self.modules, &account, who.organization, permission).map_err(kernel::Denial::code)
+    }
+
+    /// One moment of the life of the task, in the kernel's audit store (K9): ids and codes of the program only.
+    fn trail(
+        &self,
+        conn: &Connection,
+        task: &Task,
+        moment: TaskMoment,
+        capability: Option<&'static str>,
+        outcome: Option<&'static str>,
+        reason: Option<&'static str>,
+    ) -> Result<(), RuntimeError> {
+        kernel::record_task(conn, &TaskEvent { moment, task: &task.id, account: Some(&task.account), capability, outcome, reason })?;
         Ok(())
     }
 
@@ -294,13 +315,14 @@ impl Runtime<'_> {
         task.pause = Some(pause);
         task.reason = Some(reason.into());
         task.pause_until_ms = Some(now + task.limits().pause_ms);
-        store::event(conn, &task.id, "pause", None, Some(reason), now)?;
+        self.trail(conn, task, TaskMoment::Closed, None, Some("paused"), Some(reason))?;
         self.respond(conn, task, n, body)
     }
 
-    fn deny(&self, conn: &Connection, task: &mut Task, capability: &str) -> Done {
-        store::event(conn, &task.id, "denied", Some(capability), Some("no_permission"), self.clock.now_ms())?;
-        self.close(conn, task, TaskState::Denied, "no_permission", 0, error("no_permission", Next::AskAdministrator))
+    /// The kernel said no: the reason is its code (`access_denied`, `account_inactive`…).
+    fn deny(&self, conn: &Connection, task: &mut Task, capability: &'static str, code: &'static str) -> Done {
+        self.trail(conn, task, TaskMoment::Denied, Some(capability), None, Some(code))?;
+        self.close(conn, task, TaskState::Denied, code, 0, error(code, Next::AskAdministrator))
     }
 
     fn limit(&self, conn: &Connection, task: &mut Task, reached: Reached) -> Done {
@@ -316,7 +338,7 @@ impl Runtime<'_> {
         task.pause_until_ms = None;
         task.closed_ms = Some(now);
         task.waiting = None;
-        store::event(conn, &task.id, "close", None, Some(reason), now)?;
+        self.trail(conn, task, TaskMoment::Closed, None, Some(state.as_str()), Some(reason))?;
         self.respond(conn, task, n, body)
     }
 

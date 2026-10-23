@@ -324,7 +324,7 @@ mod tests {
     /// definitive ones).
     #[test]
     fn the_classes_of_the_kernel_are_the_classes_of_the_contract() {
-        use crate::capability::DataClass::{self, *};
+        use capability::DataClass::{self, *};
         // a new class has to be added here: without it this does not compile
         let _every = |c: DataClass| match c {
             Public | Internal | Confidential | Personal | SensitivePersonal => (),

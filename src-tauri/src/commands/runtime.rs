@@ -1,28 +1,31 @@
 //! The entry to the runtime of the AI platform (ADR-003, D6): the screens, and later the chat, send every request
-//! here. A session is enough to come in; the permission is checked inside, per capability, and again before the
-//! outcome is handed over.
+//! here. A session is enough to come in; the kernel decides inside, per capability, whether the account may, and
+//! again before the outcome is handed over (K2).
 
+use rusqlite::Connection;
 use tauri::{AppHandle, Emitter, State};
 
 use super::{guard, lock};
-use crate::ai::runtime::{Authorize, Deliver, Outcome, Request, Runtime, SystemClock, Who};
-use crate::capability::{Permission, Registry};
 use crate::core::access::service::Session;
 use crate::error::UiError;
 use crate::Db;
+use capability::Registry;
+use kernel::Modules;
+use platform::{Accounts, Deliver, Outcome, Request, Runtime, SystemClock, Who};
 
-/// One encrypted database per institution (ADR-002, D4): its id comes with the organization of the kernel (K1).
-const ORGANIZATION: &str = "local";
+/// The account as it is now, for the kernel: only while the session is open, not locked and of this same account.
+struct SessionAccounts<'a> {
+    session: &'a Session,
+    conn: &'a Connection,
+}
 
-/// The question of authorization, answered by the session until the kernel answers it (K2, ERP-10): the same person,
-/// with the screen open, whose role has the permission.
-struct SessionAuthority<'a>(&'a Session);
-
-impl Authorize for SessionAuthority<'_> {
-    fn may(&self, who: &Who, permission: Permission) -> bool {
-        let Ok(state) = self.0.state.lock() else { return false };
-        !state.locked
-            && state.user.as_ref().is_some_and(|u| u.id == who.account && !u.must_change_password && u.role.can(permission))
+impl Accounts for SessionAccounts<'_> {
+    fn now(&self, who: &Who) -> Option<kernel::Account> {
+        let open = self.session.state.lock().ok().is_some_and(|s| !s.locked && s.user.as_ref().is_some_and(|u| u.id == who.account));
+        if !open {
+            return None;
+        }
+        crate::core::access::service::account(self.conn, who.account).ok().flatten()
     }
 }
 
@@ -41,21 +44,34 @@ pub fn runtime_submit(
     session: State<'_, Session>,
     db: State<'_, Db>,
     registry: State<'_, Registry>,
+    modules: State<'_, Modules>,
     request: Request,
 ) -> Result<Outcome, UiError> {
     let gate = guard(&session, "runtime_submit")?;
     let user = gate.user()?;
     let conn = lock(&db)?;
-    let runtime = Runtime { registry: &registry, clock: &SystemClock, authorize: &SessionAuthority(&session), deliver: &Window(app) };
-    runtime.submit(&conn, &Who { account: &user.id, organization: ORGANIZATION }, request).map_err(|_| UiError::internal())
+    // one database per institution (ADR-002, D4): the organization is the institution of the base
+    let organization = crate::core::institution::id(&conn).unwrap_or_default();
+    let accounts = SessionAccounts { session: &session, conn: &conn };
+    let runtime = Runtime { registry: &registry, modules: &modules, accounts: &accounts, clock: &SystemClock, deliver: &Window(app) };
+    runtime.submit(&conn, &Who { account: &user.id, organization: &organization }, request).map_err(|_| UiError::internal())
 }
 
 /// The last outcome of a task of the person, to ask for it later.
 #[tauri::command]
-pub fn runtime_task(app: AppHandle, session: State<'_, Session>, db: State<'_, Db>, registry: State<'_, Registry>, task: String) -> Result<Option<Outcome>, UiError> {
+pub fn runtime_task(
+    app: AppHandle,
+    session: State<'_, Session>,
+    db: State<'_, Db>,
+    registry: State<'_, Registry>,
+    modules: State<'_, Modules>,
+    task: String,
+) -> Result<Option<Outcome>, UiError> {
     let gate = guard(&session, "runtime_task")?;
     let user = gate.user()?;
     let conn = lock(&db)?;
-    let runtime = Runtime { registry: &registry, clock: &SystemClock, authorize: &SessionAuthority(&session), deliver: &Window(app) };
-    runtime.task(&conn, &Who { account: &user.id, organization: ORGANIZATION }, &task).map_err(|_| UiError::internal())
+    let organization = crate::core::institution::id(&conn).unwrap_or_default();
+    let accounts = SessionAccounts { session: &session, conn: &conn };
+    let runtime = Runtime { registry: &registry, modules: &modules, accounts: &accounts, clock: &SystemClock, deliver: &Window(app) };
+    runtime.task(&conn, &Who { account: &user.id, organization: &organization }, &task).map_err(|_| UiError::internal())
 }

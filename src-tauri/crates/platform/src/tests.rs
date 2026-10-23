@@ -7,11 +7,12 @@ use super::outcome::{Again, Ask, Body, Next, Outcome};
 use super::request::{Channel, Content, Request};
 use super::task::{Limits, Reached, Task, TaskState};
 use super::*;
-use crate::capability::{Permission, Registry};
+use capability::Registry;
+use kernel::Modules;
 
 /// A module as any other would be, with the capabilities the tests need. It keeps a name in a table of its own.
 mod trial {
-    use crate::capability::{Call, CapabilityError, Limits};
+    use capability::{Call, CapabilityError, Limits};
 
     #[derive(serde::Deserialize, schemars::JsonSchema)]
     pub struct Nothing {}
@@ -95,11 +96,11 @@ mod trial {
         rename(call, Rename { name: ask.name })
     }
 
-    crate::capability! {
+    capability::capability! {
         static RENAME_WHY = "trial.rename_why" {
             description: "Cambia el nombre de prueba; al aplicar pide el motivo.",
             effect: Modify,
-            permission: Use,
+            permission: "kernel.usar",
             data: [Public],
             approval: Required,
             limits: Limits::CHANGE,
@@ -107,11 +108,11 @@ mod trial {
         }
     }
 
-    crate::capability! {
+    capability::capability! {
         static READ = "trial.read" {
             description: "Lee el nombre de prueba.",
             effect: Query,
-            permission: Use,
+            permission: "kernel.usar",
             data: [Internal],
             approval: Never,
             limits: Limits::READ,
@@ -119,11 +120,11 @@ mod trial {
         }
     }
 
-    crate::capability! {
+    capability::capability! {
         static RENAME = "trial.rename" {
             description: "Cambia el nombre de prueba, con la aprobación de la persona.",
             effect: Modify,
-            permission: Use,
+            permission: "kernel.usar",
             data: [Public],
             approval: Required,
             limits: Limits::CHANGE,
@@ -131,11 +132,11 @@ mod trial {
         }
     }
 
-    crate::capability! {
+    capability::capability! {
         static RENAME_NOW = "trial.rename_now" {
             description: "Cambia el nombre de prueba sin pedir aprobación.",
             effect: Modify,
-            permission: Use,
+            permission: "kernel.usar",
             data: [Public],
             approval: Never,
             limits: Limits::CHANGE,
@@ -143,11 +144,11 @@ mod trial {
         }
     }
 
-    crate::capability! {
-        static ADMIN = "trial.admin" {
-            description: "Una consulta solo para quien administra.",
+    capability::capability! {
+        static UNKNOWN = "trial.unknown" {
+            description: "Pide un permiso que nadie define.",
             effect: Query,
-            permission: Administer,
+            permission: "trial.nadie",
             data: [Internal],
             approval: Never,
             limits: Limits::READ,
@@ -155,11 +156,23 @@ mod trial {
         }
     }
 
-    crate::capability! {
+    capability::capability! {
+        static ADMIN = "trial.admin" {
+            description: "Una consulta solo para quien administra.",
+            effect: Query,
+            permission: "kernel.administrar",
+            data: [Internal],
+            approval: Never,
+            limits: Limits::READ,
+            run: read(read),
+        }
+    }
+
+    capability::capability! {
         static COUNT = "trial.count" {
             description: "Pide una cuenta mayor hasta llegar a 100.",
             effect: Query,
-            permission: Use,
+            permission: "kernel.usar",
             data: [Internal],
             approval: Never,
             limits: Limits::READ,
@@ -167,11 +180,11 @@ mod trial {
         }
     }
 
-    crate::capability! {
+    capability::capability! {
         static BROKEN = "trial.broken" {
             description: "Siempre falla.",
             effect: Query,
-            permission: Use,
+            permission: "kernel.usar",
             data: [Internal],
             approval: Never,
             limits: Limits::READ,
@@ -196,14 +209,23 @@ impl Clock {
     }
 }
 
-/// The session of the tests: «ana» uses the app; nobody administers, unless a test says so.
-struct Session {
-    permissions: RefCell<Vec<Permission>>,
+/// The accounts of the tests: Ana has the session open, in the role of the direction (`manager`, which may use the
+/// app and not administer it). Nobody else has a session. A test may change her account as an administrator would.
+struct Accounts {
+    role: Cell<&'static str>,
+    active: Cell<bool>,
+    organization: Cell<&'static str>,
 }
 
-impl Authorize for Session {
-    fn may(&self, who: &Who, permission: Permission) -> bool {
-        who.account == "ana" && self.permissions.borrow().contains(&permission)
+impl super::Accounts for Accounts {
+    fn now(&self, who: &Who) -> Option<kernel::Account> {
+        (who.account == ANA_ID).then(|| kernel::Account {
+            id: ANA_ID.into(),
+            organization: self.organization.get().into(),
+            role: self.role.get().into(),
+            active: self.active.get(),
+            must_change_password: false,
+        })
     }
 }
 
@@ -219,21 +241,30 @@ impl Deliver for Window {
 struct World {
     conn: Connection,
     registry: Registry,
+    modules: Modules,
     clock: Clock,
-    session: Session,
+    accounts: Accounts,
     window: Window,
 }
 
-const ANA: Who = Who { account: "ana", organization: "org" };
+const ANA_ID: &str = "usr_01JABCDEFGHJKMNPQRSTVWXYZ0";
+const LUIS_ID: &str = "usr_01JZZZZZZZZZZZZZZZZZZZZZZZ";
+const ANA: Who = Who { account: ANA_ID, organization: "org" };
 
 fn trial_table(conn: &Connection) {
     conn.execute_batch("CREATE TABLE trial_name (id INTEGER PRIMARY KEY, name TEXT NOT NULL, task TEXT); INSERT INTO trial_name (id, name) VALUES (1, 'Casa Hogar');")
         .unwrap();
 }
 
+/// The tables of the kernel (its audit store) and of the platform, as the app opens them.
+fn migrated(conn: &mut Connection) {
+    kernel::migrate(conn, &Modules::discover().unwrap()).unwrap();
+    migrate(conn).unwrap();
+}
+
 fn world() -> World {
     let mut conn = Connection::open_in_memory().unwrap();
-    migrate(&mut conn).unwrap();
+    migrated(&mut conn);
     trial_table(&conn);
     World::on(conn)
 }
@@ -243,14 +274,19 @@ impl World {
         World {
             conn,
             registry: Registry::discover().unwrap(),
+            modules: Modules::discover().unwrap(),
             clock: Clock(Cell::new(1_000_000)),
-            session: Session { permissions: RefCell::new(vec![Permission::Use]) },
+            accounts: Accounts { role: Cell::new("manager"), active: Cell::new(true), organization: Cell::new("org") },
             window: Window::default(),
         }
     }
 
+    fn runtime(&self) -> Runtime<'_> {
+        Runtime { registry: &self.registry, modules: &self.modules, accounts: &self.accounts, clock: &self.clock, deliver: &self.window }
+    }
+
     fn submit(&self, who: &Who, task: Option<&str>, content: Content) -> Outcome {
-        let runtime = Runtime { registry: &self.registry, clock: &self.clock, authorize: &self.session, deliver: &self.window };
+        let runtime = self.runtime();
         let request = Request { channel: Channel::Screen { place: "institution".into() }, task: task.map(String::from), content };
         runtime.submit(&self.conn, who, request).unwrap()
     }
@@ -275,17 +311,19 @@ impl World {
         store::load_task(&self.conn, id).unwrap().unwrap()
     }
 
-    /// The trail of a task: (event, capability, code).
-    fn trail(&self, id: &str) -> Vec<(String, Option<String>, Option<String>)> {
+    /// The trail of a task in the kernel's audit store: (moment, capability, outcome, reason).
+    fn trail(&self, id: &str) -> Vec<Line> {
         self.conn
-            .prepare("SELECT event, capability, code FROM ai_event WHERE task_id = ?1 ORDER BY at_ms, rowid")
+            .prepare("SELECT event, subject, outcome, reason FROM kernel_audit WHERE correlation_id = ?1 ORDER BY rowid")
             .unwrap()
-            .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
             .unwrap()
             .collect::<Result<_, _>>()
             .unwrap()
     }
 }
+
+type Line = (String, Option<String>, Option<String>, Option<String>);
 
 fn fingerprint_of(o: &Outcome) -> String {
     match &o.body {
@@ -294,8 +332,8 @@ fn fingerprint_of(o: &Outcome) -> String {
     }
 }
 
-fn line(event: &str, capability: Option<&str>, code: &str) -> (String, Option<String>, Option<String>) {
-    (event.into(), capability.map(String::from), Some(code.into()))
+fn line(moment: &str, capability: Option<&str>, outcome: Option<&str>, reason: Option<&str>) -> Line {
+    (moment.into(), capability.map(String::from), outcome.map(String::from), reason.map(String::from))
 }
 
 /// The whole path of a change asked from a screen, with no router and no model: it is prepared, waits for the
@@ -321,23 +359,25 @@ fn a_change_from_a_screen_walks_the_whole_path() {
     let (name, by_task): (String, String) = w.conn.query_row("SELECT name, task FROM trial_name", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!((name.as_str(), by_task.as_str()), ("Casa Hogar San José", task.as_str()), "the change carries the id of its task");
 
-    println!("Lo que quedó en la auditoría de la tarea:");
+    println!("Lo que quedó en la auditoría del núcleo para esa tarea:");
     let trail = w.trail(&task);
-    for (event, capability, code) in &trail {
-        println!("  {event:<9} {:<13} {}", capability.as_deref().unwrap_or(""), code.as_deref().unwrap_or(""));
+    for (moment, capability, outcome, reason) in &trail {
+        let show = |s: &Option<String>| s.clone().unwrap_or_default();
+        println!("  {moment:<14} {:<13} {:<7} {}", show(capability), show(outcome), show(reason));
     }
     assert_eq!(
         trail,
         vec![
-            line("open", None, "screen"),
-            line("step", Some("trial.rename"), "ok"),
-            line("approval", Some("trial.rename"), "asked"),
-            line("pause", None, "approval"),
-            line("approval", Some("trial.rename"), "approved"),
-            line("step", Some("trial.rename"), "ok"),
-            line("close", None, "done"),
+            line("task.opened", None, Some("screen"), None),
+            line("task.step", Some("trial.rename"), Some("ok"), None),
+            line("task.closed", None, Some("paused"), Some("approval")),
+            line("task.approved", Some("trial.rename"), None, None),
+            line("task.step", Some("trial.rename"), Some("ok"), None),
+            line("task.closed", None, Some("done"), Some("done")),
         ]
     );
+    let account: String = w.conn.query_row("SELECT DISTINCT account_id FROM kernel_audit WHERE correlation_id = ?1", [&task], |r| r.get(0)).unwrap();
+    assert_eq!(account, ANA_ID, "each moment says for whom the task runs");
     let delivered = w.window.0.borrow();
     assert_eq!(delivered.len(), 2, "each outcome is also handed to the window");
     assert!(delivered.iter().all(|o| o.task == task));
@@ -379,21 +419,24 @@ fn every_close_is_recorded_with_its_reason_and_no_personal_data() {
         closes,
         vec![
             (TaskState::Done, Some("done".into())),
-            (TaskState::Denied, Some("no_permission".into())),
+            (TaskState::Denied, Some("access_denied".into())),
             (TaskState::Error, Some("capability_failed".into())),
             (TaskState::Paused, Some("approval".into())),
             (TaskState::Limit, Some("limit_repeated".into())),
         ]
     );
-    assert_eq!(denied.body, Body::Error { code: "no_permission".into(), next: Next::AskAdministrator });
-    assert!(w.trail(&denied.task).contains(&line("denied", Some("trial.admin"), "no_permission")));
-    assert!(w.trail(&paused.task).contains(&line("pause", None, "approval")));
+    assert_eq!(denied.body, Body::Error { code: "access_denied".into(), next: Next::AskAdministrator });
+    assert!(w.trail(&denied.task).contains(&line("task.denied", Some("trial.admin"), None, Some("access_denied"))));
+    assert!(w.trail(&paused.task).contains(&line("task.closed", None, Some("paused"), Some("approval"))));
 
     // the trail holds ids and fixed codes: never the name the person wrote
-    let trail: Vec<String> = w.conn.prepare("SELECT event || ' ' || ifnull(capability, '') || ' ' || ifnull(code, '') FROM ai_event").unwrap()
+    let trail: Vec<String> = w.conn
+        .prepare("SELECT event || ' ' || ifnull(subject, '') || ' ' || ifnull(outcome, '') || ' ' || ifnull(reason, '') FROM kernel_audit")
+        .unwrap()
         .query_map([], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
     assert!(trail.iter().all(|l| l.chars().all(|c| c.is_ascii_lowercase() || c == '_' || c == '.' || c == ' ')), "{trail:?}");
-    assert!(!trail.join(" ").contains("Rosa"));
+    let everything: String = w.conn.query_row("SELECT group_concat(quote(at) || quote(event) || quote(correlation_id) || quote(account_id) || quote(subject) || quote(outcome) || quote(reason), ' ') FROM kernel_audit", [], |r| r.get(0)).unwrap();
+    assert!(!everything.contains("Rosa"));
 }
 
 #[test]
@@ -513,17 +556,49 @@ fn rejecting_a_proposal_changes_nothing() {
     assert_eq!(o.state, TaskState::Done);
     assert_eq!(o.body, Body::State { reason: "rejected".into() });
     assert_eq!(w.name(), "Casa Hogar");
-    assert!(w.trail(&asked.task).contains(&line("approval", Some("trial.rename"), "rejected")));
+    assert!(w.trail(&asked.task).contains(&line("task.closed", None, Some("done"), Some("rejected"))));
 }
 
+/// The kernel decides again right before applying: an account the administrator deactivated meanwhile applies nothing.
 #[test]
-fn the_permission_is_checked_again_before_applying() {
+fn the_kernel_is_asked_again_before_applying() {
     let w = world();
     let asked = w.invoke(None, "trial.rename", json!({ "name": "Otra" }));
-    w.session.permissions.borrow_mut().clear();
+    w.accounts.active.set(false);
     let o = w.decide(&asked.task, &fingerprint_of(&asked), true);
     assert_eq!(o.state, TaskState::Denied);
+    assert_eq!(o.body, Body::Error { code: "account_inactive".into(), next: Next::AskAdministrator });
     assert_eq!(w.name(), "Casa Hogar");
+    assert!(w.trail(&asked.task).contains(&line("task.denied", Some("trial.rename"), None, Some("account_inactive"))));
+}
+
+/// What the kernel says no to, with its reason: another organization, a permission nobody defines, the role, and a
+/// request with no session behind it.
+#[test]
+fn the_kernel_decides_and_says_why() {
+    let w = world();
+    let reason = |o: &Outcome| w.task(&o.task).reason;
+
+    w.accounts.organization.set("otra");
+    assert_eq!(reason(&w.invoke(None, "trial.read", json!({}))), Some("other_organization".into()));
+    w.accounts.organization.set("org");
+
+    assert_eq!(reason(&w.invoke(None, "trial.unknown", json!({}))), Some("unknown_permission".into()));
+    assert_eq!(reason(&w.invoke(None, "trial.admin", json!({}))), Some("access_denied".into()));
+    w.accounts.role.set("admin");
+    assert_eq!(reason(&w.invoke(None, "trial.admin", json!({}))), Some("done".into()), "the administration may");
+
+    let luis = Who { account: LUIS_ID, organization: "org" };
+    let o = w.submit(&luis, None, Content::Invoke { capability: "trial.read".into(), input: json!({}) });
+    assert_eq!(reason(&o), Some("no_session".into()));
+}
+
+/// A capability whose permission neither the kernel nor a module defines stops the app when it starts.
+#[test]
+fn a_permission_nobody_defines_is_found_before_starting() {
+    let w = world();
+    let unknown: Vec<&str> = unknown_permissions(&w.registry, &w.modules).iter().map(|e| e.id).collect();
+    assert_eq!(unknown, vec!["trial.unknown"]);
 }
 
 #[test]
@@ -544,12 +619,12 @@ fn an_apply_that_never_ended_is_not_run_again() {
 fn a_task_of_another_account_is_not_touched() {
     let w = world();
     let asked = w.invoke(None, "trial.rename", json!({ "name": "Otra" }));
-    let luis = Who { account: "luis", organization: "org" };
+    let luis = Who { account: LUIS_ID, organization: "org" };
     let o = w.submit(&luis, Some(&asked.task), Content::Decision { fingerprint: fingerprint_of(&asked), approve: true });
     assert_ne!(o.task, asked.task);
     assert_eq!(o.state, TaskState::Denied);
     assert_eq!(w.task(&asked.task).state, TaskState::Paused);
-    let runtime = Runtime { registry: &w.registry, clock: &w.clock, authorize: &w.session, deliver: &w.window };
+    let runtime = w.runtime();
     assert!(runtime.task(&w.conn, &luis, &asked.task).unwrap().is_none(), "nor can it be read");
     assert_eq!(runtime.task(&w.conn, &ANA, &asked.task).unwrap(), Some(asked));
 }
@@ -573,20 +648,19 @@ fn the_chat_without_a_model_says_how_to_go_on() {
 
 #[test]
 fn a_paused_task_survives_reopening_the_app() {
-    const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("t.db");
     let (task, fp) = {
-        let mut conn = crate::storage::open_encrypted(&path, KEY).unwrap();
-        migrate(&mut conn).unwrap();
+        let mut conn = Connection::open(&path).unwrap();
+        migrated(&mut conn);
         trial_table(&conn);
         let w = World::on(conn);
         let asked = w.invoke(None, "trial.rename", json!({ "name": "Otra" }));
         (asked.task.clone(), fingerprint_of(&asked))
     };
     // the app opens again: a new connection, a new runtime, the same task
-    let mut conn = crate::storage::open_encrypted(&path, KEY).unwrap();
-    migrate(&mut conn).unwrap();
+    let mut conn = Connection::open(&path).unwrap();
+    migrated(&mut conn);
     let w = World::on(conn);
     assert_eq!(w.task(&task).state, TaskState::Paused);
     let o = w.decide(&task, &fp, true);
@@ -650,6 +724,6 @@ fn a_request_that_changes_nothing_keeps_what_the_task_said_last() {
     let asked = w.invoke(None, "trial.rename", json!({ "name": "Otra" }));
     let o = w.answer(&asked.task, json!({ "name": "Tercera" }));
     assert_eq!(o.body, Body::Error { code: "not_waiting".into(), next: Next::StartAgain });
-    let runtime = Runtime { registry: &w.registry, clock: &w.clock, authorize: &w.session, deliver: &w.window };
+    let runtime = w.runtime();
     assert_eq!(runtime.task(&w.conn, &ANA, &asked.task).unwrap(), Some(asked), "the proposal is still what waits");
 }

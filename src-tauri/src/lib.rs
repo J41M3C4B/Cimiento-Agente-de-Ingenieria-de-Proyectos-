@@ -1,7 +1,5 @@
 mod ai;
 mod audit;
-// public for the examples of its documentation, which are compiled from outside the crate (ADR-001)
-pub mod capability;
 mod commands;
 mod common;
 mod core;
@@ -14,6 +12,8 @@ mod storage;
 mod architecture_tests;
 #[cfg(test)]
 mod workspace_tests;
+#[cfg(test)]
+mod platform_tests;
 // the sample module, named once so the linker keeps its manifest for the registry (ERP-8)
 #[cfg(test)]
 extern crate muestra;
@@ -33,7 +33,16 @@ pub fn run() {
             // every capability of the program, checked once (ADR-001): with an invalid contract the app does not start
             let registry = capability::Registry::discover()
                 .map_err(|errors| errors.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n"))?;
+            // the modules of the ERP, and the catalog of permissions they and the kernel define (K2, K12): a
+            // capability that asks for a permission nobody defines stops the app too (ADR-003 A2)
+            let modules = kernel::Modules::discover()
+                .map_err(|errors| errors.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n"))?;
+            let unknown = platform::unknown_permissions(&registry, &modules);
+            if !unknown.is_empty() {
+                return Err(unknown.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n").into());
+            }
             app.manage(registry);
+            app.manage(modules);
             // what reads scanned pages and photos (OCR, ADR-035) ships with the program; the screen hears how many
             // pages are read
             documents::ocr::set_home(app.path().resource_dir()?.join("ocr"));
@@ -52,7 +61,7 @@ pub fn run() {
             let key = storage::get_or_create_db_key()?;
             let mut conn = storage::open_encrypted(&dir.join("sociai.db"), &key)?;
             // the tables of the platform: its tasks, their steps, approvals and trail (ADR-003 A3)
-            ai::runtime::migrate(&mut conn)?;
+            platform::migrate(&mut conn)?;
             // the photo of this month (ADR-033 §4): taken again at each opening until the month ends
             let _ = core::snapshot::take(&conn);
             let db = Arc::new(Mutex::new(conn));

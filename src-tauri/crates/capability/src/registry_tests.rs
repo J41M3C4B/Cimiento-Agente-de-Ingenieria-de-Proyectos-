@@ -7,7 +7,7 @@ use super::*;
 
 /// A module as any other would be: it declares its capabilities next to its functions, and nobody lists them.
 mod sample {
-    use crate::capability::{Call, CapabilityError, Limits};
+    use crate::{Call, CapabilityError, Limits};
 
     #[derive(serde::Deserialize, schemars::JsonSchema)]
     pub struct Window {
@@ -50,7 +50,7 @@ mod sample {
         static MISSING = "sample.missing" {
             description: "Qué datos le faltan a una ventana.",
             effect: Query,
-            permission: Use,
+            permission: "kernel.usar",
             data: [Internal],
             approval: Never,
             limits: Limits::READ,
@@ -62,7 +62,7 @@ mod sample {
         static RENAME = "sample.rename" {
             description: "Cambia el nombre de la institución.",
             effect: Modify,
-            permission: Use,
+            permission: "kernel.usar",
             data: [Public, Internal],
             approval: Required,
             limits: Limits::CHANGE,
@@ -77,7 +77,7 @@ fn the_registry_finds_what_a_module_declares_without_a_list() {
     let missing = registry.get("sample.missing").unwrap();
     assert_eq!(missing.module(), "sample");
     assert_eq!(missing.effect, Effect::Query);
-    assert_eq!(missing.permission, Permission::Use);
+    assert_eq!(missing.permission, "kernel.usar");
     assert_eq!(missing.data, &[DataClass::Internal]);
     let rename = registry.get("sample.rename").unwrap();
     assert_eq!(rename.approval, Approval::Required);
@@ -158,7 +158,7 @@ const fn contract(id: &'static str) -> Capability {
         id,
         description: "Una capacidad de prueba.",
         effect: Effect::Query,
-        permission: Permission::Use,
+        permission: "kernel.usar",
         data: &[DataClass::Internal],
         approval: Approval::Never,
         limits: Limits::READ,
@@ -178,6 +178,16 @@ fn faults_of(contracts: &'static [Capability]) -> Vec<Fault> {
 fn a_whole_contract_is_accepted() {
     static GOOD: [Capability; 1] = [contract("probe.good")];
     assert_eq!(faults_of(&GOOD), []);
+}
+
+#[test]
+fn a_permission_not_written_as_an_id_is_refused() {
+    static BAD: [Capability; 3] = [
+        Capability { permission: "usar", ..contract("probe.one_part") },
+        Capability { permission: "Kernel.Usar", ..contract("probe.capitals") },
+        Capability { permission: "contabilidad.polizas.registrar", ..contract("probe.three_parts") },
+    ];
+    assert_eq!(faults_of(&BAD), [Fault::BadPermission, Fault::BadPermission]);
 }
 
 #[test]

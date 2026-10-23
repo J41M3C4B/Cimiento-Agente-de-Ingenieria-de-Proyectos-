@@ -5,7 +5,7 @@
 //! A contract is whole or it does not compile. This one has every field:
 //!
 //! ```no_run
-//! use sociai_lib::capability::{Call, CapabilityError, Limits};
+//! use capability::{Call, CapabilityError, Limits};
 //!
 //! #[derive(serde::Deserialize, schemars::JsonSchema)]
 //! struct Ask {}
@@ -17,11 +17,11 @@
 //!     Ok(Missing { fields: vec![] })
 //! }
 //!
-//! sociai_lib::capability! {
+//! capability::capability! {
 //!     static MISSING = "institution.missing_fields" {
 //!         description: "Qué datos le faltan a la institución, por ventana.",
 //!         effect: Query,
-//!         permission: Use,
+//!         permission: "kernel.usar",
 //!         data: [Internal],
 //!         approval: Never,
 //!         limits: Limits::READ,
@@ -34,14 +34,14 @@
 //! The same without the permission does not:
 //!
 //! ```compile_fail
-//! use sociai_lib::capability::{Call, CapabilityError, Limits};
+//! use capability::{Call, CapabilityError, Limits};
 //! # #[derive(serde::Deserialize, schemars::JsonSchema)]
 //! # struct Ask {}
 //! # #[derive(serde::Serialize, schemars::JsonSchema)]
 //! # struct Missing { fields: Vec<String> }
 //! # fn missing(_: &Call, _: Ask) -> Result<Missing, CapabilityError> { Ok(Missing { fields: vec![] }) }
 //!
-//! sociai_lib::capability! {
+//! capability::capability! {
 //!     static MISSING = "institution.missing_fields" {
 //!         description: "Qué datos le faltan a la institución, por ventana.",
 //!         effect: Query,
@@ -57,17 +57,17 @@
 //! Nor without the effect:
 //!
 //! ```compile_fail
-//! use sociai_lib::capability::{Call, CapabilityError, Limits};
+//! use capability::{Call, CapabilityError, Limits};
 //! # #[derive(serde::Deserialize, schemars::JsonSchema)]
 //! # struct Ask {}
 //! # #[derive(serde::Serialize, schemars::JsonSchema)]
 //! # struct Missing { fields: Vec<String> }
 //! # fn missing(_: &Call, _: Ask) -> Result<Missing, CapabilityError> { Ok(Missing { fields: vec![] }) }
 //!
-//! sociai_lib::capability! {
+//! capability::capability! {
 //!     static MISSING = "institution.missing_fields" {
 //!         description: "Qué datos le faltan a la institución, por ventana.",
-//!         permission: Use,
+//!         permission: "kernel.usar",
 //!         data: [Internal],
 //!         approval: Never,
 //!         limits: Limits::READ,
@@ -80,7 +80,7 @@
 //! And a change whose `apply` takes another input than its `prepare` does not either:
 //!
 //! ```compile_fail
-//! use sociai_lib::capability::{Call, CapabilityError, Limits};
+//! use capability::{Call, CapabilityError, Limits};
 //! # #[derive(serde::Deserialize, schemars::JsonSchema)]
 //! # struct Name { name: String }
 //! # #[derive(serde::Deserialize, schemars::JsonSchema)]
@@ -90,11 +90,11 @@
 //! # fn preview(_: &Call, _: Name) -> Result<Done, CapabilityError> { Ok(Done {}) }
 //! # fn save(_: &Call, _: Other) -> Result<Done, CapabilityError> { Ok(Done {}) }
 //!
-//! sociai_lib::capability! {
+//! capability::capability! {
 //!     static RENAME = "institution.rename" {
 //!         description: "Cambia el nombre de la institución.",
 //!         effect: Modify,
-//!         permission: Use,
+//!         permission: "kernel.usar",
 //!         data: [Public],
 //!         approval: Required,
 //!         limits: Limits::CHANGE,
@@ -127,7 +127,7 @@ macro_rules! capability {
         static $name:ident = $id:literal {
             description: $description:literal,
             effect: $effect:ident,
-            permission: $permission:ident,
+            permission: $permission:literal,
             data: [$($class:ident),* $(,)?],
             approval: $approval:ident,
             limits: $limits:expr,
@@ -135,61 +135,61 @@ macro_rules! capability {
         }
     ) => {
         $crate::capability!(@declare $name, $id, $description, $effect, $permission, [$($class),*], $approval, $limits,
-            $crate::capability::Run::Read($crate::capability!(@step $read)), $read);
+            $crate::Run::Read($crate::capability!(@step $read)), $read);
     };
     (
         static $name:ident = $id:literal {
             description: $description:literal,
             effect: $effect:ident,
-            permission: $permission:ident,
+            permission: $permission:literal,
             data: [$($class:ident),* $(,)?],
             approval: $approval:ident,
             limits: $limits:expr,
             run: change($prepare:path, $apply:path) $(,)?
         }
     ) => {
-        const _: fn() = || $crate::capability::same_input($prepare, $apply);
+        const _: fn() = || $crate::same_input($prepare, $apply);
         $crate::capability!(@declare $name, $id, $description, $effect, $permission, [$($class),*], $approval, $limits,
-            $crate::capability::Run::Change {
+            $crate::Run::Change {
                 prepare: $crate::capability!(@step $prepare),
                 apply: $crate::capability!(@step $apply),
             },
             $prepare);
     };
     (@step $f:path) => {
-        $crate::capability::Step {
+        $crate::Step {
             call: {
                 fn call(
-                    call: &$crate::capability::Call,
-                    input: $crate::capability::Value,
-                ) -> ::std::result::Result<$crate::capability::Value, $crate::capability::CapabilityError> {
-                    $crate::capability::adapt(call, input, $f)
+                    call: &$crate::Call,
+                    input: $crate::Value,
+                ) -> ::std::result::Result<$crate::Value, $crate::CapabilityError> {
+                    $crate::adapt(call, input, $f)
                 }
                 call
             },
             output: {
-                fn output() -> $crate::capability::Value {
-                    $crate::capability::output_schema($f)
+                fn output() -> $crate::Value {
+                    $crate::output_schema($f)
                 }
                 output
             },
         }
     };
-    (@declare $name:ident, $id:literal, $description:literal, $effect:ident, $permission:ident, [$($class:ident),*],
+    (@declare $name:ident, $id:literal, $description:literal, $effect:ident, $permission:literal, [$($class:ident),*],
         $approval:ident, $limits:expr, $run:expr, $first:path) => {
-        #[$crate::capability::linkme::distributed_slice($crate::capability::CAPABILITIES)]
-        #[linkme(crate = $crate::capability::linkme)]
-        static $name: $crate::capability::Capability = $crate::capability::Capability {
+        #[$crate::linkme::distributed_slice($crate::CAPABILITIES)]
+        #[linkme(crate = $crate::linkme)]
+        static $name: $crate::Capability = $crate::Capability {
             id: $id,
             description: $description,
-            effect: $crate::capability::Effect::$effect,
-            permission: $crate::capability::Permission::$permission,
-            data: &[$($crate::capability::DataClass::$class),*],
-            approval: $crate::capability::Approval::$approval,
+            effect: $crate::Effect::$effect,
+            permission: $permission,
+            data: &[$($crate::DataClass::$class),*],
+            approval: $crate::Approval::$approval,
             limits: $limits,
             input: {
-                fn input() -> $crate::capability::Value {
-                    $crate::capability::input_schema($first)
+                fn input() -> $crate::Value {
+                    $crate::input_schema($first)
                 }
                 input
             },

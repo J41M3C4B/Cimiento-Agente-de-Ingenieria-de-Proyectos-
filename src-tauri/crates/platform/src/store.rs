@@ -1,7 +1,7 @@
-//! The tables of the platform (ADR-003 A3): its tasks, their steps, their approvals and their trail. The platform is
-//! one more owner of tables for the kernel (K4): its migrations are its own, numbered from 1, and its tables start
-//! with `ai_`. The trail keeps ids and fixed codes only; the input of a task lives in the encrypted database like
-//! any datum, and never in the trail.
+//! The tables of the platform (ADR-003 A3): its tasks, their steps and their approvals. The platform is one more owner
+//! of tables for the kernel (K4): its migrations are its own, numbered from 1, and its tables start with `ai_`. The
+//! input of a task lives in the encrypted database like any datum; the trail of the task, with ids and codes only,
+//! is in the kernel's audit store (K9).
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
@@ -68,7 +68,10 @@ CREATE TABLE ai_event (
 );
 CREATE INDEX ai_event_task ON ai_event (task_id, at_ms);
 ",
-}];
+    },
+    // the trail of the tasks goes to the kernel's audit store (K9, ERP-10): one audit store, not two (IA-5)
+    kernel::Migration { version: 2, sql: "DROP TABLE ai_event;" },
+];
 
 /// Applies the migrations of the platform that the database does not have yet.
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -243,17 +246,6 @@ pub fn decide_approval(conn: &Connection, task: &str, fingerprint: &str, approve
     conn.execute(
         "UPDATE ai_approval SET state = ?3, decided_ms = ?4, decided_by = ?5 WHERE task_id = ?1 AND fingerprint = ?2",
         params![task, fingerprint, if approved { "approved" } else { "rejected" }, now, by],
-    )?;
-    Ok(())
-}
-
-// ------------------------------------------------------------------ the trail (P12)
-
-/// One line of the trail of a task. The code is fixed text of the program, never a datum.
-pub fn event(conn: &Connection, task: &str, event: &'static str, capability: Option<&str>, code: Option<&'static str>, now: i64) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT INTO ai_event (task_id, at_ms, event, capability, code) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![task, now, event, capability, code],
     )?;
     Ok(())
 }
