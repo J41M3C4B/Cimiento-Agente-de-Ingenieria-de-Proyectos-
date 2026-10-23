@@ -2,7 +2,7 @@
 tipo: bloque
 id: ERP-2
 carril: erp
-estado: en-curso
+estado: revision
 prioridad: media
 caja: Clasificación de datos (lo declara el ERP); Datos operativos del ERP
 pedido_por: IA-3
@@ -25,10 +25,10 @@ La política de datos (IA-3) necesita saber de qué clase es cada dato, y solo e
 
 Aprobado por el líder el 2026-10-23, **sin esperar al IA-3:** el diccionario usa las clases provisionales del núcleo (`kernel::CLASSES`, las mismas que `DataClass` del contrato), y el ADR del IA-3 las sustituye sin cambiar la forma del diccionario.
 
-- [ ] El núcleo tiene el diccionario: cada módulo declara sus entidades y campos, con su tipo, su regla, cuándo aplica, si es obligatorio y su clase.
-- [ ] El núcleo valida una entrada y calcula «qué falta» de cualquier entidad con el diccionario, sin código del módulo.
-- [ ] La prueba de conformidad falla si un campo no tiene clase.
-- [ ] El pedido al riel IA está en el tablero.
+- [x] El núcleo tiene el diccionario: cada módulo declara sus entidades y campos, con su tipo, su regla, cuándo aplica, si es obligatorio y su clase.
+- [x] El núcleo valida una entrada y calcula «qué falta» de cualquier entidad con el diccionario, sin código del módulo.
+- [x] La prueba de conformidad falla si un campo no tiene clase.
+- [x] El pedido al riel IA está en el tablero: [[IA-8 Los campos del diccionario en la plataforma|IA-8]].
 
 ## Plan
 
@@ -70,16 +70,29 @@ Todo va en el núcleo (`crates/kernel`), y el módulo de muestra lo usa de punta
 
 ## Cómo probarlo
 
+En el PR [#29](https://github.com/J41M3C4B/SociAI/pull/29). `cargo test` (674 pasan, 0 fallan) y `pnpm test` (224) pasan, sin red ni gasto.
+
 **Cómo correrlo:**
-- Carpeta y rama:
-- Antes:
-- Arrancar:
-- Al terminar:
+- Carpeta y rama: `D:\Agente Proyectos\sociai-erp`, rama `erp/erp-2-diccionario-de-datos`.
+- Antes: nada; la base no cambia.
+- Arrancar: `pnpm tauri dev` (recompila el núcleo y la app, unos minutos).
+- Al terminar: cerrar la app.
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] 
+- [ ] Desde `src-tauri/`, en PowerShell: `cargo test dictionary`. Pasan:
+  - las pruebas del diccionario;
+  - la del registro que rechaza un catálogo mal hecho;
+  - la de la muestra (`the_kernel_knows_the_note_by_its_dictionary`).
+- [ ] En la app, **Mi institución** valida igual que antes, ahora con las reglas del núcleo:
+  - un código postal de 4 dígitos (`0670`) marca error, y `06700` pasa;
+  - un RFC de organización mal formado marca error;
+  - un municipio con números (`Zapopan 45010`) marca error, y `Benito Juárez` pasa;
+  - una CLABE con el dígito verificador mal (`002010077777777772`) marca error, y `002010077777777771` pasa.
 
 ## Hallazgos
+
+- **Lo que no aplica se vacía en la propuesta, pero lo escribe el módulo.** `propose` pone en `null` un campo cuya condición no se cumple, y el módulo tiene que escribir lo que dice la propuesta. La muestra no tiene campos con condición, así que hoy no se nota. Mi institución sí tiene campos así (ERP-1).
+- **Las condiciones miran solo campos de la misma entidad.** Mi institución tiene formularios cuyas condiciones miran otro formulario (`looks_outside`). Con el ERP-1 se decide si su perfil es una sola entidad o si el diccionario necesita mirar afuera.
 
 ## Resultado
