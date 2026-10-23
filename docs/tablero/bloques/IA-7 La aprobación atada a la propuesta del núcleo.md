@@ -2,12 +2,12 @@
 tipo: bloque
 id: IA-7
 carril: ia
-estado: backlog
+estado: en-curso
 prioridad: alta
 caja: Contratos de capacidades; Registro común de capacidades; Ejecutor; Aprobación
 pedido_por: ERP-9
 depende_de: IA-5, ERP-9
-rama:
+rama: ia/ia-7-aprobacion-atada-a-la-propuesta
 adr:
 creado: 2026-10-23
 cerrado:
@@ -34,7 +34,7 @@ Para qué: el ERP-1 publica las capacidades de cambio de Mi institución, y cada
 
 ## Terminado cuando
 
-(Propuesta; la aprueba el líder.)
+Aprobado por el líder el 2026-10-23. Las casillas se marcan cuando cada punto queda hecho.
 
 - [ ] **Una capacidad de cambio aplica en el núcleo.** La muestra publica `muestra.guardar_nota`, con su permiso `muestra.notas.escribir`:
   - su `prepare` devuelve la `kernel::Proposal`;
@@ -56,6 +56,64 @@ Para qué: el ERP-1 publica las capacidades de cambio de Mi institución, y cada
 - [ ] `cargo test` y `pnpm test` pasan, sin red ni gasto.
 
 ## Plan
+
+La rama sale de `main` con el IA-5 ya fusionado.
+
+1. **La conexión exclusiva, de raíz.** Solo el `apply` de una capacidad la recibe; leer y preparar siguen con la compartida.
+   - `Call.conn` pasa a ser `&mut Connection`. Las funciones de lectura y de `prepare` reciben `&Call`, y las de `apply` reciben `&mut Call`. El macro `capability!` lo revisa al compilar, como ya revisa que las dos tomen la misma entrada.
+   - El runtime recibe la conexión exclusiva: `Runtime::submit(&mut Connection, …)`.
+   - `Accounts::now` recibe la conexión como argumento, para que `commands/runtime.rs` no tenga que prestarla dos veces.
+2. **El contrato gana lo del ERP-9** (`crates/capability`):
+   - `Call.fingerprint: Option<&str>`: la huella que aprobó la persona, solo en el `apply`;
+   - `Call::origin()`: el id de la tarea y la cuenta, para armar el origen del núcleo;
+   - `CapabilityError::Stale`: lo preparado ya no vale, hay que preparar de nuevo;
+   - `CapabilityError::from_apply(code)`: la traducción fija de los códigos de `kernel::ApplyError`, para que todos los módulos respondan igual.
+     - `prepare_again`, `invalid` y `nothing_to_change` se vuelven `Stale`;
+     - `bad_origin`, `bad_fact`, `version_not_raised` y `database` se vuelven `Failed`, con su código.
+
+     El contrato no depende del núcleo (A2): traduce por el código, no por el tipo.
+3. **El ejecutor ata la aprobación a la propuesta** (`crates/platform`). Para una capacidad `Modify`:
+   - Lee la salida del `prepare` como `kernel::Proposal`:
+     - si trae `invalid`, pausa y pide corregir el primero (`Ask::Correct`), con su campo y su código;
+     - si no trae cambios, termina con `nothing_to_change` y no pide aprobación;
+     - si trae cambios, pide la aprobación con `proposal.fingerprint`.
+   - Al aplicar, pone esa huella en `Call.fingerprint`. Un cambio sin aprobación (`Never`) también lleva la huella que acaba de preparar.
+   - Si el `apply` responde `Stale`, prepara de nuevo y pide otra aprobación con `again: data_changed` (`Again::DataChanged`). La protección contra pasos repetidos no lo cuenta como una repetición.
+   - La huella del ejecutor (capacidad más entrada) sigue sirviendo para reconocer un paso repetido y una entrada que cambió. Una capacidad `Sensitive` sigue como hoy, con la aprobación atada a esa huella.
+4. **El `apply` incierto.** Cada paso de `apply` guarda la huella con la que aplica. Si la app se cerró a media aplicación, al volver el ejecutor pregunta a `kernel::applied`:
+   - si se aplicó, cierra el paso y la tarea termina bien, con el cambio;
+   - si no, la tarea termina con `not_applied` y propone empezar de nuevo. No aplica sola.
+
+   La transacción del núcleo no deja un cambio a medias, así que «no se aplicó» es seguro.
+5. **La migración 3 de la plataforma:** `ai_step` gana la huella del `apply`, y `ai_approval` la huella de la entrada. Una migración nunca se edita.
+6. **La revisión al arrancar:** una capacidad `Modify` cuyo `prepare` no da el esquema de `kernel::Proposal` detiene la app, junto a la revisión de permisos del IA-5. Una prueba la revisa sobre el registro real. La hace la plataforma, porque el registro vive en el contrato y no conoce el núcleo.
+7. **La muestra publica `muestra.guardar_nota`** con `muestra.notas.escribir`:
+   - `prepare` usa `service::prepare`, y `apply` usa `service::apply` con el origen de la tarea;
+   - `NoteInput` deriva `JsonSchema`.
+
+   La prueba de la app la recorre de punta a punta:
+   - a la Dirección se le niega;
+   - la Administración prepara, aprueba y guarda;
+   - el historial del núcleo muestra el origen de la tarea.
+8. **Las pruebas de la plataforma:**
+   - la aprobación atada a la huella;
+   - el dato que cambia después de aprobar (`data_changed`);
+   - lo inválido;
+   - la propuesta sin cambios;
+   - el `apply` incierto, aplicado y no aplicado.
+
+   Las capacidades de prueba de la plataforma pasan a usar la `Proposal` del núcleo.
+9. **El frontend:** `Again` gana `data_changed` en `src/lib/types.ts`.
+10. **La suite completa y el PR.**
+
+**Precisiones al acuerdo del ERP-9** (no cambian el formato de la propuesta ni de la huella):
+- **Un cambio sin aprobación también lleva la huella.** Así, `kernel::applied` sirve igual para los dos casos, y lo que se aplica es lo que se acaba de preparar.
+- **`invalid` en el `apply` prepara de nuevo, en vez de traducirse directo.** `CapabilityError` solo lleva textos fijos del programa, y la lista de `invalid` del núcleo es dinámica. La persona ve el campo y el código en la propuesta nueva, como una corrección.
+
+**Lo que toca de otros rieles:**
+- **El módulo de muestra:** su capacidad de cambio, y `schemars` en su contrato (`muestra-contract`).
+  - El ERP-2 está en curso y puede tocar la validación de la muestra; si choca, el `rebase` se hace del lado del IA-7.
+- **El núcleo:** nada. Se usan `propose`, `apply`, `applied` y `Proposal` como los dejó el ERP-9.
 
 ## Cómo probarlo
 
