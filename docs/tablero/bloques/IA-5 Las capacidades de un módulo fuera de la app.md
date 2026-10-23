@@ -2,7 +2,7 @@
 tipo: bloque
 id: IA-5
 carril: ia
-estado: revision
+estado: hecho
 prioridad: alta
 caja: Contratos de capacidades; Registro común de capacidades; Runtime; Ejecutor; Auditoría de tareas
 pedido_por: ERP-1
@@ -10,7 +10,7 @@ depende_de: IA-1, ERP-8, ERP-10
 rama: ia/ia-5-contrato-y-plataforma-en-crates
 adr:
 creado: 2026-10-20
-cerrado:
+cerrado: 2026-10-23
 ---
 
 ## Qué y por qué
@@ -100,15 +100,15 @@ PR: https://github.com/J41M3C4B/SociAI/pull/28
 
 **Qué hacer y qué debe pasar:**
 
-- [ ] **Las pruebas pasan,** y el recorrido muestra las seis líneas que dejó en la auditoría del núcleo:
+- [x] **Las pruebas pasan,** y el recorrido muestra las seis líneas que dejó en la auditoría del núcleo:
   - abierta;
   - paso;
   - en pausa por aprobación;
   - aprobada;
   - paso;
   - terminada.
-- [ ] **La capacidad del módulo de muestra recorre todo** (`a_capability_of_a_module_runs_from_end_to_end`): una nota guardada por el núcleo; a la Dirección se le niega leerla con `access_denied`, y la Administración la lee sin su teléfono protegido.
-- [ ] **La app abre igual que siempre.** En la consola, como en el IA-2, este comando sigue regresando `without_ai` con su id de tarea:
+- [x] **La capacidad del módulo de muestra recorre todo** (`a_capability_of_a_module_runs_from_end_to_end`): una nota guardada por el núcleo; a la Dirección se le niega leerla con `access_denied`, y la Administración la lee sin su teléfono protegido.
+- [x] **La app abre igual que siempre.** En la consola, como en el IA-2, este comando sigue regresando `without_ai` con su id de tarea:
   ```js
   await window.__TAURI_INTERNALS__.invoke("runtime_submit", { request: { channel: { kind: "chat" }, content: { kind: "text", text: "¿Qué me falta?" } } })
   ```
@@ -124,3 +124,15 @@ PR: https://github.com/J41M3C4B/SociAI/pull/28
   - La plataforma toma `hex`, `sha2` y `ulid` del *workspace*, como el núcleo desde el ERP-9.
 
 ## Resultado
+
+Validado por el líder el 2026-10-23. Fusionado a `main` en el PR [#28](https://github.com/J41M3C4B/SociAI/pull/28) (`e260543`), después del `rebase` sobre el ERP-9.
+
+- **El contrato, en su *crate*** (`crates/capability`, A2): debajo del núcleo, nombra el permiso por su id, y el registro rechaza un permiso mal escrito.
+- **La plataforma, en su *crate*** (`crates/platform`, A1): el runtime del IA-2. Solo la app la usa, y la prueba de fronteras del *workspace* lo hace cumplir.
+- **El runtime y el núcleo:**
+  - cada invocación y cada entrega preguntan a `kernel::authorize`, con la cuenta como está ahora y la institución de la base;
+  - cada momento de una tarea queda en `kernel_audit` con `kernel::record_task`;
+  - la migración 2 de la plataforma retira `ai_event`.
+- **Un módulo publica desde su *crate*:** la muestra publica `muestra.leer_nota`, con su permiso `muestra.notas.leer`. Una capacidad cuyo permiso nadie define detiene la app al arrancar.
+- **Lo que sigue:** la capacidad de cambio de la muestra, por el núcleo y con la aprobación atada a la huella, va en el [[IA-7 La aprobación atada a la propuesta del núcleo|IA-7]].
+- **Pruebas:** 662 de Rust y 224 del frontend.
