@@ -63,9 +63,11 @@ La rama sale de `main` con el IA-2 y el ERP-10 ya fusionados.
 5. **Los permisos de las capacidades se revisan al arrancar:**
    - una capacidad cuyo permiso no define el núcleo ni ningún módulo detiene la app;
    - una prueba lo revisa sobre el registro real.
-6. **El módulo de muestra publica una capacidad** con su permiso `muestra.notas.escribir`, y una prueba de la app la recorre de punta a punta:
+6. **El módulo de muestra publica una capacidad** con su permiso `muestra.notas.leer`, y una prueba de la app la recorre de punta a punta:
    - la Dirección no tiene ese permiso y se le niega;
    - la Administración sí lo tiene.
+
+   *Cambio del 2026-10-23, aprobado por el líder:* la capacidad es de lectura. La de cambio pasa al [[IA-7 La aprobación atada a la propuesta del núcleo|IA-7]], porque con el ERP-9 una nota solo se escribe con `kernel::apply`, que necesita la conexión en exclusiva, y la `Call` todavía no la da.
 7. **Las fronteras:**
    - la prueba del *workspace* aprende los dos *crates* nuevos, con sus reglas (A1 y A2);
    - `architecture_tests.rs` deja de clasificar `capability` y `ai::runtime`, que ya no viven en la app.
@@ -80,13 +82,13 @@ La rama sale de `main` con el IA-2 y el ERP-10 ya fusionados.
 
 PR: https://github.com/J41M3C4B/SociAI/pull/28
 
-**Pruebas:** `cargo test`: 652 pasan y 0 fallan (contrato 13, núcleo 23, muestra 1, plataforma 26, app 581, documentación 8); `tsc`: sin errores; `pnpm test`: 224 pasan.
+**Pruebas,** después del `rebase` sobre el ERP-9: `cargo test`: 662 pasan y 0 fallan (contrato 13, núcleo 27, muestra 7, plataforma 26, app 581, documentación 8); `tsc`: sin errores; `pnpm test`: 224 pasan.
 
 **Cómo correrlo:**
 - **Carpeta y rama:** `D:\Agente Proyectos\sociai-ia`, rama `ia/ia-5-contrato-y-plataforma-en-crates`.
 - **Antes:**
   - compilar desde **PowerShell**. La primera compilación tarda un poco más, porque entran dos *crates* (el contrato y la plataforma); SQLCipher no se vuelve a compilar.
-  - Al abrirse, la base aplica la migración 2 de la plataforma, que borra la tabla `ai_event` (solo tenía lo de las pruebas del IA-2). Desde ahora, la auditoría de las tareas está en `kernel_audit`.
+  - Al abrirse, la base aplica la migración 2 de la plataforma, que borra la tabla `ai_event` (solo tenía lo de las pruebas del IA-2). Desde ahora, la auditoría de las tareas está en `kernel_audit`. Si no abriste la app del ERP-9, también aplica sus tres tablas vacías del núcleo.
 - **Arrancar:**
   1. Las pruebas que cuentan lo que pasa:
      ```
@@ -105,7 +107,7 @@ PR: https://github.com/J41M3C4B/SociAI/pull/28
   - aprobada;
   - paso;
   - terminada.
-- [ ] **La capacidad del módulo de muestra recorre todo** (`a_capability_of_a_module_runs_from_end_to_end`): a la Dirección se le niega con `access_denied`, y la Administración prepara, aprueba y escribe la nota.
+- [ ] **La capacidad del módulo de muestra recorre todo** (`a_capability_of_a_module_runs_from_end_to_end`): una nota guardada por el núcleo; a la Dirección se le niega leerla con `access_denied`, y la Administración la lee sin su teléfono protegido.
 - [ ] **La app abre igual que siempre.** En la consola, como en el IA-2, este comando sigue regresando `without_ai` con su id de tarea:
   ```js
   await window.__TAURI_INTERNALS__.invoke("runtime_submit", { request: { channel: { kind: "chat" }, content: { kind: "text", text: "¿Qué me falta?" } } })
@@ -116,5 +118,9 @@ PR: https://github.com/J41M3C4B/SociAI/pull/28
 - **La app que se usa todos los días todavía no tiene ninguna capacidad registrada.** La de la muestra solo se enlaza en las pruebas, y la primera capacidad real llega con el ERP-1. Por eso en la app se prueba la puerta, y el recorrido completo se ve en las pruebas.
 - **Para el riel ERP:** `Permission::ALL`, en `core/access/domain.rs`, da un aviso de código sin usar fuera de las pruebas. Llegó con el ERP-10.
 - **El nombre del *crate*:** la plataforma se llama `platform` y no `ai`, porque los dos nombres chocarían con el módulo viejo `ai/` de la app. El plano de la IA tiene su fila.
+- **El `rebase` sobre el ERP-9 (2026-10-23):**
+  - La capacidad de la muestra escribía la nota directo, y el ERP-9 quitó ese camino: toda escritura pasa por `kernel::apply`, que abre su transacción con la conexión en exclusiva (`&mut Connection`). El contrato le da a la capacidad la conexión compartida, y el ejecutor trabaja así de punta a punta.
+  - Con el líder: en el IA-5, la capacidad es de lectura (`muestra.leer_nota`, con `muestra.notas.leer`). La de cambio, con su propuesta y la aprobación atada a la huella, va en el [[IA-7 La aprobación atada a la propuesta del núcleo|IA-7]], que resuelve la conexión de raíz. Nada escribe saltándose el núcleo.
+  - La plataforma toma `hex`, `sha2` y `ulid` del *workspace*, como el núcleo desde el ERP-9.
 
 ## Resultado
